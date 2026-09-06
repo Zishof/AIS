@@ -1599,11 +1599,75 @@ public abstract class VOPembelajaran extends VoKunci {
 		return false;
 	}
 
+	/**
+	 * Membangun ulang data <b>tugas</b> seluruh pertemuan milik objek pembelajaran ini dari basis
+	 * data.
+	 *
+	 * <p>Saudara sempit dari {@link #reInitPertemuan(Session)}: memakai rantai restriksi dan
+	 * penomoran ulang yang sama persis, tetapi hanya menyinkronkan tugas pertemuan dan tugas
+	 * kelompok — tanpa diskusi, ujian, izin tidak masuk, parameter tambahan, maupun berkas media.
+	 * Dipakai ketika yang berubah memang hanya sisi penugasan, sehingga jauh lebih murah daripada
+	 * sinkronisasi penuh.</p>
+	 *
+	 * <p><b>Berbeda dari saudaranya, method ini melempar ulang kegagalan</b> setelah mencatatnya
+	 * (dibungkus {@link RuntimeException} bila belum berupa pengecualian tak-tercentang).
+	 * {@link #reInitPertemuan(Session)} menelan kegagalannya. Pemanggil yang menjalankan keduanya
+	 * dalam satu alur harus siap bahwa hanya yang ini yang dapat menghentikan alurnya.</p>
+	 *
+	 * <p>Sama seperti saudaranya, method ini bukan operasi baca: ia membuka transaksi, menulis
+	 * ulang nomor pertemuan, dan menimpa indeks pertemuan.</p>
+	 *
+	 * @param session session Hibernate; {@code null} membuat method kembali tanpa efek
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitTugas(Session session) {
 		reInitTugas(session, true);
 	}
 
+	/**
+	 * Pelaksana sinkronisasi tugas, dengan bendera yang mengendalikan pengulangan saat kunci basis
+	 * data macet.
+	 *
+	 * <h4>Kesamaan dengan {@link #reInitPertemuan(Session, boolean)}</h4>
+	 * <p>Rantai restriksi {@code instanceof} empat belas cabangnya identik baris demi baris,
+	 * termasuk cabang penutup {@code Restrictions.sqlRestriction("false")} — sehingga
+	 * {@link GrupPertemuan}, {@code sekolah.JadwalPertemuanPSB}, dan
+	 * {@code sekolah.KelasLesSiswa} sama-sama tidak terjangkau di sini. Urutan kueri, penulisan
+	 * ulang {@code pertemuanKe} untuk wadah berpenomoran otomatis, dan penimpaan indeks pertemuan
+	 * juga sama. Setiap perubahan pada salah satu mesin harus diterapkan pada ketiganya.</p>
+	 *
+	 * <h4>Perbedaan yang perlu diketahui</h4>
+	 * <ul>
+	 * <li><b>Cakupan sinkronisasi jauh lebih sempit</b> — hanya {@code reInitTugasPertemuan} dan
+	 * {@code reInitTugasKelompok} per pertemuan. Tidak ada session streaming, tidak ada penerapan
+	 * izin tidak masuk.</li>
+	 * <li><b>Melempar ulang.</b> Setelah rollback dan pencatatan, kegagalan dilempar kembali ke
+	 * pemanggil alih-alih ditelan.</li>
+	 * <li><b>Syarat pengulangan lebih ketat.</b> Pengulangan hanya dijalankan bila transaksinya
+	 * memang dibuka oleh method ini ({@code localTransaction}); pada
+	 * {@link #reInitPertemuan(Session, boolean)} syarat itu tidak ada. Artinya, ketika dipanggil
+	 * dari dalam transaksi milik pemanggil, kegagalan karena kunci macet di sini langsung
+	 * dilempar tanpa dicoba ulang — pilihan yang benar, karena transaksi milik pemanggil memang
+	 * tidak boleh diulang diam-diam.</li>
+	 * <li><b>Jeda pengulangan 250 milidetik</b>, sedikit lebih lama daripada 200 milidetik pada
+	 * saudaranya. Session baru dibuka lewat {@code HibernateUtil.openSession()}, bukan lewat
+	 * factory langsung.</li>
+	 * <li><b>Blok pengulangan tidak punya {@code catch}</b>, hanya {@code finally}. Bila
+	 * percobaan kedua ikut gagal, kegagalannya diteruskan apa adanya ke pemanggil — bukan dicatat
+	 * lalu diabaikan seperti pada {@link #reInitPertemuan(Session, boolean)}.</li>
+	 * <li><b>Rollback tidak dijaga {@code session.isOpen()}.</b> Penjaga yang sengaja ditambahkan
+	 * di {@link #reInitPertemuan(Session, boolean)} — agar "Session is closed!" tidak menutupi
+	 * kesalahan aslinya ketika helper bersarang menutup session di tengah proses — tidak ada di
+	 * sini. Bila kondisi itu terjadi, pemanggil akan menerima pesan tentang session tertutup
+	 * alih-alih penyebab sebenarnya. Hal yang sama berlaku pada pemanggilan {@code commit} di
+	 * jalur berhasil.</li>
+	 * </ul>
+	 *
+	 * @param session    session Hibernate; {@code null} membuat method kembali tanpa efek. Tidak
+	 *                   pernah ditutup oleh method ini
+	 * @param bolehUlang {@code true} bila pengulangan sekali pada session baru diizinkan; hanya
+	 *                   berlaku bila transaksinya dibuka oleh method ini
+	 */
 	@SuppressWarnings("unchecked")
 	private void reInitTugas(Session session, boolean bolehUlang) {
 		if (session == null) return;
@@ -1847,6 +1911,62 @@ public abstract class VOPembelajaran extends VoKunci {
 
 
 
+	/**
+	 * Menyebutkan peran seorang {@link Dosen} pada objek pembelajaran ini — "Dosen Utama",
+	 * "Pembimbing ke-2", "Ketua Sidang", dan seterusnya — sebagai teks siap tampil.
+	 *
+	 * <p>Dipakai layar dan laporan yang menampilkan daftar pengajar beserta kedudukannya.
+	 * Perannya dipilih lewat rantai {@code instanceof} atas {@code this}, karena tiap jenis wadah
+	 * menyimpan pengajarnya di kolom yang berbeda dan menamai perannya secara berbeda pula.</p>
+	 *
+	 * <h4>Cakupan tiap cabang</h4>
+	 * <ul>
+	 * <li>{@link KrsMahasiswa} — satu peran: "Dosen Pembimbing Akademik".</li>
+	 * <li>{@link Perkuliahan} — sepuluh slot, dilaporkan "Dosen Utama" lalu "Dosen ke-2" sampai
+	 * "Dosen ke-10".</li>
+	 * <li>{@code kkn.KelompokKkn} dan {@code pkl.KelompokPkl} — "Pembimbing Utama" lalu
+	 * "Pembimbing ke-2" sampai "Pembimbing ke-5". <b>Hanya lima slot pertama yang diperiksa</b>,
+	 * padahal {@link #populateDosenBuNama()} mengenali sepuluh slot pada kedua wadah tersebut.
+	 * Pembimbing keenam sampai kesepuluh karenanya muncul di daftar pengajar tetapi dilaporkan di
+	 * sini sebagai bukan pembimbing.</li>
+	 * <li>{@link Skripsi} dan {@link MahasiswaRequestTugasAkhir} — nama perannya tidak ditanam di
+	 * program melainkan diambil dari master format nilai, sehingga institusi dapat menamai sendiri
+	 * susunan sidangnya. Bila master formatnya belum diisi, cabangnya tidak menghasilkan apa pun.</li>
+	 * <li>{@link GrupPertemuan} dan {@link PertemuanPunyaGrupPertemuan} — satu peran, "Dosen
+	 * Pembimbing" ditambah jenis grupnya.</li>
+	 * <li>{@link FormulirKegiatan} — sengaja mengembalikan teks kosong, bukan pesan penolakan.</li>
+	 * </ul>
+	 *
+	 * <h4>Dua cabang yang mengabaikan argumennya</h4>
+	 * <p><b>Pada {@link Skripsi} dan {@link MahasiswaRequestTugasAkhir}, argumen {@code dosen}
+	 * tidak pernah dibandingkan dengan siapa pun.</b> Kedua cabang hanya memeriksa slot peran mana
+	 * yang terisi, lalu mengembalikan label slot terisi <i>pertama</i> — tanpa memastikan bahwa
+	 * dosen yang ditanyakan memang menempati slot itu. Akibatnya, memanggil method ini untuk dosen
+	 * mana pun pada sebuah sidang skripsi menghasilkan jawaban yang sama, yaitu peran ketua sidang
+	 * (atau peran pertama yang kebetulan terisi). Seluruh cabang lain melakukan pembandingan id
+	 * dengan benar. Bila peran yang akurat dibutuhkan pada kedua wadah tersebut, bandingkan sendiri
+	 * terhadap slot-slotnya alih-alih mengandalkan method ini.</p>
+	 *
+	 * <h4>Nilai balik ketika tidak cocok</h4>
+	 * <p>Tiga keadaan sama-sama berujung pada teks {@code "Bukan dosen pengajar / pembimbing"}:
+	 * dosen memang tidak menempati slot mana pun, wadahnya termasuk cabang yang dikenal tetapi
+	 * datanya belum lengkap, dan <b>wadahnya tidak terdaftar sama sekali</b> pada rantai ini —
+	 * termasuk {@code sekolah.JadwalPelajaran}, {@link Wisuda}, {@link JadwalUjianPMB}, dan
+	 * seluruh wadah berbasis guru. Untuk wadah jenis terakhir, jawaban itu menyesatkan: bukan
+	 * berarti dosennya bukan pengajar, melainkan bahwa pertanyaannya tidak berlaku. Pemanggil yang
+	 * menampilkan teks ini apa adanya perlu memeriksa lebih dulu apakah wadahnya memang memakai
+	 * dosen.</p>
+	 *
+	 * <p>Argumen {@code null} atau dosen tanpa id menghasilkan teks kosong. Tidak ada penangkap
+	 * kesalahan: rantai pembacaan seperti {@code getDosen1().getId()} sudah dijaga pemeriksaan
+	 * {@code null} pada objeknya, tetapi id yang {@code null} pada slot akan melempar ke
+	 * pemanggil.</p>
+	 *
+	 * @param dosen dosen yang ditanyakan perannya; {@code null} atau tanpa id menghasilkan
+	 *              {@code ""}
+	 * @return nama peran siap tampil, {@code ""}, atau
+	 *         {@code "Bukan dosen pengajar / pembimbing"}; tidak pernah {@code null}
+	 */
 	public String infoDosen(Dosen dosen) {
 		if (dosen == null || dosen.getId() == null) {
 			return "";

@@ -2431,6 +2431,84 @@ public class Kegiatan extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * <b>Mesin potongan/diskon</b> untuk satu baris tagihan. Menentukan berapa rupiah yang
+	 * dipotong dari {@code jumlah}, sekaligus menyimpan hasilnya ke {@link DetailKegiatan}.
+	 *
+	 * <h4>Enam rute potongan, dievaluasi berurutan</h4>
+	 * <p>Rute pertama yang cocok itulah yang dipakai &mdash; potongan <b>tidak</b> ditumpuk
+	 * antar rute, kecuali pada rute terakhir:</p>
+	 * <ol>
+	 *   <li><b>Kelompok Mahasiswa</b> &mdash; lewat
+	 *       {@link Mahasiswa#getKelompokMahasiswa()}, dengan batas semester
+	 *       {@code smtMulai}/{@code smtSampai} milik kelompok itu.</li>
+	 *   <li><b>Jenis Seleksi calon mahasiswa</b> &mdash; jalur masuk pendaftar.</li>
+	 *   <li><b>Gelombang Pendaftaran calon mahasiswa</b> &mdash; insentif pendaftar awal.</li>
+	 *   <li><b>Jenis Seleksi mahasiswa aktif</b>.</li>
+	 *   <li><b>Promo global</b> &mdash; {@link JenisDiskonMahasiswa#cariPromoGlobal}, untuk
+	 *       jenis diskon bercentang &quot;berlaku untuk semua mahasiswa&quot; yang tidak
+	 *       perlu ditautkan ke gelombang atau jalur seleksi. Sengaja ditempatkan setelah
+	 *       seluruh rute bertautan (tautan eksplisit diprioritaskan) dan sebelum rute
+	 *       per-orang.</li>
+	 *   <li><b>Diskon per orang</b> &mdash; {@link DiskonMahasiswa} yang diberikan langsung
+	 *       kepada mahasiswa/calon tertentu. Rute ini <b>menumpuk</b>: seluruh diskon yang
+	 *       cocok dijumlahkan.</li>
+	 * </ol>
+	 *
+	 * <h4>Penyeragaman dan perbaikan yang sudah tertanam</h4>
+	 * <p>Komentar di dalam badan method mencatat riwayat perbaikan yang perlu diketahui:
+	 * keempat rute bertautan kini sama-sama memakai
+	 * {@link JenisDiskonMahasiswa#cocokUntukKegiatan}, yang selain rentang tanggal juga
+	 * menghormati penyaring Fakultas, Jurusan, Program, dan Status Awal &mdash; sebelumnya
+	 * sebagian hanya memeriksa rentang tanggal, sehingga mesin ini dan
+	 * {@link DetailKegiatan} dapat menghasilkan potongan berbeda untuk baris yang sama.
+	 * Rute Kelompok Mahasiswa dan rute Jenis Seleksi mahasiswa aktif juga sempat sama sekali
+	 * tidak memeriksa tanggal berlaku, sehingga promo berbatas waktu tidak pernah berhenti
+	 * sendiri.</p>
+	 *
+	 * <h4>Perhitungan per rute</h4>
+	 * <p>Potongan dihitung sebagai persen dari {@code jumlah} bila
+	 * {@link JenisDiskonMahasiswa#getBerupaPersen()} menyala, selain itu sebagai rupiah
+	 * tetap. Pada rute per orang, tiap iterasi menghitung deltanya dari <b>sisa</b>
+	 * {@code jumlahDiskon}, bukan dari akumulasi &mdash; perbaikan atas bug lama yang
+	 * mengurangi terlalu besar pada iterasi kedua dan seterusnya sehingga total potongan
+	 * menjadi lebih kecil dari seharusnya.</p>
+	 *
+	 * <h4>Hal yang perlu diperhatikan</h4>
+	 * <p><b>Hanya promo global yang dibatasi agar tidak melebihi tagihan.</b> Rute promo
+	 * global memasang penjaga {@code if (diskon > jumlahDiskon) diskon = jumlahDiskon}.
+	 * Kelima rute lainnya <b>tidak</b> memasang penjaga serupa, sehingga potongan berupa
+	 * rupiah tetap yang lebih besar dari nominal baris menghasilkan potongan melebihi
+	 * tagihan. Karena pemanggil menghitung {@code jumlah - diskon}, hasilnya adalah nominal
+	 * baris yang <b>negatif</b> &mdash; yang pada penjumlahan total akan mengurangi tagihan
+	 * komponen lain. Perhatikan bahwa {@link JenisKegiatan#getAbaikanNilaiMinus()} disediakan
+	 * untuk meredam gejala semacam itu di tingkat penjumlahan.</p>
+	 *
+	 * <p><b>Method ini menulis ke basis data.</b> Setiap rute memanggil
+	 * {@link #simpanDiskonDetailKegiatan} atau {@link #simpanDiskonDenganRetry}, yang
+	 * melakukan {@code UPDATE} lewat session dedikasi dengan transaksi sendiri &mdash;
+	 * terlepas dari transaksi pemanggil dan karenanya tidak ikut ter-rollback. Tanpa
+	 * penyimpanan itu potongan hanya dihitung lalu dibuang, dan tagihan tidak akan terpotong
+	 * karena pemanggil membaca {@link DetailKegiatan#getDiskon()}.</p>
+	 *
+	 * <p><b>Nilai tersimpan mengalahkan hasil perhitungan.</b> Di baris terakhir, bila
+	 * {@link DetailKegiatan#getDiskon()} yang tersimpan lebih besar dari yang baru dihitung,
+	 * nilai tersimpan itulah yang dikembalikan. Ini melindungi potongan yang pernah diberikan
+	 * agar tidak menyusut ketika aturan diskon berubah, tetapi juga berarti potongan
+	 * <b>tidak pernah dapat dikurangi</b> lewat mesin ini &mdash; mencabut sebuah diskon
+	 * tidak mengembalikan tagihan ke nominal penuh selama nilai lamanya masih tersimpan pada
+	 * baris rincian.</p>
+	 *
+	 * <p>Seluruh badan dibungkus {@code try/catch} yang mencatat lalu meneruskan nilai
+	 * seadanya; kegagalan berarti potongan lebih kecil atau nol, sehingga mahasiswa ditagih
+	 * lebih besar tanpa pesan galat.</p>
+	 *
+	 * @param detailKegiatan baris rincian tempat potongan disimpan; boleh {@code null}
+	 * @param kegiatan       header tagihan sebagai konteks; boleh {@code null}
+	 * @param detailBiaya    komponen biaya; {@code null} menghasilkan {@code 0.0}
+	 * @param jumlah         nominal sebelum potongan, dasar perhitungan persentase
+	 * @return nominal potongan; tidak pernah {@code null}
+	 */
 	public static Double hitungDiskon(DetailKegiatan detailKegiatan, Kegiatan kegiatan, DetailBiaya detailBiaya,
 			Double jumlah) {
 		Double diskonTerhitung = 0.0;
@@ -2800,6 +2878,35 @@ public class Kegiatan extends GeneralValueObject {
 		return diskonTerhitung == null ? 0.0 : diskonTerhitung;
 	}
 
+	/**
+	 * Menyimpan potongan beserta ketiga acuan {@link DiskonMahasiswa} ke sebuah
+	 * {@link DetailKegiatan}, dengan <b>percobaan ulang</b> bila terjadi kebuntuan kunci
+	 * basis data.
+	 *
+	 * <p>Setiap percobaan membuka session dedikasi, memuat ulang entity di dalam session itu
+	 * ({@code session.get}) agar tidak menautkan objek ke dua session sekaligus, mengubah
+	 * nilainya, lalu {@code commit}. Session ditutup di {@code finally} pada setiap iterasi.
+	 * Bila entity sudah tidak ada, method keluar diam-diam.</p>
+	 *
+	 * <p>Sampai tiga percobaan dilakukan, tetapi <b>hanya</b> untuk galat yang dikenali
+	 * {@link #isLockTimeout(Throwable)} sebagai kebuntuan/batas waktu kunci; galat jenis lain
+	 * langsung dilempar ulang tanpa diulang. Jeda antar percobaan bertambah
+	 * ({@code 350ms x percobaan}) dengan <i>jitter</i> acak sampai 250ms untuk mengurangi
+	 * kemungkinan dua proses saling menunggu dalam irama yang sama. Interupsi thread
+	 * ditangani dengan benar: status interupsi dipasang kembali sebelum dilempar ulang.</p>
+	 *
+	 * <p>Perlu diketahui bahwa method ini <b>melempar</b> pada kegagalan, berbeda dari
+	 * {@link #simpanDiskonDetailKegiatan} yang menelan galat. Pemanggilnya
+	 * ({@link #hitungDiskon}) membungkus seluruhnya dalam {@code try/catch}, sehingga
+	 * kegagalan menyimpan potongan tetap berakhir sebagai pencatatan diam-diam.</p>
+	 *
+	 * @param detailId id baris rincian yang diperbarui; {@code null} diabaikan
+	 * @param diskon   nominal potongan
+	 * @param d1       acuan diskon per orang ke-1; boleh {@code null}
+	 * @param d2       acuan diskon per orang ke-2; boleh {@code null}
+	 * @param d3       acuan diskon per orang ke-3; boleh {@code null}
+	 * @throws Exception bila seluruh percobaan gagal atau galatnya bukan kebuntuan kunci
+	 */
 	private static void simpanDiskonDenganRetry(Long detailId, Double diskon, DiskonMahasiswa d1,
 			DiskonMahasiswa d2, DiskonMahasiswa d3) throws Exception {
 		if (detailId == null) return;
@@ -2839,6 +2946,30 @@ public class Kegiatan extends GeneralValueObject {
 		if (last != null) throw last;
 	}
 
+	/**
+	 * Memeriksa apakah sebuah galat merupakan kebuntuan atau batas waktu kunci basis data,
+	 * sehingga layak dicoba ulang oleh {@link #simpanDiskonDenganRetry}.
+	 *
+	 * <p>Penelusuran dilakukan menyusuri seluruh rantai {@code getCause()}, karena galat
+	 * basis data lazim terbungkus beberapa lapis exception Hibernate. Dua cara pengenalan
+	 * dipakai:</p>
+	 * <ul>
+	 *   <li><b>SQLSTATE</b> pada {@link java.sql.SQLException} &mdash; {@code 55P03}
+	 *       (kunci tidak tersedia), {@code 57014} (kueri dibatalkan), dan {@code 40P01}
+	 *       (kebuntuan terdeteksi). Ketiganya kode PostgreSQL.</li>
+	 *   <li><b>Pencocokan teks pesan</b> yang sudah di-{@code toLowerCase()} terhadap
+	 *       beberapa frasa umum.</li>
+	 * </ul>
+	 *
+	 * <p>Pencocokan berbasis teks pesan bersifat rapuh: ia bergantung pada bahasa dan versi
+	 * penggerak basis data, dan akan meleset bila pesan diterjemahkan atau diubah kata-katanya.
+	 * Ia dipasang sebagai jaring pengaman di samping SQLSTATE yang lebih dapat diandalkan.
+	 * Bila keduanya meleset, akibatnya hanyalah percobaan ulang tidak dilakukan &mdash; galat
+	 * dilempar ulang seperti biasa, bukan kesalahan data.</p>
+	 *
+	 * @param error galat yang diperiksa; boleh {@code null}
+	 * @return {@code true} bila galat dikenali sebagai kebuntuan/batas waktu kunci
+	 */
 	private static boolean isLockTimeout(Throwable error) {
 		Throwable current = error;
 		while (current != null) {
@@ -2856,6 +2987,34 @@ public class Kegiatan extends GeneralValueObject {
 		return false;
 	}
 
+	/**
+	 * Status aktif header tagihan &mdash; menentukan apakah tagihan ini masih berlaku dan
+	 * ikut ditampilkan/ditagihkan.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Bila semester tagihan berada di luar rentang
+	 * {@link JenisKegiatan#getMinSmt()}&ndash;{@link JenisKegiatan#getMaxSmt()}, field dipaksa
+	 * {@code false} dan ditulis balik ke kolom. Nilai {@code null} dibaca sebagai
+	 * {@code true} lewat ternary, tanpa ditulis balik.</p>
+	 *
+	 * <p><b>Perilakunya satu arah dan mengikuti master.</b> Karena rentang semester berada
+	 * pada {@link JenisKegiatan} &mdash; dan {@link JenisKegiatan#getMaxSmt()} sendiri
+	 * di-auto-seed menurut nama kegiatan &mdash; mempersempit rentang pada master akan
+	 * <b>menonaktifkan tagihan yang sudah terbit</b> secara surut, termasuk yang sudah
+	 * dibayar. Sebaliknya melebarkan kembali rentangnya tidak menghidupkan tagihan itu lagi,
+	 * sebab {@code false} sudah tertulis permanen ke kolom dan tidak ada cabang yang menulis
+	 * {@code true}.</p>
+	 *
+	 * <p><b>Berpengaruh pada kunci unik.</b> {@link #getKodeunik()} memakai
+	 * {@code !getAktif()} sebagai salah satu syarat memakai barcode acak alih-alih format
+	 * {@code MHS_*}/{@code CAL_MHS_*}. Untuk tagihan yang belum tersimpan, menonaktifkannya
+	 * karena itu mengubah bentuk kunci uniknya sama sekali.</p>
+	 *
+	 * <p>Perhatikan bahwa perbandingannya memakai {@link #getSemster()} yang mengembalikan
+	 * {@code 0} untuk kolom kosong, sedangkan {@code getMinSmt()} berbawaan {@code 0} juga
+	 * &mdash; sehingga tagihan bersemester kosong tetap dianggap berada di dalam rentang.</p>
+	 *
+	 * @return {@code true} bila tagihan masih aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 
 		if (getJenisKegiatan() != null
@@ -2866,10 +3025,29 @@ public class Kegiatan extends GeneralValueObject {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Setter status aktif header tagihan. Nilai {@code true} yang disimpan di sini akan
+	 * ditimpa {@code false} oleh {@link #getAktif()} selama semester tagihan berada di luar
+	 * rentang yang ditetapkan jenis kegiatannya.
+	 *
+	 * @param aktif status aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Representasi objek JSON kosong ({@code &#123;&#125;}) yang dipakai bersama sebagai nilai
+	 * bawaan {@link #getBulans()} dan {@link #getTagihans()}, sehingga pemanggil selalu
+	 * menerima string yang dapat diurai tanpa pemeriksaan {@code null}.
+	 *
+	 * <p>Bersifat {@code static} dan tidak pernah diubah setelah diinisialisasi; karena
+	 * {@link String} tak dapat diubah, berbagi satu instance ini aman antar thread. Namanya
+	 * membingungkan &mdash; ia bertipe {@link String}, bukan {@link JSONObject}, dan
+	 * membayangi nama variabel lokal {@code jsonObject} di dalam {@link #hitungDibayar()},
+	 * {@link #hitungDibayarAktualTanpaBatas()}, dan {@link #hitungTagihan()}, yang di sana
+	 * memang bertipe {@link JSONObject}.</p>
+	 */
 	private static String jsonObject = new JSONObject().toString();
 
 	/**
@@ -2979,32 +3157,121 @@ public class Kegiatan extends GeneralValueObject {
 		nominalTagihanKunciJson = root.toString();
 	}
 
+	/**
+	 * Snapshot JSON <b>pembayaran</b> per baris/bulan &mdash; sumber tunggal bagi
+	 * {@link #hitungDibayar()} dan karenanya bagi seluruh status pelunasan tagihan ini.
+	 *
+	 * <p>Strukturnya adalah objek JSON datar {@code {"kunci": "nominal"}}. Kunci yang
+	 * dihitung adalah yang memuat sedikitnya tiga ruas dipisah garis bawah &mdash; lihat
+	 * {@link #hitungDibayar()} mengenai aturan penyaringan itu. Nominal disimpan sebagai
+	 * string dan diurai ulang saat penjumlahan.</p>
+	 *
+	 * <p>Getter murni: nilai kosong ditampilkan sebagai objek JSON kosong tanpa ditulis balik
+	 * ke field, sehingga kolomnya tetap {@code NULL} di basis data.</p>
+	 *
+	 * <p><b>Ini adalah pencatatan pembayaran yang sesungguhnya dipakai sistem</b>, bukan
+	 * tabel {@link CicilanPembayaran} maupun kolom {@link #getJumlahTelahDibayar()}.
+	 * Perhatikan bahwa menyimpan uang sebagai teks JSON pada satu kolom berarti tidak ada
+	 * batasan tipe, tidak ada indeks, dan tidak ada jaminan keutuhan di tingkat basis data
+	 * &mdash; nilai yang tidak dapat diurai akan dilewati diam-diam oleh penjumlah.</p>
+	 *
+	 * @return snapshot JSON pembayaran; objek JSON kosong bila belum ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getBulans() {
 		return bulans == null || bulans.isEmpty() ? jsonObject : bulans;
 	}
 
+	/**
+	 * Setter snapshot JSON pembayaran (disimpan apa adanya, tanpa validasi struktur).
+	 *
+	 * @param bulans snapshot JSON pembayaran
+	 */
 	public void setBulans(String bulans) {
 		this.bulans = bulans;
 	}
 
+	/**
+	 * Mengosongkan snapshot JSON pembayaran, sebagai persiapan penyusunan ulang dari nol.
+	 *
+	 * <p>Mengisi string kosong &mdash; bukan {@code null} dan bukan objek JSON kosong &mdash;
+	 * yang oleh {@link #getBulans()} tetap ditampilkan sebagai {@code &#123;&#125;}.
+	 * Perhatikan bahwa method ini <b>menghapus seluruh catatan pembayaran</b> tagihan ini;
+	 * setelah dipanggil, {@link #hitungDibayar()} akan menghasilkan {@code 0.0} sampai
+	 * snapshot disusun kembali.</p>
+	 */
 	public void resetBulans() {
 		this.bulans = "";
 	}
 
+	/**
+	 * Snapshot JSON <b>tagihan</b> per baris &mdash; sumber tunggal bagi
+	 * {@link #hitungTagihan()} dan karenanya bagi total tagihan yang dilihat mahasiswa.
+	 *
+	 * <p>Strukturnya objek JSON datar {@code {"kunci": "nominal"}}. Berbeda dari
+	 * {@link #getBulans()}, kuncinya dibedakan menurut ada-tidaknya garis bawah: kunci
+	 * ber-garis-bawah mewakili baris angsuran, kunci tanpa garis bawah mewakili baris
+	 * sekaligus &mdash; lihat {@link #hitungTagihan()} mengenai cara pemilihannya.</p>
+	 *
+	 * <p>Getter murni: nilai kosong ditampilkan sebagai objek JSON kosong tanpa ditulis balik
+	 * ke field.</p>
+	 *
+	 * <p><b>Inilah dasar total tagihan</b>, bukan penjumlahan baris {@link DetailKegiatan}.
+	 * Selama snapshot ini belum disusun ulang, penambahan atau perubahan baris rincian tidak
+	 * tercermin pada total yang ditampilkan maupun pada status lunas.</p>
+	 *
+	 * @return snapshot JSON tagihan; objek JSON kosong bila belum ada
+	 */
 	@Column(columnDefinition = "text")
 	public String getTagihans() {
 		return tagihans == null || tagihans.isEmpty() ? jsonObject : tagihans;
 	}
 
+	/**
+	 * Setter snapshot JSON tagihan (disimpan apa adanya, tanpa validasi struktur).
+	 *
+	 * @param tagihans snapshot JSON tagihan
+	 */
 	public void setTagihans(String tagihans) {
 		this.tagihans = tagihans;
 	}
 
+	/**
+	 * Mengosongkan snapshot JSON tagihan, sebagai persiapan hitung ulang dari nol.
+	 *
+	 * <p>Perhatikan bahwa setelah dipanggil, {@link #hitungTagihan()} menghasilkan
+	 * {@code 0.0} &mdash; kecuali bila sudah ada pembayaran, karena penghitung itu memasang
+	 * koreksi pengaman yang menyamakan tagihan dengan jumlah yang sudah dibayar.</p>
+	 */
 	public void resetTagihans() {
 		tagihans = "";
 	}
 
+	/**
+	 * Program studi yang berlaku bagi tagihan ini.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Nilainya diturunkan ulang dari pemilik tagihan lalu
+	 * ditulis balik ke kolom: dari {@link Mahasiswa#getJurusan()} bila pemiliknya mahasiswa,
+	 * atau dari {@link BiodataCalonMahasiswa#getProdiLulus()} bila pemiliknya calon &mdash;
+	 * dengan {@link BiodataCalonMahasiswa#getProdi1()} sebagai cadangan bila prodi kelulusan
+	 * belum ditetapkan. Bila kedua pemilik kosong, {@code check(...)} sekadar memulihkan
+	 * proxy.</p>
+	 *
+	 * <p>Urutan prodi-lulus lalu prodi-pilihan-pertama itu tepat: selama seleksi belum
+	 * selesai, tagihan pendaftaran mengacu pada pilihan pertama pendaftar; setelah
+	 * pengumuman, ia mengikuti prodi tempat ia benar-benar diterima. Konsekuensinya nilai di
+	 * sini dapat <b>berubah sendiri</b> pada saat pengumuman kelulusan, dan bersama itu
+	 * berubah pula nominal yang dihitung untuk baris tagihan yang menyaring berdasarkan
+	 * prodi &mdash; termasuk besaran denda per prodi pada {@link DetailBiaya#checkDenda}.</p>
+	 *
+	 * <p>Mahasiswa yang pindah program studi juga akan menggeser prodi seluruh tagihan
+	 * lamanya secara surut, karena penurunan ini tidak memperhatikan semester tagihan
+	 * &mdash; berbeda dari {@link #getProgram()} yang justru memakai
+	 * {@link HistoryStatusMahasiswa} untuk memperoleh nilai yang berlaku pada semester
+	 * bersangkutan.</p>
+	 *
+	 * @return program studi tagihan; {@code null} bila tak dapat diturunkan maupun tersimpan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jurusan", nullable = true)
 	public Jurusan getJurusan() {
@@ -3021,10 +3288,35 @@ public class Kegiatan extends GeneralValueObject {
 		return jurusan;
 	}
 
+	/**
+	 * Setter program studi tagihan. Nilai yang diisi akan ditimpa {@link #getJurusan()} pada
+	 * pembacaan berikutnya selama pemilik tagihan diketahui.
+	 *
+	 * @param jurusan program studi
+	 */
 	public void setJurusan(Jurusan jurusan) {
 		this.jurusan = jurusan;
 	}
 
+	/**
+	 * Total tagihan menurut field hasil penguraian snapshot JSON.
+	 *
+	 * <p>Getter murni &mdash; tidak menulis balik ke field, dan tidak pula menghitung ulang.
+	 * Ia hanya membaca nilai yang terakhir dihasilkan {@link #hitungTagihan()}; bila
+	 * penghitung itu belum pernah dipanggil pada instance ini, yang dikembalikan adalah nilai
+	 * kolom sebagaimana dimuat dari basis data.</p>
+	 *
+	 * <p><b>Koreksi pengaman.</b> Bila tagihan tercatat nol padahal sudah ada pembayaran,
+	 * yang dikembalikan adalah nilai {@code dibayar}. Maksudnya melindungi tampilan dari
+	 * keadaan mustahil &quot;sudah bayar tetapi tidak ada tagihan&quot;, yang menghasilkan
+	 * pelunasan tak berhingga pada pembagian persentase. Efek sampingnya: <b>data yang rusak
+	 * menjadi tidak terlihat</b> &mdash; tagihan yang snapshot JSON-nya hilang akan tampil
+	 * sebagai lunas seratus persen alih-alih sebagai kejanggalan yang perlu diperiksa.
+	 * Perhatikan pula bahwa koreksi ini membaca <b>field mentah</b> {@code dibayar}, bukan
+	 * {@link #getDibayar()}.</p>
+	 *
+	 * @return total tagihan; tidak pernah {@code null}
+	 */
 	public Double getTagihan() {
 		if (tagihan == null) {
 			return 0.0;
@@ -3037,6 +3329,28 @@ public class Kegiatan extends GeneralValueObject {
 		return tagihan;
 	}
 
+	/**
+	 * Total yang sudah dibayar menurut field hasil penguraian snapshot JSON.
+	 *
+	 * <p>Getter murni yang tidak menulis balik ke field. Jangan tertukar dengan
+	 * {@link #getJumlahTelahDibayar()}, yang merupakan kolom mandiri dan tidak dipakai mesin
+	 * perhitungan mana pun di kelas ini.</p>
+	 *
+	 * <p><b>Nilainya dipangkas agar tidak melebihi tagihan.</b> Komentar aslinya menyebut ini
+	 * pencegahan &quot;secara visual&quot;, dan memang niatnya tampilan. Namun karena getter
+	 * inilah yang dibaca {@link #getPersentase()}, {@link #getAmountTerhutang()}, dan
+	 * {@link #getAmount()}, pemangkasan itu merambat ke seluruh angka yang dilihat pengguna:
+	 * persentase tidak pernah melampaui 100%, sisa terhutang tidak pernah negatif, dan
+	 * <b>kelebihan bayar menjadi tidak terlihat sama sekali</b> pada jalur biasa. Untuk
+	 * memperoleh angka yang sesungguhnya, pakai {@link #hitungDibayarAktualTanpaBatas()} atau
+	 * {@link #hitungPersentaseLunasAktual()}.</p>
+	 *
+	 * <p>Perhatikan bahwa pemangkasan membandingkan dengan <b>field mentah</b>
+	 * {@code tagihan}, bukan {@link #getTagihan()} &mdash; sehingga koreksi pengaman pada
+	 * getter itu tidak berlaku di sini.</p>
+	 *
+	 * @return total dibayar, dibatasi tidak melebihi tagihan; tidak pernah {@code null}
+	 */
 	public Double getDibayar() {
 		if (dibayar == null) {
 			return 0.0;
@@ -3048,14 +3362,59 @@ public class Kegiatan extends GeneralValueObject {
 		return dibayar;
 	}
 
+	/**
+	 * Setter total dibayar. Nilai ini akan ditimpa {@link #hitungDibayar()} pada penyusunan
+	 * ulang berikutnya.
+	 *
+	 * @param dibayar total dibayar
+	 */
 	public void setDibayar(Double dibayar) {
 		this.dibayar = dibayar;
 	}
 
+	/**
+	 * Setter total tagihan. Nilai ini akan ditimpa {@link #hitungTagihan()} pada penyusunan
+	 * ulang berikutnya.
+	 *
+	 * @param tagihan total tagihan
+	 */
 	public void setTagihan(Double tagihan) {
 		this.tagihan = tagihan;
 	}
 
+	/**
+	 * Menjumlahkan seluruh pembayaran dari snapshot JSON {@link #getBulans()} dan
+	 * <b>menuliskan hasilnya</b> ke field {@code dibayar}.
+	 *
+	 * <h4>Aturan penjumlahan</h4>
+	 * <ul>
+	 *   <li>Nilai kosong atau string {@code "null"} dilewati.</li>
+	 *   <li>Kunci harus memuat sedikitnya <b>tiga ruas</b> dipisah garis bawah
+	 *       ({@code key.split("_").length >= 3}). Ambang {@code >=} dipilih menggantikan
+	 *       perbandingan persis agar kebal terhadap penambahan ruas id di kemudian hari.</li>
+	 *   <li>Hanya nilai <b>positif</b> yang dijumlahkan.</li>
+	 *   <li>Nilai yang tidak dapat diurai sebagai bilangan dilewati diam-diam dan dicatat
+	 *       lewat {@code ErrorAuditUtil}.</li>
+	 * </ul>
+	 *
+	 * <h4>Hal yang perlu diperhatikan</h4>
+	 * <p><b>Pembayaran bernilai negatif diabaikan, bukan dikurangkan.</b> Penjaga
+	 * {@code v > 0.0} berarti pembalikan pembayaran yang dicatat sebagai nilai negatif tidak
+	 * akan mengurangi total dibayar &mdash; entri semacam itu tidak berpengaruh sama sekali.
+	 * Pembatalan pembayaran karenanya harus dilakukan dengan menghapus atau mengubah entri
+	 * yang bersangkutan pada snapshot, bukan dengan menambahkan entri penyeimbang.</p>
+	 *
+	 * <p><b>Kunci berruas kurang dari tiga dilewati diam-diam.</b> Entri pembayaran yang
+	 * kuncinya tidak mengikuti bentuk yang diharapkan tidak akan pernah terhitung, tanpa
+	 * peringatan apa pun &mdash; uang yang tercatat di kolom tetapi tidak masuk total.</p>
+	 *
+	 * <p>Di akhir, hasilnya dipangkas agar tidak melebihi {@code tagihan}, sehingga kelebihan
+	 * bayar hilang sudah pada tahap ini &mdash; bukan hanya pada {@link #getDibayar()}.
+	 * Gunakan {@link #hitungDibayarAktualTanpaBatas()} bila angka sesungguhnya diperlukan.
+	 * Seluruh badan dibungkus {@code try/catch} yang mempertahankan hasil parsial.</p>
+	 *
+	 * @return total dibayar hasil penjumlahan, dibatasi tidak melebihi tagihan
+	 */
 	@SuppressWarnings("unchecked")
 	public Double hitungDibayar() {
 		try {
@@ -3096,6 +3455,26 @@ public class Kegiatan extends GeneralValueObject {
 		return dibayar;
 	}
 
+	/**
+	 * Menjumlahkan seluruh pembayaran dari snapshot JSON {@link #getBulans()} <b>tanpa</b>
+	 * memangkasnya pada nilai tagihan, dan <b>tanpa</b> menulis ke field mana pun.
+	 *
+	 * <p>Aturan penyaringannya sama persis dengan {@link #hitungDibayar()} &mdash; kunci
+	 * berruas sedikitnya tiga, hanya nilai positif, entri tak terurai dilewati. Yang berbeda
+	 * hanyalah dua hal: hasilnya tidak dibatasi, dan tidak ada efek samping terhadap field
+	 * {@code dibayar}. Karena itu inilah method yang tepat untuk mengetahui <b>kelebihan
+	 * bayar</b>, yang pada jalur biasa selalu tersembunyi.</p>
+	 *
+	 * <p>Bila snapshot kosong atau tak dapat diurai sama sekali, hasilnya jatuh ke nilai
+	 * field {@code dibayar} yang ada &mdash; bukan nol. Pembeda antara &quot;snapshot kosong&quot;
+	 * dan &quot;snapshot berisi tetapi berjumlah nol&quot; dilakukan lewat variabel
+	 * {@code hasil} yang baru diinisialisasi {@code 0.0} setelah snapshot terbukti berisi.</p>
+	 *
+	 * <p>Dipakai {@link #hitungPersentaseLunasAktual()}, yang menjaga kebersihan field dengan
+	 * pola simpan-pulihkan.</p>
+	 *
+	 * @return total dibayar sesungguhnya, tanpa batas atas
+	 */
 	@SuppressWarnings("unchecked")
 	public Double hitungDibayarAktualTanpaBatas() {
 		Double hasil = null;
@@ -3135,6 +3514,54 @@ public class Kegiatan extends GeneralValueObject {
 		return hasil;
 	}
 
+	/**
+	 * Menjumlahkan seluruh tagihan dari snapshot JSON {@link #getTagihans()} dan
+	 * <b>menuliskan hasilnya</b> ke field {@code tagihan}. Inilah penghitung total tagihan
+	 * yang sesungguhnya dipakai sistem.
+	 *
+	 * <h4>Cara memilih kunci yang dijumlahkan</h4>
+	 * <p>Snapshot dapat memuat dua macam kunci: yang <b>mengandung garis bawah</b> (baris
+	 * angsuran, dihitung sebagai {@code b}) dan yang <b>tidak</b> (baris sekaligus, dihitung
+	 * sebagai {@code a}). Dua gelung dijalankan &mdash; yang pertama menghitung {@code a} dan
+	 * {@code b}, yang kedua menjumlahkan &mdash; dengan aturan:</p>
+	 * <ul>
+	 *   <li>Bila {@link JenisKegiatan#getHanyaBerupaAngsuran()} menyala: <b>hanya</b> kunci
+	 *       ber-garis-bawah yang dijumlahkan.</li>
+	 *   <li>Bila tidak, dan {@code b > a}: hanya kunci ber-garis-bawah yang dijumlahkan.</li>
+	 *   <li>Bila tidak, dan {@code b <= a}: <b>seluruh</b> kunci dijumlahkan.</li>
+	 * </ul>
+	 *
+	 * <h4>Hal yang perlu diperhatikan</h4>
+	 * <p><b>Cabang {@code b > a} adalah tebakan berbasis jumlah kunci, bukan konfigurasi.</b>
+	 * Ketika jenis kegiatan tidak ditandai wajib angsuran, sistem menebak bahwa tagihan
+	 * bersifat angsuran semata-mata karena baris angsurannya lebih banyak daripada baris
+	 * sekaligus. Snapshot yang memuat campuran keduanya karena itu dapat berpindah cabang
+	 * hanya karena satu baris ditambahkan atau dihapus &mdash; dan perpindahan itu mengubah
+	 * total tagihan secara mendadak, karena cabang ketiga menjumlahkan <i>semua</i> kunci
+	 * sedangkan cabang kedua hanya sebagian. Pada kasus seri ({@code b == a}) yang berlaku
+	 * adalah cabang &quot;jumlahkan semua&quot;, yang bila kedua macam kunci mewakili tagihan
+	 * yang sama berarti <b>penghitungan ganda</b>.</p>
+	 *
+	 * <p><b>Berbeda dari {@link #hitungDibayar()}, nilai negatif TIDAK disaring</b> di sini
+	 * &mdash; tidak ada penjaga {@code > 0.0}. Baris pengurang yang dihasilkan item
+	 * {@code ItemBiaya.DIKALI_NILAI_MINUS} karenanya memang mengurangi total tagihan,
+	 * sebagaimana semestinya; ketidaksimetrisan dengan penghitung pembayaran itu disengaja.
+	 * Perhatikan bahwa {@link JenisKegiatan#getAbaikanNilaiMinus()} disediakan untuk
+	 * mengubah perilaku ini, namun flag tersebut tidak dibaca di sini.</p>
+	 *
+	 * <p><b>Berbeda pula dalam penyaringan kunci</b>: {@link #hitungDibayar()} mensyaratkan
+	 * kunci berruas sedikitnya tiga, sedangkan di sini tidak ada syarat semacam itu &mdash;
+	 * hanya ada-tidaknya garis bawah yang diperiksa. Dua penghitung yang membaca snapshot
+	 * berbentuk sama namun memakai aturan kunci yang berbeda.</p>
+	 *
+	 * <p>Seluruh perhitungan hanya berjalan bila {@link #getJenisKegiatan()} terisi; bila
+	 * tidak, field {@code tagihan} sama sekali tidak disentuh dan nilai lamanya dikembalikan.
+	 * Di akhir dipasang koreksi pengaman yang sama dengan {@link #getTagihan()}: tagihan nol
+	 * padahal ada pembayaran disamakan dengan nilai dibayar &mdash; yang, sebagaimana dicatat
+	 * di sana, menyembunyikan data yang rusak alih-alih menampakkannya.</p>
+	 *
+	 * @return total tagihan hasil penjumlahan
+	 */
 	@SuppressWarnings("unchecked")
 	public Double hitungTagihan() {
 		try {
@@ -3210,6 +3637,29 @@ public class Kegiatan extends GeneralValueObject {
 		return tagihan;
 	}
 
+	/**
+	 * Apakah tagihan ini sudah lunas, yaitu persentase pelunasannya mencapai 100.
+	 *
+	 * <p><b>GETTER DESTRUKTIF</b> terhadap dua field sekaligus: {@code persentase} diisi bila
+	 * masih {@code null}, dan {@code apakahLunas} selalu ditulis ulang. Keduanya
+	 * {@code @Transient}-kah? Tidak &mdash; keduanya dipetakan ke kolom dengan pengaturan
+	 * bawaan, sehingga penulisan itu persisten.</p>
+	 *
+	 * <p><b>Persentase hanya dihitung sekali per instance.</b> Penjaga
+	 * {@code if (persentase == null)} berarti nilai yang sudah pernah dihitung &mdash; atau
+	 * yang dimuat dari kolom &mdash; tidak akan diperbarui, walaupun {@code tagihan} dan
+	 * {@code dibayar} sementara itu berubah karena {@link #hitungTagihan()} atau
+	 * {@link #hitungDibayar()} dipanggil. Status lunas karenanya dapat tertinggal dari
+	 * keadaan sebenarnya dalam satu daur hidup objek; untuk memaksa perhitungan ulang,
+	 * panggil {@link #getPersentase()} langsung, yang selalu menghitung ulang.</p>
+	 *
+	 * <p>Perbandingannya memakai {@code intValue() >= 100}, yaitu bagian bulat saja &mdash;
+	 * pelunasan 99,7% dibulatkan ke bawah menjadi 99 dan tidak dianggap lunas, sedangkan
+	 * jalur {@link #getPersentase()} sendiri sudah memulangkan tepat {@code 100.0} untuk
+	 * pembayaran yang mencukupi.</p>
+	 *
+	 * @return {@code true} bila sudah lunas; tidak pernah {@code null}
+	 */
 	public Boolean getApakahLunas() {
 
 		if (persentase == null) {
@@ -3221,10 +3671,45 @@ public class Kegiatan extends GeneralValueObject {
 		return apakahLunas;
 	}
 
+	/**
+	 * Setter status lunas. Nilai ini akan ditimpa {@link #getApakahLunas()} pada pembacaan
+	 * berikutnya.
+	 *
+	 * @param apakahLunas status lunas
+	 */
 	public void setApakahLunas(Boolean apakahLunas) {
 		this.apakahLunas = apakahLunas;
 	}
 
+	/**
+	 * Persentase pelunasan tagihan ini, yaitu {@code dibayar / tagihan * 100}.
+	 *
+	 * <p><b>GETTER DESTRUKTIF</b> terhadap tiga field: {@code tagihan} dan {@code dibayar}
+	 * diisi dari getter masing-masing bila masih {@code null}, dan {@code persentase} selalu
+	 * ditulis ulang. Berbeda dari {@link #getApakahLunas()}, persentasenya <b>selalu</b>
+	 * dihitung ulang di sini.</p>
+	 *
+	 * <p><b>Tagihan nol bukan berarti lunas.</b> Bila tagihan di bawah {@code 0.01},
+	 * hasilnya {@code 100.0} hanya jika memang pernah ada pembayaran positif; selain itu
+	 * {@code 0.0}. Ini perbaikan penting atas perilaku naif &quot;nol dibagi nol berarti
+	 * seratus persen&quot;, yang akan menandai setiap tagihan kosong sebagai lunas &mdash;
+	 * termasuk tagihan yang snapshot-nya belum tersusun. Ambang {@code 0.01} dipakai
+	 * menggantikan perbandingan dengan nol untuk menghindari galat presisi bilangan pecahan,
+	 * dan sekaligus mencegah pembagian oleh bilangan yang sangat kecil yang akan menghasilkan
+	 * persentase melambung.</p>
+	 *
+	 * <p>Hasilnya <b>tidak dibatasi</b> pada 100 di dalam method ini, tetapi dalam praktik
+	 * tidak pernah melampauinya karena {@link #getDibayar()} sudah memangkas pembilangnya
+	 * pada nilai tagihan. Untuk persentase yang sesungguhnya, pakai
+	 * {@link #hitungPersentaseLunasAktual()}.</p>
+	 *
+	 * <p>Perhatikan bahwa bila {@code tagihan} tetap {@code null} setelah pengisian &mdash;
+	 * keadaan yang tidak dapat terjadi karena {@link #getTagihan()} tak pernah mengembalikan
+	 * {@code null} &mdash; seluruh blok dilewati dan nilai {@code persentase} sebelumnya
+	 * dikembalikan apa adanya.</p>
+	 *
+	 * @return persentase pelunasan; {@code null} hanya bila belum pernah dihitung sama sekali
+	 */
 	public Double getPersentase() {
 
 		if (tagihan == null) {
@@ -3247,6 +3732,12 @@ public class Kegiatan extends GeneralValueObject {
 		return persentase;
 	}
 
+	/**
+	 * Setter persentase pelunasan. Nilai ini akan ditimpa {@link #getPersentase()} pada
+	 * pembacaan berikutnya.
+	 *
+	 * @param persentase persentase pelunasan
+	 */
 	public void setPersentase(Double persentase) {
 		this.persentase = persentase;
 	}
