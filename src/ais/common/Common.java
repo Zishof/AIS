@@ -13784,7 +13784,7 @@ public class Common {
 			row.setValign("top");
 			final Komentar komentarBeans = (Komentar) data;
 
-			new ais.ui.util.MyHtml(komentarBeans.getKomentar()).setParent(row);
+			new ais.ui.util.MyHtml(ais.ui.util.DashboardUiKit.esc(komentarBeans.getKomentar())).setParent(row);
 			new Label(komentarBeans.getOleh()).setParent(row);
 			new Label(Common.dateFormat.get().format(komentarBeans.getTanggal())).setParent(row);
 

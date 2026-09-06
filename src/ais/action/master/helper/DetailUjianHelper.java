@@ -102,6 +102,7 @@ import ais.database.model.sekolah.Matapelajaran;
 import ais.database.model.sekolah.Siswa;
 import ais.ui.util.MyCheckboxConfig;
 import ais.ui.util.MyColumnConfig;
+import ais.ui.util.DiskusiUiHelper;
 import ais.ui.util.MyDiv;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyGroupboxStyled;
@@ -3926,7 +3927,7 @@ public class DetailUjianHelper implements DataLoader {
 					BankSoalDetail.class);
 
 			String c = bankSoalDetail == null ? "" : bankSoalDetail.getEssay();
-			new ais.ui.util.MyHtml(c).setParent(vboxSoalUjian);
+			new ais.ui.util.MyHtml(DiskusiUiHelper.escapeHtml(c)).setParent(vboxSoalUjian);
 
 			vboxSoalUjian.setVisible(!c.isEmpty());
 		} else if (bankSoal.getJenis().equals(BankSoal.JAWABAN_SINGKAT)) {
@@ -3939,7 +3940,7 @@ public class DetailUjianHelper implements DataLoader {
 			String c = bankSoalDetail == null ? "" : bankSoalDetail.getEssay();
 
 			new ais.ui.util.MyHtml("<div style=\"font-size: 12px;font-family: Poppins,Helvetica,\"sans-serif\";\">"
-					+ bankSoal.getSoal() + "  <b>Jawab:</b>" + c + "</div>").setParent(vboxPertanyaanUjian);
+					+ bankSoal.getSoal() + "  <b>Jawab:</b>" + DiskusiUiHelper.escapeHtml(c) + "</div>").setParent(vboxPertanyaanUjian);
 		}
 
 		MyGroupboxStyled vboxSoalSkor = new MyGroupboxStyled();

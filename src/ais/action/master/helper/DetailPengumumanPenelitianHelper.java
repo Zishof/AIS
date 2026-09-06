@@ -87,7 +87,7 @@ public class DetailPengumumanPenelitianHelper implements DataLoader {
 
 			new Label(diskusiPengumumanPenelitian.getTanggal() == null ? ""
 					: Common.dateFormat3.get().format(diskusiPengumumanPenelitian.getTanggal())).setParent(row);
-			new ais.ui.util.MyHtml(diskusiPengumumanPenelitian.getCatatan()).setParent(row);
+			new ais.ui.util.MyHtml(ais.ui.util.DiskusiUiHelper.escapeHtml(diskusiPengumumanPenelitian.getCatatan())).setParent(row);
 			new Label(oleh).setParent(row);
 
 			Hbox toolbar = new Hbox();

@@ -4428,7 +4428,7 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 			row.setValign("top");
 			final KomentarPerkuliahan komentarPerkuliahanBeans = (KomentarPerkuliahan) data;
 
-			new ais.ui.util.MyHtml(komentarPerkuliahanBeans.getKeterangan()).setParent(row);
+			new ais.ui.util.MyHtml(teksAmanHtml(komentarPerkuliahanBeans.getKeterangan())).setParent(row);
 			new Label(komentarPerkuliahanBeans.getNama()).setParent(row);
 			new Label(Common.dateFormat.get().format(komentarPerkuliahanBeans.getTanggal_dirubah())).setParent(row);
 

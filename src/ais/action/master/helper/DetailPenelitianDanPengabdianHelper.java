@@ -122,7 +122,7 @@ public class DetailPenelitianDanPengabdianHelper implements DataLoader {
 
 			new Label(diskusiPenelitianDanPengabdian.getTanggal() == null ? ""
 					: Common.dateFormat3.get().format(diskusiPenelitianDanPengabdian.getTanggal())).setParent(row);
-			new ais.ui.util.MyHtml(diskusiPenelitianDanPengabdian.getCatatan()).setParent(row);
+			new ais.ui.util.MyHtml(ais.ui.util.DiskusiUiHelper.escapeHtml(diskusiPenelitianDanPengabdian.getCatatan())).setParent(row);
 
 			String oleh = "";
 			if (diskusiPenelitianDanPengabdian.getMahasiswa() != null) {

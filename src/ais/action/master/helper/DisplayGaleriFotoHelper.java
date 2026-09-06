@@ -113,7 +113,9 @@ public class DisplayGaleriFotoHelper {
 		image.setWidth("100%");
 		image.setParent(vbox);
 
-		vbox.appendChild(new ais.ui.util.MyHtml(galeriFotoImage.getKeterangan()));
+		String keteranganAman = galeriFotoImage.getKeterangan() == null ? ""
+				: org.jsoup.Jsoup.clean(galeriFotoImage.getKeterangan(), org.jsoup.safety.Safelist.basic());
+		vbox.appendChild(new ais.ui.util.MyHtml(keteranganAman));
 
 	}
 

@@ -37,6 +37,7 @@ import ais.database.model.Dosen;
 import ais.database.model.Pertemuan;
 import ais.database.model.Tbmuser;
 import ais.database.model.file.LampiranLain;
+import ais.ui.util.DiskusiUiHelper;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
 import ais.ui.util.MyTextbox;
@@ -123,7 +124,7 @@ public class AmbilDataTugasMandiri extends MyWindow {
 			final Vbox vbox = new Vbox();
 			vbox.setParent(arg0);
 
-			new ais.ui.util.MyHtml("<h2>" + pertemuan.getJudultugas() + "</h2><br>" + pertemuan.getIsitugas()).setParent(vbox);
+			new ais.ui.util.MyHtml("<h2>" + DiskusiUiHelper.escapeHtml(pertemuan.getJudultugas()) + "</h2><br>" + pertemuan.getIsitugas()).setParent(vbox);
 
 			final Hbox hbox = new Hbox();
 			hbox.setParent(vbox);
