@@ -4462,14 +4462,118 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Mencetak <b>Daftar Nilai Ujian</b> untuk satu kelas dengan pengaturan paling ringkas: tanpa
+	 * komponen ZK penampung dan tanpa penyegaran cache komponen nilai.
+	 *
+	 * <p>Ini adalah bentuk paling pendek dari tiga kelebihan beban {@code onLaporan} dan sekadar
+	 * meneruskan ke {@link #onLaporan(Perkuliahan, Component)} dengan {@code component} bernilai
+	 * {@code null}. Dipakai oleh pemanggil di luar kelas ini &mdash; antara lain
+	 * {@link Perkuliahan} dan modul dasbor &mdash; yang hanya ingin menghasilkan berkas PDF tanpa
+	 * mengaitkannya ke sebuah komponen tampilan tertentu.</p>
+	 *
+	 * <p>Karena {@code refresh} akhirnya bernilai {@code false}, daftar komponen nilai diambil dari
+	 * cache. Bila bobot penilaian baru saja diubah, panggil kelebihan beban tiga argumen dengan
+	 * {@code refresh} bernilai {@code true} agar kolom laporan mengikuti bobot terbaru.</p>
+	 *
+	 * @param perkuliahan kelas yang daftar nilainya dicetak; bila {@code null}, kelebihan beban
+	 *                    terdalam menampilkan peringatan dan berhenti tanpa melempar.
+	 * @throws Exception bila pembangunan parameter laporan gagal.
+	 * @see #onLaporan(Perkuliahan, Component, boolean)
+	 */
 	public static void onLaporan(Perkuliahan perkuliahan) throws Exception {
 		onLaporan(perkuliahan, null);
 	}
 
+	/**
+	 * Mencetak <b>Daftar Nilai Ujian</b> untuk satu kelas dan menautkan keluarannya pada sebuah
+	 * komponen ZK, tanpa menyegarkan cache komponen nilai.
+	 *
+	 * <p>Kelebihan beban ini meneruskan ke {@link #onLaporan(Perkuliahan, Component, boolean)} dengan
+	 * {@code refresh} bernilai {@code false}. Inilah bentuk yang dipakai tombol <b>Cetak</b> pada
+	 * toolbar layar penilaian, dan juga dipanggil otomatis tepat setelah sebuah kelas berhasil
+	 * dikunci &mdash; sehingga penguncian nilai sekaligus menghasilkan berkas daftar nilai sebagai
+	 * bukti cetak keadaan saat itu.</p>
+	 *
+	 * @param perkuliahan kelas yang daftar nilainya dicetak; boleh {@code null} dan ditangani di
+	 *                    kelebihan beban terdalam.
+	 * @param component   komponen ZK yang menjadi konteks penampil berkas hasil; boleh {@code null}
+	 *                    bila laporan cukup diunduh tanpa dikaitkan ke komponen tertentu.
+	 * @throws Exception bila pembangunan parameter laporan gagal.
+	 * @see #onLaporan(Perkuliahan, Component, boolean)
+	 */
 	public static void onLaporan(Perkuliahan perkuliahan, Component component) throws Exception {
 		onLaporan(perkuliahan, component, false);
 	}
 
+	/**
+	 * Menyusun dan menghasilkan berkas PDF <b>Daftar Nilai Ujian</b> untuk satu kelas: mengumpulkan
+	 * seluruh parameter kop laporan, merakit satu baris data per mahasiswa, melampirkan tanda tangan
+	 * pejabat, memilih berkas templat yang sesuai, lalu menyerahkannya ke mesin laporan. Inilah
+	 * implementasi sesungguhnya; dua kelebihan beban lainnya hanya meneruskan ke sini.
+	 *
+	 * <h3>Penjagaan di muka</h3>
+	 * <p>Bila {@code perkuliahan} bernilai {@code null}, metode menampilkan peringatan dan
+	 * <b>berhenti</b>. Penjagaan ini penting karena seluruh baris di bawahnya memakai objek itu tanpa
+	 * pemeriksaan ulang; tanpa penjagaan ini dosen akan melihat galat sistem yang tidak dapat
+	 * dipahami, bukan pesan yang menjelaskan bahwa data perkuliahan belum lengkap.</p>
+	 *
+	 * <h3>Parameter kop laporan</h3>
+	 * <p>Peta parameter diawali {@code HashMapGenerator.getRand()} lalu diisi bertingkat: properti
+	 * {@link Perkuliahan}, {@link Jurusan}, {@link Fakultas}, dan {@link PerguruanTinggi} disalin
+	 * lewat {@code Common.insertProperty} dengan awalan masing-masing, sehingga templat dapat
+	 * merujuknya sebagai {@code perkuliahan_*}, {@code jur_*}, {@code fak_*}, dan {@code pt_*}. Judul
+	 * laporan berganti menjadi <i>Daftar Nilai Ujian Semester Pendek</i> bila kelas berstatus semester
+	 * pendek. Ditambahkan pula kelas, tanggal cetak, fakultas, jenis semester yang diturunkan dari
+	 * kegenapan nomor semester, tahun ajaran, kode dan nama mata kuliah, daftar nama dosen yang
+	 * dirangkai dengan pemisah garis miring, NIP dosen pertama, jurusan, program, serta nama dan NIP
+	 * ketua jurusan bila tersedia.</p>
+	 *
+	 * <p>Untuk setiap komponen nilai ditulis empat parameter berindeks &mdash; {@code col}<i>i</i>,
+	 * {@code col_nama_}<i>i</i>, {@code col_persen_}<i>i</i>, dan {@code persen_}<i>i</i> &mdash;
+	 * sehingga <b>urutan {@link #formatNilais} menentukan urutan kolom pada berkas cetak</b>.</p>
+	 *
+	 * <h3>Baris data per mahasiswa</h3>
+	 * <p>Seluruh baris kelas ditelusuri; hanya yang memiliki mahasiswa <b>dan</b> berstatus
+	 * {@link Detailperkuliahan#DISETUJUI} yang ikut dicetak. Nama mahasiswa dan nama dosen diubah
+	 * menjadi huruf kapital. Nilai per komponen mengikuti kebijakan penyembunyian: bila kelas
+	 * menyembunyikan nilai yang belum diverifikasi dan baris masih {@code NOT_VERIFIED}, yang dicetak
+	 * adalah nilai dari {@code retreiveDetailNilaiBelumVerify} beserta pasangan kolom
+	 * <i>sementara</i>; jika tidak, nilai final. Dengan begitu berkas cetak tidak pernah membocorkan
+	 * nilai yang belum disetujui.</p>
+	 *
+	 * <p>Data pejabat penanda tangan &mdash; kaprodi dari jurusan mahasiswa, serta dekan dan tiga
+	 * pembantu dekan dari fakultasnya &mdash; diselesaikan sekali per baris dan <b>hanya diisikan bila
+	 * objeknya tersedia</b>. Sikap hati-hati itu disengaja: tanpa pemeriksaan berlapis, kelas dengan
+	 * pejabat yang belum diisi akan membanjiri log dengan galat penunjuk kosong. Seluruh blok ini
+	 * dibungkus penangkap galat yang mencatat ke {@code ErrorAuditUtil} sehingga kegagalan resolusi
+	 * pejabat tidak menggagalkan laporan.</p>
+	 *
+	 * <h3>Tanda tangan dan pemilihan templat</h3>
+	 * <p>Berkas tanda tangan diambil dari {@link LampiranLain} berjenis {@code TTD_DOSEN} milik
+	 * kaprodi dan setiap dosen pengampu, dan hanya diterima bila berekstensi gambar yang dikenali
+	 * (jpg, png, jpeg, gif, tif, bmp). Nama templat dipilih dari jumlah komponen nilai: nol atau lebih
+	 * dari sembilan komponen &mdash; juga kelas bermode nilai huruf &mdash; memakai
+	 * {@code Daftar_Nilai_1} sebagai penampung serbaguna; tepat tiga komponen memakai
+	 * {@code Daftar_Nilai}; selebihnya memakai {@code Daftar_Nilai_<jumlah>}. Kasus nol dijabarkan
+	 * secara eksplisit karena berkas {@code Daftar_Nilai_0} memang tidak pernah ada.</p>
+	 *
+	 * <p>Kegagalan pembuatan laporan &mdash; lazimnya karena berkas templat {@code .jasper} belum
+	 * ter-<i>deploy</i> &mdash; ditangkap dan diubah menjadi pesan informasi yang ramah, bukan
+	 * dibiarkan menjadi galat sistem yang memenuhi log. Itu masalah penempatan berkas, bukan cacat
+	 * aplikasi, dan pengguna diarahkan menghubungi administrator.</p>
+	 *
+	 * <p><b>Catatan wewenang.</b> Metode ini {@code static} dan tidak memeriksa siapa yang mencetak.
+	 * Siapa pun yang dapat memanggilnya memperoleh daftar nilai lengkap satu kelas beserta NIM dan
+	 * nama seluruh mahasiswanya; pembatasan sepenuhnya bergantung pada layar pemanggil.</p>
+	 *
+	 * @param perkuliahan kelas yang dicetak; {@code null} ditangani dengan peringatan dan penghentian.
+	 * @param component   komponen ZK konteks penampil berkas; boleh {@code null}.
+	 * @param refresh     {@code true} untuk membaca ulang daftar komponen nilai dari basis data
+	 *                    alih-alih memakai cache &mdash; perlu bila bobot penilaian baru diubah.
+	 * @throws Exception bila pembangunan parameter atau pembacaan data gagal; kegagalan pada tahap
+	 *                   pembuatan berkas itu sendiri sudah ditangani di dalam.
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static void onLaporan(Perkuliahan perkuliahan, Component component, boolean refresh) throws Exception {
 		if (perkuliahan == null) {
@@ -4729,6 +4833,39 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		terdaftar = null;
 	}
 
+	/**
+	 * Membuka jendela modal <b>Analisis Nilai Huruf</b> untuk seorang mahasiswa, yang menjelaskan
+	 * mengapa nilai hurufnya seperti yang tampak: komponen mana yang berkontribusi berapa, bobot mana
+	 * yang ikut membentuk pembagi, apakah snapshot kunci sudah menyimpang, dan berapa poin lagi yang
+	 * dibutuhkan untuk naik ke huruf berikutnya.
+	 *
+	 * <p>Fitur ini menjawab keluhan yang paling sering muncul dari dosen &mdash; &quot;kenapa nilai
+	 * mahasiswa ini 0 padahal komponennya terisi&quot; atau &quot;kenapa hurufnya B padahal totalnya
+	 * seharusnya A&quot; &mdash; dengan memaparkan langkah perhitungan yang dipakai sistem, bukan
+	 * sekadar menampilkan hasilnya.</p>
+	 *
+	 * <p>Isi jendela dibangkitkan sebagai HTML utuh oleh
+	 * {@link #buatHtmlAnalisisNilaiHuruf(Detailperkuliahan)} dan dipasang lewat sebuah {@link Html}.
+	 * Ukurannya menyesuaikan perangkat: memenuhi layar pada ponsel, atau 680&times;620 piksel pada
+	 * peramban meja. Bila jendela belum terpasang pada halaman mana pun, ia dilekatkan ke halaman
+	 * pertama desktop yang sedang berjalan &mdash; penjagaan berlapis terhadap
+	 * {@code Executions.getCurrent()} dan turunannya diperlukan karena metode ini dapat terpanggil
+	 * dari konteks yang tidak memiliki eksekusi aktif.</p>
+	 *
+	 * <p>Masukan {@code null} menyebabkan metode berhenti tanpa membuka apa pun. Metode tidak mengubah
+	 * data dan tidak membuka transaksi; ia hanya membaca. Panggilan {@code doModal()} bersifat
+	 * memblokir alur peristiwa ZK sampai pengguna menutup jendela.</p>
+	 *
+	 * <p><b>Catatan.</b> Pada keadaan sekarang popup analisis per mahasiswa dipasang lewat
+	 * {@code NilaiHurufAnalisisPopupHelper.pasangLink} di dalam perender, sehingga metode ini
+	 * merupakan jalur alternatif yang tetap dipertahankan sebagai pintu masuk internal ke pembangun
+	 * HTML yang sama.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang dianalisis; {@code null} diabaikan.
+	 * @throws Exception bila pembangunan atau penampilan jendela gagal.
+	 * @see #buatHtmlAnalisisNilaiHuruf(Detailperkuliahan)
+	 * @see #tampilkanAnalisisKeseluruhanNilai()
+	 */
 	private void tampilkanAnalisisNilaiHuruf(Detailperkuliahan detailperkuliahan) throws Exception {
 		if (detailperkuliahan == null) {
 			return;
@@ -4746,6 +4883,31 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		window.doModal();
 	}
 
+	/**
+	 * Membuka jendela modal <b>Analisis Keseluruhan Nilai</b> untuk seluruh mahasiswa pada kelas yang
+	 * sedang dibuka. Dipicu tombol &quot;Analisis Keseluruhan&quot; pada toolbar.
+	 *
+	 * <p>Bila {@link #tampilkanAnalisisNilaiHuruf(Detailperkuliahan)} menjelaskan satu mahasiswa,
+	 * metode ini memeriksa satu <b>kelas</b>: berapa banyak yang belum diverifikasi, berapa yang huruf
+	 * tersimpannya tidak lagi cocok dengan rentang konfigurasi, berapa snapshot kunci yang sudah
+	 * menyimpang, berapa yang bernilai nol karena aturan penilaian, dan berapa yang berisiko karena
+	 * kehadiran di bawah batas. Fungsinya adalah <b>alat audit mandiri</b> bagi dosen dan admin
+	 * akademik sebelum nilai dikunci dan diumumkan.</p>
+	 *
+	 * <p>Seluruh isi dibangkitkan {@link #buatHtmlAnalisisKeseluruhanNilai()} sebagai HTML dan
+	 * dipasang lewat {@link Html}. Jendelanya sedikit lebih besar daripada analisis per mahasiswa
+	 * &mdash; 820&times;680 piksel pada peramban meja &mdash; karena memuat tabel distribusi huruf dan
+	 * daftar data bermasalah. Penjagaan penempatan halaman dan pemanggilan {@code doModal()} identik
+	 * dengan analisis per mahasiswa.</p>
+	 *
+	 * <p>Metode ini hanya membaca dan tidak mengubah data apa pun. Namun perlu diketahui bahwa
+	 * pembangkit HTML-nya menelusuri seluruh baris kelas dan menyelesaikan setiap entitas satu per
+	 * satu, sehingga pada kelas berisi ratusan mahasiswa pembukaannya terasa lambat; daftar data
+	 * bermasalah karena itu dibatasi 12 catatan pertama agar jendela tetap ringan.</p>
+	 *
+	 * @throws Exception bila pembangunan atau penampilan jendela gagal.
+	 * @see #buatHtmlAnalisisKeseluruhanNilai()
+	 */
 	private void tampilkanAnalisisKeseluruhanNilai() throws Exception {
 		MyWindow window = new MyWindow("Analisis Keseluruhan Nilai", "normal", true);
 		window.setWidth(Common.isMobile() ? "100%" : "820px");
@@ -4760,6 +4922,64 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		window.doModal();
 	}
 
+	/**
+	 * Menelusuri seluruh mahasiswa pada kelas ini, mendeteksi anomali data nilai, lalu merangkai
+	 * temuannya menjadi satu dokumen HTML lengkap untuk jendela Analisis Keseluruhan. Inilah mesin
+	 * audit sesungguhnya di balik tombol &quot;Analisis Keseluruhan&quot;.
+	 *
+	 * <h3>Persiapan</h3>
+	 * <p>Bila {@link #formatNilais} belum terisi, ia dimuat lebih dulu &mdash; metode ini dapat
+	 * terpanggil sebelum grid sempat dibangun. Daftar id diambil dengan pengurutan yang sama seperti
+	 * layar, dengan penjagaan terhadap {@link #urutkanBerdasarkanNama} yang mungkin masih {@code null}.
+	 * Dua larik sejajar disiapkan untuk menghitung rata-rata per komponen: satu menampung jumlah
+	 * nilai, satu menampung banyaknya data.</p>
+	 *
+	 * <h3>Lima anomali yang dideteksi</h3>
+	 * <ol>
+	 * <li><b>Belum diverifikasi.</b> Baris yang masih {@code NOT_VERIFIED} pada kelas yang
+	 * menyembunyikan nilai belum terverifikasi; seluruh analisis untuk baris itu beralih memakai
+	 * pasangan kolom <i>sementara</i>, dan fakta itu dinyatakan dalam catatannya.</li>
+	 * <li><b>Huruf tidak sinkron.</b> Huruf tersimpan dibandingkan dengan hasil
+	 * {@link #ambilAturanNilaiHuruf(Detailperkuliahan, double)} atas total yang sama. Bila aturan tidak
+	 * ditemukan sama sekali, itu dihitung sebagai anomali tersendiri &mdash; menandakan konfigurasi
+	 * rentang nilai huruf untuk prodi, fakultas, tahun akademik, atau jenis nilai belum lengkap.</li>
+	 * <li><b>Snapshot kunci menyimpang.</b> {@code getNilaiHurufKunci()} yang terisi dibandingkan
+	 * dengan huruf yang seharusnya menurut total terbaru. Inilah yang secara langsung <b>memperlihatkan
+	 * akibat</b> dari pemetaan ulang pada {@link Detailperkuliahan#getNilaiHuruf()}: ketika tabel
+	 * Format Nilai Huruf diubah setelah sebuah kelas dikunci, snapshot lama dan hasil pemetaan baru
+	 * berbeda, dan kelas ini menghitung berapa banyak baris yang terdampak alih-alih
+	 * menyembunyikannya.</li>
+	 * <li><b>Nilai nol bermasalah.</b> Untuk total di bawah 0,01, {@code alasanNilaiJadiNol} dipanggil;
+	 * bila ia mengembalikan penjelasan, baris ditandai bermasalah beserta alasannya.</li>
+	 * <li><b>Kehadiran kurang.</b> Bila kelas menetapkan batas kehadiran di atas 0,1 dan
+	 * {@code hitungPersenKehadiran()} berada di bawahnya.</li>
+	 * </ol>
+	 *
+	 * <h3>Statistik yang dikumpulkan</h3>
+	 * <p>Selain kelima pencacah anomali, metode mengumpulkan jumlah data, rata-rata total, nilai
+	 * tertinggi dan terendah beserta identitas pemiliknya, distribusi jumlah per huruf dalam sebuah
+	 * {@link TreeMap} sehingga terurut abjad, dan rata-rata per komponen yang diserahkan ke
+	 * {@link #tambahAnalisisKomponen(StringBuilder, double[], int[])} untuk menemukan komponen dengan
+	 * rata-rata terendah dan tertinggi. Komponen berbobot di bawah 0,01 dilewati di mana-mana. Nilai
+	 * awal {@code nilaiTerendah} dipasang 999999 dan {@code nilaiTertinggi} dipasang &minus;1 sebagai
+	 * penampung sentinel; bila kelas kosong, kedua angka itu akan tercetak apa adanya karena bagian
+	 * pembanding hanya dilewati saat {@code jumlah} bernilai nol.</p>
+	 *
+	 * <h3>Ketahanan dan keamanan keluaran</h3>
+	 * <p>Kegagalan menyelesaikan satu entitas atau menghitung satu anomali ditangkap dan diteruskan ke
+	 * {@code Common.tampilErrorJikaAdmin}, lalu penelusuran berlanjut &mdash; satu baris rusak tidak
+	 * boleh menggagalkan audit seluruh kelas. Setiap teks yang berasal dari data &mdash; nama
+	 * mahasiswa, huruf, nama komponen, alasan &mdash; dilewatkan {@link #teksAmanHtml(String)}
+	 * sebelum ditempelkan, sehingga nama yang mengandung karakter markah tidak dapat merusak atau
+	 * menyisipkan struktur HTML. Daftar data bermasalah dibatasi 12 catatan pertama, dengan
+	 * keterangan penutup bila masih ada sisanya, agar jendela tetap ringan pada kelas besar.</p>
+	 *
+	 * @return dokumen HTML utuh siap dipasang ke sebuah {@link Html}; tidak pernah {@code null},
+	 *         dan tetap menghasilkan halaman yang bermakna ketika kelas belum berisi mahasiswa.
+	 * @see #tampilkanAnalisisKeseluruhanNilai()
+	 * @see #tambahKartuRingkas(StringBuilder, String, String)
+	 * @see #tambahAnalisisKomponen(StringBuilder, double[], int[])
+	 */
 	private String buatHtmlAnalisisKeseluruhanNilai() {
 		if (formatNilais == null) {
 			formatNilais = Common.getFormatNilais(perkuliahan);

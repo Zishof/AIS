@@ -76,12 +76,19 @@ import ais.ui.util.MyWindow;
  */
 public class DetailKelompokKegiatanKemahasiswaanHelper implements DataLoader {
 
+	/** Grid daftar rincian aspek yang sedang ditampilkan; diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Kelompok kegiatan kemahasiswaan yang rincian aspeknya dikelola. */
 	private KelompokKegiatanKemahasiswaan kelompokKegiatanKemahasiswaan;
 
 	/** Merender satu baris grid rincian aspek: nama, daftar jabatan & skala terkait (terurut), nomor urut (auto-save saat diubah), checkbox aktif/bisa-dipilih-mahasiswa (auto-save), serta tombol edit dan hapus. */
 	class DetailKelompokKegiatanKemahasiswaanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris rincian aspek ({@code data}, harus {@link DetailKelompokKegiatanKemahasiswaan});
+		 * lihat dokumentasi kelas {@link DetailKelompokKegiatanKemahasiswaanRenderer} untuk rincian
+		 * kontrol yang dibangun.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 

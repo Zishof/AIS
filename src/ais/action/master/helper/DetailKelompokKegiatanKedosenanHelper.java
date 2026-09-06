@@ -68,12 +68,19 @@ import ais.ui.util.MyWindow;
  */
 public class DetailKelompokKegiatanKedosenanHelper implements DataLoader {
 
+	/** Grid daftar rincian aspek yang sedang ditampilkan; dibangun di {@link #displayDetailKelompokKegiatanKedosenan}, diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Kelompok kegiatan kedosenan yang rincian aspeknya dikelola, ditetapkan di {@link #displayDetailKelompokKegiatanKedosenan}. */
 	private KelompokKegiatanKedosenan kelompokKegiatanKedosenan;
 
 	/** Perender baris grid: nama rincian aspek, daftar jabatan & skala tertaut (masing-masing diurutkan dan dinomori tampil), nomor urut (editable), checkbox aktif/bisa-dipilih-dosen (tersimpan otomatis on-check), tombol edit (buka {@link #init}) dan hapus (dengan konfirmasi). */
 	class DetailKelompokKegiatanKedosenanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris rincian aspek ({@code data}, harus {@link DetailKelompokKegiatanKedosenan});
+		 * lihat dokumentasi kelas {@link DetailKelompokKegiatanKedosenanRenderer} untuk rincian kontrol
+		 * yang dibangun.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 
