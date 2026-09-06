@@ -1645,10 +1645,48 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Helper pengelola bank soal satu {@link Ujian} ("Kelola Soal Ujian"), dibuat sekali per
+		 * renderer dan dipakai ulang untuk SEMUA baris yang dirender oleh instance ini. Dibuka lewat
+		 * tombol "Kelola Soal Ujian" pada {@link #render(Row, Object)}, di dalam {@link MyWindow}
+		 * tersendiri. Karena satu instance dipakai lintas baris, helper ini menyimpan state ujian
+		 * terakhir yang dibuka; hal ini tidak menimbulkan masalah pada pemakaian nyata di file ini
+		 * karena kedua pemanggil merender paling banyak satu baris pada satu waktu (grid modal
+		 * {@code gridModal} berisi tepat satu {@link PertemuanPunyaUjian}).
+		 */
 		private DetailUjianHelper detailUjianHelper = new DetailUjianHelper();
+		/**
+		 * Identitas peserta bila baris dirender untuk seorang mahasiswa; {@code null} bila dirender
+		 * untuk pengelola/dosen atau untuk jenis peserta lain (siswa, calon siswa, peserta kursus,
+		 * calon mahasiswa). Nilainya diteruskan apa adanya ke
+		 * {@link PertemuanPunyaUjianHelper#tampilBolekIkutUjianAtauTidak} dan menentukan apakah blok
+		 * kontrol pengaturan admin dirender atau tidak.
+		 */
 		private Mahasiswa mahasiswa;
+		/**
+		 * Identitas peserta bila baris dirender untuk seorang calon mahasiswa (ujian PMB);
+		 * {@code null} untuk pengelola/dosen atau jenis peserta lain. Bersama {@link #mahasiswa}
+		 * membentuk pasangan "identitas peserta" yang sama seperti pada kelas induk
+		 * {@link PertemuanPunyaUjianHelper}.
+		 */
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
+		/**
+		 * Callback yang dipicu setelah aksi yang mengubah data pada baris ini — memindahkan ujian ke
+		 * pertemuan lain, menutup window "Kelola Soal Ujian", menghapus ujian, atau menyelesaikan
+		 * sesi ujian peserta — agar pemanggil (kartu/daftar ujian) memuat ulang tampilannya. Boleh
+		 * {@code null}; setiap titik pemakaian menjaga sendiri terhadap {@code null}.
+		 */
 		private EventListener eventListener;
+		/**
+		 * Saklar mode tampilan baris. {@code true} merender blok info ringkas read-only (pertemuan,
+		 * dosen, jadwal) yang cocok untuk peserta; {@code false} merender kontrol pengaturan admin
+		 * penuh (checkbox, datebox/timebox, kombo pindah pertemuan, editor bobot Sub-CPMK, baris
+		 * tombol aksi). Kedua pemanggil di file ini —
+		 * {@link PertemuanPunyaUjianHelper#loadData(Object)} dan
+		 * {@link PertemuanPunyaUjianHelper#bukaPengaturanUjian(PertemuanPunyaUjian, EventListener)} —
+		 * saat ini selalu mengirim {@code false}; nilai {@code true} dipertahankan untuk pemanggil
+		 * lain di luar file ini.
+		 */
 		private boolean tampilInfo;
 
 		/**

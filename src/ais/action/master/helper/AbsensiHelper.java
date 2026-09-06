@@ -177,16 +177,86 @@ import ais.ui.util.WaktuUtil;
 public class AbsensiHelper {
 
 	// private Textbox topik;
+	/**
+	 * Kotak isian "Metode" pembelajaran pertemuan ({@link Pertemuan#getMetodePembelajaran()}), dibuat di
+	 * {@link #bagianInfo}. Hanya dipasang ke form (dan karenanya hanya bisa diubah) bila viewer BUKAN
+	 * mahasiswa/calon mahasiswa/peserta kursus; untuk viewer tersebut nilainya dirender sebagai {@link Label}
+	 * read-only dan kotak ini tetap dibuat namun tidak pernah ditambahkan ke pohon komponen. Perubahannya
+	 * dipersist lewat listener {@code updateLocal} yang memanggil {@link #sesuaikan(Pertemuan, boolean)}.
+	 */
 	private Textbox metode;
+	/**
+	 * Combobox "Jenis (*)" pertemuan — memilih {@link StatusPertemuan} yang aktif (mis. Tatap Muka, Daring, UTS,
+	 * UAS), dibuat di {@link #bagianInfo}. Dibuat {@code readonly} (pilihan bebas-ketik dimatikan, hanya boleh
+	 * memilih dari daftar) dan hanya dipasang ke form untuk viewer non-mahasiswa. Perubahannya memicu
+	 * {@code updateLocal} &rarr; {@link #sesuaikan(Pertemuan, boolean)}.
+	 *
+	 * <p>Nama field ini historis ("ujian") dan TIDAK menandakan hanya untuk ujian — isinya adalah jenis
+	 * pertemuan secara umum.</p>
+	 */
 	private Combobox ujian;
+	/**
+	 * Kotak isian "Bahan Kajian *" ({@link Pertemuan#getBukuRujukan1()}), dibuat di {@link #bagianInfo}. Sama
+	 * seperti {@link #metode}: editable hanya untuk viewer non-mahasiswa, dipersist lewat {@code updateLocal}.
+	 * Label kolomnya bertanda bintang namun {@code setConstraint("no empty")} dinonaktifkan (dikomentari) di
+	 * {@link #bagianInfo}, sehingga secara teknis field ini TIDAK wajib diisi.
+	 */
 	private Textbox bukuRujukan1;
+	/**
+	 * Kotak isian "Daftar Pustaka" ({@link Pertemuan#getBukuRujukan2()}), dibuat di {@link #bagianInfo}.
+	 * Editable hanya untuk viewer non-mahasiswa; perubahannya dipersist lewat {@code updateLocal}.
+	 */
 	private Textbox bukuRujukan2;
+	/**
+	 * Kotak isian "Dosen Tamu" pertama ({@link Pertemuan#getDosenTamu()}) — teks bebas, BUKAN relasi ke entity
+	 * {@link Dosen}, sehingga dosen tamu tidak muncul pada kartu kehadiran dosen. Dibuat di {@link #bagianInfo},
+	 * editable hanya untuk viewer non-mahasiswa.
+	 */
 	private Textbox dosenTamu;
+	/**
+	 * Kotak isian "Dosen Tamu" kedua ({@link Pertemuan#getDosenTamu2()}); lihat {@link #dosenTamu}. Keduanya
+	 * dirender berdampingan dalam satu {@link Hbox} pada baris "Dosen Tamu".
+	 */
 	private Textbox dosenTamu2;
+	/**
+	 * Datebox "Tanggal Rencana (*)" ({@link Pertemuan#getTanggal()}), dibuat di {@link #bagianInfo}. Perubahan
+	 * pada field ini adalah salah satu dari dua pemicu ({@link #perkulaiahnOnlineHarusSesuaiJadwal} yang lain)
+	 * yang menyebabkan {@code updateLocal} memanggil {@link #reload(Pertemuan)} penuh, karena tanggal ikut
+	 * menentukan hasil {@link #ubahTerlewat(Pertemuan)} dan karenanya seluruh tampilan editable/read-only.
+	 *
+	 * <p>Dikunci ({@code setDisabled(true)}) di akhir {@link #mainInit} bila viewer berperan "dosen" dan
+	 * perkuliahan tidak mengizinkan dosen mengubah tanggal
+	 * ({@code !perkuliahan.getDosenBisaMerubahTanggalPerkuliahan()}).</p>
+	 */
 	private MyDatebox tanggal;
+	/**
+	 * Datebox "Tanggal Realisasi" ({@link Pertemuan#getTanggalRealisasi()}) — tanggal saat proses belajar
+	 * mengajar BENAR-BENAR terjadi, yang bisa berbeda dari {@link #tanggal} (tanggal rencana). Dibuat di
+	 * {@link #bagianInfo} dan diteruskan sebagai argumen ke
+	 * {@link #createStatusKehadiran(Dosen, Pertemuan, Mahasiswa, BiodataCalonMahasiswa, MyDatebox, EventListener, boolean)}
+	 * agar kartu kehadiran dosen dapat mengisinya otomatis saat dosen ditandai hadir.
+	 */
 	private MyDatebox tanggalRealisasi;
+	/**
+	 * Timebox jam mulai rencana pertemuan ({@link Pertemuan#getWaktuMulai()}, disimpan sebagai String dengan
+	 * format {@code Common.timeFormat2}). Dibuat di {@link #bagianInfo}; dinonaktifkan untuk viewer
+	 * mahasiswa/calon mahasiswa/peserta kursus dan (bersama {@link #waktuSelesai}) juga dinonaktifkan di akhir
+	 * {@link #mainInit} bila dosen tidak berwenang mengubah jadwal perkuliahan. Kegagalan parsing nilai lama
+	 * ditelan (dicatat ke {@code ErrorAuditUtil}) sehingga timebox tampil kosong, bukan menggagalkan render.
+	 */
 	private Timebox waktuMulai;
+	/**
+	 * Timebox jam selesai rencana pertemuan ({@link Pertemuan#getWaktuSelesai()}); lihat {@link #waktuMulai}
+	 * untuk aturan aktif/nonaktif dan penanganan parsing yang identik.
+	 */
 	private Timebox waktuSelesai;
+	/**
+	 * Banbox pemilih {@link Ruang} tempat pertemuan dilaksanakan ({@link Pertemuan#getRuang()}), dibuat di
+	 * {@link #bagianInfo}. Dibuat {@code readonly} (hanya boleh dipilih lewat dialog pencarian ruang, tidak
+	 * boleh diketik bebas); ruang terpilih dibawa pada atribut komponen {@code "ruang"} dan dibaca kembali oleh
+	 * {@link #sesuaikan(Pertemuan, boolean)}. Ikut dikunci di akhir {@link #mainInit} bila dosen tidak berwenang
+	 * mengubah jadwal perkuliahan.
+	 */
 	private AmbilDataRuangBanbox ruang;
 
 	private List<? extends GeneralValueObject> mahasiswas;
