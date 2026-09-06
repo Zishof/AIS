@@ -38,22 +38,15 @@ import ais.database.model.GeneralValueObject;
  * penghubung ini yang mengikatnya ke satu {@code Pkl}. Jawaban/pemenuhan tiap syarat oleh
  * mahasiswa disimpan terpisah di {@link MahasiswaPklPersyaratan}, bukan di sini.
  *
- * <p><b>Kembaran modul KKN, dengan satu divergensi nyata (DITEMUKAN saat dokumentasi ini):</b>
- * struktur kelas ini nyaris identik dengan {@link ais.database.model.kkn.KknPunyaPersyaratan}
- * (selain penggantian nama Pkl&rarr;Kkn dan gaya spasi/baris minor), <b>KECUALI</b> pada
- * {@link #getNama()}: versi KKN kembarannya jatuh balik ke {@code persyaratanKkn.getNama()} saat
- * field {@code nama} sendiri masih {@code null}, sedangkan versi PKL di sini <b>tidak</b> — ia
- * hanya mengembalikan {@code null} polos. Pola fallback-ke-master-data yang sama dipakai konsisten
- * oleh {@link ais.database.model.kkn.KknPunyaKomponenPenilaianKkn#getNama()} dan
- * {@link PklPunyaKomponenPenilaianPkl#getNama()} (keduanya PUNYA fallback), sehingga kelas inilah
- * satu-satunya dari keempat entity "Punya" KKN/PKL yang menyimpang dari pola tersebut. Karena kolom
- * {@code nama} dipetakan {@code nullable = false}, dampak praktisnya kecil bila kode pemanggil
- * selalu mengisi {@code nama} eksplisit sebelum menyimpan; tapi bila ada jalur yang mengandalkan
- * fallback ini (seperti sisi KKN), jalur itu akan menerima {@code null} alih-alih nama syarat, yang
- * berisiko {@code NullPointerException} downstream (mis. pemanggil yang langsung memanggil
- * {@code .toLowerCase()}/{@code .trim()} atas hasilnya). Ini penyimpangan salin-tempel yang
- * genuinely baru, bukan bagian dari bug default SKS/IPK maupun kode mati {@code reload...} yang
- * sudah tercatat sebelumnya.</p>
+ * <p><b>Kembaran modul KKN:</b> struktur kelas ini nyaris identik dengan
+ * {@link ais.database.model.kkn.KknPunyaPersyaratan} (selain penggantian nama Pkl&rarr;Kkn dan
+ * gaya spasi/baris minor), termasuk pada {@link #getNama()}: kedua versi jatuh balik ke nama
+ * syarat katalog terkait ({@code persyaratanPkl.getNama()} / {@code persyaratanKkn.getNama()})
+ * saat field {@code nama} sendiri masih {@code null}. Pola fallback-ke-master-data yang sama juga
+ * dipakai konsisten oleh {@link ais.database.model.kkn.KknPunyaKomponenPenilaianKkn#getNama()} dan
+ * {@link PklPunyaKomponenPenilaianPkl#getNama()}. (Catatan historis: versi PKL di sini sempat
+ * menyimpang — mengembalikan {@code null} polos tanpa fallback — sampai ditambal agar konsisten
+ * dengan ketiga kembarannya.)</p>
  */
 @Entity
 @org.hibernate.annotations.Entity(
@@ -139,7 +132,7 @@ public class PklPunyaPersyaratan extends GeneralValueObject {
 		return nama;
 	}
 
-	/** Nama tampilan baris relasi; boleh {@code null} — lihat {@link #getNama()} (TIDAK ada fallback di sini, lihat javadoc kelas). */
+	/** Nama tampilan baris relasi; boleh {@code null} — lihat {@link #getNama()} (fallback ke syarat katalog bila {@code null}). */
 	private String nama;
 	/** Catatan/keterangan bebas untuk baris relasi ini; boleh {@code null}. */
 	private String keterangan;
@@ -206,19 +199,24 @@ public class PklPunyaPersyaratan extends GeneralValueObject {
 
 	/**
 	 * @return nama tampilan baris relasi ini. Bila field {@link #nama} belum pernah diisi eksplisit
-	 *         (masih {@code null}), method ini <b>mengembalikan {@code null} apa adanya</b> —
-	 *         <b>tanpa</b> jatuh balik ke nama syarat katalog terkait ({@link #persyaratanPkl}),
-	 *         berbeda dari kembarannya {@code KknPunyaPersyaratan.getNama()} yang memakai fallback
-	 *         tersebut (lihat javadoc kelas ini untuk analisis lengkap divergensinya). Method ini
-	 *         tetap aman dari {@code NullPointerException} untuk dirinya sendiri; risikonya ada di
-	 *         sisi pemanggil yang mengasumsikan hasil tidak pernah {@code null}.
+	 *         (masih {@code null}), method ini <b>jatuh balik (fallback) ke nama syarat katalog
+	 *         terkait</b> lewat {@code persyaratanPkl.getNama()} — sehingga tampilan daftar tetap
+	 *         punya label bermakna walau baris relasi belum pernah diberi nama sendiri, konsisten
+	 *         dengan kembarannya {@code KknPunyaPersyaratan.getNama()} (divergensi lama sudah
+	 *         ditambal, lihat javadoc kelas).
+	 * @throws NullPointerException bila field {@link #persyaratanPkl} masih {@code null} (seharusnya
+	 *         tidak terjadi karena kolomnya {@code NOT NULL}, tapi entity yang belum pernah dikaitkan
+	 *         syaratnya akan melempar exception ini, bukan mengembalikan {@code null} dengan aman).
+	 *         Perhatikan juga bahwa akses lapangan di sini memakai field {@code persyaratanPkl}
+	 *         mentah, bukan {@link #getPersyaratanPkl()} — sehingga tidak melewati proxy-check yang
+	 *         dipakai getter publiknya.
 	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
-		return this.nama == null ? null : this.nama.trim();
+		return this.nama == null ? persyaratanPkl.getNama() : this.nama.trim();
 	}
 
-	/** @param nama nama tampilan eksplisit baris relasi; TIDAK ada fallback bila dibiarkan {@code null} (lihat javadoc {@link #getNama()}). */
+	/** @param nama nama tampilan eksplisit baris relasi; bila dibiarkan {@code null}, {@link #getNama()} jatuh balik ke nama syarat katalog terkait. */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
