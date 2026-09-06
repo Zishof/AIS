@@ -66,13 +66,20 @@ import ais.ui.util.MyWindow;
  */
 public class CopyDataMahasiswaHelper {
 
+	/** Jadwal perkuliahan sumber tempat mahasiswa disalin dari. */
 	private Perkuliahan perkuliahan;
+	/** Grid mahasiswa sumber, dirender oleh {@link DetailperkuliahanRenderer}. */
 	private MyGrid grid;
+	/** Kotak filter pencarian: NIM mahasiswa (contains, ILIKE anywhere); dikunci bila {@link #selectedMahasiswa} diisi. */
 	private Textbox nimmahasiswa;
+	/** Kotak filter pencarian: nama mahasiswa (contains, ILIKE anywhere); dikunci bila {@link #selectedMahasiswa} diisi. */
 	private Textbox namamahasiswa;
 
+	/** Bila diisi, dialog dibatasi hanya untuk menyalin satu mahasiswa ini (lihat javadoc konstruktor). */
 	private Mahasiswa selectedMahasiswa;
+	/** Filter program studi pada pencarian mahasiswa sumber. */
 	private Combobox program;
+	/** Grid panel barat berisi daftar jadwal perkuliahan paralel tujuan beserta checkbox pemilihannya. */
 	private MyGrid searchgridJadwal;
 
 	/** Seperti {@link #CopyDataMahasiswaHelper(Perkuliahan, Mahasiswa)} tanpa membatasi ke satu mahasiswa tertentu (menampilkan seluruh mahasiswa sumber yang bisa disalin). */
@@ -98,6 +105,14 @@ public class CopyDataMahasiswaHelper {
 	 */
 	class DetailperkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris mahasiswa sumber (lihat javadoc kelas {@link DetailperkuliahanRenderer}
+		 * untuk rincian kolom dan aturan checkbox terkunci).
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param arg1 instance {@link Detailperkuliahan} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

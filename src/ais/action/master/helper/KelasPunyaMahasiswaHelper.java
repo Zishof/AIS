@@ -92,16 +92,24 @@ import ais.ui.util.MyWindow;
  */
 public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
+	/** Grid berpaging yang menampilkan anggota {@link #kelas}, dirender oleh {@link DetailKelasRenderer}. */
 	private MyGrid grid;
+	/** Kelas paralel akademik yang anggotanya sedang ditampilkan/dikelola. */
 	private Kelas kelas;
+	/** Kotak pencarian toolbar: kata kunci NIM/nama mahasiswa yang menyaring {@link #initCriteria(boolean)}. */
 	private Textbox nama;
+	/** Kotak filter toolbar: tahun angkatan mahasiswa. */
 	private Intbox angkatan;
 
+	/** Combobox filter Fakultas; dikunci ({@code setDisabled(true)}) bila {@link #kelas} sudah terikat ke fakultas/jurusan tertentu. */
 	private Combobox searchfakultas = new Combobox();
+	/** Combobox filter Program Studi ({@link Jurusan}); dikunci ({@code setDisabled(true)}) bila {@link #kelas} sudah terikat ke jurusan tertentu. */
 	private Combobox searchjurusan = new Combobox();
 
+	/** Komponen paging grid; dimuat ulang lewat {@link #loadData} setiap kali halaman aktif berubah. */
 	private Paging paging;
 
+	/** Menyiapkan opsi combo Fakultas/Jurusan (via {@link Common#initFakultasDanJurusanDanSemua}) dan komponen {@link #paging} beserta listener reload halamannya. */
 	public KelasPunyaMahasiswaHelper() {
 
 		Common.initFakultasDanJurusanDanSemua(null, null, searchfakultas, searchjurusan);
@@ -132,8 +140,10 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 	 */
 	class DetailKelasRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** {@code true} bila user yang login memiliki hak {@link CommonPrivilages#DELETE}; mengontrol visibilitas tombol hapus per baris. */
 		private boolean delete = false;
 
+		/** Menentukan {@link #delete} sekali di awal (dibaca ulang setiap renderer dibuat) lewat {@link CommonPrivilages#checkPrevilages}. */
 		public DetailKelasRenderer() {
 			delete = CommonPrivilages.checkPrevilages(CommonPrivilages.DELETE);
 		}
@@ -297,6 +307,7 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke {@link AmbilDataMahasiswaForKelasHelper} agar dapat memicu {@link #loadData} setelah simpan. */
 	private DataLoader getDataloader() {
 		return this;
 	}

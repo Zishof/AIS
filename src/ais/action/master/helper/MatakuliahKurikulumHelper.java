@@ -94,17 +94,42 @@ import ais.ui.util.MyWindow;
  */
 public class MatakuliahKurikulumHelper implements DataLoader {
 
+	/** Grid daftar {@link KurikulumPunyaMatakuliah}; dibuat di dalam timer {@link #display} dan diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Kurikulum yang matakuliahnya ditampilkan; menjadi bagian kunci penyaring pada {@link #loadData(Object)} bersama {@link #semester} dan {@link #indukMatakuliah}. */
 	private Kurikulum kurikulum;
+	/** Semester kurikulum yang ditampilkan; ikut menjadi penyaring {@link #loadData(Object)} dan judul laporan "Cetak Kurikulum". */
 	private Integer semester;
+	/**
+	 * Hasil pencarian terakhir yang menjadi model grid. Daftar ini juga menjadi cakupan kerja tombol
+	 * "Generate Rencana Pembelajaran" dan "Hapus Semua" — keduanya beroperasi pada isi daftar saat itu,
+	 * yaitu hasil penyaringan kurikulum/semester/induk-matakuliah (dan checkbox "Hanya tampil yang
+	 * aktif"), bukan pada seluruh isi kurikulum.
+	 */
 	private List<KurikulumPunyaMatakuliah> kurikulumPunyaMatakuliahs;
 
+	/** Hak tambah pengguna ({@link CommonPrivilages#CREATE}), dibaca sekali di konstruktor; mengatur tampil-tidaknya tombol "Ambil Matakuliah" dan "Generate Rencana Pembelajaran". */
 	private Boolean add = false;
+	/** Hak hapus pengguna ({@link CommonPrivilages#DELETE}), dibaca sekali di konstruktor; mengatur tampil-tidaknya tombol hapus per baris dan tombol "Hapus Semua". */
 	private Boolean delete = false;
+	/**
+	 * Hak ubah pengguna ({@link CommonPrivilages#UPDATE}), dibaca sekali di konstruktor. Dipakai untuk
+	 * menonaktifkan checkbox "Aktif" dan menyembunyikan tombol ubah per baris. Perlu diperhatikan
+	 * bahwa combobox "Tahap" pada baris grid tidak ikut memeriksa field ini.
+	 */
 	private Boolean edit = false;
+	/** Induk matakuliah yang sub-matakuliahnya ditampilkan; bila {@code null}, yang ditampilkan adalah matakuliah level teratas ({@code indukMatakuliah is null}). */
 	private KurikulumPunyaMatakuliah indukMatakuliah;
+	/** Paket perkuliahan terkait; bila tidak {@code null}, tombol "Manajemen Paket Perkuliahan Mahasiswa" dimunculkan untuk membuka {@link DetailPaketPerkuliahanHelper}. */
 	private PaketPerkuliahan paketPerkuliahan;
+	/** Pengguna yang sedang login, dibaca sekali di konstruktor; dipakai renderer baris untuk menonaktifkan checkbox "Aktif" bagi mahasiswa/dosen dan menampilkan blok Feeder. */
 	private Tbmuser tbmuser = null;
+	/**
+	 * Checkbox penyaring "Hanya tampil yang aktif" (default tercentang). Selama bernilai {@code null}
+	 * — yaitu pada pemuatan pertama sebelum toolbar terbangun — {@link #loadData(Object)} berlaku
+	 * seolah-olah tercentang, sehingga hanya baris aktif atau yang flag aktifnya {@code null} yang
+	 * ditampilkan.
+	 */
 	private MyCheckboxConfig hanyaTampilYangAktif;
 
 	/** Menentukan hak tambah/ubah/hapus dari privilese pengguna saat ini dan menyimpan pengguna aktif untuk pengecekan peran (mahasiswa/dosen) di seluruh method instance. */
@@ -118,12 +143,50 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 	/** Row renderer grid matakuliah kurikulum: nama/SKS/tahap/status/indikator UTS-UAS-ekstrakurikuler, jumlah sub-matakuliah, jumlah jadwal aktif, fakultas/jurusan, jumlah pertemuan default/realisasi, checkbox aktif, serta tombol Feeder/edit/hapus per baris. */
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Salinan pengguna yang sedang login milik renderer; dipakai untuk menentukan apakah combobox "Tahap" ditampilkan sebagai kontrol yang dapat diubah atau sekadar label. */
 		private Tbmuser user;
 
+		/** Membaca pengguna yang sedang login sekali saat renderer dibuat, bukan per baris. */
 		public DetailMatakuliahRenderer() {
 			user = Common.getCurrentUser();
 		}
 
+		/**
+		 * Merender satu baris {@link KurikulumPunyaMatakuliah}. Baris diakhiri lebih awal tanpa satu
+		 * pun kolom bila {@code kurikulumPunyaMatakuliah.getMatakuliah()} bernilai {@code null},
+		 * sehingga baris yatim tampil kosong alih-alih memicu galat.
+		 *
+		 * <p>
+		 * Kolom yang dihasilkan berurutan: {@link MyDetail} pembuka rencana pembelajaran per pertemuan
+		 * ({@link MatakuliahKurikulumDetailHelper}, dimuat baru saat detail dibuka), kode matakuliah
+		 * beserta tautan revisi {@link RevisiHelper} dan — bila integrasi Neo Feeder aktif — indikator
+		 * validitas Feeder serta tombol "Krm ke feeder", nama, SKS, tahap, status, indikator
+		 * ekstrakurikuler/UTS/UAS, jumlah sub-matakuliah, jumlah jadwal {@link Perkuliahan} aktif,
+		 * fakultas, jurusan, jumlah pertemuan default, jumlah {@link KurikulumPunyaMatakuliahDetail}
+		 * yang sudah ada, checkbox "Aktif", dan kolom aksi ubah/hapus.
+		 * </p>
+		 *
+		 * <p>
+		 * Dua kolom terakhir diisi tertunda lewat {@link Common#createDefaultTimer}: jumlah rencana
+		 * pembelajaran dan jumlah jadwal aktif dihitung dengan {@code rowCount} per baris (satu
+		 * pasang query untuk setiap baris yang dirender), dan hasil hitung jadwal itu pula yang
+		 * menonaktifkan tombol hapus ketika konfigurasi
+		 * {@code kurikulum_yang_sudah_dijadwal_tidak_bisa_dihapus} aktif.
+		 * </p>
+		 *
+		 * <p>
+		 * Combobox "Tahap" — yang menyimpan perubahannya seketika lewat {@link Common#refreshUpdate} —
+		 * hanya ditampilkan ketika {@code ConstantValues.aktifkanTahapanKurikulum} menyala dan
+		 * pengguna bukan dosen maupun mahasiswa; berbeda dengan checkbox "Aktif", kontrol ini tidak
+		 * memeriksa hak ubah {@link #edit}. Tombol ubah dan hapus disusun ke dalam kolom aksi
+		 * ringkas oleh {@code UIHelper.buatBarisAksi} dan hanya dikendalikan lewat visibilitas
+		 * ({@link #edit}/{@link #delete}); listener masing-masing tombol tidak memeriksa ulang hak
+		 * tersebut.
+		 * </p>
+		 *
+		 * @param row  baris grid ZK yang sedang diisi
+		 * @param data {@link KurikulumPunyaMatakuliah} yang dirender
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 
@@ -587,6 +650,29 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 	 * {@link KurikulumPunyaMatakuliah} yang sedang ditampilkan sejumlah
 	 * {@code jumlahPertemuanPerkuliahanDefault}-nya masing-masing.
 	 *
+	 * <p>
+	 * Penandaan UTS memakai pembagian bilangan bulat {@code jumlahPertemuanPerkuliahanDefault / 2},
+	 * sehingga untuk jumlah pertemuan ganjil UTS jatuh pada pertemuan sebelum titik tengah, dan untuk
+	 * jumlah pertemuan bernilai 1 tidak ada pertemuan yang ditandai UTS sama sekali. Pembuatan baris
+	 * bersifat menambah-bila-belum-ada: baris dengan {@code nomorUrut} yang sudah ada dibiarkan apa
+	 * adanya, sehingga menjalankan ulang tombol ini tidak menimpa rencana pembelajaran yang sudah
+	 * diisi kecuali opsi "Hapus pertamuan yang sebelumnya sudah ada" dicentang.
+	 * </p>
+	 *
+	 * <p>
+	 * Opsi hapus tersebut dijalankan sebagai {@code delete} SQL langsung terhadap tabel
+	 * {@code kurikulum_punya_matakuliah_detail} (id disisipkan dari nilai {@code Long} entity),
+	 * bukan lewat sesi Hibernate; akibatnya penghapusan itu tidak melewati cascade, interceptor, dan
+	 * pencatatan revisi Envers, serta tidak menyegarkan cache tingkat pertama sesi yang sedang
+	 * berjalan.
+	 * </p>
+	 *
+	 * <p>
+	 * Cakupan pembuatan mengikuti {@link #kurikulumPunyaMatakuliahs} — yakni hasil penyaringan grid
+	 * saat itu (kurikulum, semester, induk matakuliah, dan checkbox "Hanya tampil yang aktif") —
+	 * bukan seluruh matakuliah kurikulum.
+	 * </p>
+	 *
 	 * @param toolbar        toolbar tempat tombol ditambahkan
 	 * @param eventListener  callback yang dijalankan setelah proses generate selesai (biasanya memuat
 	 *                       ulang grid pemanggil)
@@ -752,6 +838,11 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 
 	}
 
+	/**
+	 * @return helper ini sendiri sebagai {@link DataLoader}, diteruskan ke
+	 *         {@link AmbilDataMatakuliahKurikulumHelper} agar grid ini dimuat ulang setelah
+	 *         matakuliah baru ditambahkan ke kurikulum
+	 */
 	private DataLoader getDataloader() {
 		return this;
 	}
@@ -766,6 +857,22 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 	 * Membangun seluruh UI grid matakuliah kurikulum (toolbar aksi, kolom grid, filter aktif) di
 	 * dalam {@code component} untuk kombinasi kurikulum/semester/induk-matakuliah yang diberikan, lalu
 	 * memuat data awal secara asinkron lewat {@link Common#createDefaultTimer}.
+	 *
+	 * <p>
+	 * Seluruh pembangunan toolbar, kolom, dan pemuatan data pertama berlangsung di dalam
+	 * {@link Common#createDefaultTimer}, sehingga {@link #grid} baru tersedia setelah timer berjalan;
+	 * pemanggilan {@link #loadData(Object)} sebelum saat itu tidak akan menemukan grid.
+	 * </p>
+	 *
+	 * <p>
+	 * Toolbar beserta tombol-tombolnya hanya dikendalikan lewat visibilitas: {@code toolbar} sendiri
+	 * disembunyikan dari mahasiswa dan siswa, sedangkan "Ambil Matakuliah", "Generate Rencana
+	 * Pembelajaran", dan "Hapus Semua" tambahan disyaratkan hak {@link #add}/{@link #delete} dan
+	 * bukan dosen. Listener masing-masing tombol tidak memeriksa ulang hak tersebut. Tombol "Hapus
+	 * Semua" sendiri hanya menghapus {@link KurikulumPunyaMatakuliah} yang belum memiliki
+	 * {@link Perkuliahan} aktif — baris yang seluruh jadwalnya sudah dinonaktifkan tetap ikut
+	 * terhapus.
+	 * </p>
 	 *
 	 * @param kurikulum         kurikulum yang matakuliahnya ditampilkan
 	 * @param paketPerkuliahan  paket perkuliahan terkait (mengaktifkan tombol manajemen paket), boleh

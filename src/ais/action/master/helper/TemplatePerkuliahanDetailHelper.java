@@ -82,7 +82,9 @@ import ais.ui.util.MyWindow;
  */
 public class TemplatePerkuliahanDetailHelper {
 
+	/** {@code true} bila user yang login memiliki hak {@link CommonPrivilages#CREATE}; mengontrol visibilitas tombol Import/Eksport Jadwal Perkuliahan. */
 	private Boolean add = false;
+	/** {@code true} bila user yang login memiliki hak {@link CommonPrivilages#DELETE}; mengontrol visibilitas tombol Hapus Semua Jadwal. */
 	private Boolean delete = false;
 
 	/** Menentukan hak akses (buat/hapus) untuk tombol-tombol Import/Eksport/Hapus berdasarkan privilese user yang sedang login. */
@@ -160,6 +162,7 @@ public class TemplatePerkuliahanDetailHelper {
 
 			detail.addEventListener("onOpen", new EventListener() {
 
+				/** @return listener ini sendiri, dipanggil ulang oleh Import/Eksport/Hapus untuk merender ulang isi detail setelah aksinya selesai. */
 				private EventListener getThis() {
 					return this;
 				}

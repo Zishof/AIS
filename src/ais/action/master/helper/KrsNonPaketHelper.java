@@ -90,28 +90,46 @@ import ais.ui.util.MyWindow;
  */
 public class KrsNonPaketHelper implements DataLoader {
 
+	/** Grid berpaging berisi baris {@link Detailperkuliahan} (mata kuliah yang diambil), dirender oleh {@link DetailMahasiswaRenderer}. */
 	private MyGrid grid;
+	/** Grid berpaging berisi komentar dosen PA/mahasiswa untuk KRS yang sedang ditampilkan, dimuat {@link #loadDataKomentar()}. */
 	private MyGrid gridKomentar;
+	/** Panel informasi jam bentrok (langsung dan terhadap kelas paralel), diisi ulang setiap {@link #loadData(Object)}. */
 	private MyDiv jamBentrok = new MyDiv();
+	/** Mahasiswa pemilik KRS yang sedang ditampilkan/dikelola. */
 	private Mahasiswa mahasiswa;
+	/** Nomor semester KRS yang ditampilkan; {@code 0}/negatif menyembunyikan sebagian panel (toolbar). */
 	private Integer semester;
+	/** Dosen Pembimbing Akademik mahasiswa untuk KRS ini (dari {@link KrsMahasiswa#getDosenPa()}); {@code null} berarti belum ada dosen PA. */
 	private Dosen dosenPembimbingAkademik;
 
+	/** Daftar id {@link Detailperkuliahan} milik {@link #mahasiswa} pada semester/tahapan saat ini, sumber {@link #grid} dan {@link #loadStatus()}. */
 	private List<Long> detailperkuliahans;
 
+	/** Tombol "Ambil Matakuliah"; visibilitas/enable-nya bergantung status jendela KRS dan tahapan berjalan. */
 	private MyButtonConfig buttonPerkuliahan;
+	/** Label ringkasan status persetujuan seluruh baris KRS (belum/sebagian/sudah disetujui), diperbarui {@link #loadStatus()}. */
 	private Label statusPersetujuan;
 	// private Html keterangan;
+	/** Komponen {@link Html} tempat popup analisis KRS ({@link ais.ui.util.KrsMahasiswaAnalisisPopupHelper}) dipasang oleh {@link #loadStatus()}. */
 	private Html keteranganParent;
+	/** Label ringkasan jumlah SKS yang sudah diambil, diperbarui {@link #loadStatus()}. */
 	private Label jumlahKRS;
+	/** Label batas maksimum SKS yang boleh diambil berdasarkan IPK ({@link #pembatasanNilaiIPKUntukPengambilanKRS}). */
 	private Label jumlahMaxSks;
+	/** Aturan pembatasan SKS berdasarkan IPK yang berlaku untuk {@link #mahasiswa}/semester ini; {@code null} berarti pakai nilai default. */
 	private PembatasanNilaiIPKUntukPengambilanKRS pembatasanNilaiIPKUntukPengambilanKRS;
 
+	/** Konfigurasi jendela persetujuan KRS (aktif/tidak) untuk tahun ajaran/semester ini, sumber teks status "bisa mengambil KRS". */
 	private Konfigurasi konfigurasi;
+	/** Tahun akademik KRS yang sedang ditampilkan. */
 	private String tahunAjaran;
+	/** Penanda konteks Semester Pendek/Antara ({@code null} untuk reguler); diteruskan dari konstruktor, dapat diubah lewat {@link #setSemesterPendek}. */
 	private Integer semesterPendek = null;
+	/** Status pembayaran semester berjalan (dari {@link Common#checkStatusPembayaranMahasiswa}), menentukan visibilitas kolom jadwal grid dan tombol cetak tagihan. */
 	private boolean sudahBayar = false;
 
+	/** Nomor tahapan studi (bila fitur tahapan kurikulum aktif); {@code null} bila tidak dipakai. */
 	private Integer tahapan;
 
 	/** @param semesterPendek status semester pendek (SP) yang dilayani helper ini, atau {@code null} untuk KRS reguler */
@@ -122,12 +140,24 @@ public class KrsNonPaketHelper implements DataLoader {
 	/** Row renderer grid KRS: kode/nama/SKS matakuliah (dengan info konversi ekivalensi bila berbeda), dosen, jadwal, semester (menandai "Mengulang"/"Menabung" bila berbeda dari jadwal aslinya), kelas, status persetujuan, dan tombol hapus (hanya bila belum disetujui). */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** {@code true} untuk memaksa refresh cache ekivalensi mata kuliah saat merender tiap baris. */
 		private boolean refresh;
 
+		/** @param refresh diteruskan ke {@link Common#getMatakuliahApakahEkivalen} pada setiap baris yang dirender. */
 		public DetailMahasiswaRenderer(boolean refresh) {
 			this.refresh = refresh;
 		}
 
+		/**
+		 * Merender satu baris {@link Detailperkuliahan}: kode/nama/SKS mata kuliah (dengan info
+		 * ekivalensi bila berbeda dari matakuliah asli), dosen dan jadwal, semester (menandai
+		 * "Mengulang"/"Menabung" bila berbeda dari semester jadwal), kelas, status persetujuan, dan
+		 * tombol hapus (hanya tampil bila baris belum disetujui).
+		 *
+		 * @param row  baris grid target; disembunyikan ({@code setVisible(false)}) bila matakuliah
+		 *             ekivalennya tidak ditemukan
+		 * @param data id {@link Detailperkuliahan} (di-resolve lewat {@link GeneralValueObject#ambilData})
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 
@@ -801,6 +831,12 @@ public class KrsNonPaketHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Menghitung ulang ringkasan status dari {@link #detailperkuliahans}: total SKS ({@link #jumlahKRS}),
+	 * status persetujuan gabungan ({@link #statusPersetujuan} — belum/sebagian/sudah disetujui semua),
+	 * dan memasang popup analisis KRS ({@link ais.ui.util.KrsMahasiswaAnalisisPopupHelper}) pada
+	 * {@link #keteranganParent} berdasarkan {@link KrsMahasiswa} hasil sinkronisasi terbaru.
+	 */
 	private void loadStatus() {
 		boolean adaPersetujuan = false;
 		boolean adaBelumPersetujuan = false;
@@ -863,10 +899,12 @@ public class KrsNonPaketHelper implements DataLoader {
 
 	}
 
+	/** @return penanda konteks Semester Pendek/Antara saat ini ({@code null} berarti KRS reguler). */
 	public Integer getSemesterPendek() {
 		return semesterPendek;
 	}
 
+	/** @param semesterPendek penanda konteks Semester Pendek/Antara baru ({@code null} untuk reguler). */
 	public void setSemesterPendek(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}

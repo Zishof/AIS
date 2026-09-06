@@ -122,20 +122,109 @@ import ais.ui.util.MyWindow;
  */
 public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
+	/**
+	 * Grid utama berisi baris {@link MahasiswaDaftarPkl} hasil {@link #initCriteria(boolean)}.
+	 * Dibuat sekali di {@link #displayPrasyaratPkl}, lalu di-render ulang setiap
+	 * {@link #loadData(Object)} memakai {@link PendaftarPklRenderer}.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * PKL yang sedang dikelola. Menjadi filter wajib pada seluruh query kelas ini
+	 * ({@code Restrictions.eq("pkl", pkl)}) sekaligus penentu daftar {@link PersyaratanPkl} yang
+	 * dipakai sebagai kolom dinamis ekspor Excel.
+	 *
+	 * <p>
+	 * Objek ini diterima apa adanya dari pemanggil
+	 * ({@code ais.action.master.pkl.SeleksiPenerimaPklAction}); kelas ini <b>tidak</b> memeriksa
+	 * ulang kepemilikan/cakupan satuan kerja atas PKL tersebut — pembatasan cakupan sepenuhnya
+	 * menjadi tanggung jawab Action pemanggil.
+	 * </p>
+	 */
 	private Pkl pkl;
+
+	/**
+	 * Kotak isian kata kunci pencarian pendaftar. Nilainya dicocokkan sekaligus ke NIM
+	 * <b>atau</b> nama mahasiswa (LIKE {@code MatchMode.ANYWHERE}, case-insensitive) pada
+	 * {@link #initCriteria(boolean)}; kosong berarti tanpa penyaringan.
+	 */
 	private Textbox nim;
+
+	/** Combobox filter fakultas. Bila tidak ada pilihan aktif, kriteria hanya mensyaratkan {@code jurusan.fakultas} tidak null (mahasiswa tanpa fakultas ikut tersaring keluar). */
 	private Combobox fakultas;
+
+	/** Combobox filter jurusan/program studi. Bila tidak ada pilihan aktif, kriteria hanya mensyaratkan mahasiswa punya jurusan. */
 	private Combobox jurusan;
 
+	/** Kontrol paging 50 baris per halaman untuk {@link #grid}; halaman aktifnya dibaca ulang setiap {@link #loadData(Object)}. */
 	private Paging paging;
+
+	/**
+	 * Penanda apakah pengguna saat ini boleh mengubah status penerimaan langsung dari grid.
+	 * Diisi pemanggil dari hak {@code CommonPrivilages.APPROVE}.
+	 *
+	 * <p>
+	 * <b>Cakupan terbatas:</b> flag ini hanya menonaktifkan checkbox "Terima" pada
+	 * {@link PendaftarPklRenderer}. Tombol "Upload" (impor Excel) yang dipasang di
+	 * {@link #displayPrasyaratPkl} tetap tampil dan tetap menulis kolom {@code terima} tanpa
+	 * membaca flag ini, demikian pula tombol hapus per baris.
+	 * </p>
+	 */
 	private boolean approve;
+
+	/** Filter tahun angkatan mahasiswa; kosong ({@code null}) berarti semua angkatan. */
 	private Intbox angkatan;
+
+	/** Checkbox "Belum diterima": bila dicentang, kriteria dipersempit ke {@code terima = 0} ({@link MahasiswaDaftarPkl#BELUM_DIPROSES}) saja. Perubahan centangnya langsung memicu {@link #loadData(Object)}. */
 	private MyCheckboxConfig hanyaYgBelumDiterima;
 
-	/** Perender baris grid: identitas mahasiswa, SKS/SKSK dan IP/IPK (disinkronkan lewat {@link Common#singkronkanKrsMahasiswa} untuk semester yang dihitung dari {@link Pkl} terkait), skor seleksi, checkbox terima (aktif hanya bila {@link #approve} true), serta tombol cetak kartu/ubah/hapus. */
+	/**
+	 * Perender satu baris grid pendaftar PKL. Setiap baris mengisi sembilan kolom yang dipasang
+	 * {@link PendaftarPklHelper#displayPrasyaratPkl}: NIM, nama, jurusan, SKS/SKSK, IP/IPK, skor
+	 * seleksi, "Memenuhi Syarat", checkbox penerimaan, dan kelompok tombol cetak
+	 * kartu/ubah/hapus.
+	 *
+	 * <p>
+	 * Nilai SKS dan IP/IPK tidak diambil dari kolom tersimpan, melainkan dihitung ulang setiap
+	 * render lewat {@link Common#singkronkanKrsMahasiswa} untuk semester yang diturunkan dari
+	 * tahun akademik dan semester {@link Pkl} terkait — sehingga angkanya selalu mencerminkan KRS
+	 * terkini, bukan kondisi saat mahasiswa mendaftar.
+	 * </p>
+	 */
 	class PendaftarPklRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris pendaftar PKL ke dalam {@code row}.
+		 *
+		 * <p>
+		 * Beberapa perilaku yang perlu diperhatikan:
+		 * </p>
+		 * <ul>
+		 *   <li><b>Kolom "Memenuhi Syarat" selalu kosong.</b> Label untuk kolom ketujuh dibuat dan
+		 *   dipasang ke baris, tetapi nilainya tidak pernah diisi. Bandingkan dengan kembarannya
+		 *   {@code PendaftarKknHelper.PendaftarKknRenderer} yang pada titik yang sama memanggil
+		 *   {@code setValue(mahasiswaDaftarKkn.getMemenuhiSyarat() ? "Ya" : "Tidak")}. Kolom
+		 *   tersimpan {@link MahasiswaDaftarPkl#getMemenuhiSyarat()} tetap terisi oleh
+		 *   {@code ais.action.master.pkl.PklUntukMahasiswaAction#daftar}, hanya saja tidak
+		 *   ditampilkan di layar seleksi ini.</li>
+		 *   <li><b>Penghitungan semester berbiaya.</b> Semester akademik mahasiswa dihitung dari
+		 *   tahun angkatan, semester/tahun akademik PKL, dan riwayat pindah kampus, lalu dipakai
+		 *   memanggil {@link Common#singkronkanKrsMahasiswa} — pemanggilan ini dapat menulis ke
+		 *   basis data (sinkronisasi KRS), jadi render grid tidak sepenuhnya bebas efek
+		 *   samping.</li>
+		 *   <li><b>Checkbox "Terima"</b> langsung menyimpan perubahan ke basis data pada tiap klik
+		 *   ({@link Common#refreshUpdate}) tanpa dialog konfirmasi maupun jejak audit; ia hanya
+		 *   dinonaktifkan (bukan disembunyikan) bila {@link PendaftarPklHelper#approve} bernilai
+		 *   {@code false}.</li>
+		 *   <li><b>Tombol hapus</b> menghapus baris pendaftaran secara permanen tanpa memeriksa
+		 *   {@link PendaftarPklHelper#approve}; kegagalan karena relasi ditangani dengan pesan
+		 *   kesalahan, bukan pencegahan.</li>
+		 * </ul>
+		 *
+		 * @param row  baris ZK tujuan; sel ditambahkan berurutan sebagai anak {@code row}
+		 * @param data elemen model, harus berupa {@link MahasiswaDaftarPkl}
+		 * @throws Exception bila render sel atau pemanggilan sinkronisasi KRS gagal
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final MahasiswaDaftarPkl mahasiswaDaftarPkl = (MahasiswaDaftarPkl) data;
@@ -255,7 +344,33 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 	}
 
-	/** Membangun {@link Criteria} {@link MahasiswaDaftarPkl} untuk {@link #pkl} yang sedang ditampilkan, disaring opsional hanya yang belum diterima, NIM/nama, fakultas, jurusan, dan angkatan. */
+	/**
+	 * Membangun kriteria Hibernate {@link MahasiswaDaftarPkl} untuk PKL yang sedang ditampilkan,
+	 * memfilter sesuai status penerimaan, angkatan, NIM/nama, dan jurusan/fakultas yang dipilih
+	 * pada toolbar.
+	 *
+	 * <p>
+	 * Struktur kriteria: kriteria akar dibatasi {@code pkl = }{@link #pkl} dan (opsional)
+	 * {@code terima = 0}, lalu berpindah ke sub-kriteria {@code mahasiswa} tempat filter
+	 * angkatan/NIM/nama/jurusan dipasang, dan terakhir membuka sub-kriteria {@code jurusan}
+	 * secara {@code LEFT_JOIN} untuk filter fakultas. Karena {@code addOrder} dipanggil setelah
+	 * berpindah ke sub-kriteria {@code mahasiswa}, pengurutan berlaku atas kolom mahasiswa
+	 * ({@code tahunangkatan}, {@code nim}), bukan kolom pendaftaran.
+	 *
+	 * <p>
+	 * Cabang "tanpa filter" diwujudkan dengan {@code Restrictions.sqlRestriction("true")} —
+	 * predikat yang selalu benar — sehingga rantai {@code add(...)} tetap seragam. Perlu dicatat
+	 * bahwa cabang default filter jurusan/fakultas bukan "tanpa syarat" melainkan
+	 * {@code isNotNull}: mahasiswa yang belum punya jurusan (atau jurusannya belum punya
+	 * fakultas) tidak akan pernah muncul di grid ini meski baris pendaftarannya ada.
+	 *
+	 * <p>
+	 * Kriteria ini <b>tidak</b> menambahkan pembatasan cakupan satuan kerja/tenant apa pun di
+	 * luar penyaringan per-{@link #pkl}; lihat catatan pada field {@link #pkl}.
+	 *
+	 * @param order bila {@code true}, menambahkan pengurutan tahun angkatan menurun lalu NIM menaik
+	 * @return kriteria siap dieksekusi (belum dibatasi jumlah baris)
+	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
 		Criteria criteria = session.createCriteria(MahasiswaDaftarPkl.class).add(Restrictions.eq("pkl", pkl))
@@ -285,7 +400,21 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
-	/** Memuat ulang paging dan grid berdasarkan {@link #initCriteria} dengan filter aktif saat ini. Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai. */
+	/**
+	 * Memuat ulang halaman aktif grid pendaftar: menghitung ulang total baris untuk
+	 * {@link #paging}, mengambil maksimum {@code Common.ROWS_COUNT_ON_PAGE_50} baris pada offset
+	 * halaman aktif, lalu memasang model beserta {@link PendaftarPklRenderer} yang baru.
+	 *
+	 * <p>
+	 * Implementasi kontrak {@link DataLoader#loadData(Object)} sehingga instance ini dapat
+	 * diserahkan sebagai callback penyegaran kepada {@link AmbilDataMahasiswaSeleksiPklHelper}
+	 * (lihat {@link #getDataloader()}). {@link #initCriteria(boolean)} sengaja dipanggil dua kali
+	 * — sekali untuk pencacahan tanpa pengurutan, sekali untuk pengambilan data dengan pengurutan
+	 * — karena satu objek {@link Criteria} tidak dapat dipakai ulang setelah diberi proyeksi
+	 * pencacahan.
+	 *
+	 * @param value tidak dipakai; ada hanya untuk memenuhi tanda tangan {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -300,7 +429,17 @@ public class PendaftarPklHelper implements DataLoader, DataCriteria {
 
 	}
 
-	/** @return diri sendiri sebagai {@link DataLoader}, dipakai untuk menyegarkan grid ini dari helper picker ({@link AmbilDataMahasiswaSeleksiPklHelper}) setelah penambahan pendaftar. */
+	/**
+	 * Menyediakan instance ini sebagai {@link DataLoader} untuk diserahkan ke dialog pemilihan
+	 * mahasiswa ({@link AmbilDataMahasiswaSeleksiPklHelper}), agar dialog tersebut dapat memicu
+	 * {@link #loadData(Object)} dan menyegarkan grid setelah pendaftar baru ditambahkan.
+	 *
+	 * <p>
+	 * Method pembungkus ini diperlukan karena {@code this} di dalam kelas anonim
+	 * {@code EventListener} merujuk ke listener, bukan ke helper.
+	 *
+	 * @return objek helper ini sendiri
+	 */
 	private DataLoader getDataloader() {
 		return this;
 	}

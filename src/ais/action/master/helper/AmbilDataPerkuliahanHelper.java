@@ -547,6 +547,40 @@ public class AmbilDataPerkuliahanHelper {
 
 	}
 
+	/**
+	 * Menyegarkan status seluruh baris grid setelah pemakai mencentang atau melepas satu matakuliah:
+	 * memperbarui total SKS, mengaktifkan/menonaktifkan tombol Simpan, serta menghitung ulang label
+	 * ketersediaan ("Tersedia"/"Penuh"/riwayat) dan status enabled setiap checkbox lain.
+	 *
+	 * <p><b>Penegakan batas SKS.</b> Bila {@link #apakahMelebihiKetentuan()} bernilai {@code true}, checkbox
+	 * yang baru saja diklik LANGSUNG dilepas kembali ({@code setChecked(false)}) dan tombol Simpan
+	 * dinonaktifkan — jadi pemakai tidak pernah bisa membiarkan pilihan melebihi batas IPK; batas yang sama
+	 * diperiksa ulang di awal {@link #save()} sebagai jaring pengaman.</p>
+	 *
+	 * <p><b>Aturan penonaktifan checkbox lain.</b> Untuk setiap baris yang bukan baris pemicu dan belum
+	 * tercentang, dihitung penanda {@code jmlMk}: bernilai 1 (checkbox dinonaktifkan) bila matakuliahnya sudah
+	 * terwakili oleh salah satu pilihan pada {@link #hashMap}, atau sudah pernah diambil menurut
+	 * {@link #matakuliahTelahDiambil}/{@link #perkuliahanTelahDiambil}. Perkuliahan remedial
+	 * dikecualikan — {@code jmlMk} dipaksa 0 — sehingga kelas remedial selalu boleh dipilih walau
+	 * matakuliahnya pernah diambil. Efeknya: mahasiswa tidak dapat mengambil dua kelas untuk matakuliah yang
+	 * sama dalam satu KRS.</p>
+	 *
+	 * <p><b>Kapasitas.</b> Kapasitas pembanding diambil dari {@code getKapasitasKelas()}, tetapi DIGANTI oleh
+	 * kuota {@link PembagianKuotaPerkuliahanBerdasarkantahunAngkatan} bila ada aturan kuota untuk tahun
+	 * angkatan mahasiswa ini — sehingga satu kelas dapat tampak penuh bagi satu angkatan namun masih tersedia
+	 * bagi angkatan lain. Label diberi warna hijau (sudah/pernah diambil), biru (tersedia), atau merah
+	 * (penuh). Kegagalan memperbarui label satu baris ditelan dan dicatat sebagai audit agar tidak
+	 * menghentikan penyegaran baris lain.</p>
+	 *
+	 * <p><b>Catatan:</b> label "Penuh" hanya membatasi tampilan; penegakan kapasitas yang sebenarnya terjadi
+	 * saat commit di {@link #save()}, yang memeriksa ulang jumlah peserta dan melewati matakuliah yang sudah
+	 * penuh.</p>
+	 *
+	 * @param checkbox checkbox yang baru saja diklik pemakai, atau {@code null} bila penyegaran dipicu bukan
+	 *                 oleh klik (mis. pemuatan ulang grid) — pada mode {@code null} pemeriksaan batas SKS
+	 *                 pelepasan-paksa dilewati
+	 * @throws Exception diteruskan dari pemeriksaan batas SKS atau akses Hibernate
+	 */
 	@SuppressWarnings({ "unchecked" })
 	private void updateStatus(Checkbox checkbox) throws Exception {
 		if (checkbox != null) {
@@ -630,6 +664,17 @@ public class AmbilDataPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Menyusun keterangan singkat bahwa sebuah perkuliahan sudah terpilih pada KRS yang SEDANG diisi (bukan
+	 * riwayat KRS lampau), mis. {@code "Terpilih pada KRS semester 3, TA 2025/2026"}. Semester dan tahun
+	 * ajaran hanya disertakan bila tersedia.
+	 *
+	 * @param perkuliahan perkuliahan yang keterangannya disusun; saat ini tidak ikut memengaruhi hasil karena
+	 *                    keterangan dibentuk dari konteks KRS ({@link #semester} dan {@link #tahunAjaran}),
+	 *                    parameter dipertahankan agar bentuknya seragam dengan
+	 *                    {@link #buatInfoRiwayat(Detailperkuliahan)}
+	 * @return kalimat keterangan siap tampil, tidak pernah {@code null}
+	 */
 	private String buatInfoKrsAktif(Perkuliahan perkuliahan) {
 		String info = "Terpilih pada KRS";
 		if (semester != null) {
@@ -641,6 +686,18 @@ public class AmbilDataPerkuliahanHelper {
 		return info;
 	}
 
+	/**
+	 * Mengambil keterangan riwayat pengambilan untuk satu perkuliahan dengan pencarian berjenjang: dicoba
+	 * lebih dulu riwayat yang spesifik untuk kelas ini ({@link #riwayatPerkuliahan}), dan bila tidak ada
+	 * barulah dipakai riwayat pada tingkat matakuliah ({@link #riwayatMatakuliah}).
+	 *
+	 * <p>Urutan ini membuat keterangan seakurat mungkin: bila mahasiswa pernah mengambil kelas yang persis
+	 * sama, itulah yang ditampilkan; bila ia pernah mengambil matakuliah yang sama di kelas lain, keterangan
+	 * tingkat matakuliah tetap muncul sebagai peringatan.</p>
+	 *
+	 * @param perkuliahan perkuliahan yang riwayatnya dicari, boleh {@code null}
+	 * @return keterangan riwayat, atau {@code null} bila perkuliahan {@code null} atau tidak ada riwayat
+	 */
 	private String ambilInfoRiwayat(Perkuliahan perkuliahan) {
 		if (perkuliahan == null) {
 			return null;
@@ -652,6 +709,18 @@ public class AmbilDataPerkuliahanHelper {
 		return info;
 	}
 
+	/**
+	 * Menyusun keterangan riwayat dari satu baris KRS lampau, mis.
+	 * {@code "Sudah diambil pada semester 2, TA 2024/2025 (semester pendek)"}.
+	 *
+	 * <p>Tahun akademik diambil dari kolom {@link Detailperkuliahan} itu sendiri; bila kosong, dipakai tahun
+	 * ajaran {@link Perkuliahan} yang ditunjuknya sebagai cadangan — perlu karena baris KRS lama tidak selalu
+	 * menyimpan tahun akademik secara langsung. Penanda "(semester pendek)" ditambahkan bila perkuliahan
+	 * tersebut berstatus semester pendek, agar mahasiswa dapat membedakan pengambilan reguler dari SP.</p>
+	 *
+	 * @param detailperkuliahan baris KRS lampau yang akan diringkas
+	 * @return kalimat keterangan riwayat siap tampil
+	 */
 	private String buatInfoRiwayat(Detailperkuliahan detailperkuliahan) {
 		String info = "Sudah diambil";
 		Integer semesterRiwayat = detailperkuliahan.getSemester();
@@ -673,6 +742,21 @@ public class AmbilDataPerkuliahanHelper {
 		return info;
 	}
 
+	/**
+	 * Menyimpan satu keterangan riwayat ke peta {@link #riwayatMatakuliah}/{@link #riwayatPerkuliahan} dengan
+	 * penggabungan, bukan penimpaan: bila kunci tersebut sudah punya keterangan, keterangan baru DISAMBUNG
+	 * memakai pemisah {@code "; "} sehingga mahasiswa yang mengambil satu matakuliah beberapa kali melihat
+	 * seluruh riwayatnya, bukan hanya yang terakhir diproses.
+	 *
+	 * <p>Masukan {@code null}/kosong diabaikan, dan keterangan yang sudah termuat dalam teks lama tidak
+	 * ditambahkan lagi sehingga tidak terjadi pengulangan. Perhatikan bahwa pengecekan duplikat memakai
+	 * {@code indexOf} atas seluruh teks gabungan, jadi keterangan yang kebetulan merupakan penggalan dari
+	 * keterangan lain juga dianggap sudah ada.</p>
+	 *
+	 * @param riwayat peta tujuan penyimpanan
+	 * @param id      kunci peta (id matakuliah atau id perkuliahan); diabaikan bila {@code null}
+	 * @param info    keterangan yang akan disimpan; diabaikan bila {@code null} atau kosong
+	 */
 	private void simpanInfoRiwayat(Map<Long, String> riwayat, Long id, String info) {
 		if (id == null || info == null || info.trim().equals("")) {
 			return;
@@ -685,6 +769,17 @@ public class AmbilDataPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Menghitung total SKS dari seluruh perkuliahan yang sedang tercentang pada {@link #hashMap} lewat
+	 * {@code KrsUtilHelper.hitungSksYangTelahDiambil}, sekaligus memperbarui label {@link #sksYangdiambil}
+	 * bila label tersebut sudah dibangun.
+	 *
+	 * <p>Perhitungan didelegasikan ke {@code KrsUtilHelper} karena aturannya bergantung pada tahapan KRS,
+	 * semester, dan status semester pendek — bukan sekadar penjumlahan SKS matakuliah. Method ini punya efek
+	 * samping pada UI, jadi jangan dipakai sekadar untuk "mengintip" nilai bila label tidak ingin berubah.</p>
+	 *
+	 * @return total SKS yang sedang tercentang
+	 */
 	@SuppressWarnings({})
 	private Integer hitungSksYangTelahDiambil() {
 
@@ -696,6 +791,20 @@ public class AmbilDataPerkuliahanHelper {
 		return jumlah;
 	}
 
+	/**
+	 * Memeriksa apakah total SKS yang sedang tercentang sudah melampaui batas maksimum yang boleh diambil
+	 * mahasiswa ini, sesuai aturan pembatasan SKS berdasarkan IPK
+	 * ({@link Common#checkPembatasanSKSBerdasarkanIP}) dengan memperhitungkan semester dan status semester
+	 * pendek.
+	 *
+	 * <p>Dipakai di dua tempat: oleh {@link #updateStatus(Checkbox)} untuk melepas paksa centang yang
+	 * melampaui batas, dan di awal {@link #save()} sebagai jaring pengaman sebelum apa pun ditulis ke
+	 * database. Perhatikan bahwa method ini memanggil {@link #hitungSksYangTelahDiambil()} sehingga IKUT
+	 * memperbarui label total SKS di layar.</p>
+	 *
+	 * @return {@code true} bila total SKS tercentang melebihi ketentuan
+	 * @throws Exception diteruskan dari pembacaan IPK/aturan pembatasan SKS
+	 */
 	@SuppressWarnings({})
 	private boolean apakahMelebihiKetentuan() throws Exception {
 		return Common.checkPembatasanSKSBerdasarkanIP(mahasiswa, AmbilDataPerkuliahanHelper.this.semester,
