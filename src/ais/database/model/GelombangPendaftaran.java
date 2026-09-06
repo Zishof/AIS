@@ -234,10 +234,26 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return hasil;
 	}
 
+	/**
+	 * Mengembalikan rantai jejak pemanggil yang diisi otomatis interceptor audit saat baris disimpan.
+	 *
+	 * @return rantai jejak audit, atau {@code null}
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel rantai jejak pemanggil.
+	 *
+	 * <p>
+	 * Setter <b>tolak-diam</b>: nilai {@code null} atau kosong diabaikan tanpa peringatan, sehingga
+	 * jejak audit yang sudah tercatat tidak dapat terhapus oleh penyimpanan yang berjalan tanpa
+	 * konteks pengguna.
+	 * </p>
+	 *
+	 * @param olehId rantai jejak audit; {@code null}/kosong diabaikan
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -245,6 +261,12 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Menyetel identitas pelaku penyimpanan. Sama seperti {@link #setOlehId(String)}, nilai
+	 * {@code null}/kosong diabaikan tanpa peringatan.
+	 *
+	 * @param oleh identitas pelaku; {@code null}/kosong diabaikan
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -252,10 +274,24 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan identitas pelaku terakhir yang menyimpan baris gelombang.
+	 *
+	 * @return identitas pelaku, atau {@code null}
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * <i>Callback</i> JPA yang dijalankan sebelum setiap UPDATE, meneruskan entitas ke interceptor
+	 * audit agar stempel waktu dan jejak pelaku diperbarui.
+	 *
+	 * <p>
+	 * Perlu diingat bahwa banyak getter di kelas ini menulis nilai bawaan ke field saat dibaca (lihat
+	 * javadoc kelas), sehingga <i>callback</i> ini dapat terpicu oleh pembacaan yang tampak pasif.
+	 * </p>
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
@@ -263,15 +299,43 @@ public class GelombangPendaftaran extends GeneralValueObject {
 
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel stempel waktu perubahan terakhir; umumnya diurus otomatis oleh {@link #onUpdate()}.
+	 *
+	 * @param tanggal_dirubah stempel waktu baru
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu terakhir baris gelombang disimpan.
+	 *
+	 * @return stempel waktu perubahan terakhir; terisi waktu server saat objek dibuat
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks gelombang yang dirakit agar dapat dibedakan sekilas pada daftar pilihan.
+	 *
+	 * <p>
+	 * Bentuknya menggabungkan, bila tersedia: id, nama, tahun akademik, tanggal mulai, dan tanggal
+	 * selesai — masing-masing dipisah tanda hubung. Perakitan bertingkat ini disengaja karena satu
+	 * perguruan tinggi lazim memiliki banyak gelombang bernama serupa ("Gelombang 1") yang hanya
+	 * dibedakan oleh tahun akademik dan periodenya.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa tanggal dibaca dari <b>field</b>, sedangkan nama dan tahun akademik dibaca
+	 * lewat getter. Selama getter yang bersangkutan tidak memberi nilai bawaan, perbedaan ini tidak
+	 * berdampak.
+	 * </p>
+	 *
+	 * @return ringkasan teks gelombang; tidak pernah {@code null}
+	 */
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		if (id != null) {
@@ -290,6 +354,40 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return sb.toString();
 	}
 
+	/**
+	 * Memastikan gelombang ini memiliki <b>sekurang-kurangnya satu ujian dan satu ruang</b>, dengan
+	 * membuatkan yang berjenis daring bila belum ada.
+	 *
+	 * <h4>Apa yang dilakukan</h4>
+	 * <p>
+	 * Method mencari satu {@link UjianPMB} milik gelombang ini. Bila tidak ada, ia membuatkan ujian
+	 * daring baru berlokasi bebas dan langsung menyimpannya. Selanjutnya ia mencari satu
+	 * {@link RuangPMB} yang bernaung di bawah ujian gelombang ini; bila tidak ada, dibuatkan ruang
+	 * daring berkapasitas besar.
+	 * </p>
+	 *
+	 * <h4>Mengapa ini diperlukan</h4>
+	 * <p>
+	 * Alur penempatan peserta ujian mensyaratkan adanya ujian dan ruang; tanpa keduanya, calon yang
+	 * mendaftar tidak dapat ditempatkan dan proses berhenti. Method ini adalah penyembuh otomatis
+	 * untuk gelombang yang dikonfigurasi tanpa ujian tatap muka — kapasitas besar pada ruang daring
+	 * secara efektif meniadakan pembatasan kuota.
+	 * </p>
+	 *
+	 * <h4>Yang perlu diwaspadai</h4>
+	 * <ul>
+	 * <li><b>Method ini menulis ke basis data</b> meski namanya berawalan "cek" (dengan ejaan yang
+	 * keliru pula). Jangan memanggilnya dari jalur baca-saja, laporan, atau perulangan render.</li>
+	 *
+	 * <li><b>Memakai sesi Hibernate yang sedang berjalan</b> dan memanggil pembilasan langsung,
+	 * sehingga perubahannya ikut dalam transaksi pemanggil. Bila transaksi itu dibatalkan, ujian dan
+	 * ruang yang baru dibuat ikut hilang.</li>
+	 *
+	 * <li><b>Tidak ada penjagaan terhadap pemanggilan bersamaan.</b> Dua permintaan yang berjalan
+	 * serentak untuk gelombang yang sama dapat sama-sama mendapati "belum ada" lalu membuat dua ujian
+	 * daring kembar.</li>
+	 * </ul>
+	 */
 	public void chekKuotaPendaftar() {
 		Session session = HibernateUtil.currentSession();
 
@@ -332,6 +430,18 @@ public class GelombangPendaftaran extends GeneralValueObject {
 	 */
 	private String kode;
 
+	/**
+	 * Mengembalikan kode singkat gelombang, dinormalkan menjadi string kosong bila belum diisi dan
+	 * dipangkas spasi tepinya.
+	 *
+	 * <p>
+	 * Getter ini <b>menulis ke field</b> ketika kolomnya kosong — instansi ringan dari pola yang
+	 * dibahas pada javadoc kelas. Karena hasilnya tidak pernah {@code null}, pemanggil tidak dapat
+	 * membedakan "belum pernah diisi" dari "diisi string kosong".
+	 * </p>
+	 *
+	 * @return kode gelombang; tidak pernah {@code null}
+	 */
 	public String getKode() {
 		if (kode == null) {
 			kode = "";
@@ -339,10 +449,47 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return kode.trim();
 	}
 
+	/**
+	 * Menyetel kode singkat gelombang.
+	 *
+	 * @param kode kode gelombang; boleh {@code null}
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Mengurutkan gelombang <b>menurun berdasarkan tahun</b>, lalu menaik berdasarkan nama.
+	 *
+	 * <h4>Cara pengurutan dicapai</h4>
+	 * <p>
+	 * Alih-alih membandingkan tahun dan nama secara terpisah, method merakit satu kunci teks
+	 * berbentuk {@code (9999 - tahun) + "_" + nama} untuk kedua objek lalu membandingkan kuncinya.
+	 * Pengurangan dari 9999 itulah yang membalik arah tahun: gelombang paling baru memperoleh angka
+	 * terkecil sehingga muncul lebih dulu — perilaku yang diinginkan pada daftar pilihan, karena
+	 * gelombang yang sedang berjalan hampir selalu yang dicari.
+	 * </p>
+	 *
+	 * <h4>Batasan yang melekat</h4>
+	 * <ul>
+	 * <li><b>Perbandingan bersifat leksikografis, bukan numerik.</b> Selama tahun berada pada rentang
+	 * empat digit, hasil pengurangan juga empat digit dan urutannya benar. Di luar itu — tahun bernilai
+	 * lebih besar dari 9999 atau kurang dari 1000 — panjang kunci berubah dan urutannya menjadi kacau.
+	 * Untuk data yang wajar hal ini tidak pernah terjadi.</li>
+	 *
+	 * <li><b>Tahun {@code null} menimbulkan galat yang ditelan.</b> {@link #getTahun()} dapat
+	 * mengembalikan {@code null} bila tahun akademik belum diisi atau formatnya menyimpang;
+	 * pengurangan terhadapnya melempar galat yang ditangkap dan dicatat, lalu method mengembalikan
+	 * nilai "sama" untuk kedua objek. Akibatnya <b>gelombang tanpa tahun akademik akan berkumpul
+	 * dalam urutan yang tidak dapat diramalkan</b>, bukan tersaring ke ujung daftar.</li>
+	 *
+	 * <li>Objek yang bukan gelombang juga dianggap "sama", sehingga pengurutan campuran tidak stabil.</li>
+	 * </ul>
+	 *
+	 * @param arg0 objek pembanding
+	 * @return bilangan negatif, nol, atau positif sesuai urutan; nol bila pembanding bukan gelombang
+	 *         atau tahun tidak dapat ditentukan
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		try {
@@ -599,12 +746,36 @@ public class GelombangPendaftaran extends GeneralValueObject {
 
 	private Set<VerifikasiKelengkapanCalonMahasiswa> verifikasiKelengkapanCalonMahasiswas = new HashSet<VerifikasiKelengkapanCalonMahasiswa>();
 
+	/**
+	 * Mengembalikan jenis-jenis verifikasi kelengkapan berkas yang berlaku pada gelombang ini.
+	 *
+	 * <p>
+	 * Relasi banyak-ke-banyak lewat tabel penghubung tersendiri. Koleksi inilah yang menentukan
+	 * <i>berkas apa saja</i> yang harus diperiksa; sedangkan <i>kapan</i> pemeriksaan itu menjadi
+	 * syarat ditentukan oleh tiga gerbang terpisah:
+	 * {@link #getDokumenHarusDiverivikasiSebelumBisaSimpan()},
+	 * {@link #getDokumenHarusDiverivikasiSebelumBisaCetakKartuUjian()}, dan
+	 * {@link #getDokumenHarusDiverivikasiSebelumBisaIkutUjian()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Perhatikan bahwa relasi ini hanya membawa {@code CascadeType.MERGE} — menyimpan gelombang
+	 * <b>tidak</b> menyimpan jenis verifikasi yang belum pernah tersimpan.
+	 * </p>
+	 *
+	 * @return himpunan jenis verifikasi; tidak pernah {@code null}, tetapi boleh kosong
+	 */
 	@ManyToMany(targetEntity = VerifikasiKelengkapanCalonMahasiswa.class, cascade = { CascadeType.MERGE })
 	@JoinTable(name = "gelombang_punya_verifikasi", joinColumns = @JoinColumn(name = "gelombang"), inverseJoinColumns = @JoinColumn(name = "verifikasi"))
 	public Set<VerifikasiKelengkapanCalonMahasiswa> getVerifikasiKelengkapanCalonMahasiswas() {
 		return verifikasiKelengkapanCalonMahasiswas;
 	}
 
+	/**
+	 * Menyetel jenis-jenis verifikasi kelengkapan berkas yang berlaku pada gelombang ini.
+	 *
+	 * @param verifikasiKelengkapanCalonMahasiswas himpunan jenis verifikasi
+	 */
 	public void setVerifikasiKelengkapanCalonMahasiswas(
 			Set<VerifikasiKelengkapanCalonMahasiswa> verifikasiKelengkapanCalonMahasiswas) {
 		this.verifikasiKelengkapanCalonMahasiswas = verifikasiKelengkapanCalonMahasiswas;
@@ -622,19 +793,55 @@ public class GelombangPendaftaran extends GeneralValueObject {
 
 	@ManyToMany(targetEntity = KelompokParameterTambahanCalonMahasiswa.class, cascade = {
 			CascadeType.MERGE }, fetch = FetchType.EAGER)
+	/**
+	 * Mengembalikan kelompok parameter tambahan (pertanyaan isian dinamis) yang ditampilkan pada
+	 * formulir pendaftaran gelombang ini.
+	 *
+	 * <p>
+	 * Relasi banyak-ke-banyak yang dipetakan <b>{@code FetchType.EAGER}</b> — berbeda dari relasi
+	 * lain di kelas ini. Artinya setiap kali sebuah gelombang dimuat, seluruh kelompok parameternya
+	 * ikut termuat, bahkan ketika pemanggil hanya memerlukan nama gelombang. Pada layar yang memuat
+	 * daftar panjang gelombang, biaya ini terasa; itulah harga yang dibayar agar formulir pendaftaran
+	 * dapat dirender dari konteks yang tidak lagi memiliki sesi Hibernate terbuka.
+	 * </p>
+	 *
+	 * @return himpunan kelompok parameter tambahan; tidak pernah {@code null}, tetapi boleh kosong
+	 */
 	@JoinTable(name = "gelombang_kelompok_parameter", joinColumns = @JoinColumn(name = "gelombang"), inverseJoinColumns = @JoinColumn(name = "kelompok_parameter_tambahan_calon_mahasiswa"))
 	public Set<KelompokParameterTambahanCalonMahasiswa> getKelompokParameterTambahanCalonMahasiswas() {
 		return kelompokParameterTambahanCalonMahasiswas;
 	}
 
+	/**
+	 * Menyetel kelompok parameter tambahan yang ditampilkan pada formulir pendaftaran.
+	 *
+	 * @param kelompokParameterTambahanCalonMahasiswas himpunan kelompok parameter tambahan
+	 */
 	public void setKelompokParameterTambahanCalonMahasiswas(
 			Set<KelompokParameterTambahanCalonMahasiswa> kelompokParameterTambahanCalonMahasiswas) {
 		this.kelompokParameterTambahanCalonMahasiswas = kelompokParameterTambahanCalonMahasiswas;
 	}
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate.
+	 *
+	 * <p>
+	 * Perhatikan bahwa gelombang yang baru dibentuk lewat konstruktor ini sudah <b>terbuka secara
+	 * bawaan</b>: {@link #getAktif()} dan {@link #getBisaDipilihPendaftarOnline()} keduanya
+	 * mengembalikan benar untuk kolom yang belum diisi. Yang menutupnya hanyalah ketiadaan rentang
+	 * tanggal, karena {@link #alasanTidakBolehMendaftar(PerguruanTinggi)} menolak gelombang tanpa
+	 * tanggal mulai dan selesai.
+	 * </p>
+	 */
 	public GelombangPendaftaran() {
 	}
 
+	/**
+	 * Mengembalikan primary key gelombang. Nilainya dihasilkan basis data; kolom dipetakan
+	 * {@code insertable = false} sehingga penyetelan manual tidak berpengaruh saat penyisipan.
+	 *
+	 * @return id gelombang; {@code null} selama belum tersimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -642,54 +849,153 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key gelombang. Relevan bagi Hibernate saat memuat baris dari basis data.
+	 *
+	 * @param id nilai primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan nama gelombang dengan spasi tepi dipangkas.
+	 *
+	 * <p>
+	 * Kolom wajib terisi dan dibatasi 255 karakter. Nama saja jarang cukup untuk membedakan gelombang
+	 * — lihat {@link #toString()} yang sengaja merangkainya dengan tahun akademik dan periode.
+	 * </p>
+	 *
+	 * @return nama gelombang, atau {@code null} bila belum diisi
+	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Menyetel nama gelombang. Kolom bersifat wajib pada tingkat basis data.
+	 *
+	 * @param nama nama gelombang
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan keterangan bebas tentang gelombang, apa adanya tanpa pemangkasan.
+	 *
+	 * <p>
+	 * Bedakan dari {@link #getInfo()} yang ditujukan untuk dibaca calon mahasiswa; keterangan ini
+	 * bersifat administratif internal.
+	 * </p>
+	 *
+	 * @return keterangan gelombang; boleh {@code null}
+	 */
 	@Column(name = "keterangan", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Menyetel keterangan administratif gelombang.
+	 *
+	 * @param keterangan keterangan bebas; boleh {@code null}
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan tanggal pembukaan pendaftaran (presisi tanggal, tanpa jam).
+	 *
+	 * <p>
+	 * Bersama {@link #getSampai()} membentuk masa pendaftaran yang ditegakkan
+	 * {@link #alasanTidakBolehMendaftar(PerguruanTinggi)}. Karena presisinya tanggal, gelombang
+	 * terbuka sejak awal hari yang bersangkutan.
+	 * </p>
+	 *
+	 * @return tanggal pembukaan; {@code null} berarti gelombang belum memiliki periode dan karenanya
+	 *         tidak dapat didaftari
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getMulai() {
 		return mulai;
 	}
 
+	/**
+	 * Menyetel tanggal pembukaan pendaftaran.
+	 *
+	 * @param mulai tanggal pembukaan; boleh {@code null}
+	 */
 	public void setMulai(Date mulai) {
 		this.mulai = mulai;
 	}
 
+	/**
+	 * Mengembalikan tanggal penutupan pendaftaran (presisi tanggal, tanpa jam).
+	 *
+	 * <p>
+	 * Pemeriksaan kelayakan memperlakukan tanggal ini secara <b>inklusif sampai akhir hari</b>,
+	 * sehingga pendaftaran pada hari terakhir tetap diterima sampai tengah malam. Penyeragaman
+	 * semantik itu penting karena berbagai jalur di masa lalu menafsirkannya berbeda-beda.
+	 * </p>
+	 *
+	 * @return tanggal penutupan; {@code null} berarti gelombang tidak dapat didaftari
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getSampai() {
 		return sampai;
 	}
 
+	/**
+	 * Menyetel tanggal penutupan pendaftaran. Lihat catatan semantik inklusif pada
+	 * {@link #getSampai()}.
+	 *
+	 * @param sampai tanggal penutupan; boleh {@code null}
+	 */
 	public void setSampai(Date sampai) {
 		this.sampai = sampai;
 	}
 
+	/**
+	 * Mengembalikan tahun akademik gelombang, lazimnya berbentuk {@code "2026/2027"}.
+	 *
+	 * <p>
+	 * Format itu adalah kontrak tak tertulis: {@link #getTahun()} mengurainya dengan memotong pada
+	 * garis miring dan mengambil bagian pertama. Menyimpan nilai berformat lain tidak menimbulkan
+	 * galat, hanya membuat penguraian tahun gagal diam-diam — yang pada gilirannya membuat
+	 * {@link #compareTo(GeneralValueObject)} tidak dapat mengurutkan gelombang tersebut.
+	 * </p>
+	 *
+	 * @return tahun akademik; boleh {@code null}
+	 */
 	public String getTahunAkademik() {
 		return tahunAkademik;
 	}
 
+	/**
+	 * Menyetel tahun akademik gelombang. Pertahankan format berpemisah garis miring agar
+	 * {@link #getTahun()} tetap dapat mengurainya.
+	 *
+	 * @param tahunAkademik tahun akademik; boleh {@code null}
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Mengembalikan jalur seleksi utama gelombang ini, setelah proxy relasinya dinormalkan.
+	 *
+	 * <p>
+	 * Ini baru satu dari kemungkinan beberapa jalur: {@link #getJenisSeleksiLain()} menyimpan jalur
+	 * tambahan sebagai teks berkoma, dan {@link #ambilJenisSeleksi()} menggabungkan keduanya menjadi
+	 * satu daftar. Untuk menampilkan pilihan kepada calon, gunakan daftar gabungan itu, bukan getter
+	 * ini sendirian.
+	 * </p>
+	 *
+	 * @return jalur seleksi utama, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_seleksi")
 	public JenisSeleksi getJenisSeleksi() {
@@ -697,10 +1003,27 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return jenisSeleksi;
 	}
 
+	/**
+	 * Menyetel jalur seleksi utama gelombang.
+	 *
+	 * @param jenisSeleksi jalur seleksi utama; boleh {@code null}
+	 */
 	public void setJenisSeleksi(JenisSeleksi jenisSeleksi) {
 		this.jenisSeleksi = jenisSeleksi;
 	}
 
+	/**
+	 * Mengembalikan jenis diskon yang melekat pada gelombang ini.
+	 *
+	 * <p>
+	 * Relasi ini adalah pintu masuk potongan biaya: tagihan calon yang mendaftar lewat gelombang ini
+	 * akan ditelusuri terhadap aturan diskon yang tertaut, termasuk pemeriksaan kecocokan item biaya
+	 * dan rentang semester. Mengubahnya karena itu berdampak finansial langsung pada seluruh calon di
+	 * gelombang tersebut.
+	 * </p>
+	 *
+	 * @return jenis diskon, atau {@code null} bila gelombang tidak memberi diskon
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_diskon_mahasiswa")
 	public JenisDiskonMahasiswa getJenisDiskonMahasiswa() {
@@ -708,10 +1031,35 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return jenisDiskonMahasiswa;
 	}
 
+	/**
+	 * Menyetel jenis diskon yang melekat pada gelombang. Berdampak finansial pada seluruh calon di
+	 * gelombang ini — lihat {@link #getJenisDiskonMahasiswa()}.
+	 *
+	 * @param jenisDiskonMahasiswa jenis diskon; boleh {@code null}
+	 */
 	public void setJenisDiskonMahasiswa(JenisDiskonMahasiswa jenisDiskonMahasiswa) {
 		this.jenisDiskonMahasiswa = jenisDiskonMahasiswa;
 	}
 
+	/**
+	 * Mengembalikan tahun gelombang, <b>diurai ulang dari {@link #getTahunAkademik()}</b> pada setiap
+	 * pemanggilan.
+	 *
+	 * <p>
+	 * Bila tahun akademik terisi, method memotongnya pada garis miring, mengambil bagian pertama,
+	 * mengurainya menjadi bilangan, dan <b>menimpa field</b>. Nilai yang disetel lewat
+	 * {@link #setTahun(Integer)} karenanya tidak bertahan selama tahun akademik terisi.
+	 * </p>
+	 *
+	 * <p>
+	 * Kegagalan penguraian ditelan dan dicatat, sehingga method mengembalikan nilai sebelumnya —
+	 * kerap {@code null}. Ingat bahwa {@link #compareTo(GeneralValueObject)} bergantung pada method
+	 * ini dan tidak menoleransi {@code null}; tahun akademik berformat menyimpang karena itu merusak
+	 * pengurutan daftar gelombang.
+	 * </p>
+	 *
+	 * @return tahun hasil penguraian, atau {@code null} bila tidak dapat diurai
+	 */
 	public Integer getTahun() {
 		if (getTahunAkademik() != null) {
 			try {
@@ -723,10 +1071,33 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return tahun;
 	}
 
+	/**
+	 * Menyetel tahun gelombang. Nilai ini akan ditimpa oleh {@link #getTahun()} selama
+	 * {@link #getTahunAkademik()} terisi.
+	 *
+	 * @param tahun tahun gelombang
+	 */
 	public void setTahun(Integer tahun) {
 		this.tahun = tahun;
 	}
 
+	/**
+	 * Mengembalikan apakah gelombang boleh dipilih lewat pendaftaran daring.
+	 *
+	 * <p>
+	 * <b>Bawaannya benar.</b> Kolom yang kosong diisi benar lalu ditulis ke field, sehingga gelombang
+	 * lama yang dibuat sebelum kolom ini ada tetap dapat dipilih pendaftar daring. Ini contoh langsung
+	 * dari pola bawaan permisif yang dibahas pada javadoc kelas: <b>untuk menutup jalur daring, kolom
+	 * harus disetel padam secara eksplisit</b> — membiarkannya kosong tidak menutup apa pun.
+	 * </p>
+	 *
+	 * <p>
+	 * Penanda ini adalah salah satu dari empat penjaga yang diperiksa
+	 * {@link #alasanTidakBolehMendaftar(PerguruanTinggi)}.
+	 * </p>
+	 *
+	 * @return apakah gelombang dapat dipilih pendaftar daring; tidak pernah {@code null}
+	 */
 	public Boolean getBisaDipilihPendaftarOnline() {
 		if (bisaDipilihPendaftarOnline == null) {
 			bisaDipilihPendaftarOnline = true;
@@ -734,10 +1105,22 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return bisaDipilihPendaftarOnline;
 	}
 
+	/**
+	 * Menyetel apakah gelombang boleh dipilih lewat pendaftaran daring. Menyetel {@code null} sama
+	 * dengan membukanya, karena getter mengembalikan benar untuk kolom kosong.
+	 *
+	 * @param bisaDipilihPendaftarOnline penanda; {@code null} berarti terbuka
+	 */
 	public void setBisaDipilihPendaftarOnline(Boolean bisaDipilihPendaftarOnline) {
 		this.bisaDipilihPendaftarOnline = bisaDipilihPendaftarOnline;
 	}
 
+	/**
+	 * Mengembalikan jenjang pendidikan yang dibuka pada gelombang ini, setelah proxy relasinya
+	 * dinormalkan.
+	 *
+	 * @return jenjang pendidikan, atau {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenjang")
 	public Jenjang getJenjang() {
@@ -745,10 +1128,27 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return jenjang;
 	}
 
+	/**
+	 * Menyetel jenjang pendidikan gelombang.
+	 *
+	 * @param jenjang jenjang pendidikan; boleh {@code null}
+	 */
 	public void setJenjang(Jenjang jenjang) {
 		this.jenjang = jenjang;
 	}
 
+	/**
+	 * Mengembalikan semester tujuan pendaftaran, dengan bawaan <b>ganjil</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Getter menulis nilai bawaan ke field. Konsekuensinya, gelombang yang sebenarnya ditujukan untuk
+	 * semester genap tetapi kolomnya belum diisi akan tampak sebagai gelombang ganjil — dan karena
+	 * nilai itu ikut tersimpan pada penyimpanan berikutnya, kekeliruan tersebut menjadi permanen tanpa
+	 * ada yang menyadarinya.
+	 * </p>
+	 *
+	 * @return semester tujuan; tidak pernah {@code null}
+	 */
 	public String getJenisSemester() {
 		if (jenisSemester == null) {
 			jenisSemester = Perkuliahan.GANJIL;
@@ -756,10 +1156,21 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return jenisSemester;
 	}
 
+	/**
+	 * Menyetel semester tujuan pendaftaran.
+	 *
+	 * @param jenisSemester semester tujuan; {@code null} akan digantikan bawaan ganjil saat dibaca
+	 */
 	public void setJenisSemester(String jenisSemester) {
 		this.jenisSemester = jenisSemester;
 	}
 
+	/**
+	 * Mengembalikan apakah formulir parameter tambahan ditampilkan saat registrasi awal. Bawaannya
+	 * <b>benar</b> bila kolom kosong, dan nilai bawaan itu ditulis ke field.
+	 *
+	 * @return penanda tampilan formulir tambahan; tidak pernah {@code null}
+	 */
 	public Boolean getTampilFormTambahanSaatRegistrasi() {
 		if (tampilFormTambahanSaatRegistrasi == null) {
 			tampilFormTambahanSaatRegistrasi = true;
@@ -767,10 +1178,26 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return tampilFormTambahanSaatRegistrasi;
 	}
 
+	/**
+	 * Menyetel apakah formulir parameter tambahan ditampilkan saat registrasi awal.
+	 *
+	 * @param tampilFormTambahanSaatRegistrasi penanda; {@code null} berarti ditampilkan
+	 */
 	public void setTampilFormTambahanSaatRegistrasi(Boolean tampilFormTambahanSaatRegistrasi) {
 		this.tampilFormTambahanSaatRegistrasi = tampilFormTambahanSaatRegistrasi;
 	}
 
+	/**
+	 * Mengembalikan apakah formulir parameter tambahan ditampilkan saat calon masuk ke akunnya.
+	 * Bawaannya <b>benar</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Bersama {@link #getTampilFormTambahanSaatRegistrasi()}, keduanya memungkinkan isian dinamis
+	 * ditunda: tidak diminta saat mendaftar, tetapi diminta setelah calon masuk.
+	 * </p>
+	 *
+	 * @return penanda tampilan formulir tambahan; tidak pernah {@code null}
+	 */
 	public Boolean getTampilFormTambahanSaatLoginCalonMhs() {
 		if (tampilFormTambahanSaatLoginCalonMhs == null) {
 			tampilFormTambahanSaatLoginCalonMhs = true;
@@ -778,43 +1205,127 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return tampilFormTambahanSaatLoginCalonMhs;
 	}
 
+	/**
+	 * Menyetel apakah formulir parameter tambahan ditampilkan saat calon masuk ke akunnya.
+	 *
+	 * @param tampilFormTambahanSaatLoginCalonMhs penanda; {@code null} berarti ditampilkan
+	 */
 	public void setTampilFormTambahanSaatLoginCalonMhs(Boolean tampilFormTambahanSaatLoginCalonMhs) {
 		this.tampilFormTambahanSaatLoginCalonMhs = tampilFormTambahanSaatLoginCalonMhs;
 	}
 
+	/**
+	 * Mengembalikan batas akhir calon mahasiswa dapat masuk ke akunnya.
+	 *
+	 * <p>
+	 * Berbeda dari {@link #getSampai()} yang membatasi <i>pendaftaran</i>, batas ini membatasi
+	 * <i>akses</i>. Keduanya sengaja terpisah karena calon tetap perlu masuk setelah pendaftaran
+	 * ditutup — untuk melihat pengumuman, mencetak kartu ujian, dan menyelesaikan pembayaran.
+	 * </p>
+	 *
+	 * @return batas akhir akses akun; {@code null} berarti tanpa batas
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalLoginCalonMahasiswaBerakhir() {
 		return tanggalLoginCalonMahasiswaBerakhir;
 	}
 
+	/**
+	 * Menyetel batas akhir calon mahasiswa dapat masuk ke akunnya.
+	 *
+	 * @param tanggalLoginCalonMahasiswaBerakhir batas akhir akses; {@code null} berarti tanpa batas
+	 */
 	public void setTanggalLoginCalonMahasiswaBerakhir(Date tanggalLoginCalonMahasiswaBerakhir) {
 		this.tanggalLoginCalonMahasiswaBerakhir = tanggalLoginCalonMahasiswaBerakhir;
 	}
 
+	/**
+	 * Mengembalikan umur minimum pendaftar, dengan bawaan <b>nol</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Berbeda dari getter bawaan lain di kelas ini, method ini <b>tidak menulis ke field</b> — ia
+	 * hanya mengembalikan nilai pengganti. Batas ini baru ditegakkan bila
+	 * {@link #getDibatasiUmur()} menyala.
+	 * </p>
+	 *
+	 * @return umur minimum; tidak pernah {@code null}
+	 */
 	public Integer getUmurminimal() {
 		return umurminimal == null ? 0 : umurminimal;
 	}
 
+	/**
+	 * Menyetel umur minimum pendaftar.
+	 *
+	 * @param umurminimal umur minimum; {@code null} diperlakukan sebagai nol saat dibaca
+	 */
 	public void setUmurminimal(Integer umurminimal) {
 		this.umurminimal = umurminimal;
 	}
 
+	/**
+	 * Mengembalikan umur maksimum pendaftar, dengan bawaan <b>27 tahun</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Angka 27 dipatok langsung di dalam kode, tanpa konfigurasi. Ini satu-satunya nilai bawaan di
+	 * kelas ini yang bersifat <b>membatasi</b>, bukan permisif — tetapi pembatasannya baru berlaku
+	 * bila {@link #getDibatasiUmur()} menyala, sehingga secara keseluruhan perilaku bawaannya tetap
+	 * terbuka.
+	 * </p>
+	 *
+	 * @return umur maksimum; tidak pernah {@code null}
+	 */
 	public Integer getUmurmaksimal() {
 		return umurmaksimal == null ? 27 : umurmaksimal;
 	}
 
+	/**
+	 * Menyetel umur maksimum pendaftar.
+	 *
+	 * @param umurmaksimal umur maksimum; {@code null} diperlakukan sebagai 27 saat dibaca
+	 */
 	public void setUmurmaksimal(Integer umurmaksimal) {
 		this.umurmaksimal = umurmaksimal;
 	}
 
+	/**
+	 * Mengembalikan apakah pembatasan umur diberlakukan.
+	 *
+	 * <p>
+	 * Getter ini <b>tidak memberi nilai bawaan</b> dan dapat mengembalikan {@code null}, berbeda dari
+	 * kebanyakan penanda lain di kelas ini. Pemanggil karena itu wajib memakai pembandingan yang aman
+	 * terhadap {@code null}; memperlakukan {@code null} sebagai "dibatasi" akan menolak pendaftar yang
+	 * seharusnya diterima.
+	 * </p>
+	 *
+	 * @return penanda pembatasan umur; boleh {@code null}
+	 */
 	public Boolean getDibatasiUmur() {
 		return dibatasiUmur;
 	}
 
+	/**
+	 * Menyetel apakah pembatasan umur diberlakukan.
+	 *
+	 * @param dibatasiUmur penanda; boleh {@code null}
+	 */
 	public void setDibatasiUmur(Boolean dibatasiUmur) {
 		this.dibatasiUmur = dibatasiUmur;
 	}
 
+	/**
+	 * Mengembalikan tahun angkatan sekolah asal paling awal yang diterima, dengan bawaan <b>dua puluh
+	 * tahun sebelum tahun berjalan</b>.
+	 *
+	 * <p>
+	 * Nilai bawaan itu dihitung dari waktu server dan <b>ditulis ke field</b>. Ada konsekuensi yang
+	 * perlu disadari: karena patokannya bergerak mengikuti tahun berjalan, gelombang lama yang kolom
+	 * ini belum pernah diisi akan memperoleh batas yang <i>berbeda</i> setiap tahun — dan begitu
+	 * baris tersimpan lagi, nilai tahun itulah yang membeku secara permanen.
+	 * </p>
+	 *
+	 * @return tahun angkatan minimum; tidak pernah {@code null}
+	 */
 	public Integer getTahunAngkatanMinimal() {
 		if (tahunAngkatanMinimal == null) {
 			tahunAngkatanMinimal = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR) - 20;
@@ -822,10 +1333,27 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return tahunAngkatanMinimal;
 	}
 
+	/**
+	 * Menyetel tahun angkatan sekolah asal paling awal yang diterima.
+	 *
+	 * @param tahunAngkatanMinimal tahun angkatan minimum
+	 */
 	public void setTahunAngkatanMinimal(Integer tahunAngkatanMinimal) {
 		this.tahunAngkatanMinimal = tahunAngkatanMinimal;
 	}
 
+	/**
+	 * Mengembalikan tahun angkatan sekolah asal paling akhir yang diterima, dengan bawaan <b>satu
+	 * tahun setelah tahun berjalan</b> — memberi ruang bagi calon yang akan lulus pada tahun ajaran
+	 * berikutnya.
+	 *
+	 * <p>
+	 * Sama seperti {@link #getTahunAngkatanMinimal()}, nilai bawaan dihitung dari waktu server dan
+	 * ditulis ke field, sehingga ikut membeku begitu baris tersimpan.
+	 * </p>
+	 *
+	 * @return tahun angkatan maksimum; tidak pernah {@code null}
+	 */
 	public Integer getTahunAngkatanMaksimal() {
 		if (tahunAngkatanMaksimal == null) {
 			tahunAngkatanMaksimal = ais.ui.util.WaktuUtil.getCalendar().get(Calendar.YEAR) + 1;
@@ -833,10 +1361,28 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return tahunAngkatanMaksimal;
 	}
 
+	/**
+	 * Menyetel tahun angkatan sekolah asal paling akhir yang diterima.
+	 *
+	 * @param tahunAngkatanMaksimal tahun angkatan maksimum
+	 */
 	public void setTahunAngkatanMaksimal(Integer tahunAngkatanMaksimal) {
 		this.tahunAngkatanMaksimal = tahunAngkatanMaksimal;
 	}
 
+	/**
+	 * Mengembalikan daftar jalur seleksi tambahan sebagai satu string, dinormalkan menjadi string
+	 * kosong bila belum diisi.
+	 *
+	 * <p>
+	 * Isinya berupa kode atau id jalur seleksi yang <b>dipisah koma</b> — relasi denormalisasi yang
+	 * disimpan sebagai teks, bukan kunci asing. Tidak ada batasan integritas yang menjamin nilainya
+	 * menunjuk jalur seleksi yang benar-benar ada; entri yang tidak ditemukan diam-diam dilewati oleh
+	 * {@link #ambilJenisSeleksi()}.
+	 * </p>
+	 *
+	 * @return daftar jalur seleksi tambahan berbentuk teks berkoma; tidak pernah {@code null}
+	 */
 	public String getJenisSeleksiLain() {
 		if (jenisSeleksiLain == null) {
 			jenisSeleksiLain = "";
@@ -844,6 +1390,39 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return jenisSeleksiLain;
 	}
 
+	/**
+	 * Menggabungkan jalur seleksi utama dan jalur tambahan menjadi <b>satu daftar terurut tanpa
+	 * duplikat</b> — inilah daftar yang selayaknya ditampilkan kepada calon mahasiswa.
+	 *
+	 * <h4>Cara kerja</h4>
+	 * <p>
+	 * {@link #getJenisSeleksi()} dimasukkan lebih dulu bila ada. Kemudian
+	 * {@link #getJenisSeleksiLain()} dipecah pada koma, dan untuk setiap potongan dilakukan pencarian
+	 * yang menerima <b>kode maupun id</b>: potongan berupa angka dicocokkan sebagai id, sedangkan yang
+	 * bukan angka dicocokkan sebagai kode. Hanya jalur yang aktif (atau yang penanda aktifnya belum
+	 * diisi) yang diterima. Duplikat disaring, lalu daftar diurutkan.
+	 * </p>
+	 *
+	 * <h4>Yang perlu diketahui</h4>
+	 * <ul>
+	 * <li><b>Satu query per potongan.</b> Method menjalankan pencarian terpisah untuk setiap entri
+	 * dalam daftar tambahan. Untuk gelombang dengan banyak jalur, memanggilnya di dalam perulangan
+	 * render menghasilkan masalah N+1 query yang berlipat.</li>
+	 *
+	 * <li><b>Entri yang tidak ditemukan hilang tanpa jejak.</b> Kode atau id yang menunjuk jalur
+	 * seleksi yang sudah dihapus atau dinonaktifkan dilewati begitu saja — tidak ada galat maupun
+	 * catatan. Gejalanya hanya berupa pilihan yang tiba-tiba lebih sedikit dari yang dikonfigurasi.</li>
+	 *
+	 * <li><b>Memakai sesi Hibernate yang sedang berjalan</b>, sehingga tidak dapat dipanggil dari
+	 * konteks tanpa sesi aktif.</li>
+	 *
+	 * <li>Pengurutan memakai perbandingan alami jalur seleksi, bukan urutan penulisan pada daftar
+	 * tambahan — urutan yang dikonfigurasi admin tidak dipertahankan.</li>
+	 * </ul>
+	 *
+	 * @return daftar jalur seleksi yang tersedia pada gelombang ini; tidak pernah {@code null}, tetapi
+	 *         boleh kosong
+	 */
 	public List<JenisSeleksi> ambilJenisSeleksi() {
 
 		List<JenisSeleksi> jenisSeleksis = new ArrayList<JenisSeleksi>();
@@ -875,10 +1454,28 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return jenisSeleksis;
 	}
 
+	/**
+	 * Menyetel daftar jalur seleksi tambahan. Pertahankan pemisah koma agar
+	 * {@link #ambilJenisSeleksi()} dapat mengurainya.
+	 *
+	 * @param jenisSeleksiLain daftar kode/id dipisah koma; boleh {@code null}
+	 */
 	public void setJenisSeleksiLain(String jenisSeleksiLain) {
 		this.jenisSeleksiLain = jenisSeleksiLain;
 	}
 
+	/**
+	 * Mengembalikan status awal yang diberikan kepada mahasiswa hasil konversi dari gelombang ini,
+	 * dengan <b>bawaan status "baru"</b> bila relasi kosong.
+	 *
+	 * <p>
+	 * Perhatikan bentuk bawaannya: berbeda dari getter bawaan lain di kelas ini, nilai pengganti
+	 * <b>tidak ditulis ke field</b> melainkan hanya dikembalikan. Field tetap {@code null}, sehingga
+	 * kolom di basis data tidak ikut terisi diam-diam — perilaku yang lebih bersih.
+	 * </p>
+	 *
+	 * @return status awal mahasiswa; tidak pernah {@code null}
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_awal_mahasiswa_default")
 	public StatusAwalMahasiswa getStatusAwalMahasiswaDefault() {
@@ -886,27 +1483,94 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return statusAwalMahasiswaDefault == null ? ConstantValues.BARU : statusAwalMahasiswaDefault;
 	}
 
+	/**
+	 * Menyetel status awal bagi mahasiswa hasil konversi dari gelombang ini.
+	 *
+	 * @param statusAwalMahasiswaDefault status awal; {@code null} berarti memakai status baku "baru"
+	 */
 	public void setStatusAwalMahasiswaDefault(StatusAwalMahasiswa statusAwalMahasiswaDefault) {
 		this.statusAwalMahasiswaDefault = statusAwalMahasiswaDefault;
 	}
 
+	/**
+	 * Mengembalikan penanda gelombang aktif, dengan <b>bawaan benar</b> bila kolom kosong.
+	 *
+	 * <p>
+	 * Ini penjaga kelayakan yang paling sering dipakai, sekaligus contoh paling menonjol dari pola
+	 * bawaan permisif: <b>gelombang yang kolom aktifnya tidak pernah diisi tetap terbuka</b>. Berbeda
+	 * dari sebagian besar getter bawaan lain di kelas ini, method ini tidak menulis ke field — nilai
+	 * pengganti hanya dikembalikan.
+	 * </p>
+	 *
+	 * <p>
+	 * Penanda ini adalah salah satu dari empat penjaga yang diperiksa
+	 * {@link #alasanTidakBolehMendaftar(PerguruanTinggi)}.
+	 * </p>
+	 *
+	 * @return penanda aktif; tidak pernah {@code null}
+	 */
 	public Boolean getAktif() {
 		return aktif == null ? true : aktif;
 	}
 
+	/**
+	 * Menyetel penanda gelombang aktif. Menyetel {@code null} sama dengan mengaktifkannya, karena
+	 * getter mengembalikan benar untuk kolom kosong — untuk menonaktifkan, setel padam secara
+	 * eksplisit.
+	 *
+	 * @param aktif penanda aktif; {@code null} berarti aktif
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Mengembalikan batas akhir proses daftar ulang bagi calon yang sudah diterima.
+	 *
+	 * @return batas akhir daftar ulang; {@code null} berarti tanpa batas
+	 */
 	@Temporal(TemporalType.DATE)
 	public Date getTanggalDaftarUlangBerakhir() {
 		return tanggalDaftarUlangBerakhir;
 	}
 
+	/**
+	 * Menyetel batas akhir proses daftar ulang.
+	 *
+	 * @param tanggalDaftarUlangBerakhir batas akhir daftar ulang; boleh {@code null}
+	 */
 	public void setTanggalDaftarUlangBerakhir(Date tanggalDaftarUlangBerakhir) {
 		this.tanggalDaftarUlangBerakhir = tanggalDaftarUlangBerakhir;
 	}
 
+	/**
+	 * Mencari <b>satu gelombang yang sedang berjalan</b> pada saat ini.
+	 *
+	 * <p>
+	 * Kriterianya: tanggal mulai sudah lewat atau sama dengan hari ini, tanggal selesai belum lewat,
+	 * dan penanda aktif menyala atau belum diisi. Bila lebih dari satu memenuhi, dipilih yang tanggal
+	 * mulainya paling akhir — yaitu gelombang yang paling baru dibuka.
+	 * </p>
+	 *
+	 * <h4>Batasan yang penting</h4>
+	 * <ul>
+	 * <li><b>Tidak menyaring tenant.</b> Pencarian tidak memperhatikan {@link #getPerguruanTinggi()},
+	 * sehingga pada instalasi yang berbagi basis data method ini dapat mengembalikan gelombang milik
+	 * perguruan tinggi lain. Jangan memakainya sebagai penentu gelombang pada alur yang peka tenant;
+	 * gunakan pencarian yang menyertakan penyaringan tenant.</li>
+	 *
+	 * <li><b>Tidak memeriksa {@link #getBisaDipilihPendaftarOnline()}.</b> Gelombang yang sengaja
+	 * ditutup bagi pendaftar daring tetap dapat terpilih di sini.</li>
+	 *
+	 * <li><b>Perbandingan tanggal selesai tidak inklusif sampai akhir hari</b>, berbeda dari semantik
+	 * yang dipakai {@link #alasanTidakBolehMendaftar(PerguruanTinggi)}. Pada hari terakhir, kedua
+	 * mekanisme dapat memberi jawaban berbeda.</li>
+	 *
+	 * <li>Memakai sesi Hibernate yang sedang berjalan.</li>
+	 * </ul>
+	 *
+	 * @return gelombang yang sedang berjalan, atau {@code null} bila tidak ada yang memenuhi
+	 */
 	public static GelombangPendaftaran current() {
 		GelombangPendaftaran gelombangPendaftaran = (GelombangPendaftaran) HibernateUtil.currentSession()
 				.createCriteria(GelombangPendaftaran.class)
@@ -917,6 +1581,35 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return gelombangPendaftaran;
 	}
 
+	/**
+	 * Mengembalikan perguruan tinggi pemilik gelombang — <b>dengan pengisian otomatis dari konteks
+	 * yang sedang berjalan</b> bila kolomnya kosong.
+	 *
+	 * <h4>Perilaku yang harus dipahami</h4>
+	 * <p>
+	 * Setelah proxy relasi dinormalkan, bila hasilnya masih kosong method mengambil perguruan tinggi
+	 * <i>milik pembaca</i> dari utilitas konteks dan <b>menulisnya ke field</b>. Artinya gelombang
+	 * yang di basis data tidak memiliki pemilik akan <b>tampak sebagai milik siapa pun yang sedang
+	 * membacanya</b>.
+	 * </p>
+	 *
+	 * <p>
+	 * Ini keputusan yang berkonsekuensi dua arah. Sisi baiknya, gelombang lama yang dibuat sebelum
+	 * kolom tenant ada tetap dapat dipakai pada instalasi tunggal tanpa migrasi data. Sisi yang perlu
+	 * diwaspadai: pada instalasi yang berbagi basis data, <b>gelombang tanpa pemilik akan lolos dari
+	 * pemeriksaan kepemilikan tenant mana pun</b> — termasuk pemeriksaan pada
+	 * {@link #alasanTidakBolehMendaftar(PerguruanTinggi)}, karena nilai yang dibandingkan adalah
+	 * perguruan tinggi pembaca itu sendiri sehingga selalu cocok. Gelombang yang benar-benar dibatasi
+	 * karenanya harus mengisi kolom ini secara eksplisit.
+	 * </p>
+	 *
+	 * <p>
+	 * Method menormalkan hasil menjadi {@code null} bila perguruan tinggi yang diperoleh belum
+	 * tersimpan, dan menelan seluruh galat pengambilan konteks.
+	 * </p>
+	 *
+	 * @return perguruan tinggi pemilik, atau {@code null} bila tidak dapat ditentukan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "perguruan_tinggi")
 	public PerguruanTinggi getPerguruanTinggi() {
@@ -930,6 +1623,17 @@ public class GelombangPendaftaran extends GeneralValueObject {
 		return perguruanTinggi == null || perguruanTinggi.getId() == null ? null : perguruanTinggi;
 	}
 
+	/**
+	 * Menyetel perguruan tinggi pemilik gelombang.
+	 *
+	 * <p>
+	 * Mengisi kolom ini secara eksplisit adalah satu-satunya cara membatasi gelombang pada satu
+	 * perguruan tinggi; membiarkannya kosong membuat gelombang tampak milik setiap pembaca (lihat
+	 * {@link #getPerguruanTinggi()}).
+	 * </p>
+	 *
+	 * @param perguruanTinggi perguruan tinggi pemilik; boleh {@code null}
+	 */
 	public void setPerguruanTinggi(PerguruanTinggi perguruanTinggi) {
 		this.perguruanTinggi = perguruanTinggi;
 	}

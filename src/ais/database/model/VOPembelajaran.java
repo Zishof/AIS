@@ -2109,6 +2109,36 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "Bukan dosen pengajar / pembimbing";
 	}
 
+	/**
+	 * Menyusun keterangan ringkas wadah pembelajaran <b>dari sisi sebuah pertemuan</b>.
+	 *
+	 * <p>Berbeda dari {@link #infoSimple()} yang bekerja atas {@code this}, method statis ini
+	 * menerima {@link Pertemuan} dan menelusuri relasi pemiliknya untuk menemukan wadah yang
+	 * tepat, lalu memanggil {@link #infoSimple()} pada wadah tersebut. Dipakai ketika kode hanya
+	 * memegang pertemuan — mis. saat menyusun judul undangan kalender atau baris log — dan tidak
+	 * tahu wadah mana yang menaunginya.</p>
+	 *
+	 * <p>Nilai awalnya adalah {@code pertemuan.info()}, keterangan bawaan milik pertemuan itu
+	 * sendiri; ia baru diganti bila salah satu dari sebelas relasi pemilik yang diperiksa terisi.
+	 * Rantai {@code else if} berhenti pada relasi pertama yang tidak kosong, sehingga pertemuan
+	 * yang punya lebih dari satu relasi terisi akan dilaporkan menurut relasi yang lebih dulu
+	 * diperiksa — urutannya perkuliahan, KRS, jadwal ujian PMB, permohonan tugas akhir, kelompok
+	 * KKN, kelompok PKL, skripsi, jadwal ujian PSB, jadwal pelajaran, pertemuan grup, lalu
+	 * formulir kegiatan.</p>
+	 *
+	 * <p><b>Empat wadah tidak diperiksa di sini</b> — {@link Wisuda},
+	 * {@code sekolah.KelasLesSiswa}, {@code sekolah.JadwalPertemuanPSB}, dan
+	 * {@link GrupPertemuan} — sehingga pertemuannya selalu jatuh ke keterangan bawaan
+	 * {@code pertemuan.info()}. Bandingkan dengan {@link #masukkanPertemuanLocal} yang justru
+	 * mengenali tiga di antaranya; cakupan kedua rantai memang tidak sama.</p>
+	 *
+	 * <p>Argumen {@code null} melempar {@link NullPointerException} pada pemanggilan
+	 * {@code pertemuan.info()} — tidak ada penjaga maupun penangkap kesalahan di method ini.</p>
+	 *
+	 * @param pertemuan pertemuan yang wadahnya dicari; tidak boleh {@code null}
+	 * @return keterangan ringkas wadahnya, atau keterangan bawaan pertemuan bila wadahnya tidak
+	 *         dikenali
+	 */
 	public static String infoSimple(Pertemuan pertemuan) {
 		String key = pertemuan.info();
 		if (pertemuan.getPerkuliahan() != null) {
@@ -2137,6 +2167,47 @@ public abstract class VOPembelajaran extends VoKunci {
 		return key;
 	}
 
+	/**
+	 * Mengumpulkan alamat surel <b>penyelenggara</b> sebuah pertemuan, untuk dipakai sebagai
+	 * pengundang pada berkas undangan kalender.
+	 *
+	 * <p>Sumbernya dua: seluruh dosen pengampu wadah yang menaungi pertemuan tersebut, ditambah
+	 * alamat pemantauan yang dikonfigurasi secara global.</p>
+	 *
+	 * <h4>Cakupan wadah</h4>
+	 * <p>Hanya enam relasi pemilik yang diperiksa: perkuliahan, permohonan tugas akhir, skripsi,
+	 * kelompok KKN, kelompok PKL, dan KRS. Pertemuan dari wadah lain — kegiatan, jadwal pelajaran,
+	 * jadwal ujian, wisuda, dan seterusnya — tidak menghasilkan satu pun alamat dosen; yang tersisa
+	 * hanyalah alamat pemantauan.</p>
+	 *
+	 * <h4>Penguraian alamat</h4>
+	 * <p>Kolom surel boleh memuat beberapa alamat yang dipisahkan koma. Setiap potongan dipangkas
+	 * spasinya dan divalidasi bentuknya lewat {@code Common.isValidEmailAddress}; yang tidak sah
+	 * dibuang diam-diam. Alamat pemantauan diurai dengan aturan yang sama.</p>
+	 *
+	 * <h4>Dua hal yang perlu diketahui sebelum memakainya</h4>
+	 * <ul>
+	 * <li><b>Nilai baliknya {@link List}, bukan {@link Set}.</b> Dosen yang menempati dua slot
+	 * pada wadah yang sama, atau alamat pemantauan yang kebetulan sama dengan alamat seorang
+	 * dosen, akan muncul lebih dari sekali. Bandingkan dengan {@link #getAttendee(Pertemuan)} yang
+	 * memakai {@link Set} sehingga otomatis bebas kembar. Pemanggil yang tidak ingin mengirim
+	 * undangan ganda harus menyaringnya sendiri.</li>
+	 * <li><b>Membaca konfigurasi dapat menulis ke basis data.</b> Pengambilan
+	 * {@code alamat_email_monitoring} lewat {@code Common.getKonfigurasi} akan menuliskan baris
+	 * konfigurasi bernilai bawaan bila kuncinya belum ada — perilaku umum mekanisme konfigurasi
+	 * AIS, bukan kekhususan method ini. Artinya pemanggilan pertama method ini pada instalasi baru
+	 * menghasilkan penulisan basis data sebagai efek samping.</li>
+	 * </ul>
+	 *
+	 * <p>Method ini mengumpulkan data pribadi. Tidak ada pemeriksaan hak akses di dalamnya:
+	 * siapa pun yang dapat memanggilnya memperoleh alamat surel seluruh dosen pengampu. Otorisasi
+	 * adalah tanggung jawab pemanggil.</p>
+	 *
+	 * <p>Argumen {@code null} melempar {@link NullPointerException}; dosen tanpa surel dilewati.</p>
+	 *
+	 * @param pertemuan pertemuan yang penyelenggaranya dicari; tidak boleh {@code null}
+	 * @return daftar alamat surel yang sah, mungkin memuat kembaran; kosong bila tidak ada
+	 */
 	public static List<String> getOrganizer(Pertemuan pertemuan) {
 		List<String> emails = new ArrayList<String>();
 		List<Dosen> dosens = new ArrayList<Dosen>();
@@ -2173,6 +2244,58 @@ public abstract class VOPembelajaran extends VoKunci {
 		return emails;
 	}
 
+	/**
+	 * Mengumpulkan alamat surel <b>peserta</b> sebuah pertemuan — mahasiswa, calon mahasiswa, atau
+	 * peserta kegiatan — beserta dosen pengampunya, untuk dipakai sebagai daftar undangan
+	 * kalender.
+	 *
+	 * <p>Nilai baliknya {@link Set} sehingga alamat kembar otomatis menyatu, berbeda dari
+	 * {@link #getOrganizer(Pertemuan)} yang memakai {@link List}.</p>
+	 *
+	 * <h4>Tujuh cabang, tiga cara pengambilan berbeda</h4>
+	 * <ul>
+	 * <li><b>Perkuliahan</b> — menelusuri seluruh {@link Detailperkuliahan} peserta dari cache
+	 * proses lalu membaca surel mahasiswanya. Rantai
+	 * {@code detailperkuliahan.getMahasiswa().getEmail()} dibaca tanpa penjaga {@code null} pada
+	 * mahasiswanya, sehingga baris peserta yang relasi mahasiswanya kosong melempar
+	 * {@link NullPointerException} ke pemanggil.</li>
+	 * <li><b>Jadwal ujian PMB</b> — satu kueri langsung ke {@link BiodataCalonMahasiswa} yang
+	 * dikelompokkan menurut surel, dibatasi gelombang pendaftaran dan (bila ada) paket ujiannya.
+	 * Ini satu-satunya cabang yang tidak melewati cache sama sekali.</li>
+	 * <li><b>Formulir kegiatan</b> — satu kueri dengan {@code LEFT JOIN} ke dosen dan mahasiswa
+	 * sekaligus, memproyeksikan kedua kolom surel; tiap baris diambil surel dosennya bila ada,
+	 * kalau tidak surel mahasiswanya. Baris yang keduanya kosong menghasilkan kesalahan yang
+	 * dicetak lalu dilewati.</li>
+	 * <li><b>Permohonan tugas akhir, skripsi, dan KRS</b> — satu mahasiswa saja, ditambah dosen
+	 * pembimbingnya.</li>
+	 * <li><b>Kelompok KKN dan kelompok PKL</b> — menelusuri anggota kelompok.</li>
+	 * </ul>
+	 * <p>Wadah di luar ketujuh cabang tersebut menghasilkan himpunan kosong.</p>
+	 *
+	 * <h4>Efek samping pada session Hibernate</h4>
+	 * <p>Dua cabang berbasis kueri — jadwal ujian PMB dan formulir kegiatan — mengambil session
+	 * milik thread lewat {@code currentNativeSession()} lalu memanggil
+	 * {@code HibernateUtil.closeSession()} setelah selesai. Pemanggilan itu <b>menutup session
+	 * milik thread</b>, bukan sekadar session lokal method ini. Bila method dipanggil di tengah
+	 * alur yang masih memegang session dan entity terkelola, entity tersebut berubah menjadi
+	 * detached dan akses lazy berikutnya gagal. Kumpulkan daftar undangan sebelum memulai
+	 * pekerjaan basis data lain, bukan di tengahnya.</p>
+	 *
+	 * <h4>Penguraian alamat dan privasi</h4>
+	 * <p>Sama seperti {@link #getOrganizer(Pertemuan)}: kolom surel dipisah koma, tiap potongan
+	 * dipangkas dan divalidasi, yang tidak sah dibuang diam-diam.</p>
+	 * <p>Method ini mengumpulkan alamat surel seluruh peserta — termasuk calon mahasiswa yang
+	 * belum menjadi bagian institusi — tanpa pemeriksaan hak akses apa pun. Penyaringan yang ada
+	 * hanya penyaringan data (gelombang pendaftaran, paket, keanggotaan kelompok), bukan
+	 * penyaringan wewenang. Pemanggil wajib memastikan pengguna yang berjalan memang berhak
+	 * mengirim undangan atas pertemuan tersebut.</p>
+	 *
+	 * <p>Argumen {@code null} melempar {@link NullPointerException}.</p>
+	 *
+	 * @param pertemuan pertemuan yang pesertanya dicari; tidak boleh {@code null}
+	 * @return himpunan alamat surel yang sah, bebas kembar; kosong bila wadahnya tidak dikenali
+	 *         atau tidak ada peserta bersurel
+	 */
 	@SuppressWarnings("unchecked")
 	public static Set<String> getAttendee(Pertemuan pertemuan) {
 
