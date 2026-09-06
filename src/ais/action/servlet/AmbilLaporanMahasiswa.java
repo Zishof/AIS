@@ -15,6 +15,7 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
@@ -70,25 +71,33 @@ import net.sf.jasperreports.engine.JasperCompileManager;
  * <p>Nilai {@code laporan} yang tidak dikenali menghasilkan gambar
  * {@code laporan_tidak_ditemukan.png}.</p>
  *
- * <h4>PERINGATAN KEAMANAN &mdash; tidak ada autentikasi maupun pembatasan cakupan</h4>
- * <p>Didokumentasikan agar tidak hilang dari pandangan, bukan sebagai anjuran:</p>
+ * <h4>Keamanan</h4>
+ * <p>{@link #process} kini menggerbangi permintaan secara <i>fail-closed</i> sebelum data
+ * apa pun dibangun:</p>
  * <ul>
- *   <li>{@link #process} <b>tidak pernah</b> memeriksa siapa pengguna yang meminta. Tidak ada
- *       pemeriksaan sesi, tidak ada pemeriksaan bahwa pengguna yang masuk adalah mahasiswa
- *       yang bersangkutan, dan tidak ada pembatasan satuan kerja atau tenant. Mahasiswa
- *       dicari semata dari kecocokan kolom {@code nim} ditambah penyaring aktif.</li>
- *   <li>Pada {@code applicationContext-security.xml} tidak ada aturan {@code intercept-url}
- *       yang cocok untuk {@code /AmbilLaporanMahasiswa} &mdash; yang ada hanya
- *       {@code /AmbilFile*}, {@code /AmbilFile}, dan {@code /AmbilLampiran**} &mdash;
- *       sehingga jalur ini jatuh ke aturan penampung {@code /**} yang bernilai
- *       {@code IS_AUTHENTICATED_ANONYMOUSLY}. Penyaring {@code FilterJSP} yang terpasang di
- *       {@code /*} hanya melakukan pengarahan dan header CORS, bukan autentikasi.</li>
- *   <li>Parameter {@code idSurat} diterima apa adanya tanpa daftar putih, sehingga templat
- *       surat resmi mana pun dapat dirender atas nama mahasiswa mana pun.</li>
+ *   <li>Pengguna wajib login &mdash; dibaca langsung dari atribut {@code "mytbmuser"} pada
+ *       {@link HttpSession} permintaan (diisi saat login sungguhan oleh
+ *       {@code CommonSecurityLoginHelper}/{@code SecurityFilter}), <b>bukan</b> lewat
+ *       {@code Common.getCurrentUser()}/{@code getCurrentUser(request)}: kedua method itu,
+ *       bila sesi kosong, jatuh ke parameter permintaan {@code user} dan mempercayainya tanpa
+ *       verifikasi sesi ({@code CommonCurrentSessionHelper.getCurrentUser()} langkah 5,
+ *       {@code SecurityFilter.getCurrentFromUsername(String)}) &mdash; celah terpisah yang
+ *       masih terbuka di banyak berkas lain pada basis kode ini. Sesi kosong &rarr; 401.</li>
+ *   <li>Pengguna yang login harus berupa mahasiswa yang diminta itu sendiri (dibandingkan
+ *       lewat {@code nim}, pola yang sama dipakai {@code MainAction}/{@code MainAction2}) atau
+ *       memegang {@link ais.database.model.Tbmrole#getMelihatDataSatkerLain()} bernilai
+ *       {@code true} (pola gerbang lintas-cakupan yang sama dipakai
+ *       {@code RekeningDosenAction} dan {@code KelompokStatusKeluarMahasiswaDetailAction}).
+ *       Gagal keduanya &rarr; 403.</li>
+ *   <li>{@code applicationContext-security.xml} juga diberi {@code intercept-url} eksplisit
+ *       untuk {@code /AmbilLaporanMahasiswa} sebagai pertahanan berlapis; gerbang utama tetap
+ *       di kode servlet ini, bukan di konfigurasi Spring Security.</li>
  * </ul>
- * <p>Akibatnya nomor induk mahasiswa menjadi satu-satunya "rahasia" yang melindungi transkrip
- * nilai, kartu hasil studi, bukti pembayaran, dan surat resmi &mdash; padahal nomor induk
- * bersifat berurutan dan lazim dipublikasikan.</p>
+ * <p><b>Belum ditambal:</b> parameter {@code idSurat} pada {@link #laporanSurat} masih
+ * diterima apa adanya tanpa daftar putih templat surat &mdash; setelah gerbang di atas,
+ * risikonya berkurang dari "siapa pun tanpa login" menjadi "mahasiswa mana pun bisa merender
+ * templat surat resmi apa pun atas nama dirinya sendiri", yang masih perlu ditambal
+ * terpisah.</p>
  *
  * @see ais.database.model.Mahasiswa
  */
@@ -165,10 +174,17 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 	 * <h4>Urutan kerja</h4>
 	 * <ol>
 	 *   <li>seluruh nama dan nilai parameter dicetak ke {@code System.out};</li>
+	 *   <li>pengguna login diambil langsung dari {@link HttpSession} (atribut
+	 *       {@code "mytbmuser"}); kosong &rarr; balasan 401, proses dihentikan &mdash; lihat
+	 *       peringatan Keamanan pada dokumentasi kelas untuk alasan tidak memakai
+	 *       {@code Common.getCurrentUser()};</li>
 	 *   <li>parameter {@code nim}, {@code laporan}, {@code type}, dan {@code semester} dibaca;
 	 *       {@code semester} yang tidak dapat diurai bernilai bawaan 1;</li>
 	 *   <li>{@link Mahasiswa} dicari dengan kecocokan {@code nim} ditambah penyaring aktif;
 	 *       bila tidak ada, balasan berupa kode status 500 dan pesan pada log kontainer;</li>
+	 *   <li>pengguna login harus mahasiswa yang ditemukan itu sendiri (kecocokan {@code nim})
+	 *       atau memegang {@code getMelihatDataSatkerLain()}; gagal keduanya &rarr; balasan
+	 *       403;</li>
 	 *   <li>nilai {@code laporan} mengarahkan ke {@link #laporanKHS}, {@link #laporanKRS},
 	 *       {@link #laporanTranskrip}, {@link #laporanIPK}, {@link #laporanStruk}, atau
 	 *       {@link #laporanSurat}; nilai lain menyisakan gambar pengganti;</li>
@@ -177,9 +193,8 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 	 *       1&nbsp;KiB.</li>
 	 * </ol>
 	 *
-	 * <p><b>Keamanan:</b> method ini tidak memeriksa hak akses sama sekali &mdash; tidak ada
-	 * pemeriksaan sesi, pemilik data, maupun satuan kerja. Lihat peringatan pada dokumentasi
-	 * kelas.</p>
+	 * <p><b>Keamanan:</b> gerbang login dan kepemilikan/hak lintas-cakupan dijalankan di sini
+	 * sebelum laporan apa pun dibangun; lihat dokumentasi kelas untuk rinciannya.</p>
 	 *
 	 * <p>Perhatikan pula bahwa {@code type} dibaca sebagai {@code String} lalu dibandingkan
 	 * dengan {@code type.equals("img")} tanpa penjagaan nilai {@code null}, sehingga permintaan
@@ -197,6 +212,17 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 		while (enumeration.hasMoreElements()) {
 			String param = enumeration.nextElement();
 			System.out.print("  " + param + " = " + request.getParameter(param));
+		}
+
+		// Gerbang login (fail-closed): baca LANGSUNG dari HttpSession, bukan lewat
+		// Common.getCurrentUser()/getCurrentUser(request) -- keduanya, bila sesi kosong, jatuh
+		// ke parameter permintaan "user" dan mempercayainya tanpa verifikasi sesi. Lihat
+		// Javadoc kelas untuk rincian.
+		HttpSession httpSession = request.getSession(false);
+		Tbmuser tbmuserLogin = httpSession == null ? null : (Tbmuser) httpSession.getAttribute("mytbmuser");
+		if (tbmuserLogin == null) {
+			resp.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Silakan login terlebih dahulu.");
+			return;
 		}
 
 		String nim = request.getParameter("nim");
@@ -228,6 +254,24 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 			ServletContext sc = getServletContext();
 			sc.log("NIM Mahasiswa tidak ditemukan");
 			resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			return;
+		}
+
+		// Kepemilikan/hak lintas cakupan: mahasiswa yang bersangkutan boleh melihat laporannya
+		// sendiri (dibandingkan lewat nim, pola yang sama dipakai MainAction/MainAction2 lewat
+		// Tbmuser.getMahasiswa()); pengguna lain (staf/admin) wajib memegang
+		// Tbmrole.getMelihatDataSatkerLain() -- pola gerbang lintas cakupan yang sama dipakai
+		// RekeningDosenAction dan KelompokStatusKeluarMahasiswaDetailAction.
+		Mahasiswa mahasiswaLogin = tbmuserLogin.getMahasiswa();
+		boolean pemilikData = mahasiswaLogin != null && mahasiswa.getNim() != null
+				&& mahasiswa.getNim().equals(mahasiswaLogin.getNim());
+		boolean bolehLihatDataMahasiswaLain = tbmuserLogin.hakAkses() != null
+				&& Boolean.TRUE.equals(tbmuserLogin.hakAkses().getMelihatDataSatkerLain());
+		if (!pemilikData && !bolehLihatDataMahasiswaLain) {
+			ServletContext sc = getServletContext();
+			sc.log("Akses laporan mahasiswa ditolak: pengguna " + tbmuserLogin.getUserId()
+					+ " mencoba mengambil laporan NIM " + mahasiswa.getNim());
+			resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Anda tidak berhak mengakses laporan mahasiswa ini.");
 			return;
 		}
 
@@ -296,9 +340,12 @@ public class AmbilLaporanMahasiswa extends HttpServlet {
 	 * <p>Bersifat {@code public static} sehingga juga dipakai dari luar servlet ini.</p>
 	 *
 	 * <p><b>Keamanan:</b> {@code idSurat} diterima apa adanya tanpa daftar putih, sehingga templat
-	 * surat resmi mana pun dapat dirender atas nama mahasiswa mana pun. Method ini sendiri tidak
-	 * memeriksa hak akses; pemanggil yang bertanggung jawab melakukannya, dan {@link #process}
-	 * tidak melakukannya.</p>
+	 * surat resmi mana pun dapat dirender atas nama {@code mahasiswa} yang diteruskan pemanggil.
+	 * Method ini sendiri tidak memeriksa hak akses atas {@code mahasiswa} maupun {@code idSurat};
+	 * pemanggilnya yang bertanggung jawab. {@link #process} kini menggerbangi kepemilikan atas
+	 * {@code mahasiswa} sebelum memanggil method ini (lihat Javadoc kelas), tetapi daftar putih
+	 * {@code idSurat} itu sendiri belum ditambal &mdash; pemanggil lain di luar {@link #process}
+	 * tetap wajib menggerbangi sendiri.</p>
 	 *
 	 * @param mahasiswa mahasiswa yang menjadi isi surat
 	 * @param request   permintaan asal, dipakai membangun tautan pada laporan

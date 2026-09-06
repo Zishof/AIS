@@ -579,7 +579,7 @@ public class DownloadTagihanSiswaBankOnline {
 					postData.put("order", order);
 
 					JSONObject urlParam = new JSONObject();
-					urlParam.put("callbackUrl", Common.CURRENT_URL + "/Finpay");
+					urlParam.put("callbackUrl", Common.getRequestHostWithProtocol() + "/Finpay");
 					postData.put("url", urlParam);
 
 					String screet_key = getBasicAuthenticationHeader(sekolah.getApiKeyFinpay(),

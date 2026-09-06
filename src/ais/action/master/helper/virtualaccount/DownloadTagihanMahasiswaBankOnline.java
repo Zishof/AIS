@@ -1087,7 +1087,7 @@ public class DownloadTagihanMahasiswaBankOnline {
 						postData.put("order", order);
 
 						JSONObject url = new JSONObject();
-						url.put("callbackUrl", Common.CURRENT_URL + "/Finpay");
+						url.put("callbackUrl", Common.getRequestHostWithProtocol() + "/Finpay");
 						postData.put("url", url);
 
 						String screet_key = DownloadTagihanSiswaBankOnline.getBasicAuthenticationHeader(ApiKeyFinpay,

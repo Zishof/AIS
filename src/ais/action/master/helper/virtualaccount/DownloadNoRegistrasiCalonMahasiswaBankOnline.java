@@ -453,7 +453,7 @@ public class DownloadNoRegistrasiCalonMahasiswaBankOnline extends MyWindow {
 					postData.put("order", order);
 
 					JSONObject url = new JSONObject();
-					url.put("callbackUrl", Common.CURRENT_URL + "/Finpay");
+					url.put("callbackUrl", Common.getRequestHostWithProtocol() + "/Finpay");
 
 					postData.put("url", url);
 

@@ -28,6 +28,12 @@
 		<intercept-url pattern="/main2/**" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/q/**" access="IS_AUTHENTICATED_REMEMBERED" />
 		<intercept-url pattern="/AmbilLampiran**" access="IS_AUTHENTICATED_REMEMBERED" />
+		<!-- Pertahanan berlapis untuk broken access control AmbilLaporanMahasiswa: gerbang utama
+			 (login + kepemilikan/getMelihatDataSatkerLain) sudah ditambal di kode servlet itu
+			 sendiri (lihat Javadoc kelasnya). Pola tanpa "/**" dipilih supaya HANYA jalur persis
+			 ini yang tertutup, tidak ikut menutup url-pattern lain -- lihat catatan di aturan "/al"
+			 di bawah tentang pola yang tidak sengaja jadi terlalu lebar. -->
+		<intercept-url pattern="/AmbilLaporanMahasiswa" access="IS_AUTHENTICATED_REMEMBERED" />
 		<!-- Portal ALUMNI / tracer study bersifat PUBLIK (sama seperti /ppdb dan /pmb):
 			 dibuka alumni yang belum punya akun. Aturan ini WAJIB berada SEBELUM aturan
 			 "/al" di bawah supaya niatnya terbaca jelas dan tidak ikut tertutup lagi bila
