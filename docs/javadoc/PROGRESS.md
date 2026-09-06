@@ -1,5 +1,64 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 123 — 5 paket kecil TUNTAS 100%: `spi`/`lkp`/`spmi`/`obe`/`crm` (42 file, 5 agent paralel, 1 task baru, 6 Sep 2026)
+
+**`spi`** (9 file, Satuan Pengawasan Internal/audit internal, r85240-85281).
+Rantai kerja lengkap: `RencanaAuditTahunanSPI` (PKPT, opsional
+`ProfilRisikoSPI`) → `PenugasanAuditSPI` (`extends DataSop`, MEMAKAI
+mesin SOP generik penuh — perluasan `task_c595deee`) → `TemuanAuditSPI`
+(snapshot kriteria/checklist) → `TindakLanjutAuditSPI`. **Task baru
+`task_fcc03cad`**: `TindakLanjutAuditSPI` TIDAK memakai `AlurSop`/
+`DisposisiSop` sama sekali (`extends GeneralValueObject` biasa) —
+status (termasuk `SELESAI`) diisi langsung lewat satu form, gerbang
+akses cuma `Common.doCheckSecurity()` generik tanpa scoping peran
+auditor vs auditee, TANPA langkah verifikasi independen sebelum
+ditutup — genuinely independen dari isu mesin SOP, bukan perluasan.
+
+**`lkp`** (9 file, r85240-85277). **Makna dikonfirmasi**: LKP =
+**Laporan Kinerja Pegawai** (dari komentar kelas
+`ais.action.servlet.api.KinerjaPegawaiApi`), BUKAN "Lembaga Kursus
+Pelatihan". Sistem penilaian kinerja BERBASIS KEGIATAN/TUGAS per
+jabatan (mirip SKP ASN) — **SEPENUHNYA INDEPENDEN** dari paket `kpi`
+(berbasis indikator, batch 117): nol referensi silang, dua sistem
+penilaian kinerja pegawai paralel yang tidak sinkron.
+`TargetKerjaPegawai`(header)→`RealisasiKerjaPegawai`(detail) 1:banyak;
+kuantitas/waktu dijumlah dari realisasi lalu dibagi target (BENAR),
+kualitas dinilai LANGSUNG oleh asesor (bukan agregasi). 0 task baru.
+
+**`spmi`** (8 file, Sistem Penjaminan Mutu Internal, siklus PPEPP,
+r85242-85281). Rantai: `JenisSPMI`→`StandarSPMI`→`ButirMutuSPMI`→
+`IndikatorSPMI`→`SkenarioSPMI`→`HasilTemuanSPMI`(via `HasilSPMI`)→
+`TindakLanjutTemuanSPMI`. `HasilSPMI extends DataSop` — MEMAKAI mesin
+SOP (perluasan `task_c595deee`). `TindakLanjutTemuanSPMI` TIDAK
+memakai SOP, self-approval mirip temuan `spi` di atas — TAPI dinilai
+cukup memperkuat pola "self-approval belum ditambal" yang SUDAH luas
+tercatat, TIDAK di-task-kan terpisah (beda keputusan dari `spi` karena
+`task_fcc03cad` fokus pada KETIADAAN mesin apa pun, bukan cuma
+self-approval semata). 0 task baru.
+
+**`obe`** (8 file, Outcome-Based Education/capaian pembelajaran,
+r85244-85282). **Verifikasi kunci**: `CapaianLulusan`(CPL, level
+prodi) vs `CapaianPembelajaranLulusan`(CPMK, level matakuliah meski
+nama menyaru CPL) — dikonfirmasi DUA JENJANG BERBEDA lewat
+`khususBuatMk`+konvensi penamaan `cpmk`/`kode_cpmk` di puluhan titik
+pemanggil, BUKAN sinonim/versi lama-baru. Rantai: ProfilLulusan(PL)→
+CapaianLulusan(CPL)→CapaianPembelajaranLulusan(CPMK)→Sub-CPMK (di
+dalam JSON `formula`, bukan entity terpisah). 0 task baru.
+
+**`crm`** (8 file, sales pipeline, r85250-85274). Dikonfirmasi mesin
+pipeline GENERIK milik modul Ticketing (`ais.action.master.ticket.Crm*`),
+BUKAN terintegrasi otomatis ke PMB/PSB — pranala entitas
+(`jenisEntitasTerkait`/`entitasTerkaitId`) cuma string longgar tanpa
+FK, integrasi manual/administratif. Nol `@MappedSuperclass`/pola
+bolt-on modern (beda dari `sosial`/`tenant`). Nol tenant scoping sama
+sekali di semua 8 entity (`CrmLead` dkk) — siapa pun berakses fitur
+CRM lihat SEMUA lead lintas unit kerja — konsisten pola tercatat,
+TIDAK di-task-kan (observasi arsitektur, bukan bug baru unik).
+
+**1 task baru total**: `task_fcc03cad`. Total akumulasi domain-batched:
+**1501+ file** (basis lama + 42 file batch ini) — lihat catatan
+koreksi scope di Batch 121 di bawah soal keterbatasan angka ini.
+
 ## Batch 122 — paket `sekolah` (156 file, TERBESAR di codebase) dikonfirmasi TUNTAS 100%; addendum 2 file baru `sirs` + 1 task baru (6 Sep 2026)
 
 Scan inventaris ulang menemukan `ais/database/model/sekolah/` (156
