@@ -17,15 +17,64 @@ import ais.common.ConstantValues;
 import ais.database.model.BiodataCalonMahasiswa;
 
 /**
- * Servlet implementation class Pdf
+ * Servlet penyaji berkas PDF (dan gambar apa pun yang MIME type-nya dikenali servlet
+ * container) dari direktori laporan bersama ({@link Common#ambilREAL_PATH_REPORT()}), dengan
+ * nama berkas yang selalu diterima dalam bentuk terenkripsi DES lewat
+ * {@link Common#desEncrypter}, tidak pernah sebagai teks biasa dari klien.
+ *
+ * <p>Dua mode: (1) parameter {@code calmhs} berisi id {@link BiodataCalonMahasiswa}
+ * terenkripsi — servlet men-dekripsi id tersebut, memuat entity-nya, dan bila belum ada
+ * berkas cetak biodata, membangkitkannya on-demand lewat
+ * {@link CommonReportHelper#onCetakBiodataCalonMahasiswa}; (2) parameter {@code p} berisi
+ * NAMA BERKAS (bukan id) yang juga terenkripsi DES — dipakai untuk menyajikan berkas laporan
+ * yang sudah pernah dibuat sebelumnya (mis. oleh servlet lain di paket ini) tanpa perlu
+ * membangun ulang.</p>
+ *
+ * <p><b>Keamanan — path/nama berkas TIDAK datang mentah dari klien, tetapi kunci
+ * dekripsinya bersifat publik:</b> nilai plaintext {@code filename} pada mode (2) tidak bisa
+ * dipilih langsung oleh klien karena harus melalui {@link Common#desEncrypter} terlebih
+ * dahulu — namun {@code Common.DES_PASS_PHRASE} adalah konstanta TETAP ({@code "AIS_UIN"})
+ * yang tertanam di source dan SAMA untuk seluruh instalasi AIS (lihat javadoc lengkap pada
+ * {@link Common#DES_PASS_PHRASE} mengenai riwayat upaya migrasi ke AES-256-GCM yang dibatalkan
+ * karena mematahkan alur login) — sehingga siapa pun yang mengetahui konstanta tersebut dapat
+ * meng-enkripsi plaintext pilihannya sendiri (termasuk barisan {@code ../}) dan mengirimkannya
+ * sebagai parameter {@code p} yang valid secara kriptografis. Setelah dekripsi, hasilnya
+ * dipakai APA ADANYA untuk membentuk {@code new File(reportPath + "/" + filename)} TANPA
+ * kanonikalisasi/pengecekan bahwa path akhir tetap berada di dalam {@code reportPath} —
+ * satu-satunya pengaman saat ini adalah {@link File#isFile()} (mencegah exception mentah bila
+ * hasilnya sebuah direktori), BUKAN pencegah path traversal. Risiko root pada kunci DES yang
+ * dipakai bersama ini sudah didokumentasikan secara luas di {@link Common#DES_PASS_PHRASE};
+ * mitigasi tambahan yang murah dan berdiri sendiri untuk servlet ini adalah memvalidasi bahwa
+ * {@link File#getCanonicalPath()} hasil akhir tetap berada di bawah kanonikalisasi
+ * {@code reportPath} sebelum berkas dialirkan ke respons.</p>
+ *
+ * @see HttpServlet
  */
 public class Pdf extends HttpServlet {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
+	 * Tidak ada state khusus yang diinisialisasi di sini.
+	 */
 	public Pdf() {
 		super();
 	}
 
+	/**
+	 * Menangani GET dengan mendelegasikan ke {@link #process}; kegagalan apa pun ditelan dan
+	 * hanya ditampilkan ke pengguna bila konteks saat ini adalah administrator, lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter {@code calmhs} atau {@code p} (keduanya
+	 *                 terenkripsi DES) menentukan berkas yang disajikan, lihat {@link #process}
+	 * @param response response HTTP keluar; diisi berkas PDF/gambar oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar karena {@link #process} dibungkus
+	 *                          try/catch di sini; dipertahankan hanya karena tanda tangan
+	 *                          {@link HttpServlet#doGet}
+	 * @throws IOException      idem, ditelan oleh blok catch
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -35,6 +84,15 @@ public class Pdf extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menangani POST dengan perilaku identik seperti {@link #doGet}: mendelegasikan ke
+	 * {@link #process} dan menelan kegagalan lewat {@link Common#tampilErrorJikaAdmin(Exception)}.
+	 *
+	 * @param request  request HTTP masuk; parameter sama seperti pada {@link #doGet}
+	 * @param response response HTTP keluar; diisi berkas PDF/gambar oleh {@link #process}
+	 * @throws ServletException tidak pernah dilempar keluar, lihat catatan pada {@link #doGet}
+	 * @throws IOException      idem
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -44,6 +102,34 @@ public class Pdf extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menentukan mode penyajian berkas berdasarkan parameter yang hadir, lalu mengalirkan
+	 * berkas terkait ke {@code response} lewat {@link #streamFileToResponse}.
+	 *
+	 * <p>Mode {@code calmhs}: dekripsi id {@link BiodataCalonMahasiswa} lewat
+	 * {@link Common#desEncrypter}, muat entity-nya lewat {@link ConstantValues#ambil}, dan
+	 * bila ditemukan, bangkitkan (atau ambil bila sudah ada) berkas cetaknya lewat
+	 * {@link CommonReportHelper#onCetakBiodataCalonMahasiswa}. Nama berkas hasil generate
+	 * digabung dengan {@code reportPath} yang dikembalikan
+	 * {@link Common#ambilREAL_PATH_REPORT()} untuk membentuk path final; hanya disajikan bila
+	 * {@link File#isFile()} benar, selain itu dibalas {@code 404}. Exception apa pun pada mode
+	 * ini ditelan dan hanya dicatat ke {@link ais.common.ErrorAuditUtil}.</p>
+	 *
+	 * <p>Mode {@code p} (dipakai bila {@code calmhs} tidak ada): tolak dengan {@code 500} bila
+	 * parameter kosong; selain itu dekripsi nama berkas lewat {@link Common#desEncrypter} dan
+	 * gabungkan dengan {@code reportPath} yang sama, lalu sajikan bila {@link File#isFile()}
+	 * benar, selain itu {@code 404}. Lihat catatan keamanan pada Javadoc kelas mengenai
+	 * ketiadaan pengecekan kanonikalisasi path pada mode ini.</p>
+	 *
+	 * @param request request HTTP masuk; parameter {@code calmhs} (id biodata terenkripsi)
+	 *                atau {@code p} (nama berkas terenkripsi) menentukan berkas yang disajikan
+	 * @param resp    response HTTP keluar; diisi konten berkas oleh {@link #streamFileToResponse}
+	 *                atau status {@code 404}/{@code 500} bila gagal
+	 * @throws Exception dilempar hanya dari mode {@code p} sebelum dekripsi (mis. bila
+	 *                    {@code sc} bermasalah); kegagalan dekripsi/pemuatan pada mode
+	 *                    {@code calmhs} maupun kegagalan setelah dekripsi pada mode {@code p}
+	 *                    ditelan di dalam masing-masing blok try/catch internal
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) throws Exception {
 		String calmhs = request.getParameter("calmhs");
 		ServletContext sc = getServletContext();
