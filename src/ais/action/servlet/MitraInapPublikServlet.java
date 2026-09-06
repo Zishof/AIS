@@ -30,8 +30,17 @@ import ais.common.security.PublicRegistrationRateLimiter;
  */
 public class MitraInapPublikServlet extends HttpServlet {
 
+	/** Versi serialisasi tetap 1L; servlet tidak pernah benar-benar diserialisasi ke stream. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Menentukan alamat IP klien untuk keperluan pembatasan laju (rate limit): mengutamakan
+	 * segmen pertama header {@code X-Forwarded-For} (jika ada di belakang proxy/load balancer),
+	 * atau {@code request.getRemoteAddr()} sebagai fallback.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @return alamat IP klien yang dipakai sebagai kunci rate limit
+	 */
 	private static String clientIp(HttpServletRequest request) {
 		String xf = request.getHeader("X-Forwarded-For");
 		if (xf != null && xf.trim().length() > 0) {
@@ -41,6 +50,16 @@ public class MitraInapPublikServlet extends HttpServlet {
 		return request.getRemoteAddr();
 	}
 
+	/**
+	 * Menulis hasil JSON ke respons dengan header {@code Cache-Control: no-store} dan CORS
+	 * terbuka ({@code Access-Control-Allow-Origin: *}) -- aman karena endpoint anonim ini tidak
+	 * membaca cookie sesi apa pun (tidak ada permukaan CSRF: perubahan state hanya lewat booking
+	 * ber-idempotency-key dan rate limit per IP).
+	 *
+	 * @param response respons HTTP keluar
+	 * @param hasil objek JSON yang akan ditulis sebagai body respons
+	 * @throws IOException jika terjadi galat I/O saat menulis respons
+	 */
 	private static void tulis(HttpServletResponse response, JSONObject hasil) throws IOException {
 		response.setContentType("application/json; charset=UTF-8");
 		response.setHeader("Cache-Control", "no-store");
@@ -51,6 +70,16 @@ public class MitraInapPublikServlet extends HttpServlet {
 		response.getWriter().write(hasil.toString());
 	}
 
+	/**
+	 * Menangani galat internal tak terduga: mencatatnya lewat audit ({@link ais.common.ErrorAuditUtil})
+	 * dan membalas JSON status generik ({@code status=91}) TANPA membocorkan stack trace atau
+	 * detail teknis ke klien publik.
+	 *
+	 * @param response respons HTTP keluar
+	 * @param e galat yang terjadi
+	 * @param request permintaan HTTP terkait, disertakan ke audit untuk konteks
+	 * @throws IOException jika terjadi galat I/O saat menulis respons
+	 */
 	private static void galatInternal(HttpServletResponse response, Exception e,
 			HttpServletRequest request) throws IOException {
 		ais.common.ErrorAuditUtil.record(e, "auto-audit MitraInapPublikServlet", request);
@@ -64,6 +93,17 @@ public class MitraInapPublikServlet extends HttpServlet {
 		tulis(response, hasil);
 	}
 
+	/**
+	 * Menangani permintaan baca publik: katalog properti/tipe kamar, cek ketersediaan, atau
+	 * status booking, masing-masing dengan rate limit per IP tersendiri. Anonim -- tanpa gerbang
+	 * login apa pun (lihat javadoc kelas). Parameter mentah disalin ke objek query sebelum
+	 * diteruskan ke {@link ais.action.servlet.api.MitraInapPublikHelper}.
+	 *
+	 * @param request permintaan HTTP masuk; parameter {@code mode} dan field katalog/ketersediaan/status dibaca di sini
+	 * @param response respons HTTP keluar; selalu JSON
+	 * @throws ServletException tidak pernah dilempar, hanya dideklarasikan oleh kontrak servlet
+	 * @throws IOException jika terjadi galat I/O saat menulis respons
+	 */
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -108,6 +148,19 @@ public class MitraInapPublikServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menangani permintaan booking publik (mode {@code booking} saja). Membaca body JSON mentah
+	 * dibatasi 20000 karakter, memeriksa honeypot ({@code website} wajib kosong -- jika terisi,
+	 * dibalas sukses PALSU tanpa menyimpan apa pun agar bot tidak mendapat sinyal deteksi),
+	 * lalu menerapkan rate limit booking per IP sebelum mendelegasikan ke
+	 * {@link ais.action.servlet.api.MitraInapPublikHelper#booking}. Anonim -- tanpa gerbang
+	 * login apa pun (lihat javadoc kelas).
+	 *
+	 * @param request permintaan HTTP masuk; body JSON berisi data booking dibaca di sini
+	 * @param response respons HTTP keluar; selalu JSON
+	 * @throws ServletException tidak pernah dilempar, hanya dideklarasikan oleh kontrak servlet
+	 * @throws IOException jika terjadi galat I/O saat membaca body atau menulis respons
+	 */
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {

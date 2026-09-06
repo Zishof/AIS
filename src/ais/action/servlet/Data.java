@@ -958,6 +958,32 @@ public class Data extends HttpServlet {
 		return hasil;
 	}
 
+	/**
+	 * Menjawab {@code action=file}: mencari satu lampiran dan mengembalikan metadatanya sebagai
+	 * JSON (bukan isi berkasnya).
+	 *
+	 * <p>Field muatan yang wajib ada ketiganya: {@code class} (nama kelas entity lampiran),
+	 * {@code ref} (kunci pemilik lampiran), dan {@code jenis}. Bila salah satu {@code null},
+	 * method berhenti diam-diam dan {@code hasil} tetap pada nilai awalnya. Field opsional
+	 * {@code usingId} dan {@code refresh} bertipe boolean.</p>
+	 *
+	 * <p>{@code ref} divalidasi harus berupa angka lewat {@code Common.isNumber} — permintaan
+	 * dengan {@code ref} bukan angka ditolak diam-diam. Setelah lolos, {@link Tbmuser} dan
+	 * {@link Tbmrole} tetap memakai {@code ref} sebagai {@code String} karena kunci primernya
+	 * bukan angka; kelas lain memakai {@code Long}.</p>
+	 *
+	 * <p>Bila lampiran ditemukan, {@code hasil.data} diisi {@code url}, {@code nama}, {@code id},
+	 * {@code mime}, ditambah {@code gdrive} bila berkas sudah dipindahkan ke Google Drive; status
+	 * menjadi {@code "00"}. Bila tidak ditemukan, status dibiarkan apa adanya.</p>
+	 *
+	 * <p><b>Riwayat perbaikan.</b> Parameter {@code kondisiTambahan} — potongan SQL mentah yang
+	 * dulu diteruskan ke {@code Restrictions.sqlRestriction} — sudah dihapus karena merupakan celah
+	 * SQL injection dan tidak pernah diisi pemanggil yang sah. Jangan menghidupkannya kembali.</p>
+	 *
+	 * @param jsonObject muatan JSON permintaan
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila {@code Class.forName} gagal atau pembacaan lampiran melempar
+	 */
 	private static void processFile(JSONObject jsonObject, JSONObject hasil) throws Exception {
 		if (!jsonObject.isNull("class") && !jsonObject.isNull("ref") && !jsonObject.isNull("jenis")) {
 			String refStr = jsonObject.optString("ref", "").trim();
@@ -993,6 +1019,35 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menjawab {@code action=update_file}: menautkan ulang sebuah lampiran yang sudah ada ke baris
+	 * pemilik yang lain.
+	 *
+	 * <p>Field muatan: {@code id} (kunci baris lampiran, wajib angka), {@code ref} (kunci pemilik
+	 * baru, wajib angka), {@code jenis}, dan {@code class} yang opsional — bila kosong atau gagal
+	 * di-{@code Class.forName}, kelas jatuh ke {@link LampiranLain}. Bila {@code id} atau
+	 * {@code ref} bukan angka, method berhenti diam-diam.</p>
+	 *
+	 * <p>Penautan ulang dikerjakan {@code AmbilDataLampiranFileLain.mappingInstanceData(...)}, yang
+	 * menyalin kembali {@code link}, {@code nama}, {@code keterangan}, {@code olehId}, dan
+	 * {@code oleh} milik lampiran itu sendiri — jadi hanya kepemilikan barisnya yang berpindah,
+	 * bukan isinya. Perubahan disimpan dalam satu transaksi pada session
+	 * {@code StreamingHibernateUtil} yang ditutup di blok {@code finally}; kegagalan di-rollback
+	 * lewat {@link #rollbackQuietly}, dicatat, dan <b>tidak</b> dilaporkan ke pemanggil.</p>
+	 *
+	 * <p>Setelah simpan, lampiran dibaca ulang dengan {@code refresh=true} agar {@code hasil.data}
+	 * memuat {@code url}, {@code nama}, {@code id}, dan {@code mime} versi terbaru; status menjadi
+	 * {@code "00"}.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Method ini tidak memeriksa siapa pemilik lampiran maupun siapa pemilik
+	 * baris {@code ref} tujuan; nama kelas, kunci lampiran, dan kunci tujuan seluruhnya berasal
+	 * dari klien. Satu-satunya penjaga adalah gerbang umum di {@link #ambil}, yang dapat dilewati
+	 * dengan penanda {@code tanpaLogin}.</p>
+	 *
+	 * @param jsonObject muatan JSON permintaan
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila pembacaan ulang lampiran atau penyusunan JSON gagal
+	 */
 	@SuppressWarnings("rawtypes")
 	private static void updateFile(JSONObject jsonObject, JSONObject hasil) throws Exception {
 		String idStr = jsonObject.optString("id", "").trim();
@@ -1044,6 +1099,30 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menjawab {@code action=hapus_file}: menghapus lampiran yang ditemukan lewat kunci
+	 * <b>pemiliknya</b> ({@code ref}), bukan lewat kunci lampiran itu sendiri.
+	 *
+	 * <p>Field muatan: {@code ref} (wajib angka), {@code jenis}, dan {@code clazz} — perhatikan
+	 * nama field di sini {@code clazz}, berbeda dari {@code class} yang dipakai
+	 * {@link #processFile} dan {@link #updateFile}. Pencarian memakai
+	 * {@code LampiranLain.ambil(false, ref, jenis, clazz)}; argumen {@code false} itulah yang
+	 * menandakan pencarian berdasarkan pemilik. Bandingkan dengan {@link #hapusFileById} yang
+	 * memakai {@code true}.</p>
+	 *
+	 * <p>Urutannya perlu diperhatikan: {@code hasil} diisi metadata lampiran ({@code url},
+	 * {@code nama}, {@code id}, {@code mime}) dan status {@code "00"} <b>sebelum</b> penghapusan
+	 * dijalankan. Karena kegagalan transaksi hanya di-rollback lewat {@link #rollbackQuietly} dan
+	 * dicatat, pemanggil tetap menerima {@code "00"} meski baris sebenarnya gagal terhapus.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Tidak ada pemeriksaan kepemilikan; nama kelas dan kunci baris berasal
+	 * dari klien, dan satu-satunya penjaga adalah gerbang umum di {@link #ambil} yang dapat
+	 * dilewati dengan penanda {@code tanpaLogin}.</p>
+	 *
+	 * @param jsonObject muatan JSON permintaan
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila {@code Class.forName} gagal atau penyusunan JSON melempar
+	 */
 	private static void hapusFile(JSONObject jsonObject, JSONObject hasil) throws Exception {
 		String refStr = jsonObject.optString("ref", "").trim();
 
@@ -1078,6 +1157,27 @@ public class Data extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menjawab {@code action=hapus_file_by_id}: menghapus lampiran yang ditemukan lewat kunci
+	 * <b>lampiran itu sendiri</b> ({@code id}).
+	 *
+	 * <p>Kembaran {@link #hapusFile}; satu-satunya perbedaan berarti adalah field kunci yang dibaca
+	 * ({@code id}, bukan {@code ref}) dan argumen pertama {@code LampiranLain.ambil(true, ...)}
+	 * yang menandakan pencarian berdasarkan kunci lampiran. Field {@code jenis} dan {@code clazz}
+	 * sama, termasuk penamaan {@code clazz} yang berbeda dari {@code class} di
+	 * {@link #processFile}.</p>
+	 *
+	 * <p>Sama seperti kembarannya, {@code hasil} sudah diisi status {@code "00"} sebelum
+	 * penghapusan dijalankan, sehingga kegagalan transaksi tidak terlihat oleh pemanggil. Session
+	 * {@code StreamingHibernateUtil} ditutup di blok {@code finally}.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Tidak ada pemeriksaan kepemilikan; berlaku catatan yang sama dengan
+	 * {@link #hapusFile}.</p>
+	 *
+	 * @param jsonObject muatan JSON permintaan
+	 * @param hasil      objek tanggapan yang diisi di tempat
+	 * @throws Exception bila {@code Class.forName} gagal atau penyusunan JSON melempar
+	 */
 	private static void hapusFileById(JSONObject jsonObject, JSONObject hasil) throws Exception {
 		String idStr = jsonObject.optString("id", "").trim();
 

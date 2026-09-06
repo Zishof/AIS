@@ -1261,6 +1261,52 @@ public class Wa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memproses webhook penyedia pihak ketiga <b>Ultramsg</b> (payload ber-{@code event_type}
+	 * {@code message_received}).
+	 *
+	 * <h4>Penguraian payload</h4>
+	 * <p>Data dibaca dari objek {@code data} pada payload: nomor pengirim dari {@code from}
+	 * (bagian sebelum tanda {@code @} pada jid WhatsApp), isi pesan dari {@code body}, lampiran
+	 * dari {@code media}, dan nama tampilan dari {@code pushname}. Bila isi pesan kosong tetapi
+	 * ada lampiran, pertanyaan diganti kalimat baku yang meminta penjelasan tentang eCampus,
+	 * eSchool, ePesantren, dan Enterprise Education &mdash; sehingga kiriman gambar tetap
+	 * memperoleh balasan.</p>
+	 *
+	 * <h4>Penyaringan pengirim</h4>
+	 * <p>Sama seperti {@link #wa}: nomor harus diawali {@code "62"}, tidak tercantum pada
+	 * {@code chat_bot_nomor_tidak_direponse}, dan isi pesan tidak kosong.</p>
+	 *
+	 * <h4>Alur balasan</h4>
+	 * <p>Bila konfigurasi {@code pesan_tambahan_wa_dibuat_statis} aktif, {@link #simpanPesan}
+	 * <b>dilewati</b> &mdash; pengirim tidak didaftarkan dan tidak ada kode install yang diambil
+	 * &mdash; dan teks penutup diambil dari konfigurasi {@code pesan_tambahan_wa_statis} yang
+	 * berisi kode-kode install demo tetap. Bila tidak aktif, {@link #simpanPesan} dipanggil dan
+	 * teks penutup memakai {@code pesan_tambahan_wa} yang disambung kode install hasilnya.</p>
+	 *
+	 * <p>Balasan disusun di dalam {@link Thread} terpisah. Sapaan waktu ditentukan dari jam
+	 * server: 10&ndash;14 "Siang", 15&ndash;17 "Sore", 18&ndash;24 "Malam", selain itu "Pagi".
+	 * Pertanyaan yang dikirim ke {@link #ambilPesan} berbentuk
+	 * {@code "Selamat <waktu>, nama saya <nama>, <pesan>"}, dan hasilnya diapit teks pembuka dari
+	 * {@code pesan_tambahan_wa_awal_baru} serta teks penutup di atas.</p>
+	 *
+	 * <p>Ada jalur pintas khusus: pesan yang diawali {@code "kirimkan data pemanasan ke-"}
+	 * dibalas {@code "Jawaban dari <pesan>"} tanpa memanggil AI sama sekali. Jalur itu dipakai
+	 * untuk menjaga koneksi penyedia tetap hangat, dan tanggapannya sengaja tidak disimpan
+	 * sebagai {@link Pengaduan}.</p>
+	 *
+	 * <p>Pengiriman didelegasikan ke {@link #kirimWaViaUltramsg}. {@link Pengaduan} disimpan
+	 * hanya bila tanggapan AI benar-benar terbentuk.</p>
+	 *
+	 * <p>Seluruh exception ditangkap dan dicatat ke audit error; kegagalan tidak pernah
+	 * memengaruhi balasan HTTP webhook.</p>
+	 *
+	 * @param request  permintaan HTTP webhook; diteruskan ke {@link #simpanPesan}
+	 * @param response balasan HTTP; tidak disentuh method ini
+	 * @param data     payload webhook mentah berformat JSON
+	 * @throws Exception dinyatakan pada tanda tangan, tetapi seluruh kegagalan sudah ditangkap di
+	 *                   dalam sehingga praktis tidak pernah dilempar
+	 */
 	private void ultramsg(HttpServletRequest request, HttpServletResponse response, String data) throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
 		try {
@@ -1363,6 +1409,47 @@ public class Wa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memproses webhook penyedia pihak ketiga <b>Watzap</b> (payload ber-{@code event_type}
+	 * {@code incoming_chat}).
+	 *
+	 * <h4>Penguraian payload</h4>
+	 * <p>Pesan hanya diproses bila {@code data.is_from_me} bernilai {@code false}, yaitu bukan
+	 * pesan yang dikirim akun sendiri &mdash; penjaga anti-gema yang mencegah bot membalas
+	 * balasannya sendiri. Nomor pengirim diambil dari {@code chat_id} (bagian sebelum tanda
+	 * {@code @}) dan isi pesan dari {@code message_body}. Bila payload memuat
+	 * {@code number_key}, nilainya disimpan ke peta {@link #nomorKey} dengan nomor pengirim
+	 * sebagai kunci, untuk dipakai saat mengirim balasan lewat akun yang sama.</p>
+	 *
+	 * <h4>Penyaringan pengirim</h4>
+	 * <p>Sama seperti dua rute lainnya: nomor diawali {@code "62"}, tidak tercantum pada
+	 * {@code chat_bot_nomor_tidak_direponse}, dan isi pesan tidak kosong.</p>
+	 *
+	 * <h4>Jawaban dari cache {@link TanyaJawab}</h4>
+	 * <p>Sebelum memanggil AI, method mencari {@link TanyaJawab} milik nomor tersebut pada peta
+	 * {@code UserOnlineCounter.mapTanyaJawab}. Bila entri ada tetapi kolom {@code keterangan}-nya
+	 * masih kosong, jawaban diambil sekali lewat {@link #tanya} lalu disimpan ke basis data,
+	 * sehingga pertanyaan yang sama tidak perlu memanggil model berulang kali. Bila kolom itu
+	 * sudah terisi, isinya langsung dipakai sebagai balasan tanpa memanggil AI.</p>
+	 *
+	 * <h4>Alur balasan</h4>
+	 * <p>Pemilihan teks penutup dan pembuka identik dengan {@link #ultramsg}, termasuk cabang
+	 * {@code pesan_tambahan_wa_dibuat_statis} dan jalur pintas
+	 * {@code "kirimkan data pemanasan ke-"}. Perbedaannya pada penjadwalan pengiriman: ketika
+	 * balasan berasal dari cache {@link TanyaJawab} atau dari jalur pemanasan &mdash; ditandai
+	 * oleh {@code tanggapan} yang masih kosong &mdash; pengiriman ditunda dalam {@link Thread}
+	 * tersendiri selama 1 sampai 29 detik acak, agar kiriman massal tidak terlihat seperti
+	 * ledakan otomatis oleh penyedia. Bila balasan benar-benar baru disusun AI, pengiriman
+	 * dilakukan segera dan {@link Pengaduan} disimpan.</p>
+	 *
+	 * <p>Seluruh exception ditangkap dan dicatat ke audit error.</p>
+	 *
+	 * @param request  permintaan HTTP webhook; diteruskan ke {@link #simpanPesan}
+	 * @param response balasan HTTP; tidak disentuh method ini
+	 * @param data     payload webhook mentah berformat JSON
+	 * @throws Exception dinyatakan pada tanda tangan, tetapi seluruh kegagalan sudah ditangkap di
+	 *                   dalam sehingga praktis tidak pernah dilempar
+	 */
 	private void watzap(HttpServletRequest request, HttpServletResponse response, String data) throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
 		try {

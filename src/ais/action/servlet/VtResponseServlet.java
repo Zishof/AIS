@@ -313,8 +313,8 @@ public class VtResponseServlet extends HttpServlet {
 			System.out.println("VtResponseServlet ==> statusMessage=>" + statusMessage);
 			System.out.println("VtResponseServlet ==> permataVaNumber=>" + permataVaNumber);
 			System.out.println("VtResponseServlet ==> signatureKey=>" + signatureKey);
-			System.out.println("VtResponseServlet ==> cardToken=>" + cardToken);
-			System.out.println("VtResponseServlet ==> savedCardToken=>" + savedCardToken);
+			System.out.println("VtResponseServlet ==> cardToken=>" + (cardToken == null || cardToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
+			System.out.println("VtResponseServlet ==> savedCardToken=>" + (savedCardToken == null || savedCardToken.isEmpty() ? "(kosong)" : "(disamarkan)"));
 			System.out.println("VtResponseServlet ==> savedCardTokenExpiredAt=>" + savedCardTokenExpiredAt);
 			System.out.println("VtResponseServlet ==> secureToken=>" + secureToken);
 			System.out.println("VtResponseServlet ==> bank=>" + bank);

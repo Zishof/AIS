@@ -26,37 +26,128 @@ import ais.database.model.OnlineUsers;
 import ais.database.model.Tbmuser;
 
 /**
- * Komponen batas HTTP/servlet untuk filter jsp. Tipe ini menerima input dari luar aplikasi,
- * meneruskannya ke layanan domain, lalu membentuk respons tanpa menduplikasi aturan bisnis.
+ * Filter global aplikasi yang dipetakan ke {@code /*} — pengarah URL ramah ke berkas JSP/ZUL di
+ * bawah {@code /WEB-INF/}, pemasang header CORS, dan tempat penutupan terpusat session Hibernate
+ * per permintaan.
  *
- * <p><b>Batas tanggung jawab:</b> tipe ini mendeklarasikan kontrak {@link Filter}. Implementasi konkret
- * bertanggung jawab atas transaksi, resource, error handling, dan efek samping; pemanggil sebaiknya bergantung
- * pada kontrak ini agar tidak menggandakan integrasi.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah inisialisasi/lifecycle ({@code init()}); validasi/perhitungan
- * ({@code checkSingleDeviceBlock()}, {@code checkSingleDeviceBlock()}); operasi domain lain ({@code destroy()},
- * {@code doFilter()}, {@code isUserMatch()}, {@code handleLogout()}, {@code handleRouting()}, {@code
- * handleSubdomainRedirects()}). Bagian lain dari kontrak tetap mengikuti kelas induk atau interface yang disebut
- * di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <h3>Kedudukan dalam rantai filter</h3>
+ * <p>Menurut {@code web.xml}, filter ini dideklarasikan <b>sesudah</b>
+ * {@code springSecurityFilterChain}, sehingga otorisasi Spring Security sudah berjalan lebih dulu.
+ * Filter ini karena itu bukan gerbang otentikasi dan tidak boleh diperlakukan sebagai gerbang
+ * otentikasi; perannya adalah pengarahan (routing) dan pembersihan sumber daya.</p>
+ *
+ * <h3>Empat tanggung jawab</h3>
+ * <ol>
+ *   <li><b>Konteks per-thread</b> — memasang {@link RequestContext} dan {@link ResponseContext}
+ *       di awal, lalu melepasnya di {@code finally}, sehingga kode di lapisan bawah dapat meraih
+ *       permintaan yang sedang berjalan tanpa meneruskannya sebagai argumen.</li>
+ *   <li><b>Header CORS</b> — lihat {@link #addCorsHeader(HttpServletResponse)}; berlaku untuk
+ *       SELURUH aplikasi karena pemetaan {@code /*}.</li>
+ *   <li><b>Pengarahan URL</b> — {@link #handleRouting} menerjemahkan URL ramah menjadi
+ *       {@code forward} ke berkas di bawah {@code /WEB-INF/} yang tidak dapat diakses langsung,
+ *       atau menjadi {@code sendRedirect} ke rute kanonik.</li>
+ *   <li><b>Penutupan terpusat session Hibernate</b> — lihat catatan di
+ *       {@link #doFilter(ServletRequest, ServletResponse, FilterChain)}.</li>
+ * </ol>
+ *
+ * <h3>Yang BUKAN tanggung jawab kelas ini</h3>
+ * <p>Perlu ditegaskan karena mudah keliru: penyaring parameter {@code hanya_tampil_jsp} —
+ * yaitu daftar putih nama berkas layanan JSP yang boleh dirender — <b>tidak berada di kelas
+ * ini</b>. Penyaring itu dimiliki masing-masing servlet halaman yang membaca parameter tersebut,
+ * yakni {@code Ppdb}, {@code Pmb}, {@code Karir}, {@code Tamu}, {@code Welpus}, {@code Welsis},
+ * dan {@code Anjungan}. {@link FilterJSP} tidak pernah membaca parameter {@code hanya_tampil_jsp},
+ * {@code p}, maupun {@code s}.</p>
+ *
+ * <h3>Penyaring jalur yang perlu dipahami</h3>
+ * <p>{@link #isIgnoredPath(String)} memutuskan apakah sebuah permintaan diproses pengarah atau
+ * diteruskan begitu saja ke rantai berikutnya. Keputusan itu memakai pencocokan <b>substring</b>
+ * yang sangat longgar pada beberapa entrinya — antara lain {@code "al"}, {@code "pdf"}, dan
+ * {@code "lampiran"} — sehingga banyak URL yang tidak berkaitan ikut melewati pengarah. Lihat
+ * uraian pada method tersebut.</p>
+ *
+ * @see SecurityFilter
+ * @see RequestContext
+ * @see ResponseContext
  */
 public class FilterJSP implements Filter {
 
 	@Override
+	/**
+	 * Dipanggil sekali oleh container saat filter dimuat.
+	 *
+	 * <p>Hanya membaca parameter inisialisasi {@code init-param} dari {@code web.xml} lalu
+	 * mencetaknya sebagai penanda bahwa filter benar-benar terpasang. Tidak ada state yang
+	 * dibentuk, sehingga filter ini tanpa-state dan aman dipakai banyak thread sekaligus.</p>
+	 *
+	 * @param confg konfigurasi filter dari container
+	 * @throws ServletException bila inisialisasi gagal
+	 */
 	public void init(FilterConfig confg) throws ServletException {
 		String initParam = confg.getInitParameter("init-param");
 		System.out.println("FilterJSP Initialized. Param: " + initParam);
 	}
 
 	@Override
+	/**
+	 * Dipanggil sekali saat filter dilepas container.
+	 *
+	 * <p>Tidak ada sumber daya tingkat filter yang perlu dilepas: seluruh pembersihan bersifat
+	 * per-permintaan dan sudah dilakukan di blok {@code finally} milik
+	 * {@link #doFilter(ServletRequest, ServletResponse, FilterChain)}.</p>
+	 */
 	public void destroy() {
 		// Cleanup resources if needed
 	}
 
 	/**
-	 * Logic utama filter
+	 * Titik masuk utama filter: memasang konteks per-thread dan header CORS, mengarahkan
+	 * permintaan, lalu membersihkan seluruh state per-thread di blok {@code finally}.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>Memasang {@link RequestContext} dan {@link ResponseContext}, lalu memanggil
+	 *       {@link #addCorsHeader(HttpServletResponse)};</li>
+	 *   <li>permintaan yang jalurnya memuat {@code /resources/} langsung diteruskan ke rantai
+	 *       berikutnya sebagai jalan pintas untuk aset statis;</li>
+	 *   <li>jalur permintaan dipotong dari context path — dengan penjagaan agar pemotongan tidak
+	 *       melampaui panjang teks — lalu dihuruf-kecilkan sekali saja dan dipakai ulang demi
+	 *       menghemat alokasi;</li>
+	 *   <li>bila {@link #isIgnoredPath(String)} bernilai {@code true}, permintaan diserahkan ke
+	 *       {@link #handleRouting}; bila tidak, permintaan diteruskan apa adanya ke rantai
+	 *       berikutnya.</li>
+	 * </ol>
+	 *
+	 * <h4>Dua exception yang sengaja diredam</h4>
+	 * <p>{@link IllegalStateException} dan {@code DesktopUnavailableException} adalah gejala balapan
+	 * yang <b>normal</b>, bukan bug: permintaan AU/ZK yang masih berjalan berbenturan dengan
+	 * pembatalan sesi (logout atau timeout di tab lain) atau tiba setelah desktop ZK-nya
+	 * dihancurkan karena tab ditutup. Keduanya dicatat sebagai info biasa agar tidak memunculkan
+	 * HTTP 500 dan tidak mengotori log error.</p>
+	 *
+	 * <h4>Penutupan terpusat session Hibernate — WAJIB dipahami sebelum menambah kode</h4>
+	 * <p>Blok {@code finally} adalah <b>satu-satunya</b> tempat session Hibernate native
+	 * per-thread ditutup untuk permintaan non-ZK (JSP di {@code /baru/modul/**} dan sejenisnya).
+	 * {@code HibernateUtil.rollbackTransaction()} membatalkan transaksi yang belum di-commit lalu
+	 * menutup session. Banyak JSP layanan memakai {@code currentNativeSession()} tanpa menutupnya
+	 * sendiri — dan memang <b>tidak boleh</b> menutup sendiri, karena {@code closeSession()} atau
+	 * {@code clear()} di tengah permintaan dapat membuang tulisan yang belum ter-flush sehingga
+	 * penyimpanan gagal diam-diam.</p>
+	 * <p>Session milik ZK tidak tersentuh di sini karena dikelola
+	 * {@code OpenSessionInViewListener}. Proses non-JSP — thread latar, timer, dan API — tidak
+	 * melewati filter ini sama sekali, sehingga wajib menutup session-nya sendiri di
+	 * {@code finally} (lihat panduan di {@code HibernateUtil}).</p>
+	 *
+	 * <p>Dua pembersihan per-thread lain juga dilakukan: keputusan audit yang belum terpakai
+	 * ({@code AuditTrailHelper.clearUpdateDecisions()}) agar tidak terbawa ke permintaan
+	 * berikutnya pada worker thread yang sama dan salah meredam audit perubahan nyata, serta hasil
+	 * audit error terakhir ({@code ErrorAuditUtil.clearLastResult()}) yang dapat berisi konten
+	 * besar.</p>
+	 *
+	 * @param request  permintaan yang sedang dilayani
+	 * @param response respons yang sedang dibentuk
+	 * @param chain    rantai filter berikutnya
+	 * @throws IOException      bila operasi masukan/keluaran gagal
+	 * @throws ServletException bila rantai berikutnya melaporkan kegagalan
 	 */
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
