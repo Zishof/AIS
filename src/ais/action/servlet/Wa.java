@@ -4,20 +4,28 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.regex.Matcher;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
@@ -97,29 +105,39 @@ import net.sf.jmimemagic.Magic;
  * {@code chatbot_pakai_watzap}. Pengiriman sesungguhnya hanya terjadi bila konfigurasi
  * {@code aktifkan_reply_chatbot} aktif; setiap upaya dicatat sebagai {@link NotifikasiWa}.</p>
  *
- * <h2>Catatan keamanan (FAKTA arsitektur, sudah dilaporkan sebagai temuan)</h2>
- * <p><b>Tidak ada verifikasi keaslian webhook sama sekali.</b> {@link #doPost} tidak membaca
- * header {@code X-Hub-Signature-256} (HMAC-SHA256 badan permintaan dengan App Secret) yang
- * diwajibkan Meta, tidak menuntut shared secret untuk Ultramsg/Watzap, dan tidak membatasi IP
- * pemanggil. {@code applicationContext-security.xml} memetakan pola penadah {@code /**} ke
- * {@code IS_AUTHENTICATED_ANONYMOUSLY} dan {@code /Wa} tidak muncul di pola yang mensyaratkan
- * otentikasi. Akibatnya siapa pun dapat mengirim payload webhook palsu yang akan diproses penuh
- * &mdash; termasuk membuat baris {@link Tbmuser} baru lewat {@link #simpanPesan}, memicu
- * pengiriman WhatsApp ke nomor pilihan pemanggil, dan membuat server menarik URL sembarang
- * lewat parameter {@code media} pada {@link #ambilPesan}.</p>
+ * <h2>Catatan keamanan (DIPERBAIKI 2026-09-07)</h2>
+ * <p>{@link #process} kini menegakkan verifikasi keaslian webhook, fail-closed, sebelum
+ * menjalankan rute penyedia mana pun &mdash; lihat javadoc {@link #process},
+ * {@link #verifikasiSignatureMeta}, dan {@link #verifikasiSharedSecret}. Rute
+ * {@code whatsapp_business_account} memeriksa HMAC-SHA256 header {@code X-Hub-Signature-256}
+ * atas byte mentah badan permintaan dengan App Secret Meta ({@code webhook_wa_app_secret}); rute
+ * Ultramsg dan Watzap memeriksa shared secret ({@code webhook_ultramsg_secret} /
+ * {@code webhook_watzap_secret}) lewat header atau parameter query. Bila konfigurasi rahasia
+ * terkait masih kosong atau tanda tangan/token tidak cocok, permintaan dibalas HTTP 401/403 dan
+ * TIDAK diproses sama sekali &mdash; sebelumnya tidak ada verifikasi apa pun, sehingga siapa saja
+ * dapat mengirim payload palsu yang diproses penuh (membuat baris {@link Tbmuser} baru lewat
+ * {@link #simpanPesan}, memicu pengiriman WhatsApp ke nomor pilihan pemanggil, dan memaksa server
+ * menarik URL sembarang lewat parameter {@code media} pada {@link #ambilPesan}).</p>
  *
- * <p>Selain itu perhatikan bahwa {@link #process} menggabungkan badan permintaan dengan
- * {@code buffer.append(line)} <b>tanpa</b> mengembalikan pemisah barisnya, sehingga badan hasil
- * rekonstruksi tidak identik byte-nya dengan yang dikirim penyedia. Siapa pun yang kelak
- * menambahkan verifikasi HMAC wajib membaca byte mentah dari {@code request.getInputStream()},
- * bukan memakai string hasil penggabungan ini.</p>
+ * <p>Sebagai lapis pertahanan kedua terhadap SSRF, {@link #ambilPesan} kini juga memvalidasi URL
+ * {@code media} lewat {@link #mediaAmanDiunduh} sebelum mengunduhnya &mdash; hanya skema
+ * {@code http}/{@code https} ke host publik yang diizinkan; alamat loopback, link-local
+ * (termasuk metadata cloud), dan privat RFC1918/site-local ditolak.</p>
+ *
+ * <p>{@code applicationContext-security.xml} tetap memetakan pola penadah {@code /**} ke
+ * {@code IS_AUTHENTICATED_ANONYMOUSLY} dan {@code /Wa} tetap tidak muncul di pola yang
+ * mensyaratkan otentikasi kontainer &mdash; ini sengaja, karena penyedia webhook eksternal
+ * memang tidak bisa login lewat mekanisme sesi AIS. Gerbang keamanannya adalah verifikasi
+ * tanda tangan/shared secret di atas, bukan otentikasi berbasis sesi.</p>
+ *
+ * <p>{@link #process} sekarang membaca badan permintaan sebagai byte mentah lewat
+ * {@code IOUtils.toByteArray(request.getInputStream())}, bukan menggabungkan baris demi baris
+ * tanpa pemisah seperti sebelumnya &mdash; perbaikan itu WAJIB ada supaya byte yang dipakai
+ * menghitung HMAC identik dengan yang dikirim Meta.</p>
  *
  * <h2>Riwayat kredensial</h2>
- * <p>Dua rahasia yang dulu tertanam sudah dipindahkan ke konfigurasi database (lihat dua
- * paragraf riwayat di bawah). Dua rahasia lain <b>masih tertanam</b> di kelas ini dan sudah
- * dilaporkan sebagai temuan tersendiri: pasangan {@code client_id}/{@code client_secret}
- * aplikasi Facebook di {@link #ambilToken}, dan {@link #WEBHOOK_VERIFY_TOKEN} yang bernilai
- * {@code "12345"}.</p>
+ * <p>Seluruh rahasia yang dulu tertanam di kelas ini sudah dipindahkan ke konfigurasi database
+ * (lihat paragraf-paragraf riwayat di bawah, urut dari yang terlama).</p>
  *
  * <p>
  * <b>Riwayat keamanan (DIPERBAIKI 2026-09-01):</b> pemanggilan API Gemini di kelas ini
@@ -142,29 +160,44 @@ import net.sf.jmimemagic.Magic;
  * bocor — perlu dirotasi/di-revoke di Meta for Developers (Business Settings &gt; System Users
  * atau App &gt; WhatsApp &gt; API Setup) bila masih dipakai produksi.
  * </p>
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> dua rahasia lain yang masih tertanam di kelas
+ * ini sudah ditambal. Pertama, {@link #ambilToken} memakai {@code client_id} dan
+ * {@code client_secret} aplikasi Facebook sebagai literal pada URL — {@code client_secret}
+ * adalah App Secret Meta, bukan sekadar access token. Keduanya kini dibaca dari konfigurasi
+ * {@code fb_app_id} dan {@code fb_app_secret} dengan default string kosong. Kedua nilai lama
+ * yang sebelumnya tertanam sudah lama berada di riwayat SVN dan WAJIB dianggap bocor — App
+ * Secret WAJIB di-reset di Meta for Developers (App &gt; Settings &gt; Basic &gt; App Secret
+ * &gt; Reset) bila aplikasi Facebook tersebut masih dipakai produksi. Kedua, token verifikasi
+ * webhook yang sebelumnya di-hardcode {@code "12345"} kini dibaca dari konfigurasi
+ * {@code wa_webhook_verify_token} dengan default kosong dan diperiksa fail-closed (konfigurasi
+ * kosong menolak seluruh handshake, bukan meloloskannya) memakai perbandingan waktu-konstan
+ * ({@link MessageDigest#isEqual}). Token itu juga sebelumnya dipakai keliru sebagai kredensial
+ * {@code Authorization: Bearer} pada cabang cadangan {@link #wa} — kedua titik itu kini memakai
+ * konfigurasi {@code token_wa} yang sama dengan jalur utama.
+ * </p>
+ *
+ * <p>
+ * <b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> {@link #process} sebelumnya tidak melakukan
+ * verifikasi keaslian apa pun atas payload webhook &mdash; siapa saja dapat mengirim POST palsu
+ * yang diproses penuh (pembuatan {@link Tbmuser} anonim, relay pesan WhatsApp atas nama
+ * organisasi, dan SSRF lewat parameter {@code media}). Kini {@link #process} menegakkan
+ * verifikasi HMAC-SHA256 {@code X-Hub-Signature-256} (rute WhatsApp Business, konfigurasi
+ * {@code webhook_wa_app_secret}) dan shared secret (rute Ultramsg/Watzap, konfigurasi
+ * {@code webhook_ultramsg_secret}/{@code webhook_watzap_secret}), keduanya fail-closed —
+ * konfigurasi kosong menolak seluruh permintaan alih-alih meloloskannya. Badan permintaan kini
+ * dibaca sebagai byte mentah supaya HMAC dapat dihitung dengan benar (lihat javadoc
+ * {@link #process}). Sebagai lapis kedua, {@link #ambilPesan} menolak URL {@code media} yang
+ * bukan {@code http}/{@code https} publik lewat {@link #mediaAmanDiunduh} sebelum mengunduhnya,
+ * dan penyisipan pertanyaan pengguna ke templat prompt AI di {@link #tanya} serta
+ * {@link #ambilPesan} kini memakai {@link Matcher#quoteReplacement} supaya karakter {@code \}
+ * dan {@code $} pada masukan pengguna tidak diperlakukan sebagai sintaks replacement regex.
+ * </p>
  */
 public class Wa extends HttpServlet {
 	/** Versi serial standar {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
-
-	/**
-	 * Token verifikasi handshake webhook, dicocokkan dengan parameter {@code hub.verify_token}
-	 * pada {@link #doGet}.
-	 *
-	 * <p><b>Nilainya di-hardcode sebagai {@code "12345"}</b> &mdash; mudah ditebak siapa pun,
-	 * sehingga pihak lain dapat menyelesaikan handshake verifikasi webhook aplikasi ini. Sudah
-	 * dilaporkan sebagai temuan keamanan tersendiri; nilai ini seharusnya dibaca dari konfigurasi
-	 * database dengan default kosong dan bersifat fail-closed.</p>
-	 *
-	 * <p>Konstanta yang sama juga <b>dipakai ulang secara keliru</b> sebagai kredensial Graph API
-	 * pada cabang cadangan {@link #wa} ({@code Authorization: Bearer}). Token verifikasi webhook
-	 * bukan access token Graph API, jadi cabang cadangan tersebut memang tidak pernah dapat
-	 * berhasil dan selalu ditolak Meta.</p>
-	 *
-	 * <p>Field ini sengaja tidak {@code static final} sebagaimana aslinya; jangan mengubah
-	 * modifikatornya tanpa memeriksa ulang kedua tempat pemakaiannya.</p>
-	 */
-	private String WEBHOOK_VERIFY_TOKEN = "12345";
 
 	/** Konstruktor bawaan kontainer servlet; tidak melakukan inisialisasi tambahan. */
 	public Wa() {
@@ -174,20 +207,44 @@ public class Wa extends HttpServlet {
 	}
 
 	/**
+	 * Membandingkan token verifikasi webhook yang dikirim pemanggil dengan konfigurasi
+	 * {@code wa_webhook_verify_token}, dipakai oleh {@link #doGet}.
+	 *
+	 * <p><b>Fail-closed:</b> bila konfigurasi belum diisi (masih string kosong, nilai
+	 * defaultnya), method ini selalu mengembalikan {@code false} &mdash; token kosong pada
+	 * konfigurasi tidak pernah dianggap cocok dengan parameter {@code hub.verify_token} kosong
+	 * dari pemanggil. Perbandingan dilakukan dengan {@link MessageDigest#isEqual} atas byte
+	 * UTF-8 supaya waktu eksekusinya tidak membocorkan panjang kecocokan awalan token.</p>
+	 *
+	 * @param verifyToken nilai parameter {@code hub.verify_token} dari pemanggil; boleh
+	 *                    {@code null}
+	 * @return {@code true} hanya bila konfigurasi terisi dan cocok persis dengan
+	 *         {@code verifyToken}
+	 */
+	private boolean cocokTokenVerifikasiWebhook(String verifyToken) {
+		String expectedToken = Common.getKonfigurasi("wa_webhook_verify_token", "").getNilai().trim();
+		if (expectedToken.isEmpty() || verifyToken == null) {
+			return false;
+		}
+		return MessageDigest.isEqual(expectedToken.getBytes(StandardCharsets.UTF_8),
+				verifyToken.getBytes(StandardCharsets.UTF_8));
+	}
+
+	/**
 	 * Menangani handshake verifikasi webhook dari penyedia (alur {@code hub.challenge} milik Meta).
 	 *
 	 * <p>Bila query string ada, parameter {@code hub.verify_token} dibandingkan dengan
-	 * {@link #WEBHOOK_VERIFY_TOKEN}. Cocok dan {@code hub.challenge} tidak kosong berarti nilai
-	 * {@code hub.challenge} dikembalikan apa adanya sebagai badan balasan &mdash; itulah yang
-	 * dituntut Meta untuk mengaktifkan langganan webhook. Bila tidak cocok, balasan berupa string
-	 * kosong. Bila query string tidak ada sama sekali, balasan berisi pesan
-	 * {@code "Error, wrong token"}.</p>
+	 * konfigurasi {@code wa_webhook_verify_token} lewat {@link #cocokTokenVerifikasiWebhook}.
+	 * Cocok dan {@code hub.challenge} tidak kosong berarti nilai {@code hub.challenge}
+	 * dikembalikan apa adanya sebagai badan balasan &mdash; itulah yang dituntut Meta untuk
+	 * mengaktifkan langganan webhook. Bila tidak cocok, balasan berupa string kosong. Bila query
+	 * string tidak ada sama sekali, balasan berisi pesan {@code "Error, wrong token"}.</p>
 	 *
 	 * <p>Status HTTP selalu 200, termasuk ketika verifikasi gagal.</p>
 	 *
-	 * <p><b>Catatan keamanan:</b> perbandingan memakai {@code StringUtils.equals} atas token yang
-	 * di-hardcode bernilai {@code "12345"}. Lihat {@link #WEBHOOK_VERIFY_TOKEN}. Method ini juga
-	 * tidak menyentuh {@link #process}, jadi GET tidak pernah memproses pesan chat.</p>
+	 * <p><b>Catatan keamanan:</b> perbandingan bersifat fail-closed &mdash; lihat
+	 * {@link #cocokTokenVerifikasiWebhook}. Method ini juga tidak menyentuh {@link #process},
+	 * jadi GET tidak pernah memproses pesan chat.</p>
 	 *
 	 * @param request  permintaan HTTP masuk; parameternya membawa {@code hub.verify_token} dan
 	 *                 {@code hub.challenge}
@@ -206,7 +263,7 @@ public class Wa extends HttpServlet {
 			String challenge = request.getParameter("hub.challenge");
 			// String mode = request.getParameter("hub.mode");
 
-			if (StringUtils.equals(WEBHOOK_VERIFY_TOKEN, verifyToken) && !StringUtils.isEmpty(challenge)) {
+			if (cocokTokenVerifikasiWebhook(verifyToken) && !StringUtils.isEmpty(challenge)) {
 				msg = challenge;
 			} else {
 				msg = "";
@@ -280,8 +337,10 @@ public class Wa extends HttpServlet {
 	 * proses selama {@code curl} berjalan.</p>
 	 *
 	 * @param tanyaApa pertanyaan yang diajukan; disisipkan ke templat lewat
-	 *                 {@code String.replaceAll}, sehingga karakter {@code \} dan {@code $} pada
-	 *                 masukan diperlakukan khusus oleh mesin regex
+	 *                 {@code String.replaceAll} dengan replacement yang sudah dibungkus
+	 *                 {@link Matcher#quoteReplacement}, sehingga karakter {@code \} dan
+	 *                 {@code $} pada masukan diperlakukan sebagai literal, bukan sintaks
+	 *                 replacement regex
 	 * @return teks jawaban model, atau string kosong bila pemanggilan gagal
 	 * @throws Exception bila penulisan berkas prompt gagal
 	 */
@@ -294,7 +353,7 @@ public class Wa extends HttpServlet {
 				+ "    \"maxOutputTokens\": 8192,\r\n" + "    \"responseMimeType\": \"text/plain\"\r\n" + "  }\r\n"
 				+ "}";
 
-		tanyaApa = apa.replaceAll("TANYA_APA_SAJA", tanyaApa);
+		tanyaApa = apa.replaceAll("TANYA_APA_SAJA", Matcher.quoteReplacement(tanyaApa));
 
 		File fileOut = new File("/opt/tanya/tanyaApa.txt");
 		if (!fileOut.getParentFile().exists()) {
@@ -379,17 +438,21 @@ public class Wa extends HttpServlet {
 	 * sebagai nilai default tiap kunci. Bila pemanggilan gagal, method <b>memanggil dirinya
 	 * sendiri</b> dengan {@code coba} dinaikkan satu.</p>
 	 *
-	 * <h4>Catatan keamanan</h4>
-	 * <p>Parameter {@code media} berasal langsung dari payload webhook yang tidak terverifikasi
-	 * dan diserahkan apa adanya ke {@code new URL(media)} lalu
-	 * {@code FileUtils.copyURLToFile}. Tidak ada pembatasan skema maupun host, sehingga server
-	 * dapat dipaksa menarik alamat internal (SSRF) dan menuliskan hasilnya ke
-	 * {@code /opt/imgs/}. Sudah dilaporkan sebagai temuan tersendiri.</p>
+	 * <h4>Catatan keamanan (DIPERBAIKI 2026-09-07)</h4>
+	 * <p>Parameter {@code media} berasal langsung dari payload webhook. Sebelum diserahkan ke
+	 * {@code new URL(media)} dan {@code FileUtils.copyURLToFile}, nilainya kini divalidasi oleh
+	 * {@link #mediaAmanDiunduh}: hanya skema {@code http}/{@code https} yang diterima, dan host
+	 * yang bertautan ke alamat loopback, link-local (termasuk metadata cloud
+	 * {@code 169.254.169.254}), atau privat RFC1918/site-local ditolak &mdash; media yang
+	 * ditolak dilewati begitu saja (tidak diunduh, tidak melempar exception) sehingga percakapan
+	 * tetap berlanjut tanpa lampiran. Ini adalah lapis pertahanan KEDUA terhadap SSRF; lapis
+	 * pertama adalah gerbang autentikasi webhook pada {@link #process} yang mencegah payload
+	 * palsu sampai ke method ini sama sekali.</p>
 	 *
-	 * <p>Pertanyaan pengguna disisipkan ke templat lewat {@code String.replaceAll}, yang
-	 * memperlakukan argumen penggantinya sebagai <i>replacement</i> regex &mdash; karakter
-	 * {@code \} dan {@code $} pada pesan masuk karena itu punya arti khusus dan dapat merusak
-	 * struktur JSON prompt.</p>
+	 * <p>Pertanyaan pengguna disisipkan ke templat lewat {@code String.replaceAll} dengan
+	 * replacement yang dibungkus {@link Matcher#quoteReplacement}, sehingga karakter
+	 * {@code \} dan {@code $} pada pesan masuk diperlakukan sebagai literal dan tidak lagi
+	 * dapat merusak struktur JSON prompt.</p>
 	 *
 	 * @param to    nomor WhatsApp tujuan; dipakai mencari {@link WaProfile} dan sebagai nama
 	 *              berkas prompt
@@ -519,36 +582,42 @@ public class Wa extends HttpServlet {
 
 			File fileMedia = null;
 			if (media != null && !media.trim().isEmpty()) {
-				File fileOut = new File("/opt/imgs/" + Common.getGeneratedBarCode());
-				FileUtils.copyURLToFile(new URL(media), fileOut);
-				String mimeType = Magic.getMagicMatch(fileOut, false).getMimeType();
+				if (!mediaAmanDiunduh(media)) {
+					System.out.println("media ditolak oleh penjaga SSRF -> " + media);
+					ais.common.ErrorAuditUtil.record(new SecurityException("Media webhook ditolak penjaga SSRF: " + media),
+							"auto-audit src/ais/action/servlet/Wa.java:mediaAmanDiunduh");
+				} else {
+					File fileOut = new File("/opt/imgs/" + Common.getGeneratedBarCode());
+					FileUtils.copyURLToFile(new URL(media), fileOut);
+					String mimeType = Magic.getMagicMatch(fileOut, false).getMimeType();
 
-				System.out.println("mimeType -> " + mimeType);
-				String[] detectedExtensions = ContentType.fromMimeType(mimeType).getFileExtensions();
-				for (String e : detectedExtensions) {
-					System.out.println("detectedExtension -> " + e);
-				}
-				if (detectedExtensions.length > 0) {
-					fileMedia = new File(fileOut.getAbsolutePath() + "." + detectedExtensions[0]);
-					FileUtils.copyFile(fileOut, fileMedia);
-					fileOut.delete();
-
-					String[] commandDa = { "chmod", "-R", "a+rwX", fileMedia.getAbsolutePath() };
-
-					ProcessBuilder process = new ProcessBuilder(commandDa);
-					Process p;
-					p = process.start();
-					BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-					StringBuilder builder = new StringBuilder();
-					String line;
-					while ((line = reader.readLine()) != null) {
-						builder.append(line);
-						builder.append(System.getProperty("line.separator"));
+					System.out.println("mimeType -> " + mimeType);
+					String[] detectedExtensions = ContentType.fromMimeType(mimeType).getFileExtensions();
+					for (String e : detectedExtensions) {
+						System.out.println("detectedExtension -> " + e);
 					}
-					String hasilDa = builder.toString();
-					System.out.println("hasilDa -> " + hasilDa);
+					if (detectedExtensions.length > 0) {
+						fileMedia = new File(fileOut.getAbsolutePath() + "." + detectedExtensions[0]);
+						FileUtils.copyFile(fileOut, fileMedia);
+						fileOut.delete();
 
-//					apakahGambar = expectedExtensionsGambar.contains(detectedExtensions[0]);
+						String[] commandDa = { "chmod", "-R", "a+rwX", fileMedia.getAbsolutePath() };
+
+						ProcessBuilder process = new ProcessBuilder(commandDa);
+						Process p;
+						p = process.start();
+						BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+						StringBuilder builder = new StringBuilder();
+						String line;
+						while ((line = reader.readLine()) != null) {
+							builder.append(line);
+							builder.append(System.getProperty("line.separator"));
+						}
+						String hasilDa = builder.toString();
+						System.out.println("hasilDa -> " + hasilDa);
+
+//						apakahGambar = expectedExtensionsGambar.contains(detectedExtensions[0]);
+					}
 				}
 			}
 
@@ -565,7 +634,7 @@ public class Wa extends HttpServlet {
 //
 //				tanyaApa = tanyaApa.replaceAll("TANYA_APA_SAJA", tanya);
 //			} else {
-			tanyaApa = tanyaApa.replaceAll("TANYA_APA_SAJA", tanya);
+			tanyaApa = tanyaApa.replaceAll("TANYA_APA_SAJA", Matcher.quoteReplacement(tanya));
 //			}
 
 			tanyaApa = tanyaApa.replaceAll("LAMPIRAN_APA_SAJA", "");
@@ -769,16 +838,18 @@ public class Wa extends HttpServlet {
 	 * {@code @SuppressWarnings("unused")}. Ia tampaknya sisa percobaan mengambil token secara
 	 * dinamis, yang akhirnya digantikan konfigurasi {@code token_wa}.</p>
 	 *
-	 * <p><b>Catatan keamanan (temuan aktif):</b> {@code client_id} dan {@code client_secret}
-	 * aplikasi Facebook masih <b>tertanam sebagai literal</b> di dalam URL pada badan method ini.
-	 * {@code client_secret} adalah App Secret Meta, bukan sekadar access token: pemegangnya dapat
-	 * menerbitkan app access token, mengambil alih kemampuan aplikasi termasuk jalur WhatsApp
-	 * Business API-nya, dan memalsukan tanda tangan {@code X-Hub-Signature-256} untuk webhook
-	 * aplikasi ini. Rahasia itu ikut terkompilasi ke bytecode dan sudah lama berada di riwayat
-	 * SVN, sehingga <b>wajib dianggap bocor</b> dan di-reset di Meta for Developers
-	 * (App &gt; Settings &gt; Basic &gt; App Secret &gt; Reset). Sudah dilaporkan sebagai temuan
-	 * tersendiri; nilainya seharusnya dibaca dari konfigurasi database dengan default kosong,
-	 * mengikuti pola {@code token_wa} dan {@code ai_chatbot_api_key_gemini} di kelas ini.</p>
+	 * <p><b>Riwayat keamanan (DIPERBAIKI 2026-09-07):</b> {@code client_id} dan
+	 * {@code client_secret} aplikasi Facebook sebelumnya <b>tertanam sebagai literal</b> di dalam
+	 * URL pada badan method ini. {@code client_secret} adalah App Secret Meta, bukan sekadar
+	 * access token: pemegangnya dapat menerbitkan app access token, mengambil alih kemampuan
+	 * aplikasi termasuk jalur WhatsApp Business API-nya, dan memalsukan tanda tangan
+	 * {@code X-Hub-Signature-256} untuk webhook aplikasi ini. Keduanya kini dibaca dari
+	 * konfigurasi {@code fb_app_id} dan {@code fb_app_secret} dengan default string kosong,
+	 * mengikuti pola {@code token_wa} dan {@code ai_chatbot_api_key_gemini} di kelas ini. Nilai
+	 * lama yang sebelumnya tertanam ikut terkompilasi ke bytecode dan sudah lama berada di
+	 * riwayat SVN, sehingga <b>wajib dianggap bocor</b> dan di-reset di Meta for Developers
+	 * (App &gt; Settings &gt; Basic &gt; App Secret &gt; Reset) bila aplikasi Facebook tersebut
+	 * masih dipakai produksi.</p>
 	 *
 	 * <p>Karena kredensial dikirim sebagai parameter query, keduanya juga muncul di daftar proses
 	 * selama {@code curl} berjalan dan tercetak ke {@code System.out} lewat pencatatan hasil.</p>
@@ -790,7 +861,9 @@ public class Wa extends HttpServlet {
 	@SuppressWarnings("unused")
 	private String ambilToken() throws Exception {
 
-		String linkPost = "https://graph.facebook.com/oauth/access_token?client_id=978948877392456&client_secret=114a948b8c24332b4d70450584de2828&grant_type=client_credentials";
+		String linkPost = "https://graph.facebook.com/oauth/access_token?client_id="
+				+ Common.getKonfigurasi("fb_app_id", "").getNilai().trim() + "&client_secret="
+				+ Common.getKonfigurasi("fb_app_secret", "").getNilai().trim() + "&grant_type=client_credentials";
 
 		String[] command = { "curl", "-X", "GET", linkPost };
 
@@ -841,11 +914,12 @@ public class Wa extends HttpServlet {
 	 * {@code CURRENT_URL} alih-alih host request. Kode diambil dari kunci {@code code} pada
 	 * balasan; bila tidak ada, dikembalikan string kosong.</p>
 	 *
-	 * <p><b>Catatan keamanan:</b> karena webhook pemanggil tidak diverifikasi, seluruh jalur ini
-	 * dapat dipicu payload palsu &mdash; artinya baris {@link Tbmuser} aktif dapat dibuat oleh
-	 * pihak anonim dengan {@code userId} dan {@code userNama} pilihan penyerang, dan setiap
-	 * pemicu ikut menembakkan permintaan keluar ke {@code ambil_kode_url}. Sudah dilaporkan
-	 * sebagai temuan tersendiri.</p>
+	 * <p><b>Catatan keamanan (DIPERBAIKI 2026-09-07):</b> seluruh jalur ini kini hanya tercapai
+	 * setelah payload lolos gerbang autentikasi webhook di {@link #process} &mdash; sebelumnya
+	 * webhook pemanggil sama sekali tidak diverifikasi, sehingga siapa pun dapat memicu payload
+	 * palsu yang membuat baris {@link Tbmuser} aktif dengan {@code userId} dan {@code userNama}
+	 * pilihan penyerang, sekaligus menembakkan permintaan keluar ke {@code ambil_kode_url} pada
+	 * setiap pemicu. Lihat javadoc {@link #process} untuk rincian mekanisme verifikasinya.</p>
 	 *
 	 * <p>Payload permintaan dicetak utuh ke {@code System.out} sebelum dikirim.</p>
 	 *
@@ -1016,10 +1090,12 @@ public class Wa extends HttpServlet {
 	 * <h4>Cabang cadangan</h4>
 	 * <p>Bila penguraian jalur utama melempar exception, blok {@code catch} mencoba bentuk
 	 * payload alternatif ({@code entry} sebagai array bersarang) dan membalas dengan pesan
-	 * {@code "Echo: <isi pesan>"} beserta penanda dibaca. Cabang ini memakai
-	 * {@link #WEBHOOK_VERIFY_TOKEN} sebagai {@code Authorization: Bearer} &mdash; nilai
-	 * {@code "12345"} yang bukan access token Graph API &mdash; sehingga permintaannya
-	 * dipastikan ditolak Meta dan cabang tersebut secara praktis tidak pernah berhasil.</p>
+	 * {@code "Echo: <isi pesan>"} beserta penanda dibaca. Cabang ini <b>sebelumnya</b> memakai
+	 * token verifikasi webhook (nilai hardcode {@code "12345"}) sebagai
+	 * {@code Authorization: Bearer} &mdash; token verifikasi webhook bukan access token Graph
+	 * API, sehingga permintaannya dipastikan ditolak Meta dan cabang tersebut secara praktis
+	 * tidak pernah berhasil. Sudah diperbaiki (2026-09-07): cabang ini kini memakai konfigurasi
+	 * {@code token_wa} yang sama dengan jalur utama.</p>
 	 *
 	 * <p>Setiap kegagalan di dalam thread pengirim ditangkap dan dicatat ke audit error tanpa
 	 * memengaruhi balasan HTTP webhook, yang sudah lebih dulu bernilai 200.</p>
@@ -1210,8 +1286,9 @@ public class Wa extends HttpServlet {
 						postData.put("context", context);
 
 						String linkPost = "https://graph.facebook.com/v18.0/" + business_phone_number_id + "/messages";
+						String token = Common.getKonfigurasi("token_wa", "").getNilai().trim();
 						String[] command = { "curl", "-k", "-H", "Accept: application/json", "-H",
-								"Authorization: Bearer " + WEBHOOK_VERIFY_TOKEN, "-X", "POST", linkPost, "--data",
+								"Authorization: Bearer " + token, "-X", "POST", linkPost, "--data",
 								postData.toString() };
 
 						ProcessBuilder process = new ProcessBuilder(command);
@@ -1245,8 +1322,9 @@ public class Wa extends HttpServlet {
 						postData.put("message_id", message.get("id") + "");
 
 						String linkPost = "https://graph.facebook.com/v18.0/" + business_phone_number_id + "/messages";
+						String token = Common.getKonfigurasi("token_wa", "").getNilai().trim();
 						String[] command = { "curl", "-k", "-H", "Accept: application/json", "-H",
-								"Authorization: Bearer " + WEBHOOK_VERIFY_TOKEN, "-X", "POST", linkPost, "--data",
+								"Authorization: Bearer " + token, "-X", "POST", linkPost, "--data",
 								postData.toString() };
 
 						ProcessBuilder process = new ProcessBuilder(command);
@@ -2043,19 +2121,150 @@ public class Wa extends HttpServlet {
 	}
 
 	/**
-	 * Membaca badan permintaan webhook lalu menyalurkannya ke rute penyedia yang sesuai.
+	 * Menguji tanda tangan HMAC-SHA256 header {@code X-Hub-Signature-256} yang dikirim Meta atas
+	 * byte mentah badan permintaan webhook WhatsApp Business Cloud API.
 	 *
-	 * <h4>Pembacaan badan</h4>
-	 * <p>Badan dibaca baris demi baris lalu <b>digabung tanpa menyisipkan kembali pemisah
-	 * baris</b>. Untuk JSON hal itu tidak masalah, tetapi berarti string hasil rekonstruksi
-	 * <b>tidak identik byte-nya</b> dengan yang dikirim penyedia. Siapa pun yang kelak menambahkan
-	 * verifikasi HMAC {@code X-Hub-Signature-256} wajib membaca byte mentah dari
-	 * {@code request.getInputStream()}, bukan memakai string ini &mdash; kalau tidak, tanda tangan
-	 * akan selalu meleset.</p>
+	 * <p><b>Fail-closed:</b> bila {@code appSecret} kosong (belum dikonfigurasi admin) atau header
+	 * tidak ada/tidak berformat {@code sha256=<hex>}, verifikasi otomatis GAGAL &mdash; tidak ada
+	 * jalur yang meloloskan permintaan hanya karena konfigurasi belum diisi. Perbandingan digest
+	 * memakai {@link MessageDigest#isEqual} agar tahan <i>timing attack</i>.</p>
+	 *
+	 * <p>Parameter {@code rawBody} HARUS berupa byte mentah dari {@code request.getInputStream()},
+	 * bukan hasil penggabungan baris tanpa pemisah &mdash; badan yang direkonstruksi tanpa pemisah
+	 * baris tidak identik byte-nya dengan yang dikirim Meta dan HMAC-nya akan selalu meleset.</p>
+	 *
+	 * @param rawBody         byte mentah badan permintaan
+	 * @param signatureHeader nilai header {@code X-Hub-Signature-256}; boleh {@code null}
+	 * @param appSecret       App Secret aplikasi Meta dari konfigurasi {@code webhook_wa_app_secret}
+	 * @return {@code true} hanya bila {@code appSecret} terisi dan tanda tangan cocok persis
+	 */
+	private static boolean verifikasiSignatureMeta(byte[] rawBody, String signatureHeader, String appSecret) {
+		if (StringUtils.isEmpty(appSecret) || StringUtils.isEmpty(signatureHeader)) {
+			return false;
+		}
+		String prefix = "sha256=";
+		if (!signatureHeader.startsWith(prefix)) {
+			return false;
+		}
+		try {
+			Mac mac = Mac.getInstance("HmacSHA256");
+			mac.init(new SecretKeySpec(appSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+			String dihitung = Hex.encodeHexString(mac.doFinal(rawBody));
+			String diterima = signatureHeader.substring(prefix.length()).trim();
+			return MessageDigest.isEqual(dihitung.getBytes(StandardCharsets.UTF_8),
+					diterima.getBytes(StandardCharsets.UTF_8));
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Wa.java:verifikasiSignatureMeta");
+			return false;
+		}
+	}
+
+	/**
+	 * Menguji shared secret webhook Ultramsg/Watzap yang dibaca dari header atau parameter query
+	 * string pemanggil, dibandingkan dengan nilai dari konfigurasi database.
+	 *
+	 * <p><b>Fail-closed:</b> bila {@code secretDikonfigurasi} kosong (belum diisi admin), method
+	 * ini selalu mengembalikan {@code false} &mdash; konfigurasi kosong tidak pernah dianggap
+	 * cocok dengan header/parameter kosong dari pemanggil. Perbandingan memakai
+	 * {@link MessageDigest#isEqual} atas byte UTF-8.</p>
+	 *
+	 * @param request             permintaan HTTP webhook
+	 * @param namaHeader          nama header yang membawa shared secret
+	 * @param namaParameterQuery  nama parameter query string alternatif, dipakai bila header tidak
+	 *                            ada
+	 * @param secretDikonfigurasi nilai rahasia dari konfigurasi database
+	 * @return {@code true} hanya bila {@code secretDikonfigurasi} terisi dan cocok persis dengan
+	 *         nilai yang dikirim pemanggil
+	 */
+	private static boolean verifikasiSharedSecret(HttpServletRequest request, String namaHeader,
+			String namaParameterQuery, String secretDikonfigurasi) {
+		if (StringUtils.isEmpty(secretDikonfigurasi)) {
+			return false;
+		}
+		String diterima = request.getHeader(namaHeader);
+		if (StringUtils.isEmpty(diterima)) {
+			diterima = request.getParameter(namaParameterQuery);
+		}
+		if (StringUtils.isEmpty(diterima)) {
+			return false;
+		}
+		return MessageDigest.isEqual(diterima.getBytes(StandardCharsets.UTF_8),
+				secretDikonfigurasi.getBytes(StandardCharsets.UTF_8));
+	}
+
+	/**
+	 * Menguji bahwa URL lampiran {@code media} dari payload webhook aman diunduh server: hanya
+	 * skema {@code http}/{@code https}, dan hanya menuju host publik.
+	 *
+	 * <p>Menolak alamat loopback ({@code 127.0.0.1}), link-local (termasuk metadata cloud
+	 * {@code 169.254.169.254}), site-local/RFC1918 ({@code 10/8}, {@code 172.16/12},
+	 * {@code 192.168/16}), wildcard, dan multicast &mdash; seluruh nama host divalidasi lewat
+	 * {@link InetAddress#getAllByName}, sehingga host yang me-resolve ke alamat internal (DNS
+	 * rebinding sederhana) ikut tertolak selama resolusi terjadi saat pemanggilan ini.</p>
+	 *
+	 * <p>Lapis pertahanan KEDUA terhadap SSRF; gerbang autentikasi webhook pada {@link #process}
+	 * adalah lapis pertama yang mencegah payload palsu sampai ke pemanggil method ini.</p>
+	 *
+	 * @param media URL lampiran dari payload webhook
+	 * @return {@code true} hanya bila URL boleh diunduh; {@code false} juga bila URL tidak valid
+	 *         atau host tidak dapat diresolusi
+	 */
+	private static boolean mediaAmanDiunduh(String media) {
+		try {
+			URL url = new URL(media);
+			String protokol = url.getProtocol();
+			if (!"http".equalsIgnoreCase(protokol) && !"https".equalsIgnoreCase(protokol)) {
+				return false;
+			}
+			InetAddress[] alamat = InetAddress.getAllByName(url.getHost());
+			if (alamat.length == 0) {
+				return false;
+			}
+			for (InetAddress a : alamat) {
+				if (a.isLoopbackAddress() || a.isLinkLocalAddress() || a.isSiteLocalAddress()
+						|| a.isAnyLocalAddress() || a.isMulticastAddress()) {
+					return false;
+				}
+			}
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Membaca byte mentah badan permintaan webhook, memverifikasi keasliannya, lalu
+	 * menyalurkannya ke rute penyedia yang sesuai.
+	 *
+	 * <h4>Pembacaan badan (DIPERBAIKI 2026-09-07)</h4>
+	 * <p>Badan kini dibaca sebagai byte mentah lewat
+	 * {@code IOUtils.toByteArray(request.getInputStream())} dan baru setelah itu diubah menjadi
+	 * {@link String} (UTF-8) untuk pencocokan substring rute. Byte mentah itulah yang dipakai
+	 * untuk verifikasi tanda tangan HMAC pada rute WhatsApp Business &mdash; sebelumnya badan
+	 * dibaca baris demi baris dan digabung TANPA pemisah baris, sehingga hasil rekonstruksinya
+	 * tidak pernah identik byte-nya dengan yang dikirim Meta dan verifikasi HMAC apa pun pasti
+	 * meleset. Perbaikan ini menghilangkan masalah itu.</p>
 	 *
 	 * <p>Badan permintaan dan query string dicetak utuh ke {@code System.out} dengan awalan
 	 * {@code "==> VA data =>"}; awalan itu sisa salin-tempel dari servlet {@link Va} dan tidak
 	 * ada hubungannya dengan Virtual Account.</p>
+	 *
+	 * <h4>Gerbang autentikasi (BARU 2026-09-07)</h4>
+	 * <p>Sebelum rute penyedia mana pun dijalankan, permintaan WAJIB lolos verifikasi keaslian.
+	 * Gerbang ini fail-closed: bila konfigurasi rahasia terkait masih kosong (belum diisi admin)
+	 * atau tanda tangan/token tidak cocok, balasan langsung berupa HTTP 401/403 dan rute penyedia
+	 * TIDAK dijalankan sama sekali &mdash; berbeda dari perilaku lama yang selalu membalas 200 dan
+	 * memproses payload penuh tanpa pemeriksaan apa pun.</p>
+	 * <ul>
+	 *   <li>{@code whatsapp_business_account} &rarr; {@link #verifikasiSignatureMeta} memeriksa
+	 *       header {@code X-Hub-Signature-256} (HMAC-SHA256 badan mentah dengan App Secret Meta)
+	 *       memakai konfigurasi {@code webhook_wa_app_secret}. Gagal &rarr; HTTP 401;</li>
+	 *   <li>{@code incoming_chat} (Watzap) &rarr; {@link #verifikasiSharedSecret} memeriksa header
+	 *       {@code X-Webhook-Secret} atau parameter query {@code secret} memakai konfigurasi
+	 *       {@code webhook_watzap_secret}. Gagal &rarr; HTTP 403;</li>
+	 *   <li>{@code message_received} (Ultramsg) &rarr; sama seperti Watzap tetapi memakai
+	 *       konfigurasi {@code webhook_ultramsg_secret}. Gagal &rarr; HTTP 403.</li>
+	 * </ul>
 	 *
 	 * <h4>Pemilihan rute</h4>
 	 * <p>Seluruh pemrosesan hanya berjalan bila konfigurasi {@code aktifkan_chatbot} aktif. Rute
@@ -2065,40 +2274,50 @@ public class Wa extends HttpServlet {
 	 *   <li>{@code incoming_chat} &rarr; {@link #watzap};</li>
 	 *   <li>{@code message_received} &rarr; {@link #ultramsg}.</li>
 	 * </ol>
-	 * <p>Payload yang tidak memuat satu pun penanda itu diabaikan diam-diam.</p>
+	 * <p>Payload yang tidak memuat satu pun penanda itu diabaikan diam-diam, dibalas HTTP 200.</p>
 	 *
-	 * <p>Status balasan selalu 200, tanpa badan &mdash; termasuk ketika payload diabaikan atau
-	 * chatbot dimatikan &mdash; sehingga penyedia webhook tidak pernah mencoba mengirim ulang.</p>
+	 * <p>Status balasan 200 tanpa badan hanya diberikan untuk payload yang lolos gerbang
+	 * autentikasi (atau tidak cocok rute mana pun) &mdash; sehingga penyedia webhook asli tidak
+	 * pernah mencoba mengirim ulang, sementara pemalsu menerima 401/403 dan tahu permintaannya
+	 * ditolak.</p>
 	 *
-	 * <p><b>Catatan keamanan:</b> tidak ada verifikasi keaslian sama sekali di sini. Konfigurasi
-	 * {@code aktifkan_chatbot} adalah sakelar fitur, bukan gerbang keamanan: selama aktif,
-	 * payload palsu dari pihak mana pun akan diproses penuh. Lihat catatan pada dokumentasi
-	 * kelas.</p>
+	 * <p><b>Catatan keamanan:</b> konfigurasi {@code aktifkan_chatbot} TETAP sekadar sakelar fitur,
+	 * BUKAN gerbang keamanan &mdash; ia hanya menentukan apakah chatbot merespons sama sekali;
+	 * gerbang keamanan sesungguhnya adalah verifikasi keaslian pada paragraf di atas.</p>
 	 *
 	 * @param request  permintaan HTTP webhook
-	 * @param response balasan HTTP; hanya diisi status 200
+	 * @param response balasan HTTP; diisi status 401/403 bila gerbang autentikasi gagal, atau 200
 	 * @throws Exception bila pembacaan badan permintaan gagal, atau rute yang dipilih melemparnya
 	 */
-	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
-		StringBuilder buffer = new StringBuilder();
-		BufferedReader reader = request.getReader();
-		String line;
-		while ((line = reader.readLine()) != null) {
-			buffer.append(line);
-		}
-		String data = buffer.toString();
+		byte[] rawBody = IOUtils.toByteArray(request.getInputStream());
+		String data = new String(rawBody, StandardCharsets.UTF_8);
 
 		String querystring = request.getQueryString();
 		System.out.println("==> VA data => " + data);
 		System.out.println("==> VA querystring => " + querystring);
 		if (Common.bolehKonfigurasi("aktifkan_chatbot")) {
 			if (data.contains("whatsapp_business_account")) {
+				String appSecret = Common.getKonfigurasi("webhook_wa_app_secret", "").getNilai();
+				if (!verifikasiSignatureMeta(rawBody, request.getHeader("X-Hub-Signature-256"), appSecret)) {
+					response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+					return;
+				}
 				wa(request, response, data);
 			} else if (data.contains("incoming_chat")) {
+				String secret = Common.getKonfigurasi("webhook_watzap_secret", "").getNilai();
+				if (!verifikasiSharedSecret(request, "X-Webhook-Secret", "secret", secret)) {
+					response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+					return;
+				}
 				watzap(request, response, data);
 			} else if (data.contains("message_received")) {
+				String secret = Common.getKonfigurasi("webhook_ultramsg_secret", "").getNilai();
+				if (!verifikasiSharedSecret(request, "X-Webhook-Secret", "secret", secret)) {
+					response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+					return;
+				}
 				ultramsg(request, response, data);
 			}
 		}
