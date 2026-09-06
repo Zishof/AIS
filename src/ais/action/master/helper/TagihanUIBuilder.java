@@ -340,7 +340,41 @@ public class TagihanUIBuilder {
 	}
 
 
-	/** Seperti {@link #loadTagihan(Component, JenisKegiatan, VOMahasiswa, VOMahasiswa, TreeMap, boolean, boolean, Integer, boolean, InformasiPembayaranMahasiswaAction)} tanpa {@code actionInstance} (tidak ada pengingatan pilihan filter terakhir lintas pemanggilan). */
+	/**
+	 * Bentuk ringkas sembilan argumen: sama persis dengan
+	 * {@link #loadTagihan(Component, JenisKegiatan, VOMahasiswa, VOMahasiswa, TreeMap, boolean, boolean, Integer, boolean, InformasiPembayaranMahasiswaAction)}
+	 * dengan {@code actionInstance} bernilai {@code null}.
+	 *
+	 * <p>
+	 * Konsekuensi memakai bentuk ini alih-alih bentuk kanonik:
+	 * </p>
+	 * <ul>
+	 * <li>pilihan filter terakhir pengguna (jenis kegiatan, semester mulai/sampai)
+	 * <b>tidak diingat</b> lintas pemanggilan, sehingga setiap kali panel dibangun ulang
+	 * filter kembali ke nilai baku;</li>
+	 * <li>{@code actionInstance.loadKegiatan(...)} tidak dipanggil, sehingga daftar
+	 * kegiatan pada layar pemanggil tidak ikut disegarkan mengikuti rentang semester
+	 * yang sedang ditampilkan.</li>
+	 * </ul>
+	 * <p>
+	 * Gunakan bentuk ini untuk panel tagihan yang berdiri sendiri (mis. disematkan pada
+	 * dialog atau kartu ringkas), dan bentuk kanonik untuk layar
+	 * {@link InformasiPembayaranMahasiswaAction} yang memerlukan kesinambungan pilihan
+	 * pengguna.
+	 * </p>
+	 *
+	 * @param west               lihat bentuk kanonik
+	 * @param selectedJenisKegiatan lihat bentuk kanonik
+	 * @param mhsAtas            lihat bentuk kanonik
+	 * @param mahasiswa          lihat bentuk kanonik
+	 * @param semua              lihat bentuk kanonik
+	 * @param vertical           lihat bentuk kanonik
+	 * @param sederhana          lihat bentuk kanonik
+	 * @param SMT                lihat bentuk kanonik
+	 * @param refresh            lihat bentuk kanonik
+	 * @return kombobox jenis kegiatan yang dipasang ke {@code west}
+	 * @throws Exception diteruskan dari bentuk kanonik
+	 */
 	public static Combobox loadTagihan(final Component west, final JenisKegiatan selectedJenisKegiatan,
 			final VOMahasiswa mhsAtas, final VOMahasiswa mahasiswa, final TreeMap<String, Object[]> semua,
 			final boolean vertical, final boolean sederhana, final Integer SMT, final boolean refresh)
@@ -350,11 +384,83 @@ public class TagihanUIBuilder {
 	}
 
 	/**
-	 * Implementasi kanonik: membangun form filter (jenis kegiatan, semester mulai/sampai — kolom
-	 * semester disembunyikan bila {@code SMT} sudah ditentukan pemanggil) ke dalam {@code west},
-	 * lalu memuat rincian tagihan sesuai filter secara asinkron ke dalam sebuah {@link Div}
-	 * internal. Lihat javadoc kelas untuk uraian lengkap alur perhitungan paralel, penulisan
-	 * {@code semua}, dan sinkronisasi UI dari background thread.
+	 * Implementasi kanonik: membangun form filter ke dalam {@code west}, memasang pendengar
+	 * perubahan pada ketiga kombobox filter, lalu memicu pemuatan pertama secara langsung.
+	 * Seluruh perhitungan rincian tagihan berjalan asinkron ke dalam sebuah {@link Div}
+	 * internal yang menjadi anak baris terakhir form. Lihat Javadoc kelas untuk uraian
+	 * lengkap posisi kelas ini dalam rantai billing, perakitan angka, paralelisme, dan
+	 * catatan integritas finansial.
+	 *
+	 * <h4>Kerangka yang dibangun</h4>
+	 * <p>
+	 * Isi {@code west} dibersihkan lebih dahulu lewat {@link Common#clear(Component)}, lalu
+	 * diisi sebuah {@link Grid} dua kolom (label 35% + kendali). Tinggi grid sengaja diatur
+	 * {@code vflex="min"} dan <b>bukan</b> {@code height="100%"}: panel "Rincian Tagihan"
+	 * adalah host ber-tinggi otomatis, dan tinggi 100% di dalamnya membuat badan grid
+	 * kolaps sehingga baris rincian terpotong. Baris-barisnya:
+	 * </p>
+	 * <ol>
+	 * <li><b>"Pembayaran *"</b> — kombobox jenis kegiatan. Sumber isinya ditentukan
+	 * {@code vertical}: {@link Common#initJenisPembayaranMahasiswa} bila {@code true},
+	 * atau varian yang juga menyertakan kegiatan calon mahasiswa bila {@code false}. Dua
+	 * opsi sintetis selalu ditambahkan di belakang: <b>"Belum Lunas"</b> dan
+	 * <b>"Semua Tagihan"</b>, keduanya ber-{@code value} {@code null} sehingga dibedakan
+	 * hanya lewat teks labelnya. Bila {@code selectedJenisKegiatan} tidak diberikan,
+	 * "Semua Tagihan" menjadi pilihan baku.</li>
+	 * <li><b>"Smt Mulai"</b> — pilihan {@code 1..maxSemesterPilihan-1} untuk
+	 * {@link Mahasiswa}, atau {@code 0..maxSemesterPilihan-1} untuk
+	 * {@link BiodataCalonMahasiswa} (semester 0 mewakili tahap pendaftaran, sebelum
+	 * perkuliahan dimulai). Nilai baku 1 atau 0 sesuai jenis peserta.</li>
+	 * <li><b>"Smt Sampai"</b> — pilihan {@code 1..maxSemesterPilihan-1}; nilai bakunya
+	 * adalah semester berjalan mahasiswa ({@code currentSemester()}) atau 1.</li>
+	 * <li>baris terakhir ber-{@code colspan} 2 yang menampung {@link Div} hasil.</li>
+	 * </ol>
+	 * <p>
+	 * Kedua baris semester disembunyikan bila {@code SMT} sudah ditentukan pemanggil atau
+	 * bila {@code sederhana} bernilai {@code true}. Batas {@code maxSemesterPilihan}
+	 * dibaca dari konfigurasi {@code max_semester_pilihan} (baku 25).
+	 * </p>
+	 *
+	 * <h4>Mengapa daftar semester TIDAK dipotong pada semester berjalan</h4>
+	 * <p>
+	 * Jumlah opsi kedua kombobox sengaja mengikuti {@code max_semester_pilihan} dan bukan
+	 * {@code currentSemester()}. Pembatasan berbasis semester berjalan pernah diterapkan
+	 * untuk menyembunyikan tagihan masa depan, tetapi menimbulkan kemacetan: pada data
+	 * nyata {@code currentSemester()} dapat menghasilkan angka yang lebih kecil daripada
+	 * semester yang sedang perlu diproses administrasi, sehingga semester tersebut tidak
+	 * pernah tersedia di dropdown dan proses tagihan lanjutan tidak dapat dijalankan.
+	 * Pengaman terhadap tagihan masa depan tetap ada, tetapi diletakkan di dua tempat
+	 * lain: penyaringan pada {@link InformasiPembayaranMahasiswaAction}, dan penjaga
+	 * di awal pemuatan yang menolak parameter {@code SMT} yang melampaui semester
+	 * berjalan. Artinya, tagihan semester mendatang hanya muncul bila petugas memang
+	 * sengaja memilih rentang tersebut lewat kombobox.
+	 * </p>
+	 *
+	 * <h4>Pemulihan pilihan terakhir pengguna</h4>
+	 * <p>
+	 * Bila {@code actionInstance} diberikan, jenis kegiatan dipulihkan dengan mencocokkan
+	 * <b>teks label</b> ({@code getLastSelectedJkLabel()}) — bukan id — karena dua opsi
+	 * sintetis "Belum Lunas"/"Semua Tagihan" tidak memiliki nilai objek. Bila labelnya
+	 * tidak lagi ditemukan (mis. jenis kegiatan dinonaktifkan), pemilihan jatuh kembali ke
+	 * perilaku baku. "Smt Sampai" dipulihkan dari {@code getLastSelectedSmtSampai()}.
+	 * </p>
+	 * <p>
+	 * <b>Ketidaksimetrisan yang perlu diketahui:</b> "Smt Mulai" <b>tidak</b> dipulihkan.
+	 * Nilainya disimpan setiap kali pengguna mengubahnya
+	 * ({@code setLastSelectedSmtMulai(...)} dipanggil dari pendengar {@code onChange}),
+	 * tetapi {@code getLastSelectedSmtMulai()} tidak pernah dibaca di sini, sehingga
+	 * "Smt Mulai" selalu kembali ke 1 (atau 0) pada setiap pembangunan ulang panel.
+	 * </p>
+	 *
+	 * <h4>Pendengar dan pemicu pemuatan</h4>
+	 * <p>
+	 * Ketiga kombobox diberi pendengar {@code onChange} yang menyimpan pilihan ke
+	 * {@code actionInstance} (bila ada) lalu meneruskan ke pendengar pemuatan bersama.
+	 * Pemuatan pertama dipicu di akhir method dengan memanggil pendengar tersebut
+	 * memakai {@code null} sebagai peristiwa, yang berarti "jalankan sekarang juga"
+	 * alih-alih ditunda lewat timer. Method mengembalikan kombobox jenis kegiatan agar
+	 * pemanggil dapat membacanya atau memasang pendengar tambahan.
+	 * </p>
 	 *
 	 * @param west               kontainer ZK tujuan form filter + hasil rincian; isi sebelumnya
 	 *                           dibersihkan lewat {@link Common#clear}

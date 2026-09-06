@@ -79,15 +79,72 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class DetailGrupSoalHelper implements DataLoader {
 
+	/**
+	 * Grid daftar soal (satu baris per {@link BankSoal}). Dibuat di
+	 * {@link #display(PenjelasanBankSoal, Component)} sebagai {@link MyGrid} dengan mold
+	 * {@code paging} berukuran 5000 dan tinggi minimum 1400px, lalu diisi ulang oleh
+	 * {@link #loadData(Object)} dengan {@link DetailUjianRenderer}. Grid hanya memiliki SATU kolom
+	 * berlabel kosong &mdash; seluruh tampilan soal beserta opsi jawabannya dirender ke dalam satu
+	 * sel oleh {@link DetailUjianHelper#tampilSoalDanJawaban}.
+	 */
 	private Grid grid;
 
+	/**
+	 * Kotak kata kunci pada toolbar. Menekan Enter (event {@code onOK}) atau tombol kaca pembesar
+	 * memicu {@link #loadData(Object)}.
+	 *
+	 * <p><b>Perlu diketahui:</b> {@link #loadData(Object)} tidak pernah membaca nilai field ini,
+	 * sehingga kata kunci yang diketik tidak memengaruhi hasil &mdash; menekan tombol cari hanya
+	 * memuat ulang daftar yang sama. Kotak ini terpasang di UI tetapi belum tersambung ke kriteria
+	 * pencarian mana pun.</p>
+	 */
 	private Textbox cari;
 
+	/**
+	 * Kontrol paging eksternal, diinisialisasi lewat {@code Common.initPaging1} sehingga memakai
+	 * ukuran halaman {@code Common.ROWS_COUNT_ON_PAGE_1}.
+	 *
+	 * <p><b>Perlu diketahui:</b> {@link #loadData(Object)} mengisi {@code setTotalSize(...)} dengan
+	 * jumlah baris pada HALAMAN yang baru saja diambil, bukan jumlah seluruh soal dalam grup.
+	 * Karena nilai itu tidak pernah melebihi ukuran satu halaman, syarat
+	 * {@code setVisible(size > ROWS_COUNT_ON_PAGE_1)} tidak pernah terpenuhi dan kontrol paging
+	 * tetap tersembunyi &mdash; soal di luar halaman pertama tidak dapat dijangkau lewat UI ini.</p>
+	 */
 	private Paging paging;
+	/**
+	 * Pengguna yang sedang login. Diisi di konstruktor dan diisi ULANG di awal
+	 * {@link #display(PenjelasanBankSoal, Component)} agar tetap segar bila instance helper dipakai
+	 * kembali. Menjadi dasar penjagaan tampilan: tombol "Ambil Soal", "Soal Baru", "Download",
+	 * "Upload" dan "Hapus" hanya ditampilkan bila {@code tbmuser.getMahasiswa() == null}, sedangkan
+	 * mode sunting pada {@link DetailUjianRenderer} memakai syarat yang lebih ketat (bukan
+	 * mahasiswa, bukan siswa, dan bukan calon mahasiswa).
+	 *
+	 * <p>Dibaca tanpa penjagaan {@code null}: bila tidak ada pengguna login,
+	 * {@link #display(PenjelasanBankSoal, Component)} akan melempar
+	 * {@link NullPointerException} pada pemeriksaan {@code tbmuser.getMahasiswa()} yang pertama.</p>
+	 */
 	private Tbmuser tbmuser;
+	/**
+	 * Sisa dari rancangan penghitungan hasil pencarian. Tidak pernah dibaca maupun ditulis di
+	 * kelas ini, dan tidak ada subkelas yang memakainya &mdash; nilainya tetap 0 sepanjang umur
+	 * instance.
+	 */
 	protected int countHasil = 0;
+	/**
+	 * Grup soal (mis. per bab atau per topik) yang isinya sedang dikelola. Ditetapkan sekali di
+	 * {@link #display(PenjelasanBankSoal, Component)} dan menjadi penyaring wajib pada
+	 * {@link #loadData(Object)}, {@link #initSpreadsheet()}, {@link #uploadSoal}, tombol "Hapus",
+	 * serta menjadi sumber nilai bawaan (jenis koreksi, fakultas, jurusan, dosen, guru, satuan
+	 * kerja) bagi soal yang dibuat lewat tombol "Soal Baru".
+	 */
 	private PenjelasanBankSoal penjelasanBankSoal;
 
+	/**
+	 * Membaca pengguna yang sedang login ke {@link #tbmuser}. Seluruh state lain
+	 * ({@link #grid}, {@link #paging}, {@link #cari}, {@link #penjelasanBankSoal}) baru terisi saat
+	 * {@link #display(PenjelasanBankSoal, Component)} dipanggil, sehingga instance yang belum
+	 * di-{@code display} tidak siap dipakai sebagai {@link DataLoader}.
+	 */
 	public DetailGrupSoalHelper() {
 		tbmuser = Common.getCurrentUser();
 	}
@@ -342,6 +399,12 @@ public class DetailGrupSoalHelper implements DataLoader {
 	/** Perender baris grid yang mendelegasikan tampilan soal+jawaban ke {@link DetailUjianHelper#tampilSoalDanJawaban}, dengan mode edit aktif untuk user non-mahasiswa/siswa/calon mahasiswa. */
 	public class DetailUjianRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Callback yang dioper ke {@link DetailUjianHelper#tampilSoalDanJawaban} dan dipanggil
+		 * setelah pengguna mengubah soal/jawaban dari dalam sel, untuk memuat ulang seluruh grid
+		 * lewat {@link DetailGrupSoalHelper#loadData(Object)}. Satu instance dipakai bersama untuk
+		 * SEMUA baris karena tidak menyimpan state per-baris.
+		 */
 		private EventListener ubahEventListener = new EventListener() {
 
 			@Override
@@ -351,6 +414,21 @@ public class DetailGrupSoalHelper implements DataLoader {
 		};
 
 		@Override
+		/**
+		 * Merender satu baris soal dengan mendelegasikan seluruh tampilan ke
+		 * {@link DetailUjianHelper#tampilSoalDanJawaban}, termasuk teks soal, seluruh opsi jawaban,
+		 * dan kontrol penyuntingannya.
+		 *
+		 * <p>Dua argumen terakhir menentukan mode sunting dan keduanya diberi syarat yang SAMA:
+		 * pengguna bukan mahasiswa, bukan siswa, dan bukan calon mahasiswa. Syarat ini lebih ketat
+		 * daripada syarat tombol toolbar di {@link DetailGrupSoalHelper#display(PenjelasanBankSoal,
+		 * Component)} yang hanya memeriksa {@code getMahasiswa() == null}, sehingga siswa dan calon
+		 * mahasiswa masih melihat tombol "Ambil Soal"/"Soal Baru"/"Upload"/"Hapus" walau tidak dapat
+		 * menyunting isi soal langsung di grid.</p>
+		 *
+		 * @param arg0 baris grid ZK tujuan render
+		 * @param arg1 instance {@link BankSoal} untuk baris ini
+		 */
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
 			// TODO Auto-generated method stub
