@@ -1191,6 +1191,22 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 	/** @see #KELOMPOK_FIX_ASSET */
 	public static final String KELOMPOK_PEKERJAAN = "pekerjaan";
 
+	/** Diagnostik satu request posting; ThreadLocal mencegah hasil request pengguna lain tercampur. */
+	private static final ThreadLocal<String> DIAGNOSTIK_POSTING_SEMUA = new ThreadLocal<String>();
+
+	private static void catatDiagnostikPosting(String pesan) {
+		if (DIAGNOSTIK_POSTING_SEMUA.get() == null && pesan != null) {
+			DIAGNOSTIK_POSTING_SEMUA.set(pesan);
+		}
+	}
+
+	/** Ambil sekaligus hapus diagnostik supaya thread pool Tomcat tidak membawa pesan ke request lain. */
+	public static String ambilDiagnostikPostingSemua() {
+		String pesan = DIAGNOSTIK_POSTING_SEMUA.get();
+		DIAGNOSTIK_POSTING_SEMUA.remove();
+		return pesan;
+	}
+
 	/**
 	 * Kriteria BAST yang dapat diposting, TANPA komponen ZK. Sama dengan
 	 * {@code initCriteria()} ditambah pemisah kelompok yang dipakai dasbor.
@@ -1265,6 +1281,7 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 	@SuppressWarnings("unchecked")
 	public static int postingSemua(String kelompok, Date mulai, Date sampai, Tbmuser oleh,
 			Date tglPosting) {
+		DIAGNOSTIK_POSTING_SEMUA.remove();
 		int n = 0;
 		Session session = HibernateUtil.currentNativeSession();
 		try {
@@ -1299,6 +1316,8 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 					if (bast == null || bast.getJenisPenerimaanBarang() == null
 						|| bast.getJenisPenerimaanBarang().getAkun() == null
 						|| bast.getJenisPenerimaanBarang().getAkun().getId() == null) {
+						catatDiagnostikPosting("BAST " + id
+							+ " tidak memiliki akun kredit pada Jenis Penerimaan Barang.");
 						continue;
 					}
 					Long akunKreditId = bast.getJenisPenerimaanBarang().getAkun().getId();
@@ -1319,6 +1338,10 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 					for (PenerimaanPengadaanMasterAssetDetail d : detail) {
 						Akun akunDebet = akunDebetDetail(d, satuanKerjaFase1);
 						if (akunDebet == null || akunDebet.getId() == null) {
+							catatDiagnostikPosting("BAST " + id + ", detail " + d.getId()
+								+ ", master asset "
+								+ (d.getMasterAsset() == null ? "null" : d.getMasterAsset().getId())
+								+ " tidak memiliki akun debit efektif.");
 							lengkap = false;
 							break;
 						}
@@ -1328,6 +1351,9 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 						total += (harga == null ? 0.0 : harga.doubleValue());
 					}
 					if (!lengkap || akunDebetIds.isEmpty()) {
+						if (akunDebetIds.isEmpty()) {
+							catatDiagnostikPosting("BAST " + id + " tidak memiliki detail berakun.");
+						}
 						continue;
 					}
 
@@ -1343,6 +1369,8 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 					SatuanKerja satuanKerja = satuanKerjaId == null ? null
 						: (SatuanKerja) session.get(SatuanKerja.class, satuanKerjaId);
 					if (bast == null || riwayat == null || akunKredit == null) {
+						catatDiagnostikPosting("BAST " + id
+							+ " gagal memuat ulang dokumen, riwayat, atau akun kredit.");
 						continue;
 					}
 					List<Akun> akunsDebet = new ArrayList<Akun>();
@@ -1355,6 +1383,8 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 						akunsDebet.add(akun);
 					}
 					if (akunsDebet.size() != akunDebetIds.size()) {
+						catatDiagnostikPosting("BAST " + id
+							+ " gagal memuat ulang salah satu akun debit.");
 						continue;
 					}
 
@@ -1372,6 +1402,8 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 						session.getTransaction().commit();
 						tersimpan = true;
 					} catch (Exception e) {
+						catatDiagnostikPosting("BAST " + id + " gagal menyimpan jurnal: "
+							+ e.getClass().getName() + ": " + String.valueOf(e.getMessage()));
 						try {
 							session.getTransaction().rollback();
 						} catch (Exception ex) {
@@ -1403,11 +1435,15 @@ public class PostingSaldoAwalMasterAssetDetailAction extends GenericAutowireComp
 						n++;
 					}
 				} catch (Exception e) {
+					catatDiagnostikPosting("BAST " + id + " gagal diproses: "
+						+ e.getClass().getName() + ": " + String.valueOf(e.getMessage()));
 					ais.common.ErrorAuditUtil.record(e,
 						"auto-audit PostingSaldoAwalMasterAssetDetailAction.postingSemua");
 				}
 			}
 		} catch (Exception e) {
+			catatDiagnostikPosting("Posting massal gagal: " + e.getClass().getName()
+				+ ": " + String.valueOf(e.getMessage()));
 			ais.common.ErrorAuditUtil.record(e,
 				"PostingSaldoAwalMasterAssetDetailAction.postingSemua");
 		} finally {

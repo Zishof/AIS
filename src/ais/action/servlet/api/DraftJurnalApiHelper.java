@@ -545,6 +545,13 @@ public final class DraftJurnalApiHelper {
             hasil.put("status", "91");
             hasil.put("nama", nama);
             hasil.put("jumlah", 0);
+            if (posting && "Fix Aset (Jurnal Saat BAST)".equals(nama)) {
+                String diagnostik = ais.action.master.asset.PostingSaldoAwalMasterAssetDetailAction
+                        .ambilDiagnostikPostingSemua();
+                if (diagnostik != null && diagnostik.trim().length() > 0) {
+                    hasil.put("diagnostik", diagnostik);
+                }
+            }
             hasil.put("description", tersedia + " dokumen \"" + nama + "\" memenuhi syarat, tetapi tidak "
                     + "satu pun berhasil diproses. Periksa Error Log server, lalu ulangi.");
             return;

@@ -353,7 +353,8 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 			new Label(matakuliah.getNama()).setParent(row);
 			new Label(matakuliah.getSks() + "").setParent(row);
 
-			if (ConstantValues.aktifkanTahapanKurikulum && user.getDosen() == null && user.getMahasiswa() == null) {
+			if (ConstantValues.aktifkanTahapanKurikulum && edit && user.getSiswa() == null
+					&& user.getDosen() == null && user.getMahasiswa() == null) {
 
 				if (ConstantValues.jumlahTahapan.isEmpty()) {
 					ConstantValues.initJumlahTahapan();
@@ -386,6 +387,10 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 
 					@Override
 					public void onEvent(Event arg0) throws Exception {
+						if (!edit || user.getSiswa() != null || user.getDosen() != null
+								|| user.getMahasiswa() != null) {
+							return;
+						}
 						kurikulumPunyaMatakuliah.setTahap((Integer) (tahap.getSelectedItem() == null ? null
 								: tahap.getSelectedItem().getValue()));
 						Common.refreshUpdate(kurikulumPunyaMatakuliah);
@@ -429,6 +434,9 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 
 				@Override
 				public void onEvent(Event arg0) throws Exception {
+					if (!edit || tbmuser == null || tbmuser.getMahasiswa() != null || tbmuser.ambilDosen() != null) {
+						return;
+					}
 					kurikulumPunyaMatakuliah.setAktif(checkbox.isChecked());
 					Common.refreshSaveOrUpdate(kurikulumPunyaMatakuliah);
 				}

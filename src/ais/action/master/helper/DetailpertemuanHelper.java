@@ -622,11 +622,12 @@ public class DetailpertemuanHelper implements DataLoader {
 	 * </p>
 	 *
 	 * <p>
-	 * <b>Catatan cakupan.</b> Tombol unduh dan unggah ditambahkan ke toolbar tanpa penyaringan peran
-	 * — berbeda dengan tombol laporan Absensi/UTS/UAS yang disembunyikan dari mahasiswa dan siswa —
-	 * dan proses unggah menyimpan status kehadiran berdasarkan id pertemuan serta identitas peserta
-	 * yang dibaca dari berkas yang diunggah, tanpa memeriksa bahwa pertemuan tersebut milik
-	 * {@code voPembelajaran} yang sedang dibuka atau bahwa peserta tersebut terdaftar di dalamnya.
+	 * <b>Catatan cakupan.</b> Tombol unduh dan unggah digerbang peran sama seperti tombol laporan
+	 * Absensi/UTS/UAS (disembunyikan dari mahasiswa dan siswa), dicek ulang fail-closed di dalam
+	 * listener {@code onClick}/{@code onUpload} sendiri. Proses unggah juga memvalidasi bahwa setiap
+	 * id pertemuan pada baris judul dan setiap peserta hasil resolusi dari berkas benar-benar milik
+	 * {@code voPembelajaran} yang sedang dibuka — kolom/baris di luar itu ditolak dan dihitung ke
+	 * statistik dilewati/gagal, bukan diproses diam-diam.
 	 * </p>
 	 *
 	 * @param voPembelajaran perkuliahan atau jadwal pelajaran yang detail pertemuannya ditampilkan
@@ -636,6 +637,13 @@ public class DetailpertemuanHelper implements DataLoader {
 		this.voPembelajaran = voPembelajaran;
 
 		pertemuanss = voPembelajaran.ambilPertemuan(refreshData);
+
+		/* Gerbang peran tombol Download/Upload absensi, konsisten dengan tombol
+		 * laporan Absensi/UTS/UAS di bawah yang disembunyikan dari mahasiswa/siswa.
+		 * Dicek ulang (fail-closed) di dalam listener onClick/onUpload sendiri,
+		 * bukan hanya lewat visibilitas tombol. */
+		final boolean bolehUnggahUnduhAbsensi = tbmuser != null && tbmuser.getMahasiswa() == null
+				&& tbmuser.getSiswa() == null;
 
 		Common.clear(cc);
 		Component component = cc;
@@ -669,11 +677,14 @@ public class DetailpertemuanHelper implements DataLoader {
 
 		MyToolbarbuttonConfig download = new MyToolbarbuttonConfig("Download", "/img/excel.png");
 		download.setParent(toolbar);
-		download.setVisible(!Common.isMobile());
+		download.setVisible(bolehUnggahUnduhAbsensi && !Common.isMobile());
 		download.setTooltiptext("Download");
 		download.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (!bolehUnggahUnduhAbsensi) {
+					return;
+				}
 				final String filename = Sessions.getCurrent().getWebApp().getRealPath("/tmp/data_absen_"
 						+ URLEncoder.encode(Common.datetimeFormat2s.get().format(ais.ui.util.WaktuUtil.getDate()), "UTF-8")
 						+ ".xlsx");
@@ -788,12 +799,16 @@ public class DetailpertemuanHelper implements DataLoader {
 		MyToolbarbuttonConfig upload = new MyToolbarbuttonConfig("Upload" + Common.ukuranLabelFileUpload(),
 				"/img/excel.png");
 		upload.setUpload(Common.ukuranFileUpload());
+		upload.setVisible(bolehUnggahUnduhAbsensi);
 		upload.setTooltiptext("Alur: klik Download untuk mengambil template, isi kolom pertemuan dengan KODE "
 				+ "status absen (contoh: M), lalu upload kembali file yang sama (format xlsx). "
 				+ "Dua baris judul paling atas jangan diubah/dihapus.");
 		upload.addEventListener("onUpload", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (!bolehUnggahUnduhAbsensi) {
+					return;
+				}
 				UploadEvent uploadEvent = (UploadEvent) event;
 				Media media = uploadEvent.getMedia();
 				if (!ais.action.master.helper.generic.AmbilDataTugasFileContent.checkFile(media))
@@ -881,6 +896,16 @@ public class DetailpertemuanHelper implements DataLoader {
 
 										boolean ss = voPembelajaran instanceof JadwalPelajaran;
 
+										/* Himpunan id Pertemuan & peserta yang sah milik voPembelajaran
+										 * yang sedang dibuka. Tanpa ini, id pertemuan/kode peserta di
+										 * dalam file yang diunggah bisa menunjuk ke kelas/dosen lain
+										 * (IDOR) dan tetap diproses selama entity-nya ada & aktif. */
+										java.util.Set<Long> pertemuanIdValid = new java.util.HashSet<Long>(
+												voPembelajaran.ambilPertemuan().values());
+										java.util.Set<Long> pesertaIdValid = new java.util.HashSet<Long>(
+												ss ? voPembelajaran.ambilSiswaById()
+														: voPembelajaran.ambilMahasiswaById());
+
 										/* Peta kolom -> id pertemuan dibaca dari BARIS-0 template
 										 * (ditulis tombol Download). Kebal terhadap perubahan
 										 * urutan/penambahan pertemuan di antara download-upload,
@@ -893,8 +918,16 @@ public class DetailpertemuanHelper implements DataLoader {
 												String idStr = Common.getCellContent(rowId.getCell(c));
 												String idNormal = idStr == null ? "" : idStr.trim().replace(",", ".");
 												if (idNormal.matches("[0-9]+(?:\\.[0-9]+)?")) {
-													kolomPertemuan.put(Integer.valueOf(c),
-															Long.valueOf(Double.valueOf(idNormal).longValue()));
+													Long pertemuanId = Long.valueOf(Double.valueOf(idNormal).longValue());
+													if (pertemuanIdValid.contains(pertemuanId)) {
+														kolomPertemuan.put(Integer.valueOf(c), pertemuanId);
+													} else {
+														statistik[1]++;
+														if (infoGagal.length() < 300) {
+															infoGagal.append("kolom id pertemuan ").append(pertemuanId)
+																	.append(" bukan bagian kelas ini; ");
+														}
+													}
 												}
 												} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailpertemuanHelper.java:728");
 												}
@@ -925,6 +958,15 @@ public class DetailpertemuanHelper implements DataLoader {
 
 												Long refId = ss ? siswa.getId() : mahasiswa.getId();
 												String namaPeserta = ss ? siswa.getNama() : mahasiswa.getNama();
+
+												if (!pesertaIdValid.contains(refId)) {
+													statistik[2]++;
+													if (infoGagal.length() < 300) {
+														infoGagal.append("peserta ").append(namaPeserta)
+																.append(" bukan bagian kelas ini; ");
+													}
+													continue;
+												}
 
 												for (java.util.Map.Entry<Integer, Long> entry : kolomPertemuan
 														.entrySet()) {

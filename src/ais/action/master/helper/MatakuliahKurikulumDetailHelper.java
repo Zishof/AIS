@@ -672,6 +672,45 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * tengah sebagai UTS dan pertemuan akhir sebagai UAS, serta opsional menghapus seluruh rencana
 	 * lama lebih dulu. Baris dengan nomor urut yang sudah ada dilewati (tidak ditimpa).
 	 *
+	 * <p>
+	 * <b>Dialog ini juga menyunting induknya.</b> Selain membuat baris pertemuan, tombol Simpan
+	 * menulis balik ke {@link #kurikulumPunyaMatakuliah} sendiri: deskripsi pembelajaran,
+	 * capaian/kompetensi prodi, jumlah pertemuan default, serta flag inti, institusional, dan
+	 * bobot tugas. Unggah lampiran Silabus di dialog bahkan langsung tersimpan saat berkas
+	 * dipilih, TANPA menunggu tombol Simpan &mdash; menekan Batal setelah mengunggah tidak
+	 * membatalkan unggahan itu.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Validasi.</b> Hanya tiga hal yang divalidasi (deskripsi pembelajaran tidak kosong,
+	 * capaian/kompetensi tidak kosong, jumlah pertemuan tidak {@code null}). Jumlah pertemuan
+	 * bernilai nol atau negatif diterima dan menghasilkan loop yang tidak membuat baris apa pun;
+	 * bila opsi hapus dicentang, hasilnya seluruh RPS terhapus tanpa pengganti.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Penandaan UTS/UAS.</b> UAS ditempatkan pada pertemuan terakhir ({@code i == jumlah}) dan
+	 * UTS pada {@code i == jumlah / 2} dengan pembagian bilangan bulat &mdash; untuk 15 pertemuan
+	 * UTS jatuh di pertemuan ke-7, dan untuk jumlah pertemuan 1 tidak ada pertemuan yang ditandai
+	 * UTS sama sekali. Penandaan HANYA berlaku bagi baris yang benar-benar baru dibuat: baris
+	 * dengan {@code nomorUrut} yang sudah ada dilewati sepenuhnya, sehingga mengubah jumlah
+	 * pertemuan pada RPS yang sudah terisi tidak akan memindahkan posisi UTS/UAS lama.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Opsi "Hapus pertamuan yang sebelumnya sudah ada".</b> Dijalankan sebagai {@code delete}
+	 * SQL native langsung ke tabel {@code kurikulum_punya_matakuliah_detail}, sehingga melewati
+	 * kaskade Hibernate maupun pencatatan revisi Envers. Entitas yang mungkin masih ada di
+	 * {@link org.hibernate.Session} tidak ikut dibersihkan.
+	 * </p>
+	 *
+	 * <p>
+	 * Bandingkan dengan method bernama sama di {@link MatakuliahKurikulumHelper} yang bekerja
+	 * MASSAL atas seluruh matakuliah hasil penyaringan grid &mdash; lihat tabel perbandingan pada
+	 * Javadoc kelas ini.
+	 * </p>
+	 *
+	 * @param toolbar       toolbar tujuan penempelan tombol
 	 * @param eventListener dipanggil (lewat timer default) setelah baris berhasil dibuat, untuk
 	 *                      menyegarkan tampilan pemanggil
 	 */
@@ -1171,6 +1210,22 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * (deskripsi pembelajaran, kompetensi, lampiran silabus) — bila {@link #perkuliahan} diberikan,
 	 * panel ini juga menampilkan/mengedit tanggal mulai perkuliahan dan opsi lewati tanggal merah.
 	 * Kontrak {@link DataLoader#loadData(Object)}; {@code value} tidak dipakai.
+	 *
+	 * <p>Seluruh baris RPS dimuat sekaligus tanpa paging basis data (grid hanya melakukan paging
+	 * di sisi klien dengan ukuran halaman 10), dan hasilnya disimpan ke
+	 * {@link #kurikulumPunyaMatakuliahDetails} yang menjadi cakupan kerja tombol "Hapus Semua"
+	 * dan {@link #simpan(Perkuliahan)}.</p>
+	 *
+	 * <p>Panel {@link #north} tidak sekadar diperbarui melainkan dibersihkan lalu DIBANGUN ULANG
+	 * dari nol pada setiap pemanggilan. Karena {@link #tanggalMulaiPerkuliahan} dan
+	 * {@link #lewatiTanggalMerahNasional} ikut dibuat ulang di sini, referensi lama yang dipegang
+	 * kode lain menjadi usang setelah muat ulang; nilai yang ditampilkan pun dibaca ulang dari
+	 * {@link #perkuliahan}, sehingga suntingan pengguna yang belum disimpan akan hilang.</p>
+	 *
+	 * <p>Hanya boleh dipanggil pada mode NON-OBE: pada mode OBE {@link #grid} dan {@link #north}
+	 * tidak pernah dibuat.</p>
+	 *
+	 * @param value tidak dipakai; parameter mengikuti kontrak {@link DataLoader}
 	 */
 	@SuppressWarnings({ "unchecked", "deprecation" })
 	public void loadData(Object value) {
@@ -1263,6 +1318,41 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * @param perkuliahan              kelas nyata terkait (untuk fitur "Tgl. Mulai" & penyalinan
 	 *                                 RPS ke pertemuan), boleh {@code null} bila konteksnya murni
 	 *                                 master data kurikulum tanpa kelas spesifik
+	 * <p>
+	 * <b>Dua bentuk tab "Rencana Pembelajaran" yang saling meniadakan.</b> Bila
+	 * {@code kurikulum.apakahObe(tahunAjaran, ganjilGenap)} bernilai {@code true} &mdash; dengan
+	 * kedua argumen diambil dari {@code perkuliahan}, atau {@code null} bila perkuliahan tidak
+	 * diberikan &mdash; tab diisi iframe {@code /pages/master/rps_obe.zul} dan SELURUH bagian
+	 * grid dilewati: {@link #grid}, {@link #north}, toolbar, tombol pembuatan massal, ekspor,
+	 * impor, dan {@link #loadData(Object)} semuanya tidak pernah dijalankan. Pada mode ini
+	 * {@link #kurikulumPunyaMatakuliahDetails} tetap {@code null}, sehingga
+	 * {@link #simpan(Perkuliahan)} tidak akan menyalin apa pun.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Tab lampiran bersifat lazy-load.</b> Enam tab lain (File, Buku Referensi, Buku
+	 * Diktat/Ajar, Artikel, Audio, Video) baru mengisi panelnya saat diklik pertama kali,
+	 * dideteksi lewat {@code getChildren().size() == 0}. Karena penanda "sudah dimuat" adalah
+	 * ada-tidaknya anak komponen, panel yang isinya kebetulan kosong akan dibangun ulang setiap
+	 * kali tabnya diklik.
+	 * </p>
+	 *
+	 * <p>
+	 * <b>Label jumlah pada tab.</b> Hitungan Buku Referensi, Buku Ajar, dan Artikel diambil dari
+	 * sesi Hibernate biasa, sedangkan hitungan File, Audio, dan Video diambil dari sesi
+	 * {@link StreamingHibernateUtil} terpisah di blok {@code try} paling akhir. Bila blok itu
+	 * gagal, ketiga label terakhir tetap memakai teks awalnya tanpa angka &mdash; tab tetap dapat
+	 * dibuka dan isinya tetap benar, hanya angkanya yang tidak muncul.
+	 * </p>
+	 *
+	 * <p>
+	 * Toolbar dan tombol "Hapus Semua Rencana Pembelajaran" hanya tampil bagi pengguna yang bukan
+	 * mahasiswa/siswa/dosen (dan, untuk tombol hapus, berprivilese {@link #delete}). Tombol
+	 * ekspor/impor memakai {@code Common.cetakData}/{@code Common.uploadData} generik dengan
+	 * daftar kolom tetap; kolom {@code bukuRujukan2} tidak termasuk di dalamnya, sehingga isinya
+	 * tidak ikut terekspor maupun terimpor.
+	 * </p>
+	 *
 	 * @param component                kontainer ZK tujuan; isi sebelumnya dibersihkan lewat
 	 *                                 {@link Common#clear}
 	 */
@@ -1641,6 +1731,27 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	 * diklik untuk membuka {@link KurikulumPunyaMatakuliahHelper} pada tab terkait (0=File,
 	 * 1=Audio, 2=Video). Query hitungan memakai SQL native pada sesi streaming mandiri agar ringan
 	 * dipanggil berulang saat merender banyak baris grid.
+	 *
+	 * <p>SQL disusun dengan penggabungan string, namun nilai yang disisipkan adalah
+	 * {@code getId()} bertipe {@link Long} sehingga tidak ada permukaan injeksi SQL di sini.
+	 * Ketiga hitungan diambil sebagai sub-select dalam SATU query agar cukup sekali
+	 * perjalanan ke basis data per baris grid &mdash; tetap berarti satu query per baris,
+	 * bukan satu query untuk seluruh grid.</p>
+	 *
+	 * <p>Yang dihitung hanyalah lampiran yang menunjuk langsung ke
+	 * {@code kurikulumpunyamatakuliahdetail} ini. Salinan hasil
+	 * {@link #copyLampiran(KurikulumPunyaMatakuliahDetail, Pertemuan)} tidak ikut terhitung
+	 * karena kolom tersebut sengaja dikosongkan pada salinan.</p>
+	 *
+	 * <p>Bila terjadi galat, sesi streaming di-rollback dan {@link Hbox} yang dikembalikan bisa
+	 * saja kosong atau terisi sebagian &mdash; method ini tidak pernah melempar exception maupun
+	 * mengembalikan {@code null}, sehingga render baris grid tetap berjalan. Sesi streaming hanya
+	 * ditutup pada jalur sukses.</p>
+	 *
+	 * @param kurikulumPunyaMatakuliahDetail baris RPS yang lampirannya dihitung
+	 * @param dataLoader                     callback muat ulang; bila {@code null}, ketiga tautan
+	 *                                       ditampilkan tanpa listener klik (murni informatif)
+	 * @return {@link Hbox} berisi tiga tautan ringkasan; tidak pernah {@code null}
 	 */
 	@SuppressWarnings("unchecked")
 	public static Hbox createKeterangan(final KurikulumPunyaMatakuliahDetail kurikulumPunyaMatakuliahDetail,

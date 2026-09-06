@@ -982,12 +982,38 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	}
 
 	/**
-	 * Membangun kriteria {@link Detailperkuliahan} yang mengikuti {@link Perkuliahan} tertentu
-	 * (bukan konversi, {@code ikutiPerkuliahan} kosong), disaring pula berdasarkan NIM/nama
-	 * mahasiswa (ilike) bila kotak pencarian diisi.
+	 * <b>Tujuan:</b> Membangun kriteria {@link Detailperkuliahan} untuk peserta {@link #perkuliahan}
+	 * yang sedang dibuka. Ini implementasi kontrak {@link DataCriteria}, dan di kelas ini
+	 * <b>tidak</b> dipakai untuk mengisi grid — grid diisi {@link #loadData(Object)} lewat jalur lain.
+	 * Satu-satunya konsumennya adalah fitur cetak/ekspor data ({@link Common#cetakData}), yang memanggil
+	 * method ini untuk mendapatkan kumpulan baris yang akan dituangkan ke berkas.
+	 *
+	 * <p><b>Tiga klausa yang dipasang:</b>
+	 * <ol>
+	 *   <li>{@code isNull("ikutiPerkuliahan")} — hanya baris perkuliahan <i>asli</i>. Baris yang
+	 *       "mengikuti" perkuliahan lain (kelas gabung/paralel yang menumpang pada kelas induk)
+	 *       dikecualikan agar peserta tidak terhitung ganda.</li>
+	 *   <li>Pencarian opsional: bila {@link #nama} kosong atau {@code null}, dipasang
+	 *       {@code sqlRestriction("true")} sebagai penahan tempat yang tidak menyaring apa pun — pola ini
+	 *       menjaga rantai pemanggilan {@code add(...)} tetap seragam tanpa percabangan. Bila terisi,
+	 *       dipasang {@code or(ilike(nim), ilike(nama))} dengan {@link MatchMode#ANYWHERE} lewat alias
+	 *       {@code mahasiswa}.</li>
+	 *   <li>{@code eq("perkuliahan", perkuliahan)} — pembatas konteks utama.</li>
+	 * </ol>
+	 *
+	 * <p><b>Perbedaan dengan jalur grid:</b> {@link #loadData(Object)} tidak memakai kriteria ini
+	 * melainkan {@code perkuliahan.ambilDetailperkuliahan(null, null, teksPencarian)}. Kedua jalur
+	 * membaca kotak pencarian yang sama tetapi menerapkannya lewat mekanisme yang berbeda, sehingga
+	 * himpunan baris hasil cetak tidak dijamin identik dengan yang tampil di layar. Bila perilaku
+	 * keduanya perlu diselaraskan, penyelarasan harus dilakukan di kedua tempat.
+	 *
+	 * <p><b>Sifat:</b> membaca {@code currentSession()} sehingga wajib dipanggil dari thread event ZK.
+	 * Tidak mengeksekusi query — hanya menyusun objek {@link Criteria}. Mengasumsikan
+	 * {@link #perkuliahan} sudah terisi.
 	 *
 	 * @param order bila {@code true}, tambahkan pengurutan menaik berdasarkan NIM mahasiswa
 	 * @return kriteria Hibernate siap dieksekusi
+	 * @see #loadData(Object)
 	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -1007,12 +1033,41 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	}
 
 	/**
-	 * Memuat ulang grid dengan seluruh {@link Detailperkuliahan} milik {@link #perkuliahan} saat
-	 * ini, sesuai teks pencarian pada kotak nama.
+	 * <b>Tujuan:</b> Memuat ulang grid dengan seluruh {@link Detailperkuliahan} milik
+	 * {@link #perkuliahan} saat ini, sesuai teks pencarian pada kotak {@link #nama}. Implementasi
+	 * kontrak {@link DataLoader}, dan satu-satunya jalur pengisian grid di kelas ini.
+	 *
+	 * <p><b>Dua mode pemuatan — perbedaannya penting:</b>
+	 * <ul>
+	 *   <li>{@code loadData(true)} — memanggil {@code perkuliahan.reInitDetailperkuliahan(session)}
+	 *       lebih dulu, yaitu membangun ulang cache daftar peserta pada entity {@link Perkuliahan} dari
+	 *       basis data. Dipakai setiap kali data <i>berubah</i>: setelah simpan, hapus, transfer,
+	 *       persetujuan massal, sinkronisasi, unggah Excel, dan tombol Refresh.</li>
+	 *   <li>{@code loadData(null)} — memakai cache yang sudah ada. Dipakai untuk perubahan yang hanya
+	 *       menyaring tampilan, yaitu menekan Enter pada kotak pencarian. Bila dipanggil setelah data
+	 *       berubah di sesi lain, grid akan menampilkan keadaan lama.</li>
+	 * </ul>
+	 * Perbandingan dilakukan dengan {@code value.equals(true)}, sehingga nilai apa pun selain
+	 * {@link Boolean} {@code true} diperlakukan sebagai mode cache.
+	 *
+	 * <p><b>Langkah:</b> hasil {@code perkuliahan.ambilDetailperkuliahan(null, null, teksPencarian)}
+	 * disalin ke {@link ArrayList} baru dan disimpan di {@link #detailperkuliahan}. Penyalinan itu bukan
+	 * sekadar konversi tipe: daftar ini juga menjadi cakupan kerja ketiga tombol aksi massal, sehingga
+	 * ia perlu menjadi snapshot mandiri, bukan pandangan langsung ke cache entity. Selanjutnya renderer
+	 * {@link DetailPerkuliahanRenderer} yang baru dipasang dan model grid diperbarui.
+	 *
+	 * <p><b>Renderer dibuat ulang setiap pemuatan</b> — bukan sekali di {@link #display} — karena
+	 * renderer adalah inner class yang menangkap keadaan terkini instance pembungkusnya.
+	 *
+	 * <p><b>Sifat:</b> berjalan di thread event ZK dan memakai {@code currentSession()}. Mengasumsikan
+	 * {@link #perkuliahan}, {@link #nama}, dan {@link #grid} sudah terisi oleh {@link #display};
+	 * memanggilnya lebih awal akan melempar {@link NullPointerException}. Signature-nya tidak
+	 * mendeklarasikan {@code throws}, sehingga kegagalan basis data merambat sebagai runtime exception.
 	 *
 	 * @param value bila {@code true} (sebagai {@link Boolean}), paksa cache {@code Detailperkuliahan}
 	 *              milik {@link #perkuliahan} dibangun ulang dari database via
 	 *              {@code reInitDetailperkuliahan} sebelum diambil
+	 * @see #initCriteria(boolean)
 	 */
 	public void loadData(Object value) {
 		if (value != null && value.equals(true)) {
@@ -1026,10 +1081,26 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 	}
 
 	/**
-	 * Mengatur konteks {@link Perkuliahan} helper tanpa membangun ulang tampilan.
+	 * Mengganti konteks {@link Perkuliahan} helper <b>tanpa</b> membangun ulang tampilan.
+	 *
+	 * <p>Berbeda dari {@link #display}, method ini hanya menyetel field dan tidak menyentuh apa pun yang
+	 * lain: toolbar, kolom, dan isi grid tetap seperti sebelumnya. Pemanggil yang berpindah kelas
+	 * karenanya <b>wajib</b> memanggil {@code loadData(true)} sesudahnya; tanpa itu layar masih
+	 * menampilkan peserta perkuliahan lama sementara seluruh aksi (simpan, hapus, persetujuan, unggah)
+	 * sudah mengacu ke perkuliahan baru — kombinasi yang berbahaya karena baris yang terlihat tidak lagi
+	 * mewakili baris yang akan terpengaruh.
+	 *
+	 * <p><b>Parameter kedua tidak dipakai.</b> {@code perkuliahanAsli} diterima semata agar signature
+	 * sejajar dengan {@link #display}, yang memang membutuhkannya untuk cetak laporan absensi. Badan
+	 * method mengabaikannya sepenuhnya. Jangan berasumsi memanggil method ini akan menetapkan konteks
+	 * "perkuliahan asli" di mana pun.
+	 *
+	 * <p><b>Sifat:</b> murni penyetel field; tanpa akses basis data, tanpa komponen ZK, aman dipanggil
+	 * kapan saja.
 	 *
 	 * @param perkuliahan      perkuliahan konteks baru
 	 * @param perkuliahanAsli  tidak dipakai dalam badan method; diterima untuk kompatibilitas signature
+	 * @see #display(Perkuliahan, Perkuliahan, Component, MyWindow)
 	 */
 	public void setPerkuliahan(Perkuliahan perkuliahan, Perkuliahan perkuliahanAsli) {
 		this.perkuliahan = perkuliahan;
