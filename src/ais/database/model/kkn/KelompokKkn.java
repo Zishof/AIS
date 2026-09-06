@@ -507,6 +507,51 @@ public class KelompokKkn extends VOPembelajaran {
 	 * kalau bukan JSON objek yang valid, anggap saja "tidak ada data" (JSONObject
 	 * kosong) alih-alih membiarkan exception menjalar ke pemanggil (mis. layar
 	 * detail aktifitas KKN dosen).
+	 *
+	 * <p><b>Detail alur validasi (untuk pembaca yang memelihara method ini):</b> tiga
+	 * kondisi diperiksa berurutan sebelum benar-benar mencoba parse: (1) {@code data == null}
+	 * &rarr; langsung kembalikan objek kosong tanpa menyentuh {@code trim()} (menghindari
+	 * {@code NullPointerException}); (2) setelah di-{@code trim()}, string kosong &rarr; juga
+	 * dianggap "tidak ada data"; (3) karakter pertama string yang sudah di-trim BUKAN {@code '{'}
+	 * &rarr; ditolak lebih awal SEBELUM mencoba parse sama sekali — ini menangkap kasus paling
+	 * umum data legacy: angka mentah, string bebas, atau JSON array ({@code "[...]"}, yang juga
+	 * ditolak karena karakter pertamanya {@code '['} bukan {@code '{'}). Baru setelah lolos ketiga
+	 * pemeriksaan itu, method mencoba {@code new JSONObject(trimmed)} di dalam blok
+	 * {@code try}/{@code catch} sebagai <b>jaring pengaman lapis kedua</b> — menangkap kasus yang
+	 * lolos pemeriksaan format dasar (diawali {@code '{'}) tapi tetap bukan JSON valid (mis.
+	 * {@code "{tidak valid"} tanpa penutup, atau sintaks JSON yang rusak di tengah). Pada lapis
+	 * kedua ini, exception-nya DIREKAM lewat {@link ais.common.ErrorAuditUtil#record(Throwable, String)}
+	 * (bukan dibuang diam-diam total) sehingga tetap ada jejak audit bahwa ada data yang gagal
+	 * di-parse, walau perilaku fungsionalnya sama: mengembalikan {@link JSONObject} kosong ke
+	 * pemanggil, bukan melempar ulang.</p>
+	 *
+	 * <p><b>Kenapa ini penting secara khusus untuk kelas ini:</b> {@link #ambilLokasiDetailKelompokKkn()}
+	 * membaca isi berkas indeks JSON dari disk lewat {@link ais.common.BacaTulisUtil#baca(File)},
+	 * dan berkas itu bisa saja hilang isinya (truncated akibat proses tulis yang terputus,
+	 * mis. server mati mendadak di tengah {@link #tulisLokasiDetailKelompokKkn(String)}), berisi
+	 * whitespace sisa migrasi lama, atau — pada instalasi yang sudah lama berjalan sejak sebelum
+	 * era ORM penuh — memuat format penyimpanan lama yang tidak lagi kompatibel. Tanpa method
+	 * pembungkus ini, SETIAP pemanggilan {@code new JSONObject(...)} langsung atas data semacam itu
+	 * akan melempar {@code JSONException} yang tidak tertangani ke lapisan UI (mis. layar detail
+	 * aktifitas KKN dosen di {@code ais.action.master.helper.AktifitasKknHelper}), membuat seluruh
+	 * halaman gagal dimuat hanya karena SATU baris indeks lama yang rusak — padahal kelompok KKN
+	 * bersangkutan sepenuhnya valid dan seharusnya tetap bisa diakses (hanya kehilangan daftar
+	 * anggota lama yang gagal dibaca).</p>
+	 *
+	 * <p><b>Divergensi lintas modul (dicatat sebagai temuan terpisah, TIDAK ditambal di sini):</b>
+	 * kembaran kelas ini, {@link ais.database.model.pkl.KelompokPkl}, TIDAK memiliki method
+	 * pembungkus setara — kelima method paralelnya memanggil {@code new JSONObject(...)} secara
+	 * LANGSUNG tanpa validasi format maupun jaring pengaman ini. Ini divergensi robustness yang
+	 * genuinely baru ditemukan selama audit dokumentasi ini (bukan bagian dari bug SKS/IPK atau
+	 * kode mati {@code reload...} yang sudah tercatat sebelumnya di memori proyek), dan sudah
+	 * dilaporkan lewat task terpisah untuk ditambal pada sesi lain — bukan bagian dari perubahan
+	 * dokumentasi ini.</p>
+	 *
+	 * @param data teks mentah yang diharapkan berupa JSON objek; boleh {@code null}, kosong, atau
+	 *             format apa pun (tidak divalidasi tipenya oleh pemanggil).
+	 * @return {@link JSONObject} hasil parse {@code data}, atau {@link JSONObject} KOSONG (bukan
+	 *         {@code null}) bila {@code data} bukan JSON objek yang valid dengan alasan apa pun.
+	 *         Method ini TIDAK PERNAH melempar exception ke pemanggil.
 	 */
 	private static JSONObject amanJadikanJSONObject(String data) {
 		if (data == null) {
@@ -525,6 +570,30 @@ public class KelompokKkn extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Membaca isi berkas indeks JSON anggota kelompok ini dari disk — berkas yang memetakan
+	 * id-mahasiswa (dari {@link MahasiswaDapatKelompokKkn#getId()}) ke path absolut berkas detail
+	 * anggota tersebut (lihat javadoc kelas, bagian "Pola berkas-JSON untuk anggota kelompok").
+	 * Lokasi berkas ditentukan lewat {@link Common#getFileLocation(Object, String)} dengan nama
+	 * kunci {@code "detail_kelompokKkn_" + getId()} — sehingga setiap kelompok (dibedakan oleh id
+	 * primary key-nya) punya SATU berkas indeks unik miliknya sendiri di lokasi penyimpanan yang
+	 * dikelola {@code Common}.
+	 *
+	 * <p>Method ini AMAN dipanggil bahkan bila berkas belum pernah ada (kelompok baru yang belum
+	 * pernah punya anggota): baik kegagalan I/O (berkas tidak ditemukan, masalah permission, dsb —
+	 * ditangkap lewat blok {@code try}/{@code catch} yang membungkus SELURUH badan method, termasuk
+	 * baris {@code Common.getFileLocation(...)} itu sendiri) maupun isi berkas yang kosong/blank
+	 * akan menghasilkan hasil yang SAMA: {@link VOMahasiswa#dataJSON} (representasi JSON kosong
+	 * standar yang dipakai bersama seluruh entity turunan {@code VOPembelajaran}/{@code VOMahasiswa}
+	 * di repo ini), bukan {@code null} atau exception. Perhatikan bahwa exception yang tertangkap
+	 * di sini HANYA direkam lewat {@link ais.common.ErrorAuditUtil#record(Throwable, String)} —
+	 * blok catch ini adalah salah satu dari beberapa "empty-catch" auto-audit di kelas ini yang
+	 * menandakan penanganan error minimal/pasif, bukan penanganan yang membedakan jenis kegagalan.</p>
+	 *
+	 * @return isi berkas indeks JSON (teks mentah, belum di-parse) bila berkas ada dan tidak kosong;
+	 *         {@link VOMahasiswa#dataJSON} pada seluruh kasus lain (berkas tidak ada, gagal dibaca,
+	 *         atau isinya kosong/blank).
+	 */
 	public String ambilLokasiDetailKelompokKkn() {
 
 		File file = Common.getFileLocation(this, "detail_kelompokKkn_" + this.getId().toString());
@@ -537,6 +606,28 @@ public class KelompokKkn extends VOPembelajaran {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menulis ulang SELURUH isi berkas indeks JSON anggota kelompok ini ke disk, di lokasi yang
+	 * sama seperti yang dibaca {@link #ambilLokasiDetailKelompokKkn()} (kunci
+	 * {@code "detail_kelompokKkn_" + getId()} lewat {@link Common#getFileLocation(Object, String)}).
+	 * Ini adalah operasi TIMPA PENUH (bukan patch/append) — pemanggil bertanggung jawab membangun
+	 * ulang seluruh peta id&rarr;path yang ingin dipertahankan sebelum memanggil method ini (lihat
+	 * pemanggil-pemanggilnya: {@link #removeMahasiswaDapatKelompokKkn(Serializable)} dan
+	 * {@link #populateMahasiswaDapatKelompokKkn(MahasiswaDapatKelompokKkn)} keduanya membaca dulu
+	 * peta lengkap lewat {@link #ambilLokasiDetailKelompokKkn()}, memodifikasi SATU entri, baru
+	 * menulis ulang seluruh peta hasil modifikasi).
+	 *
+	 * <p>Kegagalan I/O (mis. disk penuh, permission ditolak) DITELAN diam-diam — hanya direkam
+	 * lewat {@link ais.common.ErrorAuditUtil#record(Throwable, String)}, TIDAK dilempar ulang ke
+	 * pemanggil. Konsekuensinya: kode pemanggil yang memanggil method ini TIDAK PUNYA cara untuk
+	 * tahu bahwa penulisan gagal — operasi "hapus anggota" atau "tambah anggota" akan TAMPAK
+	 * berhasil dari sudut pandang pemanggil (tidak ada exception yang perlu ditangani), padahal
+	 * perubahan sebenarnya tidak tersimpan ke disk. Ini konsisten dengan pola "empty-catch"
+	 * auto-audit yang berulang di seluruh kelas ini, bukan kasus terisolasi.</p>
+	 *
+	 * @param data teks JSON lengkap (hasil {@code JSONObject.toString()}) yang menggantikan
+	 *             SELURUH isi berkas indeks sebelumnya.
+	 */
 	public void tulisLokasiDetailKelompokKkn(String data) {
 		File file = Common.getFileLocation(this, "detail_kelompokKkn_" + this.getId().toString());
 		try {
@@ -547,6 +638,37 @@ public class KelompokKkn extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Menghapus satu entri anggota dari berkas indeks JSON kelompok ini, TANPA menghapus berkas
+	 * detail anggota itu sendiri dari disk. Secara mekanis: baca peta lengkap lewat
+	 * {@link #ambilLokasiDetailKelompokKkn()} (dibungkus {@link #amanJadikanJSONObject(String)}),
+	 * timpa nilai entri berkunci {@code id.toString()} menjadi string kosong {@code ""} (BUKAN
+	 * menghapus kunci itu dari peta — lihat catatan di bawah), lalu tulis ulang seluruh peta lewat
+	 * {@link #tulisLokasiDetailKelompokKkn(String)}.
+	 *
+	 * <p><b>Catatan penting soal semantik "hapus":</b> method {@code org.json.JSONObject} yang
+	 * dipakai di sini adalah {@code put(key, "")} — MENGISI kunci dengan string kosong, bukan
+	 * {@code remove(key)} yang benar-benar membuang kunci dari peta. Konsekuensinya, entri untuk
+	 * {@code id} tersebut TETAP ADA di berkas JSON (dengan nilai kosong) alih-alih hilang
+	 * seluruhnya. Ini konsisten dengan cara {@link #ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)}
+	 * membaca peta: ia secara eksplisit melewati (skip) entri dengan {@code s.trim().isEmpty()}
+	 * (lihat javadoc method tersebut) — sehingga entri "kosong" ini secara efektif diperlakukan
+	 * sebagai "tidak ada", meski secara harfiah kuncinya tidak dibuang dari JSON. Berkas detail
+	 * milik anggota yang dihapus (di path yang SEBELUMNYA tersimpan pada entri ini) juga TIDAK
+	 * dihapus oleh method ini — hanya referensinya dari indeks kelompok yang dikosongkan, bukan
+	 * berkas fisiknya (potensi berkas yatim/orphan yang menumpuk seiring waktu bila anggota sering
+	 * dihapus-tambah).</p>
+	 *
+	 * <p>Kegagalan apa pun (baik saat membaca, memodifikasi, maupun menulis ulang) ditangkap oleh
+	 * satu blok {@code try}/{@code catch} yang membungkus seluruh badan method dan hanya direkam
+	 * lewat audit, konsisten dengan pola "empty-catch" di seluruh kelas ini.</p>
+	 *
+	 * @param id id mahasiswa ({@code MahasiswaDapatKelompokKkn.getId()}) yang entrinya hendak
+	 *           dikosongkan dari indeks; dikonversi ke {@code String} lewat {@code id.toString()}
+	 *           sebagai kunci JSON, sehingga TIDAK BOLEH {@code null} (akan melempar
+	 *           {@code NullPointerException} yang tertangkap oleh blok {@code catch} method ini
+	 *           sendiri, bukan diteruskan ke pemanggil).
+	 */
 	public void removeMahasiswaDapatKelompokKkn(Serializable id) {
 		try {
 			JSONObject c = amanJadikanJSONObject(ambilLokasiDetailKelompokKkn());
@@ -557,6 +679,32 @@ public class KelompokKkn extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Mendaftarkan/memperbarui SATU entri anggota pada berkas indeks JSON kelompok ini: menulis
+	 * path absolut berkas detail milik {@code mahasiswaDapatKelompokKkn} (didapat lewat
+	 * {@code mahasiswaDapatKelompokKkn.write().getAbsolutePath()} — method {@code write()} pada
+	 * {@link MahasiswaDapatKelompokKkn} sendiri yang bertanggung jawab menyimpan berkas detailnya
+	 * ke disk dan mengembalikan lokasinya) ke dalam peta indeks, berkunci id mahasiswa tersebut.
+	 * Ini adalah kebalikan operasional dari {@link #removeMahasiswaDapatKelompokKkn(Serializable)}:
+	 * bila method itu mengosongkan entri, method ini MENGISI/MEMPERBARUI entri dengan path berkas
+	 * detail yang valid.
+	 *
+	 * <p>Alur: baca peta lengkap lewat {@link #ambilLokasiDetailKelompokKkn()} (dibungkus
+	 * {@link #amanJadikanJSONObject(String)}), timpa/tambahkan entri berkunci
+	 * {@code mahasiswaDapatKelompokKkn.getId().toString()}, tulis ulang seluruh peta lewat
+	 * {@link #tulisLokasiDetailKelompokKkn(String)}. Bila {@code mahasiswaDapatKelompokKkn} bernilai
+	 * {@code null}, method ini early-return TANPA melakukan apa pun (tidak mengubah berkas indeks
+	 * sama sekali) — bukan melempar {@code NullPointerException}. Kegagalan lain (mis.
+	 * {@code getId()} mengembalikan {@code null} sehingga {@code .toString()} melempar exception,
+	 * atau kegagalan I/O saat {@code write()}/menulis indeks) ditangkap oleh satu blok
+	 * {@code try}/{@code catch} yang membungkus seluruh badan method dan hanya direkam lewat audit
+	 * — konsisten dengan pola "empty-catch" di seluruh kelas ini; pemanggil TIDAK diberi tahu bila
+	 * pendaftaran anggota ini sebenarnya gagal.</p>
+	 *
+	 * @param mahasiswaDapatKelompokKkn entity keanggotaan yang hendak didaftarkan/diperbarui pada
+	 *                                  indeks kelompok ini; bila {@code null}, method ini tidak
+	 *                                  melakukan apa pun.
+	 */
 	public void populateMahasiswaDapatKelompokKkn(MahasiswaDapatKelompokKkn mahasiswaDapatKelompokKkn) {
 		try {
 			if (mahasiswaDapatKelompokKkn == null) {
@@ -570,10 +718,43 @@ public class KelompokKkn extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * @param refresh {@code true} untuk memaksa {@link #reInitMahasiswaDapatKelompokKkn(Session)}
+	 *                membangun ulang indeks JSON dari basis data sebelum membaca anggota
+	 *                (lihat javadoc {@link #ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)}
+	 *                untuk penjelasan lengkap parameter ini); {@code false} untuk memakai berkas
+	 *                indeks yang sudah ada apa adanya (kecuali flag {@code "dapat_kelompok"} belum
+	 *                pernah di-set — lihat method tersebut).
+	 * @return seluruh anggota kelompok ini tanpa filter nama/NIM — delegasi langsung ke
+	 *         {@link #ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)} dengan
+	 *         {@code nim}, {@code nama}, {@code hanyaNama} semuanya {@code null}.
+	 */
 	public Collection<MahasiswaDapatKelompokKkn> ambilMahasiswaDapatKelompokKkn(boolean refresh) {
 		return ambilMahasiswaDapatKelompokKkn(null, null, null, refresh);
 	}
 
+	/**
+	 * Membangun ulang berkas indeks JSON kelompok ini dari KOLEKSI anggota yang SUDAH DIMILIKI
+	 * pemanggil di memori (BUKAN dari basis data — bandingkan dengan overload
+	 * {@link #reInitMahasiswaDapatKelompokKkn(Session)} yang mengueri basis data terlebih dahulu).
+	 * Mengosongkan seluruh berkas indeks (menulis {@code new JSONObject().toString()}, yakni
+	 * {@code "{}"}) lalu memanggil {@link #populateMahasiswaDapatKelompokKkn(MahasiswaDapatKelompokKkn)}
+	 * satu per satu untuk setiap elemen {@code detailperkuliahans} — sehingga hasil akhirnya adalah
+	 * indeks yang PERSIS mencerminkan koleksi yang diberikan, tidak digabung dengan indeks lama.
+	 *
+	 * <p>Nama parameter {@code detailperkuliahans} adalah sisa penamaan dari pola salin-tempel
+	 * lintas modul akademik (istilah "detail perkuliahan" umum dipakai di entity
+	 * {@code VOPembelajaran} turunan lain seperti perkuliahan reguler) — TIDAK mencerminkan
+	 * terminologi KKN yang sesungguhnya (semestinya "anggota kelompok KKN"), tapi tidak diubah di
+	 * sini agar tidak menyimpang dari kode sumber asli yang didokumentasikan.</p>
+	 *
+	 * @param detailperkuliahans koleksi anggota yang akan MENGGANTIKAN seluruh isi indeks kelompok
+	 *                           ini; iterasi memakai for-each biasa sehingga {@code null} pada
+	 *                           parameter ini akan melempar {@code NullPointerException} (TIDAK
+	 *                           ditangkap oleh method ini sendiri, berbeda dari kebanyakan method
+	 *                           lain di kelas ini yang membungkus badan method dengan
+	 *                           {@code try}/{@code catch}).
+	 */
 	public void reInitMahasiswaDapatKelompokKkn(Collection<MahasiswaDapatKelompokKkn> detailperkuliahans) {
 		tulisLokasiDetailKelompokKkn(new JSONObject().toString());
 		for (MahasiswaDapatKelompokKkn detailperkuliahan : detailperkuliahans) {
@@ -581,6 +762,40 @@ public class KelompokKkn extends VOPembelajaran {
 		}
 	}
 
+	/**
+	 * Membangun ulang berkas indeks JSON kelompok ini langsung dari BASIS DATA lewat Hibernate
+	 * {@code Criteria} — SATU-SATUNYA method di kelas ini yang benar-benar mengueri tabel
+	 * {@code MahasiswaDapatKelompokKkn} lewat {@code Restrictions.eq("kelompokKkn", this)}, bukan
+	 * membaca peta id&rarr;path dari berkas JSON yang sudah ada. Dipakai sebagai mekanisme
+	 * "refresh dari sumber kebenaran" ketika berkas indeks JSON dicurigai basi/tidak sinkron
+	 * dengan basis data (lihat pemanggilnya di
+	 * {@link #ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)}, dipicu oleh flag
+	 * {@code refresh} atau ketika flag udah("dapat_kelompok") belum pernah di-set).
+	 *
+	 * <p>Alur: (1) kueri seluruh {@link MahasiswaDapatKelompokKkn} yang menunjuk kelompok ini,
+	 * diurutkan menaik berdasarkan {@code id}; (2) kosongkan berkas indeks (tulis {@code "{}"});
+	 * (3) untuk setiap hasil kueri, panggil
+	 * {@link #populateMahasiswaDapatKelompokKkn(MahasiswaDapatKelompokKkn)} — yang, perhatikan,
+	 * MEMBACA ULANG dan MENULIS ULANG SELURUH berkas indeks pada SETIAP iterasi (bukan
+	 * dikumpulkan dulu baru ditulis sekali) — sehingga kompleksitas I/O method ini adalah O(n) kali
+	 * baca-tulis berkas untuk n anggota, bukan satu kali tulis batch. Untuk kelompok dengan banyak
+	 * anggota, ini berarti banyak operasi baca/tulis berkas kecil berturut-turut; (4) variabel lokal
+	 * {@code mahasiswaDapatKelompokKkns} secara eksplisit di-set {@code null} di akhir method
+	 * (pola pembersihan referensi manual yang umum di kelas-kelas lama repo ini, kemungkinan
+	 * peninggalan kebiasaan mengelola memori era JVM lama — secara praktik tidak diperlukan karena
+	 * variabel lokal otomatis keluar dari scope setelah method selesai).</p>
+	 *
+	 * <p>Method ini TIDAK membungkus badannya dengan {@code try}/{@code catch} sendiri — berbeda
+	 * dari kebanyakan method lain di kelas ini. Bila query Hibernate gagal (mis. sesi sudah
+	 * tertutup, masalah koneksi basis data), exception akan MENJALAR ke pemanggil. Pemanggil
+	 * satu-satunya di kelas ini, {@link #ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)},
+	 * MEMBUNGKUS pemanggilan ini di dalam blok {@code try} miliknya sendiri sehingga exception
+	 * tetap tertangani di lapisan atas, bukan menjalar ke UI.</p>
+	 *
+	 * @param session sesi Hibernate aktif yang dipakai untuk mengueri
+	 *                {@link MahasiswaDapatKelompokKkn}; pemanggil bertanggung jawab atas siklus
+	 *                hidup sesi ini (method ini tidak menutupnya).
+	 */
 	@SuppressWarnings("unchecked")
 	public void reInitMahasiswaDapatKelompokKkn(Session session) {
 		List<MahasiswaDapatKelompokKkn> mahasiswaDapatKelompokKkns = session
@@ -593,6 +808,76 @@ public class KelompokKkn extends VOPembelajaran {
 		mahasiswaDapatKelompokKkns = null;
 	}
 
+	/**
+	 * Method inti pengambilan anggota kelompok ini, dengan filter opsional berdasarkan NIM/nama,
+	 * dan kontrol eksplisit apakah indeks JSON harus dibangun ulang dari basis data terlebih
+	 * dahulu. Ini adalah method paling substansial di kelas ini dan menjadi titik konvergensi
+	 * seluruh mekanisme yang dijelaskan pada javadoc kelas (pola berkas-JSON, parsing aman lewat
+	 * {@link #amanJadikanJSONObject(String)}, dan refresh-dari-basis-data lewat
+	 * {@link #reInitMahasiswaDapatKelompokKkn(Session)}).
+	 *
+	 * <p><b>Tahap 1 — keputusan refresh:</b> bila {@code !udah("dapat_kelompok")} (flag penanda
+	 * dari {@code VOPembelajaran}/framework yang menandakan proses ini "belum pernah dilakukan"
+	 * untuk instance objek ini pada request/siklus saat ini) ATAU parameter {@code refresh} bernilai
+	 * {@code true}, method membuka sesi Hibernate baru lewat
+	 * {@link HibernateUtil#currentNativeSession()}, memanggil
+	 * {@link #reInitMahasiswaDapatKelompokKkn(Session)} untuk membangun ulang berkas indeks JSON
+	 * langsung dari basis data, lalu SEGERA menutup sesi lewat {@link HibernateUtil#closeSession()}.
+	 * Ini berarti: pemanggilan PERTAMA ke method ini untuk suatu instance {@code KelompokKkn}
+	 * (ketika flag {@code "dapat_kelompok"} belum pernah di-set) SELALU memicu kueri basis data
+	 * penuh, terlepas dari nilai {@code refresh} — parameter {@code refresh} hanya relevan untuk
+	 * memaksa refresh pada pemanggilan BERIKUTNYA setelah yang pertama.</p>
+	 *
+	 * <p><b>Tahap 2 — baca &amp; parse indeks JSON:</b> baca peta id&rarr;path lewat
+	 * {@link #ambilLokasiDetailKelompokKkn()} (sudah pasti berisi data terbaru bila Tahap 1
+	 * memicu refresh), parse lewat {@link #amanJadikanJSONObject(String)}, lalu ITERASI setiap
+	 * kunci (id mahasiswa) dalam peta: entri dengan nilai kosong/blank (lihat catatan di
+	 * {@link #removeMahasiswaDapatKelompokKkn(Serializable)} soal semantik "hapus" yang sebenarnya
+	 * mengosongkan, bukan membuang kunci) DILEWATI (skip); entri lain dibaca berkas detailnya lewat
+	 * {@code ais.common.BacaTulisUtil.baca(new File(s))}, di-parse (dibungkus
+	 * {@link #amanJadikanJSONObject(String)} JUGA — perlindungan berlapis yang sama diterapkan
+	 * pada berkas DETAIL, bukan hanya berkas indeks), lalu dikonversi menjadi objek
+	 * {@link MahasiswaDapatKelompokKkn} lewat {@link Common#convertToObject(JSONObject, Class)}.
+	 * Setiap kegagalan PER-ENTRI (mis. satu berkas detail hilang/rusak) ditangkap oleh blok
+	 * {@code try}/{@code catch} INDIVIDUAL di dalam loop — sehingga SATU entri yang gagal TIDAK
+	 * menggagalkan pembacaan entri-entri lain, konsisten dengan filosofi keseluruhan kelas ini:
+	 * kegagalan parsial tidak boleh menjatuhkan seluruh operasi.</p>
+	 *
+	 * <p><b>Tahap 3 — deduplikasi &amp; filter:</b> hasil Tahap 2 (list sementara, boleh memuat
+	 * duplikat bila ada anomali data) dikonversi menjadi {@link Map} berkunci
+	 * {@code mahasiswa.getId()} — efek sampingnya adalah DEDUPLIKASI otomatis per mahasiswa (bila
+	 * ada dua entri berbeda yang somehow merujuk mahasiswa yang sama, hanya satu yang bertahan,
+	 * yakni yang terakhir diproses). Filter diterapkan saat memasukkan ke map, dengan PRIORITAS:
+	 * bila {@code hanyaNama} diisi (tidak null/blank), filter HANYA memakai {@code hanyaNama}
+	 * dicocokkan (case-insensitive, {@code contains}) terhadap NIM ATAU nama mahasiswa —
+	 * mengabaikan parameter {@code nim}/{@code nama} sepenuhnya pada cabang ini. Bila
+	 * {@code hanyaNama} kosong/null, barulah {@code nim} dan {@code nama} dipakai sebagai filter
+	 * gabungan (AND): keduanya kosong/null berarti tidak ada filter (semua lolos untuk kriteria
+	 * itu), sedangkan yang terisi harus cocok (case-insensitive, {@code contains}) pada field
+	 * masing-masing.</p>
+	 *
+	 * <p><b>Penanganan error keseluruhan:</b> SELURUH badan method (tahap 1-3) dibungkus SATU blok
+	 * {@code try}/{@code catch} terluar — bila terjadi kegagalan yang TIDAK tertangkap oleh
+	 * try/catch internal (mis. Tahap 1 gagal membuka sesi Hibernate), method mengembalikan
+	 * {@code ArrayList} KOSONG, BUKAN melempar exception maupun mengembalikan {@code null}. Ini
+	 * membuat method ini aman dipanggil dari lapisan UI tanpa perlu try/catch tambahan di sisi
+	 * pemanggil, dengan konsekuensi: kegagalan besar (mis. basis data tidak terjangkau) akan
+	 * TAMPAK sebagai "kelompok tanpa anggota" ke pengguna, bukan pesan error yang eksplisit.</p>
+	 *
+	 * @param nim NIM (case-insensitive, dicocokkan sebagian/{@code contains}) untuk memfilter
+	 *            anggota; diabaikan bila {@code hanyaNama} diisi, dan diabaikan (tidak memfilter)
+	 *            bila {@code null}/blank.
+	 * @param nama nama mahasiswa (case-insensitive, {@code contains}) untuk memfilter anggota;
+	 *             sama seperti {@code nim}, diabaikan bila {@code hanyaNama} diisi.
+	 * @param hanyaNama bila diisi (tidak null/blank), MENGGANTIKAN filter {@code nim}/{@code nama}
+	 *                  sepenuhnya: anggota lolos bila {@code hanyaNama} cocok (case-insensitive,
+	 *                  {@code contains}) pada NIM ATAU nama mahasiswa.
+	 * @param refresh {@code true} untuk memaksa membangun ulang indeks JSON dari basis data
+	 *                sebelum membaca anggota, meski flag {@code udah("dapat_kelompok")} sudah
+	 *                pernah di-set sebelumnya (lihat penjelasan Tahap 1).
+	 * @return koleksi anggota kelompok ini yang lolos filter (deduplikasi per mahasiswa); TIDAK
+	 *         PERNAH {@code null} — {@code ArrayList} kosong pada kegagalan apa pun.
+	 */
 	@SuppressWarnings("unchecked")
 	public Collection<MahasiswaDapatKelompokKkn> ambilMahasiswaDapatKelompokKkn(String nim, String nama,
 			String hanyaNama, boolean refresh) {
