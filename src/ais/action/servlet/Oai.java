@@ -962,12 +962,19 @@ public class Oai extends HttpServlet {
                 + request.getContextPath() + "/oai";
     }
 
+    /** Menyusun URL publik halaman detail item ({@code /repository/item/<id>}), diturunkan dari {@link #buildBaseUrl} dengan akhiran {@code /oai} dipangkas; dirujuk sebagai identifier tautan pada metadata Dublin Core (elemen {@code dc:identifier} tambahan lewat serializer). */
     private String buildPublicItemUrl(HttpServletRequest request, Long itemId) {
         String oaiBaseUrl = buildBaseUrl(request);
         return oaiBaseUrl.substring(0, oaiBaseUrl.length() - "/oai".length())
                 + "/repository/item/" + itemId;
     }
 
+    /**
+     * Menentukan pengenal domain repositori untuk skema {@code oai-identifier} (dipakai
+     * {@link #handleIdentify}): memakai konfigurasi {@code oai_repository_identifier} bila
+     * formatnya valid (menyerupai domain, huruf kecil), jatuh ke nama host permintaan bila tidak,
+     * dan ke {@code "repository.localhost"} sebagai upaya terakhir bila keduanya tidak valid.
+     */
     private String buildRepositoryIdentifier(HttpServletRequest request) {
         String configured = Common.getKonfigurasi("oai_repository_identifier", "").getNilai();
         String value = configured == null ? "" : configured.trim().toLowerCase();
@@ -978,6 +985,11 @@ public class Oai extends HttpServlet {
         return value;
     }
 
+    /**
+     * Menentukan {@code datestamp} OAI-PMH untuk {@code item}: {@code lastSyncAt} bila ada,
+     * jatuh ke {@code submittedAt}, lalu {@code tanggal_dirubah}; waktu saat ini sebagai upaya
+     * terakhir bila ketiganya kosong.
+     */
     private String itemDatestamp(RepoItem item) {
         Date d = item.getLastSyncAt() != null ? item.getLastSyncAt()
                : item.getSubmittedAt() != null ? item.getSubmittedAt()
@@ -986,23 +998,27 @@ public class Oai extends HttpServlet {
         return d != null ? f.format(d) : f.format(new Date());
     }
 
+    /** Memformat {@code d} dengan pola tanggal-saja {@link #FMT_DAY}, atau string kosong bila {@code null}. */
     private String formatDate(Date d) {
         if (d == null) return "";
         return dayFmt().format(d);
     }
 
+    /** Mem-parsing tanggal dengan granularitas fleksibel: 10 karakter ditafsirkan sebagai tanggal-saja ({@link #FMT_DAY}), selain itu sebagai tanggal-waktu lengkap ({@link #FMT_FULL}). */
     private Date parseDateFlexible(String s) throws ParseException {
         if (s.length() == 10)
             return dayFmt().parse(s);
         return fullFmt().parse(s);
     }
 
+    /** Mem-parsing argumen {@code until} bergranularitas hari sebagai akhir hari tersebut (23:59:59 UTC) agar rentang tanggal inklusif; tanggal-waktu lengkap diteruskan apa adanya lewat {@link #parseDateFlexible}. */
     private Date parseDateUntilEndOfDay(String s) throws ParseException {
         if (s.length() == 10)
             return fullFmt().parse(s + "T23:59:59Z");
         return parseDateFlexible(s);
     }
 
+    /** Membungkus {@code val} menjadi list satu elemen (dipangkas spasi), atau list kosong bila {@code null}/kosong -- bentuk seragam yang dibutuhkan {@link #buildDublinCore} untuk elemen Dublin Core bernilai tunggal. */
     private List<String> listOf(String val) {
         List<String> list = new ArrayList<String>();
         if (val != null && !val.trim().isEmpty())
@@ -1010,6 +1026,7 @@ public class Oai extends HttpServlet {
         return list;
     }
 
+    /** Memecah {@code val} menjadi beberapa elemen berdasarkan baris baru/koma/titik-koma (dipakai untuk field multi-nilai seperti penulis/subjek), membuang bagian yang kosong setelah dipangkas. */
     private List<String> splitLines(String val) {
         List<String> list = new ArrayList<String>();
         if (val == null || val.trim().isEmpty()) return list;
@@ -1020,11 +1037,13 @@ public class Oai extends HttpServlet {
         return list;
     }
 
+    /** Membaca parameter permintaan {@code name}, mengembalikan {@code null} (bukan string kosong) bila tidak ada atau hanya berisi spasi -- menyeragamkan pengecekan "argumen tidak diberikan" di seluruh handler verb. */
     private String param(HttpServletRequest req, String name) {
         String v = req.getParameter(name);
         return v == null ? null : v.trim().isEmpty() ? null : v.trim();
     }
 
+    /** Meng-escape lima karakter spesial XML ({@code & < > " '}) pada {@code s} agar aman disisipkan sebagai teks/atribut elemen; mengembalikan string kosong bila {@code s} {@code null}. */
     private String escXml(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;")
@@ -1034,6 +1053,11 @@ public class Oai extends HttpServlet {
                 .replace("'", "&apos;");
     }
 
+    /**
+     * Menuliskan elemen {@code <request>} yang mengulang kembali argumen permintaan (verb dan
+     * argumen dikenal lainnya, di-escape XML) beserta URL dasar endpoint, sesuai wajib protokol
+     * OAI-PMH agar pemanen dapat mengonfirmasi permintaan yang benar-benar diproses server.
+     */
     private void writeRequestTag(PrintWriter out, String baseUrl,
                                   String verb, HttpServletRequest request) {
         StringBuilder attrs = new StringBuilder();
@@ -1049,16 +1073,27 @@ public class Oai extends HttpServlet {
         out.println("  <request" + attrs + ">" + escXml(baseUrl) + "</request>");
     }
 
+    /** Menuliskan elemen {@code <error code="...">} standar OAI-PMH; kode dan pesan di-escape XML. */
     private void writeError(PrintWriter out, String code, String message) {
         out.println("  <error code=\"" + escXml(code) + "\">" + escXml(message) + "</error>");
     }
 
     // ── Hibernate helpers ─────────────────────────────────────────────────────
 
+    /** Membuka sesi Hibernate baru lewat {@link HibernateUtil#openSession()} untuk satu operasi baca metadata repositori. */
     private Session openSession() {
         return HibernateUtil.openSession();
     }
 
+    /**
+     * Menentukan kunci rahasia HMAC untuk resumption token, dengan urutan prioritas: properti
+     * sistem {@code ais.repository.oaiTokenSecret}, lalu env var {@code
+     * AIS_REPOSITORY_OAI_TOKEN_SECRET}, lalu env var legacy {@code AIS_JURNAL_OAI_TOKEN_SECRET} --
+     * dipakai bila panjangnya minimal 32 karakter. Bila tidak ada satu pun yang memenuhi syarat,
+     * dibangkitkan kunci acak 32 byte ({@link SecureRandom}) yang hanya berlaku selama proses JVM
+     * berjalan -- resumption token yang diterbitkan sebelum restart tidak akan valid lagi setelahnya,
+     * sehingga disarankan mengonfigurasi kunci tetap di lingkungan produksi multi-instance.
+     */
     private static byte[] tokenSecret(){
         String configured=System.getProperty("ais.repository.oaiTokenSecret","").trim();
         if(configured.length()<32){String env=System.getenv("AIS_REPOSITORY_OAI_TOKEN_SECRET");configured=env==null?"":env.trim();}
@@ -1066,16 +1101,25 @@ public class Oai extends HttpServlet {
         if(configured.length()>=32)return configured.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] random=new byte[32];new SecureRandom().nextBytes(random);return random;
     }
+    /**
+     * Batas umur maksimum resumption token dalam milidetik, dari properti sistem {@code
+     * ais.repository.oaiTokenTtlSeconds} (default 86400 detik/1 hari), dijepit ke rentang
+     * 300..604800 detik (5 menit..7 hari). Fallback 86400000 ms bila konfigurasi tidak valid.
+     */
     private static long tokenMaximumAgeMillis(){
         try{
             long seconds=Long.parseLong(System.getProperty("ais.repository.oaiTokenTtlSeconds","86400"));
             return Math.max(300L,Math.min(seconds,604800L))*1000L;
         }catch(Exception e){return 86400000L;}
     }
+    /** Menghitung HMAC-SHA256 {@code value} memakai kunci {@link #TOKEN_SECRET}; melempar {@link IllegalStateException} bila algoritma tak tersedia (seharusnya tidak pernah terjadi di JVM standar). */
     private static byte[] hmac(String value){try{Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(TOKEN_SECRET,"HmacSHA256"));return mac.doFinal(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));}catch(Exception e){throw new IllegalStateException(e);}}
+    /** Mengonversi {@code value} ke representasi heksadesimal huruf kecil (dipakai untuk menyisipkan HMAC ke dalam token teks). */
     private static String hex(byte[] value){StringBuilder b=new StringBuilder();for(byte x:value)b.append(String.format("%02x",x&255));return b.toString();}
+    /** Mengonversi heksadesimal {@code value} kembali ke {@code byte[]}; mengembalikan array kosong bila panjang/format tidak sesuai 64 karakter hex (bukan melempar exception), sehingga token yang dirusak gagal verifikasi tanda tangan secara aman alih-alih error tak tertangani. */
     private static byte[] unhex(String value){if(value==null||!value.matches("(?i)[0-9a-f]{64}"))return new byte[0];byte[]out=new byte[32];for(int i=0;i<32;i++)out[i]=(byte)Integer.parseInt(value.substring(i*2,i*2+2),16);return out;}
 
+    /** Menutup {@code session} dengan aman (tidak melempar bila {@code null}/sudah tertutup) lewat {@link HibernateUtil#closeSessionQuietly}. */
     private void closeSession(Session session) {
         HibernateUtil.closeSessionQuietly(session);
     }
