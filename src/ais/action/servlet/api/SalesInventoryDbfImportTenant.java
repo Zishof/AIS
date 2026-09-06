@@ -235,17 +235,26 @@ final class SalesInventoryDbfImportTenant {
 	 */
 	static String sisipProduk(String skema) {
 		return "INSERT INTO " + skema + "produk (kode, nama, satuan_id, harga_jual_standar,"
-				+ " harga_beli_terakhir, stok_minimum, status, aktif, dibuat_pada, oleh)"
-				+ " VALUES (?, ?, ?, ?, ?, ?, 'AKTIF', true, now(), ?) RETURNING id";
+				+ " harga_jual_tunai, harga_beli_terakhir, stok_minimum, status, aktif,"
+				+ " dibuat_pada, oleh)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, 'AKTIF', true, now(), ?) RETURNING id";
 	}
 
-	/** ENAM parameter: nama, satuanId, hargaJual, hargaBeli, stokMinimum, id. */
+	/**
+	 * TUJUH parameter: nama, satuanId, hargaJual, hargaJualTunai, hargaBeli, stokMinimum, id.
+	 *
+	 * <p>{@code harga_jual_tunai} memakai penjaga {@code IS NULL}, bukan {@code = 0} seperti
+	 * tetangganya. Bedanya berarti: nol adalah harga tunai yang SAH (produk yang tidak dijual
+	 * tunai dicatat legacy sebagai 0), sedangkan NULL berarti "belum pernah diisi". Memakai
+	 * {@code = 0} akan menimpa nol yang disengaja setiap kali impor diulang.</p>
+	 */
 	static String isiProduk(String skema) {
 		return "UPDATE " + skema + "produk SET"
 				+ " nama = COALESCE(NULLIF(TRIM(nama),''), ?),"
 				+ " satuan_id = COALESCE(satuan_id, ?),"
 				+ " harga_jual_standar = CASE WHEN COALESCE(harga_jual_standar,0) = 0"
 				+ " THEN ? ELSE harga_jual_standar END,"
+				+ " harga_jual_tunai = COALESCE(harga_jual_tunai, ?),"
 				+ " harga_beli_terakhir = CASE WHEN COALESCE(harga_beli_terakhir,0) = 0"
 				+ " THEN ? ELSE harga_beli_terakhir END,"
 				+ " stok_minimum = CASE WHEN COALESCE(stok_minimum,0) = 0"

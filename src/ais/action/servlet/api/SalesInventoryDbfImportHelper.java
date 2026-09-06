@@ -866,16 +866,25 @@ public final class SalesInventoryDbfImportHelper {
 		Long id = satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "produk"), kode);
 		boolean baru = id == null;
 		int tersentuh = 0;
+		// Harga jual kedua (tunai) -- legacy HARGAJUAL2, migrasi tenant v20.
+		//
+		// null DITERUSKAN sebagai null, tidak dijadikan nol. 459 dari 626 produk legacy
+		// memang tidak punya harga tunai terpisah, dan menuliskan 0 di sana berarti
+		// "harga tunainya nol" -- yang membuat margin tunainya -100% dan setiap laporan
+		// harga salah. NULL berarti "tidak ada harga tunai terpisah", dan pembacanya
+		// jatuh ke harga kredit.
+		Double hargaJualTunai = d(r, "harga_jual_tunai");
 		if (baru) {
 			id = sisipKembalikanId(session, SalesInventoryDbfImportTenant.sisipProduk(sk),
-					new Object[] { kode, s(r, "nama"), satuanId, hargaJual, hargaBeli, stokMin,
-							oleh });
+					new Object[] { kode, s(r, "nama"), satuanId, hargaJual, hargaJualTunai,
+							hargaBeli, stokMin, oleh });
 			if (id == null) {
 				throw new Exception("gagal menyisipkan produk " + kode);
 			}
 		} else {
 			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiProduk(sk),
-					new Object[] { s(r, "nama"), satuanId, hargaJual, hargaBeli, stokMin, id });
+					new Object[] { s(r, "nama"), satuanId, hargaJual, hargaJualTunai, hargaBeli,
+							stokMin, id });
 		}
 		Double stokLegacy = d(r, "stok_legacy");
 		if (baru && opnameAwal && stokLegacy != null && stokLegacy.doubleValue() > 0) {

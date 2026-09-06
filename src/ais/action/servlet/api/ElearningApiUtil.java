@@ -2826,8 +2826,7 @@ public class ElearningApiUtil {
 					System.out.println("matakuliah -> " + matakuliah.size());
 					List<Perkuliahan> perkuliahans = new ArrayList<Perkuliahan>();
 					for (Perkuliahan perkuliahan : matakuliah) {
-						if (perkuliahan != null && perkuliahan.getKurikulum() != null
-								&& perkuliahan.getKurikulum().bolehAmbil(mahasiswa)) {
+						if (KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa)) {
 							perkuliahans.add(perkuliahan);
 						}
 					}

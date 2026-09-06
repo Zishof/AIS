@@ -10,8 +10,13 @@
 ## Verdikt
 
 **Paritas DATA: tuntas** (doc 120, 123).
-**Paritas TAMPILAN: 46 dari 48 layar sepadan**; **1 celah nyata** dan **2 menunggu keputusan
-pemilik usaha**.
+**Paritas TAMPILAN: 48 dari 48 layar sepadan**; sisa **2 menunggu keputusan pemilik usaha**.
+
+> **DIPERBARUI 2026-09-07 sore.** Celah harga jual kredit/tunai (§1) **sudah ditutup**: pemilik
+> usaha memilih menambahkan harga jual kedua ke model. Migrasi tenant **v20** (r86563) menambahkan
+> `produk.harga_jual_tunai`, importir membawa `HARGAJUAL2`, dan layar menampilkan keempat kolom
+> legacy. Verifikasi: **626/626 cocok dengan STOK.DBF, 0 berselisih**. §1 di bawah dipertahankan
+> apa adanya sebagai catatan bagaimana celahnya ditemukan dan diukur.
 
 Dokumen bukti: `UAT-Sanding-48-Layar-Lama-vs-Baru.docx/pdf` (50 halaman, landscape) — tiap layar
 lama disandingkan dengan tangkapan NYATA aplikasi baru pada tenant `cmnmedika`.
@@ -23,7 +28,7 @@ lama disandingkan dengan tangkapan NYATA aplikasi baru pada tenant `cmnmedika`.
 | CETAK / EKSPOR | 9 | "layar" lama adalah pratinjau cetak / dialog ekspor |
 | MENU | 2 | layar lama adalah menu; kini item sidebar |
 | SEPADAN — menunggu data uji | 4 | layarnya lengkap; berkas legacy tidak menyimpan dokumen jenis itu |
-| **BELUM SEPADAN** | **2** | **layar 12 dan 13 — lihat §1** |
+| ~~BELUM SEPADAN~~ | ~~2~~ → **0** | layar 12 dan 13 — **ditutup v20**, lihat §1 |
 | Perlu keputusan pemilik usaha | 2 | layar 6 dan 20 — lihat §2 |
 
 Versi pertama dokumen sanding meninggalkan **22 layar tanpa putusan** ("perlu dinilai penguji").
@@ -81,6 +86,27 @@ cetakannya (layar 13), tidak punya sumber pada model baru. Nilai tunai untuk 132
 
 Selama salah satunya belum diambil, layar 12 dan 13 **tidak boleh dinyatakan sepadan**.
 
+### Yang dipilih, dan hasilnya
+
+Pemilik usaha memilih **jalan pertama**. Migrasi tenant **v20** (r86563):
+
+| bagian | perubahan |
+|---|---|
+| skema | `produk.harga_jual_tunai numeric(18,2)`, boleh NULL, tanpa pengisian surut |
+| importir | `HARGAJUAL2` dibawa; NULL diteruskan sebagai NULL, tidak dijadikan nol |
+| baca | `si_price_analysis` mengirim `hargaJualTunai` + `marginTunaiPersen` |
+| layar | kolom Hrg Jual (Kredit), Hrg Jual (Tunai), RL % Kredit, RL % Tunai |
+
+**NULL berarti "tidak ada harga tunai terpisah", bukan nol.** 459 dari 626 produk memang begitu;
+menuliskan 0 membuat margin tunainya −100% dan setiap laporan harga salah. Layarnya menampilkan
+tanda hubung, dan **tidak** menyalin harga kredit ke kolom tunai — itu pernyataan yang tidak
+pernah dibuat siapa pun, dan pembacanya tidak punya cara membedakannya dari harga sungguhan.
+
+**Verifikasi:** 626 produk diperbarui 0 gagal; **626/626 cocok dengan `STOK.DBF`, 0 berselisih**;
+167 produk berharga tunai, 132 di antaranya berbeda dari kredit. Contoh `000301`: kredit
+Rp 217.000 (margin 7,69%) vs tunai Rp 206.000 (margin 2,23%). Uji kesetaraan tetap
+**LULUS=207 GAGAL=0**.
+
 ---
 
 ## 2. Dua hal yang menunggu keputusan, bukan pengamatan
@@ -129,7 +155,7 @@ menyimpulkan layar ini kosong.
 
 ## 4. Yang tersisa untuk UAT 100%
 
-1. **Celah harga kredit/tunai (§1)** — satu-satunya penghalang teknis yang tersisa.
+1. ~~Celah harga kredit/tunai~~ — **ditutup** oleh migrasi v20 (§1).
 2. Dua keputusan pemilik usaha (§2).
 3. Data uji untuk sesi sales (SPJ, Nota, Biaya, Rekonsiliasi) bila alur itu ingin ikut diuji.
 4. Sesudah semuanya: varian `sales-inventory` → `https://ebisnis.id/ebisnis`.

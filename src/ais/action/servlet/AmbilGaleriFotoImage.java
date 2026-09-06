@@ -32,21 +32,55 @@ import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.file.GaleriFotoImage;
 
 /**
- * Servlet implementation class AmbilMedia
+ * Servlet yang menyajikan gambar galeri foto ({@link GaleriFotoImage})
+ * berdasarkan ID galeri ({@code id}) dan/atau ID baris gambar spesifik
+ * ({@code idData}) yang dikirim TANPA enkripsi lewat parameter request, dengan
+ * dukungan opsional untuk versi thumbnail hasil resize ({@code height}/{@code width}).
+ * <p>
+ * Bila {@code idData} dikirim, baris {@link GaleriFotoImage} dengan ID tersebut
+ * (ID barisnya sendiri) dipakai langsung untuk mengambil blob; bila tidak,
+ * dipakai baris TERBARU (id terbesar) yang berelasi dengan galeri {@code id}
+ * yang diminta. Blob disalin sekali ke berkas cache lokal di direktori
+ * {@code <webapp>/../media/}, lalu permintaan berikutnya untuk kombinasi
+ * {@code id}/{@code idData} yang sama langsung membaca berkas cache.
+ * </p>
+ * <p>
+ * Seluruh pembacaan (termasuk blob Large Object PostgreSQL) dibungkus dalam
+ * SATU transaksi Hibernate yang dibuka di
+ * {@link #process(HttpServletRequest, HttpServletResponse)} sebelum memanggil
+ * {@link #loadFile(HttpServletRequest, HttpServletResponse, Session)}, dan
+ * di-commit setelahnya -- lih. komentar pada {@code process()} perihal
+ * "Large Objects may not be used in auto-commit mode".
+ * </p>
+ * <p>
+ * <b>Catatan keamanan:</b> servlet ini TIDAK memiliki gerbang otentikasi/
+ * otorisasi apa pun, dan parameter {@code id}/{@code idData} adalah ID
+ * numerik polos yang lazimnya berurutan -- siapa pun yang bisa menebak/
+ * mengiterasi ID dapat mengunduh gambar galeri foto mana pun tanpa login.
+ * Pola "anonim + id sekuensial" yang sama seperti servlet {@code Ambil*} lain
+ * di paket ini.
+ * </p>
  */
 public class AmbilGaleriFotoImage extends HttpServlet {
+	/** ID versi serialisasi tetap untuk kontrak {@link java.io.Serializable} milik {@link HttpServlet}. */
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * @see HttpServlet#HttpServlet()
+	 * Membuat instance servlet. Tidak ada inisialisasi khusus di luar konstruktor
+	 * bawaan {@link HttpServlet#HttpServlet()}.
 	 */
 	public AmbilGaleriFotoImage() {
 		super();
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code id}/{@code idData}, {@code height}/{@code width} (opsional) menentukan gambar yang diminta
+	 * @param response respons HTTP; isi gambar (atau {@code /img/book.jpg} default) ditulis ke sini
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doGet}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -54,14 +88,37 @@ public class AmbilGaleriFotoImage extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST dengan mendelegasikan sepenuhnya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}, dengan perilaku
+	 * yang identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code id}/{@code idData}, {@code height}/{@code width} (opsional) menentukan gambar yang diminta
+	 * @param response respons HTTP; isi gambar (atau {@code /img/book.jpg} default) ditulis ke sini
+	 * @throws ServletException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
+	 * @throws IOException dideklarasikan oleh kontrak {@link HttpServlet#doPost}, tidak pernah dilempar keluar method ini
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/**
+	 * Membuka transaksi Hibernate, menentukan berkas gambar yang akan disajikan
+	 * lewat {@link #loadFile(HttpServletRequest, HttpServletResponse, Session)},
+	 * meng-commit transaksi, lalu menyalin isi berkas ke response dengan
+	 * {@code Content-Type} yang ditebak dari ekstensi nama berkas (fallback ke
+	 * {@code image/jpg} bila tidak dikenali).
+	 * <p>
+	 * Transaksi WAJIB sudah aktif sebelum {@code loadFile} membaca kolom blob
+	 * (Large Object PostgreSQL); bila terjadi exception di mana pun sepanjang
+	 * proses, transaksi di-rollback di blok {@code finally} alih-alih
+	 * di-commit. Sesi {@link StreamingHibernateUtil} yang dibuka di sini
+	 * selalu ditutup (clear/disconnect/close) di blok {@code finally} yang sama.
+	 * </p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code id}/{@code idData} (salah satu wajib), {@code height}/{@code width} (opsional) menentukan gambar yang diminta
+	 * @param resp respons HTTP tujuan penulisan isi berkas
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) {
 
 		Session streamingSession = null;

@@ -357,8 +357,7 @@ public class AmbilDataPerkuliahanHelper {
 			System.out.println("[MatakuliahRenderer.renderInternal] step 2: getKurikulum");
 			boolean kirikulumBolehAmbil = false;
 			try {
-				kirikulumBolehAmbil = perkuliahan.getKurikulum() != null
-						&& perkuliahan.getKurikulum().bolehAmbil(mahasiswa);
+				kirikulumBolehAmbil = KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa);
 			} catch (Exception ex) {
 				System.out.println("[MatakuliahRenderer.renderInternal] GAGAL getKurikulum: " + ex.getMessage());
 			}
@@ -399,7 +398,7 @@ public class AmbilDataPerkuliahanHelper {
 			final Checkbox checkbox = new Checkbox(labelCheckbox);
 			row.setAttribute("checkbox", checkbox);
 
-			boolean tampil = !jmlMk || !kirikulumBolehAmbil;
+			boolean tampil = !jmlMk && kirikulumBolehAmbil;
 			checkbox.setVisible(tampil);
 			if (!tampil) {
 				new Label(labelCheckbox).setParent(row);
@@ -938,6 +937,13 @@ public class AmbilDataPerkuliahanHelper {
 		Set<Long> matakuliahs = new HashSet<Long>();
 		String peringatanKapasitasRuangan = "";
 		for (Perkuliahan perkuliahan : hashMap.values()) {
+			if (!KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa)) {
+				peringatanKapasitasRuangan += Common.pesan(
+						"Mata kuliah {V1} - {V2} tidak disimpan karena kelasnya tidak sesuai dengan kurikulum atau rentang angkatan mahasiswa. Hubungi bagian Akademik untuk memperbaiki relasi kelas, kurikulum, dan mata kuliah.\n",
+						perkuliahan.getMatakuliah() == null ? "-" : perkuliahan.getMatakuliah().getKode(),
+						perkuliahan.getMatakuliah() == null ? "-" : perkuliahan.getMatakuliah().getNama());
+				continue;
+			}
 
 			if (matakuliahs.contains(perkuliahan.getMatakuliah().getId())) {
 				continue;
@@ -1938,9 +1944,17 @@ public class AmbilDataPerkuliahanHelper {
 	@SuppressWarnings("unchecked")
 	public void onSearchDefault(Event event) {
 
-		List<Perkuliahan> matakuliah = pagingHelper.cariDenganCriteria(
+		List<Perkuliahan> hasilPencarian = pagingHelper.cariDenganCriteria(
 				initCriteria(true),
 				Perkuliahan.class);
+		List<Perkuliahan> matakuliah = new ArrayList<Perkuliahan>();
+		for (Perkuliahan perkuliahan : hasilPencarian) {
+			if (KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa)
+					|| (perkuliahan != null && perkuliahan.getId() != null
+							&& hashMap.containsKey(perkuliahan.getId()))) {
+				matakuliah.add(perkuliahan);
+			}
+		}
 
 		System.out.println("[AmbilDataPerkuliahan.onSearchDefault]"
 				+ " result=" + matakuliah.size()

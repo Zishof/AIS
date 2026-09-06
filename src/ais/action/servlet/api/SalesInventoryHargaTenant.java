@@ -213,11 +213,17 @@ final class SalesInventoryHargaTenant {
 	 * Kolom analisa harga, berurutan sama dengan legacy: id, kode, nama, satuan, stok,
 	 * harga_beli, harga_jual, harga_umum, harga_beli_supplier_terbaru.
 	 */
+	/**
+	 * <p>Kolom ke-10 adalah harga jual TUNAI (legacy {@code HARGAJUAL2}, migrasi v20). Ia
+	 * sengaja TIDAK dibungkus {@code COALESCE(...,0)} seperti tetangganya: NULL di sini berarti
+	 * "produk ini tidak punya harga tunai terpisah", dan itu berbeda dari "harga tunainya nol".
+	 * Menyamakan keduanya membuat margin tunai 459 produk menjadi -100%.</p>
+	 */
 	static String selectAnalisa(String skema) {
 		return "SELECT p.id, p.kode, p.nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)'), "
 				+ stokTurunan(skema) + ", COALESCE(p.harga_beli_terakhir,0), "
 				+ "COALESCE(p.harga_jual_standar,0), " + hargaUmum(skema) + ", "
-				+ hargaBeliTerbaru(skema);
+				+ hargaBeliTerbaru(skema) + ", p.harga_jual_tunai";
 	}
 
 	/** Saringan {@code stok_nol} pada model tenant: stok turunan, bukan kolom. */

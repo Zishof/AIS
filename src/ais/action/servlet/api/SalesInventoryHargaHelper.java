@@ -494,9 +494,13 @@ public final class SalesInventoryHargaHelper {
 						+ "AND COALESCE(h.aktif,true) = true AND h.tanggal_efektif <= CURRENT_DATE "
 						+ "ORDER BY h.tanggal_efektif DESC, h.id DESC LIMIT 1)";
 				dasar = " FROM koperasi.produk p LEFT JOIN koperasi.satuan_produk sp ON p.satuan = sp.id " + where;
+				// Kolom ke-10 NULL: model legacy `koperasi.produk` memang hanya punya SATU
+				// harga jual. Kolomnya tetap disebut supaya jumlah dan urutan kolom kedua
+				// jalur identik -- perakitan JSON di bawah dipakai bersama, dan menggeser
+				// satu kolom akan menaruh harga di medan yang salah tanpa galat apa pun.
 				pilih = "SELECT p.id, p.kode, p.nama, COALESCE(NULLIF(TRIM(sp.nama),''),'(Belum diatur)'), COALESCE(p.stok,0), "
 						+ "COALESCE(p.hargabeli,0), COALESCE(p.hargajual,0), " + hargaUmum + ", "
-						+ hargaBeliSupplierTerbaru;
+						+ hargaBeliSupplierTerbaru + ", NULL::numeric";
 			}
 			java.sql.PreparedStatement psTotal = session.connection().prepareStatement("SELECT COUNT(*) " + dasar);
 			for (int i = 0; i < params.size(); i++) psTotal.setObject(i + 1, params.get(i));
@@ -529,6 +533,18 @@ public final class SalesInventoryHargaHelper {
 				j.put("hargaBeliSupplierEfektif", rs.wasNull() ? JSONObject.NULL : Double.valueOf(beliSupplier));
 				j.put("marginPersen", beli <= 0 ? JSONObject.NULL
 						: Double.valueOf((jual - beli) * 100.0 / beli));
+				// Harga jual TUNAI (legacy HARGAJUAL2) beserta marginnya sendiri.
+				//
+				// Yang dikirim ketika kolomnya NULL adalah null, BUKAN harga kredit. Layar
+				// yang menampilkan harga kredit di kolom "tunai" akan terbaca sebagai
+				// "produk ini memang dijual tunai seharga itu" -- pernyataan yang tidak
+				// pernah dibuat siapa pun. Layarnya yang memutuskan cara menampilkan
+				// kekosongan, dan ia menampilkannya sebagai tanda hubung.
+				double tunai = rs.getDouble(10);
+				boolean adaTunai = !rs.wasNull();
+                j.put("hargaJualTunai", adaTunai ? Double.valueOf(tunai) : JSONObject.NULL);
+				j.put("marginTunaiPersen", (!adaTunai || beli <= 0) ? JSONObject.NULL
+						: Double.valueOf((tunai - beli) * 100.0 / beli));
 				arr.put(j);
 			}
 			rs.close(); ps.close();

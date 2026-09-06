@@ -172,8 +172,7 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 				row.setVisible(false);
 				return;
 			}
-			boolean kirikulumBolehAmbil = (perkuliahan != null && perkuliahan.getKurikulum() != null
-					&& perkuliahan.getKurikulum().bolehAmbil(mahasiswa));
+			boolean kirikulumBolehAmbil = KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa);
 
 			String genapOrGanjil = semester.intValue() % 2 == 0 ? Perkuliahan.GENAP : Perkuliahan.GANJIL;
 			Integer jmlMk = perkuliahan.getMerupakanRemedial() ? 0
@@ -202,7 +201,7 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 									: ""));
 			checkbox.setVisible(jmlMk.equals(0));
 
-			boolean tampil = jmlMk.equals(0) || !kirikulumBolehAmbil;
+			boolean tampil = jmlMk.equals(0) && kirikulumBolehAmbil;
 
 			checkbox.setVisible(tampil);
 			if (!tampil) {
@@ -232,7 +231,7 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 
 					.add(Restrictions.eq("tahunAjaran", tahunAjaran)).uniqueResult()).intValue();
 
-			checkbox.setChecked(!jml.equals(0) || !kirikulumBolehAmbil);
+			checkbox.setChecked(!jml.equals(0));
 			// cek ruang
 
 			Integer jumlahUdahMasuk = KrsUtilHelper.ambilJumlahDetailperkuliahan(session, perkuliahan, false);
@@ -442,6 +441,11 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 				if (checkbox.isChecked()) {
 					final Long id;
 					final Perkuliahan perkuliahan = (Perkuliahan) row.getAttribute("myValue");
+					if (!KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa)) {
+						peringatanKapasitasRuangan += "Mata kuliah tidak disimpan karena kelasnya tidak sesuai "
+								+ "dengan kurikulum atau rentang angkatan mahasiswa. Hubungi bagian Akademik.\n";
+						continue;
+					}
 					if (matakuliahs.contains(perkuliahan.getMatakuliah().getId())) {
 						continue;
 					}
@@ -919,8 +923,14 @@ public class AmbilDataPerkuliahanNonPaketHelper {
 
 		Common.initPaging15(initCriteria(false), paging);
 
-		List<Perkuliahan> matakuliah = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE_50)
+		List<Perkuliahan> hasilPencarian = initCriteria(true).setMaxResults(Common.ROWS_COUNT_ON_PAGE_50)
 				.setFirstResult(Common.ROWS_COUNT_ON_PAGE_50 * (paging == null ? 0 : paging.getActivePage())).list();
+		List<Perkuliahan> matakuliah = new ArrayList<Perkuliahan>();
+		for (Perkuliahan perkuliahan : hasilPencarian) {
+			if (KrsUtilHelper.bolehDitawarkanUntukKrs(perkuliahan, mahasiswa)) {
+				matakuliah.add(perkuliahan);
+			}
+		}
 
 		ListModel strset = new SimpleListModel(matakuliah);
 

@@ -2946,6 +2946,19 @@ public class Perkuliahan extends VOPembelajaran {
 	}
 
 	/**
+	 * Membaca relasi baris kurikulum tanpa menyinkronkan daftar dosen ke objek tersebut.
+	 * Method ini disediakan untuk validasi/read-only (misalnya penyaringan pilihan KRS),
+	 * karena {@link #getKurikulumPunyaMatakuliah()} mempunyai efek samping memperbarui
+	 * daftar dosen pada relasi yang dibaca.
+	 *
+	 * @return relasi baris kurikulum yang tersimpan, atau {@code null}
+	 */
+	@Transient
+	public KurikulumPunyaMatakuliah getKurikulumPunyaMatakuliahTanpaSinkronisasiDosen() {
+		return check(kurikulumPunyaMatakuliah);
+	}
+
+	/**
 	 * Mencari baris kurikulum acuan secara BERJENJANG, dan menyimpan temuannya ke basis data.
 	 *
 	 * <p>Berbeda dengan {@link #populateKurikulumPunyaMatakuliah()} yang menuntut kecocokan persis,

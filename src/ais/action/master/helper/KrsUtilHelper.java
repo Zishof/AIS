@@ -15,6 +15,8 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Detailperkuliahan;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Konfigurasi;
+import ais.database.model.Kurikulum;
+import ais.database.model.KurikulumPunyaMatakuliah;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Matakuliah;
 import ais.database.model.PembagianKuotaPerkuliahanBerdasarkantahunAngkatan;
@@ -29,6 +31,39 @@ import ais.database.model.Perkuliahan;
  * perkuliahan.
  */
 public class KrsUtilHelper {
+
+	/**
+	 * Memastikan satu kelas benar-benar boleh ditawarkan pada KRS mahasiswa. Selain rentang
+	 * angkatan kurikulum, relasi kelas ke baris kurikulum (bila sudah tersedia) harus konsisten:
+	 * kurikulum dan mata kuliah pada {@link Perkuliahan} wajib sama dengan yang tersimpan pada
+	 * {@link KurikulumPunyaMatakuliah}. Relasi yang masih kosong tetap diterima untuk menjaga
+	 * kompatibilitas jadwal lama. Pemeriksaan ini mencegah mata kuliah dari kurikulum lama atau
+	 * jadwal yang salah taut muncul sebagai pilihan KRS.
+	 *
+	 * @param perkuliahan kelas yang akan ditawarkan
+	 * @param mahasiswa mahasiswa yang mengisi KRS
+	 * @return {@code true} bila rentang angkatan sesuai dan relasi yang tersedia konsisten
+	 */
+	public static boolean bolehDitawarkanUntukKrs(Perkuliahan perkuliahan, Mahasiswa mahasiswa) {
+		if (perkuliahan == null || mahasiswa == null || perkuliahan.getMatakuliah() == null
+				|| perkuliahan.getMatakuliah().getId() == null) {
+			return false;
+		}
+		Kurikulum kurikulum = perkuliahan.getKurikulum();
+		if (kurikulum == null || kurikulum.getId() == null || !kurikulum.bolehAmbil(mahasiswa)) {
+			return false;
+		}
+		KurikulumPunyaMatakuliah relasi = perkuliahan.getKurikulumPunyaMatakuliahTanpaSinkronisasiDosen();
+		if (relasi == null) {
+			return true;
+		}
+		if (relasi.getKurikulum() == null || relasi.getKurikulum().getId() == null
+				|| relasi.getMatakuliah() == null || relasi.getMatakuliah().getId() == null) {
+			return false;
+		}
+		return kurikulum.getId().equals(relasi.getKurikulum().getId())
+				&& perkuliahan.getMatakuliah().getId().equals(relasi.getMatakuliah().getId());
+	}
 
 	/**
 	 * Menyimpan satu baris {@link Detailperkuliahan} (entri KRS) hanya jika mahasiswa
