@@ -5433,6 +5433,65 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return html.toString();
 	}
 
+	/**
+	 * Merangkai bagian <b>Analisis Pintar</b> untuk seorang mahasiswa: sebuah daftar berurut yang
+	 * menjelaskan keadaan nilainya dalam bahasa yang dapat ditindaklanjuti dosen, bukan sekadar
+	 * menampilkan angka.
+	 *
+	 * <h3>Butir pertama: satu dari empat kemungkinan</h3>
+	 * <p>Butir pembuka bersifat saling meniadakan dan urutannya menentukan prioritas diagnosis:</p>
+	 * <ol>
+	 * <li><b>Aturan huruf tidak ditemukan</b> &mdash; {@code aturanHuruf} bernilai {@code null}.
+	 * Diagnosis paling mendasar: konfigurasi Nilai Huruf untuk prodi, fakultas, tahun akademik, atau
+	 * jenis nilai belum lengkap sehingga total berapa pun tidak dapat dipetakan.</li>
+	 * <li><b>Terkunci tetapi snapshot sudah basi</b> &mdash; kelas terkunci, {@code hurufKunci} terisi,
+	 * dan berbeda dari huruf yang seharusnya menurut total sekarang. Butir ini <b>menyatakan secara
+	 * terbuka</b> bahwa sistem &quot;mengutamakan huruf sesuai total/rentang, bukan huruf kunci yang
+	 * basi&quot;. Inilah dokumentasi paling langsung atas perilaku pemetaan ulang pada
+	 * {@link Detailperkuliahan#getNilaiHuruf()}: penguncian membekukan angka, tetapi pemetaan angka ke
+	 * huruf tetap mengikuti tabel Format Nilai Huruf yang berlaku saat ini.</li>
+	 * <li><b>Huruf tersimpan tidak sinkron</b> &mdash; huruf yang tampil berbeda dari hasil pemetaan
+	 * total, pada kelas yang tidak terkunci. Pengguna diarahkan menekan Hitung Ulang atau
+	 * Singkronkan.</li>
+	 * <li><b>Huruf sudah konsisten</b> &mdash; keadaan sehat, disertai rentang yang berlaku.</li>
+	 * </ol>
+	 *
+	 * <h3>Butir bersyarat berikutnya</h3>
+	 * <p>Ditambahkan hanya bila relevan: pemberitahuan bahwa analisis memakai nilai sementara;
+	 * perbandingan persen kehadiran terhadap batas minimal kelas; aturan nilai 0 yang sedang aktif
+	 * &mdash; dengan aturan &quot;jika ada nilai 0 tidak menghitung nilai akhir&quot; diperiksa lebih
+	 * dulu karena dampaknya lebih keras daripada aturan &quot;nilai 0 tidak masuk pembagi&quot;; serta
+	 * peringatan bila total bobot efektif berada di luar rentang 99,9&ndash;100,1 persen, yang
+	 * menandakan bobot Format Nilai perlu ditinjau.</p>
+	 *
+	 * <h3>Butir penutup: jalur tercepat menaikkan huruf</h3>
+	 * <p>Bila ada huruf berikutnya yang dapat dicapai, metode menghitung berapa poin tambahan yang
+	 * dibutuhkan pada <b>komponen berbobot terbesar</b>. Rumusnya membalik sumbangan tertimbang:
+	 * selisih total yang dibutuhkan dibagi dengan pangsa bobot komponen itu terhadap total bobot
+	 * efektif, yakni {@code kurangTotal / (bobot / totalBobot)}. Pembagian dijaga oleh syarat
+	 * {@code totalBobot > 0.0} di muka dan {@code bobot <= 0.0} di dalam. Hasilnya disebut sendiri
+	 * sebagai perkiraan &quot;secara kasar&quot; dan disertai pengingat bahwa nilai maksimal komponen
+	 * mungkin tidak memungkinkan kenaikan sebesar itu &mdash; kejujuran yang penting, sebab perhitungan
+	 * ini mengabaikan batas atas 100 per komponen.</p>
+	 *
+	 * <p>Penghitungan persen kehadiran dibungkus penangkap galat sehingga kegagalannya menyisakan nilai
+	 * nol, bukan menggagalkan seluruh jendela. Setiap teks dari data dilarikan lewat
+	 * {@link #teksAmanHtml(String)}.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang dianalisis.
+	 * @param total             nilai akhir yang dipakai analisis; sudah dipilih antara final atau
+	 *                          sementara oleh pemanggil.
+	 * @param hurufTampil       huruf yang sedang ditampilkan sistem.
+	 * @param hurufKunci        snapshot huruf saat penguncian; boleh {@code null} atau kosong.
+	 * @param aturanHuruf       aturan {@link NilaiHuruf} yang cocok dengan {@code total}; boleh
+	 *                          {@code null} bila tidak ditemukan.
+	 * @param targetBerikut     aturan huruf satu tingkat di atas; boleh {@code null}.
+	 * @param tampilSementara   {@code true} bila seluruh analisis memakai kolom nilai sementara.
+	 * @return potongan HTML berisi satu blok Analisis Pintar, siap disisipkan ke dokumen.
+	 * @see #buatHtmlAnalisisNilaiHuruf(Detailperkuliahan)
+	 * @see #hitungTotalBobotEfektif(Detailperkuliahan, boolean)
+	 * @see #ambilFormatNilaiBobotTerbesar(Detailperkuliahan, boolean)
+	 */
 	private String buatHtmlAnalisisPintar(Detailperkuliahan detailperkuliahan, double total, String hurufTampil,
 			String hurufKunci, NilaiHuruf aturanHuruf, NilaiHuruf targetBerikut, boolean tampilSementara) {
 		StringBuilder html = new StringBuilder();
@@ -5511,6 +5570,31 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		return html.toString();
 	}
 
+	/**
+	 * Memeriksa apakah kelas tempat sebuah baris nilai berada sedang <b>terkunci</b>, dengan menelusuri
+	 * {@code detailperkuliahan.getPerkuliahan().getDikunci()}.
+	 *
+	 * <p>Pemeriksaan ini dipakai bagian analisis untuk memutuskan apakah perbedaan antara snapshot
+	 * {@code nilaiHurufKunci} dan huruf hasil pemetaan total layak dilaporkan. Pada kelas yang belum
+	 * terkunci, snapshot memang belum bermakna dan perbedaannya tidak perlu diributkan; barulah setelah
+	 * penguncian, selisih itu menjadi temuan yang berarti.</p>
+	 *
+	 * <p>Perlu diperhatikan bahwa metode ini menelusuri perkuliahan <b>milik baris tersebut</b>, bukan
+	 * field {@link #perkuliahan} milik helper. Keduanya dapat berbeda pada kelas paralel, dan pilihan
+	 * ini memang yang benar untuk analisis: status kunci yang mengikat sebuah nilai adalah status kelas
+	 * tempat nilai itu tersimpan.</p>
+	 *
+	 * <p>Seluruh badan dibungkus penangkap galat dan mengembalikan {@code false} bila gagal &mdash;
+	 * misalnya karena asosiasi perkuliahan tidak dapat dimuat di luar sesi Hibernate. Sikap
+	 * gagal-terbuka ini aman di sini karena keluarannya hanya memengaruhi <i>kalimat penjelasan</i>
+	 * yang ditampilkan, tidak pernah menentukan boleh atau tidaknya sebuah nilai ditulis. Jangan
+	 * memakai ulang metode ini sebagai penjaga penulisan; penegakan kunci yang sesungguhnya ada di
+	 * lapisan model.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang diperiksa; {@code null} menghasilkan {@code false}.
+	 * @return {@code true} bila kelas terkunci dan status itu berhasil dibaca.
+	 * @see #buatHtmlAnalisisPintar(Detailperkuliahan, double, String, String, NilaiHuruf, NilaiHuruf, boolean)
+	 */
 	private boolean apakahPerkuliahanTerkunci(Detailperkuliahan detailperkuliahan) {
 		try {
 			Perkuliahan kuliah = detailperkuliahan == null ? null : detailperkuliahan.getPerkuliahan();
@@ -5521,6 +5605,53 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Merangkai tabel <b>Komponen Pembentuk Nilai</b>: satu baris untuk setiap komponen penilaian
+	 * berbobot, memuat nama, nilai, bobot, <b>kontribusi</b>, dan status verifikasi, ditutup ringkasan
+	 * total bobot pembagi serta komponen penyumbang terbesar dan terkecil.
+	 *
+	 * <p>Kolom kontribusi adalah inti tabel ini. Ia memperlihatkan berapa poin yang benar-benar
+	 * disumbangkan sebuah komponen ke nilai akhir, dihitung sebagai
+	 * {@code nilai * (bobot / totalBobot)} &mdash; yaitu rata-rata tertimbang dengan penyebut berupa
+	 * total bobot <b>efektif</b>, bukan 100 tetap. Dengan begitu dosen dapat melihat mengapa komponen
+	 * bernilai tinggi tetapi berbobot kecil hampir tidak menggeser nilai akhir.</p>
+	 *
+	 * <h3>Dua lintasan yang diperlukan</h3>
+	 * <p>Metode menelusuri komponen dua kali, dan urutan itu tidak dapat dibalik. Lintasan pertama
+	 * mengumpulkan data baris ke dalam daftar {@code Object[]} sekaligus <b>menjumlahkan
+	 * {@code totalBobot}</b>; lintasan kedua baru dapat menghitung kontribusi, sebab pembaginya adalah
+	 * total bobot yang hanya diketahui setelah seluruh komponen diperiksa.</p>
+	 *
+	 * <p>Setiap entri larik menyimpan lima hal berurutan: nama komponen, nilai, bobot, apakah bobotnya
+	 * ikut menjadi pembagi, dan status verifikasinya. Penggunaan {@code Object[]} alih-alih kelas kecil
+	 * memaksa pembacaan lewat indeks berkode keras dan pengubahan tipe manual di lintasan kedua &mdash;
+	 * bentuk yang ringkas tetapi rapuh bila kolom bertambah.</p>
+	 *
+	 * <h3>Bobot yang tidak ikut menjadi pembagi</h3>
+	 * <p>Sebuah komponen dikeluarkan dari penyebut bila aturan
+	 * {@code getNilai_0_tidak_masuk_dalam_perhitungan_nilai_akhir()} sedang aktif <b>dan</b> nilainya
+	 * di bawah 0,01. Barisnya tetap ditampilkan, tetapi diberi keterangan kecil berwarna oranye
+	 * &quot;Bobot tidak masuk pembagi karena nilai 0&quot; dan kontribusinya dipaksa nol. Menampilkan
+	 * baris yang dikecualikan &mdash; alih-alih menyembunyikannya &mdash; adalah pilihan yang tepat:
+	 * dosen justru perlu tahu komponen mana yang tidak dihitung dan mengapa.</p>
+	 *
+	 * <p>Komponen berbobot {@code null} atau di bawah 0,01 dilewati sepenuhnya, karena komponen tanpa
+	 * bobot memang tidak pernah membentuk nilai akhir. Bila tidak ada satu pun komponen yang lolos,
+	 * tabel diganti keterangan bahwa belum ada komponen aktif yang dapat dianalisis.</p>
+	 *
+	 * <p><b>Catatan pada penanda sentinel.</b> {@code kontribusiMin} diawali 999999 dan
+	 * {@code kontribusiMax} diawali &minus;1. Karena keduanya diperbarui tanpa syarat tambahan di
+	 * lintasan kedua, keduanya selalu tergantikan begitu ada sedikitnya satu baris; nama penyumbang
+	 * terkecil baru ditampilkan bila string-nya tidak kosong. Dengan hanya satu komponen, komponen
+	 * yang sama akan disebut sebagai penyumbang terbesar sekaligus terkecil.</p>
+	 *
+	 * @param detailperkuliahan baris nilai yang komponennya dibedah.
+	 * @param tampilSementara   {@code true} untuk membaca nilai lewat
+	 *                          {@code retreiveDetailNilaiBelumVerify}, {@code false} untuk nilai final.
+	 * @return potongan HTML berisi tabel komponen beserta ringkasannya.
+	 * @see #buatHtmlAnalisisNilaiHuruf(Detailperkuliahan)
+	 * @see #hitungTotalBobotEfektif(Detailperkuliahan, boolean)
+	 */
 	private String buatHtmlKomponenNilai(Detailperkuliahan detailperkuliahan, boolean tampilSementara) {
 		StringBuilder html = new StringBuilder();
 		double totalBobot = 0.0;
