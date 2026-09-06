@@ -332,12 +332,31 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	}
 
 	/**
-	 * Membangun kriteria Hibernate {@link ais.database.model.kkn.MahasiswaDaftarKkn} untuk KKN yang
-	 * sedang ditampilkan, memfilter sesuai status penerimaan, angkatan, NIM/nama, dan jurusan/fakultas
-	 * yang dipilih pada toolbar.
+	 * Membangun kriteria Hibernate {@link MahasiswaDaftarKkn} untuk KKN yang sedang ditampilkan,
+	 * memfilter sesuai status penerimaan, angkatan, NIM/nama, dan jurusan/fakultas yang dipilih
+	 * pada toolbar.
+	 *
+	 * <p>
+	 * Struktur kriteria: kriteria akar dibatasi {@code kkn = }{@link #kkn} dan (opsional)
+	 * {@code terima = 0}, lalu berpindah ke sub-kriteria {@code mahasiswa} tempat filter
+	 * angkatan/NIM/nama/jurusan dipasang, dan terakhir membuka sub-kriteria {@code jurusan}
+	 * secara {@code LEFT_JOIN} untuk filter fakultas. Karena {@code addOrder} dipanggil setelah
+	 * berpindah ke sub-kriteria {@code mahasiswa}, pengurutan berlaku atas kolom mahasiswa
+	 * ({@code tahunangkatan}, {@code nim}), bukan kolom pendaftaran.
+	 *
+	 * <p>
+	 * Cabang "tanpa filter" diwujudkan dengan {@code Restrictions.sqlRestriction("true")} —
+	 * predikat yang selalu benar — sehingga rantai {@code add(...)} tetap seragam. Perlu dicatat
+	 * bahwa cabang default filter jurusan/fakultas bukan "tanpa syarat" melainkan
+	 * {@code isNotNull}: mahasiswa yang belum punya jurusan (atau jurusannya belum punya
+	 * fakultas) tidak akan pernah muncul di grid ini meski baris pendaftarannya ada.
+	 *
+	 * <p>
+	 * Kriteria ini <b>tidak</b> menambahkan pembatasan cakupan satuan kerja/tenant apa pun di
+	 * luar penyaringan per-{@link #kkn}; lihat catatan pada field {@link #kkn}.
 	 *
 	 * @param order bila {@code true}, menambahkan pengurutan tahun angkatan menurun lalu NIM menaik
-	 * @return kriteria siap dieksekusi
+	 * @return kriteria siap dieksekusi (belum dibatasi jumlah baris)
 	 */
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
@@ -370,7 +389,21 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 		return criteria;
 	}
 
-	/** Memuat ulang halaman ke-{@code paging.getActivePage()} (50 baris/halaman) dan me-render ulang grid pendaftar. Parameter {@code value} tidak dipakai. */
+	/**
+	 * Memuat ulang halaman aktif grid pendaftar: menghitung ulang total baris untuk
+	 * {@link #paging}, mengambil maksimum {@code Common.ROWS_COUNT_ON_PAGE_50} baris pada offset
+	 * halaman aktif, lalu memasang model beserta {@link PendaftarKknRenderer} yang baru.
+	 *
+	 * <p>
+	 * Implementasi kontrak {@link DataLoader#loadData(Object)} sehingga instance ini dapat
+	 * diserahkan sebagai callback penyegaran kepada
+	 * {@link AmbilDataMahasiswaSeleksiKknHelper} (lihat {@link #getDataloader()}).
+	 * {@link #initCriteria(boolean)} sengaja dipanggil dua kali — sekali untuk pencacahan tanpa
+	 * pengurutan, sekali untuk pengambilan data dengan pengurutan — karena satu objek
+	 * {@link Criteria} tidak dapat dipakai ulang setelah diberi proyeksi pencacahan.
+	 *
+	 * @param value tidak dipakai; ada hanya untuk memenuhi tanda tangan {@link DataLoader}
+	 */
 	@SuppressWarnings("unchecked")
 	public void loadData(Object value) {
 
@@ -385,19 +418,58 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/**
+	 * Menyediakan instance ini sebagai {@link DataLoader} untuk diserahkan ke dialog pemilihan
+	 * mahasiswa ({@link AmbilDataMahasiswaSeleksiKknHelper}), agar dialog tersebut dapat memicu
+	 * {@link #loadData(Object)} dan menyegarkan grid setelah pendaftar baru ditambahkan.
+	 *
+	 * <p>
+	 * Method pembungkus ini diperlukan karena {@code this} di dalam kelas anonim
+	 * {@code EventListener} merujuk ke listener, bukan ke helper.
+	 *
+	 * @return objek helper ini sendiri
+	 */
 	private DataLoader getDataloader() {
 		return this;
 	}
 
 	/**
-	 * Membuat tombol toolbar yang mengekspor hasil {@code dataCriteria} ke file Excel (xlsx) dengan
-	 * kolom dinamis mengikuti daftar {@link ais.database.model.kkn.PersyaratanKkn} milik KKN ini
-	 * (termasuk hyperlink lampiran bila persyaratan mewajibkannya), lalu membuka pratinjau hasilnya
-	 * dalam {@link org.zkoss.zss.ui.Spreadsheet} di window modal dengan opsi unduh. Proses generate
-	 * berjalan di thread terpisah dan progresnya dipantau lewat {@link org.zkoss.zul.Timer} yang
-	 * membaca perubahan teks status.
+	 * Membuat tombol toolbar yang mengekspor hasil {@code dataCriteria} ke berkas Excel (xlsx)
+	 * dengan kolom dinamis mengikuti daftar {@link PersyaratanKkn} milik KKN ini (termasuk
+	 * hyperlink lampiran bila persyaratan mewajibkannya), lalu membuka pratinjau hasilnya dalam
+	 * {@link org.zkoss.zss.ui.Spreadsheet} di window modal dengan opsi unduh.
 	 *
-	 * @param dataCriteria sumber data yang diekspor (kriteria diminta tanpa pengurutan tambahan)
+	 * <p>
+	 * <b>Struktur kolom.</b> Tujuh kolom tetap di depan — ID, NIM, Nama, Jurusan, Fakultas,
+	 * Diterima, Skor — diikuti satu kolom per {@link PersyaratanKkn} (diurutkan menurut nama lalu
+	 * label inputan). Isi kolom persyaratan mengikuti
+	 * {@link PersyaratanKkn#getTipeDataInputan()}: teks/teks-angka dan pilihan custom memakai
+	 * {@code nilaiString}, tanggal memakai {@code nilaiTanggal}, angka memakai {@code nilaiNumber},
+	 * dan ya/tidak memakai {@code nilaiBoolean}. Tipe yang tidak dikenali menuliskan nama
+	 * persyaratannya sendiri sebagai isi sel, bukan nilai jawaban mahasiswa.
+	 *
+	 * <p>
+	 * <b>Efek samping penulisan data.</b> Selama ekspor, setiap kombinasi mahasiswa-persyaratan
+	 * yang belum punya baris {@link MahasiswaKknPersyaratan} akan <i>dibuat</i> (kosong) dan
+	 * disimpan. Jadi tombol "Download" bukan operasi baca-saja: menekannya dapat menambah baris
+	 * jawaban kosong ke basis data. Pencarian baris memakai {@code addOrder(desc(id))} +
+	 * {@code setMaxResults(1)} sehingga aman terhadap data rangkap.
+	 *
+	 * <p>
+	 * <b>Model konkurensi.</b> Pembuatan berkas berjalan di {@link Thread} terpisah, sementara
+	 * thread ZK memantau kemajuannya lewat {@link org.zkoss.zul.Timer} 200&nbsp;ms yang membaca
+	 * teks sebuah {@link Label} sebagai kanal status: teks kosong berarti selesai (buka pratinjau),
+	 * teks {@code "-"} berarti gagal. Konsekuensinya, thread latar memakai
+	 * {@link HibernateUtil#currentSession()} di luar konteks permintaan ZK dan
+	 * {@link StreamingHibernateUtil} untuk pembacaan lampiran; kegagalan per-sel ditelan dan
+	 * hanya ditampilkan bila pengguna berstatus admin.
+	 *
+	 * <p>
+	 * Batas ekspor adalah 1.048.576 baris (batas baris satu lembar xlsx), dan berkas ditulis ke
+	 * folder {@code /tmp} aplikasi web dengan nama bercap waktu.
+	 *
+	 * @param dataCriteria sumber data yang diekspor (kriteria diminta dengan pengurutan aktif);
+	 *                     boleh berupa {@code this} atau penyedia {@link DataCriteria} lain
 	 * @param buttonLabel  label tombol
 	 * @param buttonImage  path ikon tombol
 	 * @return tombol toolbar siap ditambahkan ke {@link org.zkoss.zul.Toolbar}
@@ -778,14 +850,49 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	}
 
 	/**
-	 * Membangun seluruh UI layar pendaftar KKN (toolbar pencarian/filter, tombol cetak
-	 * pendaftar/penerima/rekap, hitung skor, ambil pendaftar baru, unggah/unduh Excel) di dalam
-	 * {@code component} yang diberikan, lalu memuat data awal.
+	 * Membangun seluruh UI layar pendaftar KKN di dalam {@code component} yang diberikan, lalu
+	 * memuat data awal.
+	 *
+	 * <p>
+	 * Isi toolbar yang dipasang, berurutan: kotak cari NIM/nama, combobox fakultas dan jurusan,
+	 * isian angkatan, checkbox "Belum diterima", tombol "Cari", tombol "Pengecualian"
+	 * ({@link PengecualianKknMahasiswaHelper} — hanya tampil bagi pengguna non-mahasiswa dan bila
+	 * konfigurasi {@code tampilkan_pengecualian_kkn_mahasiswa_di_seleksi} aktif), tiga tombol
+	 * cetak PDF ("Pendaftar" &rarr; {@code pendaftar_kkn}, "Penerima" &rarr;
+	 * {@code pendaftar_kkn_diterima}, "Rekap" &rarr; {@code penerima_kkn}), tombol "Hitung Skor",
+	 * tombol "Baru" ({@link AmbilDataMahasiswaSeleksiKknHelper}), tombol "Download"
+	 * ({@link #cetakDataCustomButton}), dan tombol "Upload".
+	 *
+	 * <p>
+	 * <b>"Hitung Skor"</b> menghitung ulang {@link MahasiswaDaftarKkn#setTotalSkor} untuk seluruh
+	 * baris hasil filter saat ini. Skor dijumlahkan dari jawaban bertipe
+	 * {@link PersyaratanKkn#PILIHAN_CUSTOM} yang nilainya berformat {@code "label:skor"}; segmen
+	 * setelah titik dua di-parse sebagai bilangan bulat, dan jawaban yang tidak berformat
+	 * demikian dihitung nol tanpa peringatan ke pengguna. Karena berbasis
+	 * {@link #initCriteria(boolean)}, tombol ini hanya menghitung ulang baris yang <i>sedang
+	 * lolos filter</i>, bukan seluruh pendaftar KKN ini.
+	 *
+	 * <p>
+	 * <b>"Upload" (impor Excel)</b> membaca kembali berkas berformat sama dengan hasil ekspor:
+	 * kolom 0 = ID baris, kolom 1 = NIM, kolom 5 = status diterima. Baris dicocokkan lewat ID
+	 * bila ada; bila tidak, baris {@link MahasiswaDaftarKkn} <i>baru</i> dibuat berdasarkan NIM
+	 * lalu {@code terima} diisi dari kolom 5. Perlu diperhatikan:
+	 * <ul>
+	 *   <li>jalur ini melewati {@code KknUntukMahasiswaAction#daftar}, sehingga
+	 *   {@code memenuhiSyarat} tidak pernah diisi dan pemeriksaan kuota/persyaratan akademik
+	 *   tidak dijalankan;</li>
+	 *   <li>tombol ini dipasang tanpa memeriksa parameter {@code approve}, sehingga status
+	 *   penerimaan dapat ditulis lewat unggahan berkas walaupun checkbox "Terima" pada grid
+	 *   dinonaktifkan;</li>
+	 *   <li>setiap baris di-commit satu per satu di thread terpisah — kegagalan di tengah berkas
+	 *   meninggalkan sebagian data sudah tersimpan.</li>
+	 * </ul>
 	 *
 	 * @param kkn        KKN yang pendaftarnya ditampilkan
 	 * @param component  container ZK yang akan diisi (dibersihkan lebih dulu)
 	 * @param window     window pemanggil (dipakai sebagai parent dialog "Ambil Data" baru)
-	 * @param approve    bila {@code true}, checkbox "Terima" pada tiap baris dapat diedit
+	 * @param approve    bila {@code true}, checkbox "Terima" pada tiap baris dapat diedit; lihat
+	 *                   catatan cakupan pada field {@link #approve}
 	 */
 	public void displayPrasyaratKkn(final Kkn kkn, final Component component, final MyWindow window, boolean approve) {
 		this.kkn = kkn;
@@ -1218,10 +1325,21 @@ public class PendaftarKknHelper implements DataLoader, DataCriteria {
 	 * Mengubah status penerimaan ({@code terima}) baris pendaftaran mahasiswa pada KKN tertentu
 	 * (mengambil baris terbaru bila ada lebih dari satu) dan menampilkan pesan konfirmasi.
 	 *
+	 * <p>
+	 * <b>Tidak ada pemanggil di dalam basis kode saat ini</b> — method ini tersedia sebagai API
+	 * bantu bagi layar lain, dan sengaja dipertahankan apa adanya.
+	 *
+	 * <p>
+	 * Perilaku yang perlu diketahui bila hendak dipakai: method ini <i>tidak</i> memeriksa
+	 * {@link #approve} maupun hak apa pun, dan hasil query tidak diperiksa {@code null} sehingga
+	 * mahasiswa yang belum pernah mendaftar KKN ini menyebabkan
+	 * {@link NullPointerException}, bukan pesan kesalahan yang ramah. Parameter {@code kkn}
+	 * bersifat lokal dan tidak mengubah field {@link #kkn}.
+	 *
 	 * @param mahasiswa mahasiswa yang statusnya diubah
 	 * @param kkn       KKN terkait
 	 * @param checked   {@code true} untuk menandai diterima, {@code false} untuk ditolak
-	 * @throws Exception bila baris pendaftaran tidak ditemukan atau penyimpanan gagal
+	 * @throws Exception bila penyimpanan gagal
 	 */
 	public void terimaKkn(Mahasiswa mahasiswa, Kkn kkn, boolean checked) throws Exception {
 		Session session = HibernateUtil.currentSession();

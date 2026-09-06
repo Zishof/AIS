@@ -60,12 +60,16 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class HasilUjianHelper implements DataLoader, DataCriteria {
 
+	/** Grid yang menampilkan riwayat hasil ujian, dirender oleh {@link DetailPertemuanRenderer}. */
 	private MyGrid grid;
 
+	/** Mahasiswa pemilik riwayat hasil ujian yang ditampilkan; boleh {@code null} bila konteks peserta bukan mahasiswa. */
 	private Mahasiswa mahasiswa = null;
 
+	/** Calon mahasiswa (PMB) pemilik riwayat hasil ujian yang ditampilkan; boleh {@code null} bila konteks peserta bukan calon mahasiswa. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa = null;
 
+	/** Pertemuan konteks, dipakai untuk melengkapi data {@link Ujian} yang belum lengkap lewat {@link #reinitUjian}. */
 	private Pertemuan pertemuan;
 
 	/**
@@ -189,8 +193,17 @@ public class HasilUjianHelper implements DataLoader, DataCriteria {
 	 */
 	class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Helper mode lihat-saja yang menampilkan detail butir soal/jawaban saat baris dibuka tanpa identitas peserta eksplisit. */
 		private DetailUjianHelper detailUjianHelper = new DetailUjianHelper();
 
+		/**
+		 * Merender satu baris untuk satu {@link HasilUjianMahasiswa} (lihat javadoc kelas
+		 * {@link DetailPertemuanRenderer} untuk rincian kolom dan mode detail yang dibangun).
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param data instance {@link HasilUjianMahasiswa} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@SuppressWarnings("deprecation")
 		@Override
 		public void render(final Row arg0, final Object data) throws Exception {

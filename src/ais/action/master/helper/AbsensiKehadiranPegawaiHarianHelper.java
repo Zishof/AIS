@@ -183,6 +183,16 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		edit = CommonPrivilages.checkPrevilages(CommonPrivilages.UPDATE);
 		addEventListener("onOpen", new EventListener() {
 
+			/**
+			 * Menerapkan pola lazy render {@link MyDetail}: setiap kali baris ekspansi dibuka atau ditutup,
+			 * seluruh komponen anak dibuang lebih dulu lewat {@link Common#clear(Object)}, dan UI baru dibangun
+			 * ulang lewat {@link #display()} hanya bila panel benar-benar dalam keadaan terbuka
+			 * ({@code isOpen()}). Konsekuensinya, menutup lalu membuka kembali panel selalu memuat ulang data
+			 * dari database dan membuang seluruh state kontrol yang belum disimpan.
+			 *
+			 * @param arg0 event {@code onOpen} dari komponen detail ZK
+			 * @throws Exception diteruskan dari pembangunan UI/akses Hibernate bila terjadi kegagalan
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Common.clear(AbsensiKehadiranPegawaiHarianHelper.this);
@@ -226,6 +236,14 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 		bulan.addEventListener("onChange", new EventListener() {
 
+			/**
+			 * Memuat ulang seluruh grid rekap begitu pemakai mengganti bulan. Tidak ada penyaringan sisi klien:
+			 * {@link #loadData(Object)} membaca sendiri nilai combobox {@link #bulan} dan {@link #tahun} yang
+			 * sedang terpilih, lalu membangun ulang baris untuk seluruh tanggal pada periode baru.
+			 *
+			 * @param arg0 event {@code onChange} dari combobox Bulan
+			 * @throws Exception diteruskan dari {@link #loadData(Object)}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(null);
@@ -248,6 +266,13 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 		tahun.addEventListener("onChange", new EventListener() {
 
+			/**
+			 * Kembaran listener {@link #bulan}: memuat ulang grid rekap begitu pemakai mengganti tahun, dengan
+			 * periode diambil ulang dari kedua combobox di dalam {@link #loadData(Object)}.
+			 *
+			 * @param arg0 event {@code onChange} dari combobox Tahun
+			 * @throws Exception diteruskan dari {@link #loadData(Object)}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(null);
@@ -260,10 +285,36 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		toolbar.appendChild(cetakSksDosen);
 		cetakSksDosen.addEventListener("onClick", new EventListener() {
 
+		    /**
+		     * Memicu proses "Singkronkan" — perhitungan ulang jenis shift pegawai untuk seluruh tanggal pada
+		     * bulan terpilih. Pekerjaan sebenarnya ditunda ke siklus event berikutnya lewat
+		     * {@link Common#createDefaultTimer(EventListener)} agar indikator sibuk sempat ter-render lebih dulu.
+		     *
+		     * <p>Nama variabel {@code cetakSksDosen} adalah sisa salin-tempel dari layar lain dan tidak
+		     * mencerminkan fungsinya; tombol ini tidak ada hubungannya dengan pencetakan SKS dosen.</p>
+		     *
+		     * @param arg0 event {@code onClick} dari tombol Singkronkan
+		     * @throws Exception diteruskan dari penjadwalan timer ZK
+		     */
 		    @Override
 		    public void onEvent(Event arg0) throws Exception {
 		        Common.createDefaultTimer(new EventListener() {
 
+		            /**
+		             * Menjalankan proses sinkronisasi shift satu bulan penuh. Memvalidasi lebih dulu bahwa bulan
+		             * dan tahun sudah dipilih (bila belum, menampilkan peringatan dan berhenti tanpa efek),
+		             * menampilkan indikator sibuk lewat {@link Clients#showBusy(String)}, lalu menyerahkan
+		             * pekerjaan berat ke {@link Thread} terpisah agar UI tidak terblokir.
+		             *
+		             * <p>Karena thread latar tidak boleh menyentuh komponen ZK, penyelesaiannya dikabarkan lewat
+		             * flag {@link AtomicBoolean} yang dipantau sebuah {@link Timer} ZK ber-interval 500 ms. Timer
+		             * dipasang pada root halaman (bukan pada panel ini) supaya tetap hidup walau baris ekspansi
+		             * ditutup; begitu flag menyala, indikator sibuk dibersihkan, {@link #loadData(Object)}
+		             * dipanggil untuk menampilkan hasil, dan timer melepas dirinya sendiri.</p>
+		             *
+		             * @param arg0 event timer penunda dari {@link Common#createDefaultTimer(EventListener)}
+		             * @throws Exception diteruskan dari akses komponen ZK bila terjadi kegagalan
+		             */
 		            @Override
 		            public void onEvent(Event arg0) throws Exception {
 
@@ -289,6 +340,35 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		                Clients.showBusy("Proses singkronisasi shift...");
 
 		                new Thread(new Runnable() {
+		                    /**
+		                     * Menghitung ulang {@link DetailJenisShiftPegawai} untuk setiap tanggal pada bulan
+		                     * terpilih, di luar thread event ZK.
+		                     *
+		                     * <p>Satu {@link Session} Hibernate dibuka sekali untuk seluruh loop demi efisiensi,
+		                     * tetapi setiap hari mendapat {@link Transaction} sendiri sehingga kegagalan pada satu
+		                     * tanggal tidak membatalkan tanggal lain — blok {@code catch} per hari melakukan
+		                     * rollback, mencatat error lewat {@code ErrorAuditUtil}, lalu meneruskan loop. Untuk tiap
+		                     * tanggal: baris kehadiran diambil/dibuat lewat
+		                     * {@link CommonPayroll#getDefaultStatuskehadiranKaryawanHarian}, disegarkan dari
+		                     * database, lalu jenis shift dihitung ulang oleh
+		                     * {@link CommonPayroll#getDetailJenisShiftPegawai} berdasarkan jam masuk aktual, nama
+		                     * hari, dan status libur nasional, dan hasilnya disimpan.</p>
+		                     *
+		                     * <p><b>Dua penjagaan yang sengaja dipasang dan tidak boleh dihapus:</b> (1) commit
+		                     * hanya dijalankan bila transaksi masih benar-benar aktif — sebab
+		                     * {@code Common.refreshSaveOrUpdate} dapat menelan exception lalu diam-diam melakukan
+		                     * rollback, sementara {@code simpanDetail}/{@code getDefaultStatuskehadiranKaryawanHarian}
+		                     * dapat membuka dan menutup ulang transaksi pada session yang sama, sehingga commit buta
+		                     * akan melempar "Transaction not successfully started" yang gejalanya jauh dari akar
+		                     * masalah; kondisi tak-aktif ini dicatat sebagai audit, bukan didiamkan. (2) cache level
+		                     * satu dibersihkan ({@code flush}+{@code clear}) tiap hari agar memori tidak membengkak
+		                     * pada bulan berisi banyak baris.</p>
+		                     *
+		                     * <p>Blok {@code finally} berlapis menutup session dan memanggil
+		                     * {@link HibernateUtil#closeSession()} untuk mencegah kebocoran koneksi, dan pada
+		                     * lapisan terdalam SELALU menyalakan flag {@code isProsesSelesai} — sehingga timer
+		                     * pemantau di sisi UI pasti berhenti walaupun proses gagal total.</p>
+		                     */
 		                    @Override
 		                    public void run() {
 		                        Session session = null;
@@ -389,6 +469,19 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		                timer.setRepeats(true);
 		                timer.addEventListener("onTimer", new EventListener() {
 
+		                    /**
+		                     * Memantau flag {@link AtomicBoolean} yang dinyalakan thread sinkronisasi pada blok
+		                     * {@code finally}-nya. Selama flag masih mati, tick timer tidak melakukan apa pun;
+		                     * begitu menyala, indikator sibuk dibersihkan, grid dimuat ulang lewat
+		                     * {@link #loadData(Object)} agar hasil perhitungan shift terlihat, dan timer melepas
+		                     * dirinya dari halaman sehingga tidak terus berdetak.
+		                     *
+		                     * <p>Pola flag ini dipakai karena thread latar tidak boleh menyentuh komponen ZK secara
+		                     * langsung; jembatan ke UI harus lewat siklus event ZK seperti timer ini.</p>
+		                     *
+		                     * @param arg0 event {@code onTimer} setiap 500 ms
+		                     * @throws Exception diteruskan dari {@link #loadData(Object)}
+		                     */
 		                    @Override
 		                    public void onEvent(Event arg0) throws Exception {
 		                        // Jika isProsesSelesai == true, berarti blok finally pada Thread sudah dieksekusi
@@ -409,6 +502,15 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 		Toolbarbutton button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Memuat ulang grid rekap untuk periode yang sedang terpilih. Karena kedua combobox sudah memicu
+			 * {@link #loadData(Object)} sendiri saat berubah, tombol ini terutama berguna untuk menyegarkan
+			 * tampilan setelah data diubah dari layar lain, atau setelah pengisian/koreksi otomatis jam pulang
+			 * yang dijalankan {@link #loadData(Object)} mengubah isi database.
+			 *
+			 * @param arg0 event {@code onClick} dari tombol Cari
+			 * @throws Exception diteruskan dari {@link #loadData(Object)}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadData(null);

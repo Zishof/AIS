@@ -468,7 +468,9 @@ public class RekapitulasiVideoHelper {
 	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Mahasiswa konteks yang login (bila ada), diteruskan ke {@link PertemuanHelper} saat membuka detail pertemuan. */
 		private Mahasiswa mahasiswa;
+		/** Calon mahasiswa konteks yang login (bila ada), diteruskan ke {@link PertemuanHelper} saat membuka detail pertemuan. */
 		private BiodataCalonMahasiswa biodataCalonMahasiswa;
 
 		/** @param mahasiswa mahasiswa konteks tampilan (dipakai bila detail pertemuan dibuka); boleh {@code null} */
@@ -477,6 +479,15 @@ public class RekapitulasiVideoHelper {
 			this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 		}
 
+		/**
+		 * Merender satu baris untuk satu {@link VideoPertemuan} (lihat javadoc kelas
+		 * {@link DetailPertemuanRenderer} untuk rincian tombol/aksi yang dibangun); baris
+		 * disembunyikan bila {@link Pertemuan} induknya sudah tidak ditemukan.
+		 *
+		 * @param arg0 baris grid yang diisi
+		 * @param data instance {@link VideoPertemuan} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 			final VideoPertemuan videoPertemuan = (VideoPertemuan) data;
