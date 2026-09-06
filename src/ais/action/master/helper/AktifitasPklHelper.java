@@ -70,14 +70,18 @@ import ais.ui.util.WaktuUtil;
  */
 public class AktifitasPklHelper {
 
+	/** Helper penjadwalan pertemuan PKL, dipakai tombol "Agenda PKL" pada {@link #initAgendaKelompokPkl}. */
 	protected PenjadwalanPklHelper penjadwalanHelper = new PenjadwalanPklHelper();
 
+	/** Data mahasiswa dari user login saat ini, atau {@code null} bila user bukan mahasiswa (atau belum login). */
 	private Mahasiswa userMahasiswa = null;
+	/** User login saat ini (hasil {@link Common#getCurrentUser()}), atau {@code null} bila belum login. */
 	private Tbmuser tbmuser = null;
 
 	/** Menentukan apakah user login boleh mengubah agenda/pertemuan kelompok PKL ini — dihitung ulang di {@link #initDetail}. */
 	private boolean edit = false;
 
+	/** Mengambil user login saat ini beserta data mahasiswa terkait (bila user adalah mahasiswa) sebagai konteks tampilan. */
 	public AktifitasPklHelper() {
 		tbmuser = Common.getCurrentUser();
 		userMahasiswa = tbmuser == null ? null : tbmuser.getMahasiswa();

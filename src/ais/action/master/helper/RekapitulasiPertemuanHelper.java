@@ -353,14 +353,25 @@ public class RekapitulasiPertemuanHelper {
 	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Menandai apakah tampilan sedang diakses dari perangkat mobile; diteruskan ke {@link DashboardTimelinePertemuan#displayRow} untuk menyesuaikan tata letak baris. */
 		private boolean mobile = false;
+		/** Pengguna yang sedang login saat renderer dibuat; diteruskan ke {@link DashboardTimelinePertemuan#displayRow} untuk menentukan hak/tampilan aksi per baris. */
 		private Tbmuser tbmuser;
 
+		/** Menyimpan status mobile dan pengguna yang sedang login sekali di awal (dipakai berulang untuk setiap baris yang dirender). */
 		public DetailPertemuanRenderer() {
 			mobile = Common.isMobile();
 			tbmuser = Common.getCurrentUser();
 		}
 
+		/**
+		 * Memuat ulang satu {@link Pertemuan} berdasarkan id yang tersimpan sebagai {@code data} baris
+		 * grid, lalu mendelegasikan tampilannya ke {@link DashboardTimelinePertemuan#displayRow}. Baris
+		 * disembunyikan bila pertemuan sudah tidak ditemukan (mis. terhapus setelah id dimuat ke grid).
+		 *
+		 * @param arg0 baris grid yang akan diisi
+		 * @param data id {@link Pertemuan} (bukan entitas penuh) yang harus dimuat ulang
+		 */
 		@Override
 		public void render(final Row arg0, Object data) throws Exception {
 

@@ -47,20 +47,29 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class IkutPerkuliahanHelper implements DataLoader {
 
+	/** Grid utama (mode paging) yang menampilkan daftar perkuliahan yang diikuti {@link #mahasiswa}. */
 	private MyGrid grid;
 	// private MyGrid gridKomentar;
+	/** Panel "Informasi Jam Bentrok" yang dibangun ulang setiap {@link #loadData}. */
 	private MyDiv jamBentrok = new MyDiv();
+	/** Mahasiswa yang datanya sedang ditampilkan/dikelola; diisi oleh {@link #display}. */
 	private Mahasiswa mahasiswa;
+	/** Nomor semester yang ditampilkan; diisi oleh {@link #display}. */
 	private Integer semester;
 	// private Dosen dosenPembimbingAkademik;
 
+	/** Daftar id {@link Detailperkuliahan} (perkuliahan yang diikuti) hasil {@link #loadData} terakhir. */
 	private List<Long> detailperkuliahans;
 
+	/** Helper aktivitas perkuliahan (mode hanya-baca) milik mahasiswa yang login; tidak dipakai langsung pada layar ini, disiapkan untuk keperluan komponen terkait. */
 	protected AktifitasPerkuliahanHelper aktifitasPerkuliahanHelper;
 
+	/** Penanda semester pendek, diteruskan ke {@link AmbilDataIkutPerkuliahanHelper} dan query pencarian perkuliahan yang diikuti. */
 	private Integer semesterPendek;
+	/** Callback yang dipanggil setiap kali {@link #loadData} selesai memuat ulang data. */
 	private EventListener eventListener;
 
+	/** Tahapan KRS terkait; diisi oleh {@link #display}, boleh {@code null}/0. */
 	private Integer tahapan;
 
 	/** @param semesterPendek status semester pendek (SP) yang dilayani helper ini, atau {@code null} untuk semester reguler */
@@ -72,6 +81,16 @@ public class IkutPerkuliahanHelper implements DataLoader {
 	/** Row renderer grid perkuliahan yang diikuti: kode/nama/SKS (dengan info konversi ekivalensi bila berbeda), dosen, hari, semester, kelas, waktu, ruang, dan tombol hapus. */
 	class DetailMahasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid untuk satu {@link Detailperkuliahan}: kode/nama/SKS matakuliah
+		 * (dengan info konversi ekivalensi bila berbeda dari matakuliah asli), dosen, hari, semester,
+		 * kelas, waktu, ruang, dan tombol hapus. Baris disembunyikan bila {@code detailperkuliahan}
+		 * atau {@code ikutiPerkuliahan}-nya sudah tidak ada, atau bila matakuliah ekivalen tidak
+		 * ditemukan.
+		 *
+		 * @param row  baris grid yang akan diisi
+		 * @param data id {@link Detailperkuliahan} (bukan entitas penuh) yang harus dimuat ulang
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 
@@ -372,10 +391,12 @@ public class IkutPerkuliahanHelper implements DataLoader {
 
 	}
 
+	/** @return nilai {@link #semesterPendek} yang sedang dipakai helper ini */
 	public Integer getSemesterPendek() {
 		return semesterPendek;
 	}
 
+	/** @param semesterPendek nilai baru penanda semester pendek */
 	public void setSemesterPendek(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}

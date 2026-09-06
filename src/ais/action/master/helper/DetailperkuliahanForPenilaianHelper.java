@@ -1773,11 +1773,65 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Daftar kolom grid yang mewakili <b>komponen nilai</b>, satu entri untuk setiap
+	 * {@link FormatNilai}, dalam urutan yang sama dengan {@link #formatNilais}. Kolom tetap seperti
+	 * Foto, Mahasiswa, Semester, Minimal Kehadiran, Total, dan Verify sengaja <b>tidak</b> masuk ke
+	 * daftar ini. Pemisahan itu memungkinkan {@link DetailPerkuliahanRenderer#render(Row, Object)}
+	 * menyembunyikan seluruh kolom komponen sekaligus saat mode &quot;hanya input nilai huruf&quot;
+	 * menyala, tanpa menyentuh kolom tetap. Daftar dibuat ulang dari nol pada setiap
+	 * {@link #prosesDisplay} agar tidak menumpuk kolom dari pembangunan layar sebelumnya.
+	 */
 	private List<Column> columns = new ArrayList<Column>();
+
+	/**
+	 * Rujukan ke kolom &quot;Mahasiswa&quot; yang lebarnya <b>menyesuaikan diri</b> terhadap jumlah
+	 * komponen nilai. Ketika kolom komponen banyak, kolom nama dipersempit agar total lebar tetap
+	 * sekitar 95%; ketika mode nilai huruf menyala dan semua kolom komponen tersembunyi, kolom ini
+	 * melebar menjadi 85% supaya nama mahasiswa tidak terapung di tengah baris yang nyaris kosong.
+	 * Penyetelannya terjadi di dalam perender, sehingga berulang pada setiap baris.
+	 */
 	private MyColumnConfig columnMahasiswa;
+
+	/**
+	 * Kotak centang toolbar &quot;Urutkan berdasar nama&quot;, bawaannya tercentang. Nilainya
+	 * diteruskan ke {@code perkuliahan.ambilDetailperkuliahan(...)} sehingga pengurutan dilakukan di
+	 * basis data, bukan di memori. Bila tidak tercentang, urutan mengikuti bawaan query &mdash;
+	 * lazimnya NIM. Selain memuat ulang grid, field ini juga dibaca oleh operasi massal (kunci per
+	 * kolom, verifikasi massal, snapshot penguncian) yang mengambil ulang daftar mahasiswa dengan
+	 * pengurutan yang sama agar konsisten dengan yang tampak di layar.
+	 */
 	private MyCheckboxConfig urutkanBerdasarkanNama;
+
+	/**
+	 * Menandai bahwa pengguna memperoleh <b>hak buka-kunci istimewa</b>: konfigurasi
+	 * <code>kunci_nilai_untuk_admin</code> aktif <i>dan</i> perannya
+	 * {@link Tbmrole#ADMINISTRATOR}. Bila menyala, tombol Buka Kunci tingkat kelas dan tombol buka
+	 * kunci per kolom diaktifkan meskipun kunci dipasang pengguna lain &mdash; pengecualian yang
+	 * memang diperlukan ketika dosen pemasang kunci sudah tidak dapat dihubungi. Dihitung ulang setiap
+	 * {@link #prosesDisplay} dan selalu diawali {@code false}.
+	 */
 	private boolean adminBoleh = false;
+
+	/**
+	 * Semester {@link #perkuliahan} yang sedang dinilai, disalin saat {@link #display} berjalan.
+	 * Dipakai untuk satu keputusan tampilan: grid komentar hanya terlihat bila nilainya lebih dari
+	 * nol. Semester bernilai 0 menandai baris konversi atau transfer yang tidak memiliki kegiatan
+	 * perkuliahan nyata, sehingga komentar kelas tidak relevan baginya.
+	 */
 	private Integer semester;
+
+	/**
+	 * Menyalakan gerbang tunggakan dari konfigurasi
+	 * <code>mhs_yg_belum_bayar_belum_bisa_di_ntry_nilai</code> (perhatikan ejaan kunci yang memang
+	 * demikian di basis data). Bila menyala, kotak nilai komponen dikunci bagi mahasiswa yang tidak
+	 * lolos {@code PenilaianMahasiswaHelper.checkBolehLihatNilai(mahasiswa, semester)}.
+	 *
+	 * <p>Gerbang ini <b>hanya diterapkan pada jalur kolom komponen</b>; jalur kotak nilai huruf tidak
+	 * memeriksanya. Ia juga terpisah dari gerbang pembayaran semester pendek
+	 * {@code GateBayarSpUtil.alasanBlokir} yang justru dipasang di jalur nilai huruf. Kedua gerbang
+	 * pembayaran itu karena itu berlaku pada jalur yang berbeda dan tidak saling menggantikan.</p>
+	 */
 	private boolean mhsYgBelumBayarBelumBisaDiEntryNilai = false;
 
 	/**
@@ -1788,6 +1842,27 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 	 * MyWindow. Saat berada di tabpanel, borderlayout di dalam window collapse 0px
 	 * sehingga konten tidak tampil; dengan ditanam langsung + tinggi pasti, konten
 	 * ter-render seperti tab Rekap Total Nilai.
+	 *
+	 * <h3>Cara kerjanya</h3>
+	 * <p>Metode menelusuri anak langsung {@code windowRekap}, mencari yang bertipe
+	 * {@link org.zkoss.zul.Borderlayout}, lalu memindahkannya ke {@code target} sambil memasang lebar
+	 * 100% dan tinggi tetap 2000 piksel. Penelusuran dilakukan atas <b>salinan</b> daftar anak
+	 * ({@code new ArrayList<Object>(...)}) karena {@code setParent} mengubah daftar itu sendiri;
+	 * mengiterasi daftar aslinya akan memicu {@code ConcurrentModificationException}. Wadah
+	 * {@code windowRekap} sendiri dibiarkan &mdash; ia tidak pernah dilampirkan ke halaman, sehingga
+	 * cukup ditinggalkan untuk dikumpulkan pemulung memori.</p>
+	 *
+	 * <p>Tinggi 2000 piksel sengaja jauh lebih besar daripada 520 piksel yang disebut di atas: nilai
+	 * itu adalah hasil penyetelan berikutnya agar tabel rekap yang panjang tidak terpotong. Pemanggil
+	 * melengkapinya dengan {@code setStyle("min-height: 2000px;")} pada tabpanel supaya wadah luarnya
+	 * ikut memberi ruang.</p>
+	 *
+	 * <p><b>Penanganan galat.</b> Seluruh badan dibungkus penangkap {@link Throwable} &mdash; bukan
+	 * sekadar {@link Exception} &mdash; dan diteruskan ke {@code Common.tampilErrorJikaAdmin} sehingga
+	 * hanya administrator yang melihat rinciannya. Sikap gagal-diam ini disengaja: kegagalan menanam
+	 * satu tab rekap tidak boleh menjatuhkan seluruh layar penilaian, dan tab yang gagal cukup tampil
+	 * kosong. Bila {@code windowRekap} tidak memiliki anak bertipe borderlayout sama sekali, metode
+	 * selesai tanpa melakukan apa pun dan tanpa memberi tahu siapa pun.</p>
 	 *
 	 * @param windowRekap instance RekapHasil*PerVoPertemuan yang sudah membangun
 	 *                    borderlayout di dalamnya (belum dilampirkan ke halaman)
@@ -1809,6 +1884,47 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun seluruh isi tab <i>Asisten Dosen</i>: toolbar, definisi kolom, dan grid daftar
+	 * {@link MahasiswaJadiAsisten}. Dipanggil secara <b>malas</b> &mdash; hanya ketika tab diklik
+	 * pertama kali dan panelnya masih kosong &mdash; sehingga membuka layar penilaian tidak menanggung
+	 * biaya membangun tab yang mungkin tidak pernah dilihat.
+	 *
+	 * <p>Metode ini {@code static} dan tidak menyentuh state instance sama sekali; seluruh konteks
+	 * datang dari kedua parameternya. Karena itu ia juga dapat dipakai layar lain yang perlu
+	 * menampilkan daftar asisten tanpa membangun mesin penilaian lengkap.</p>
+	 *
+	 * <h3>Susunan</h3>
+	 * <p>Panel dikosongkan lebih dulu dengan {@code Common.clear}, lalu diisi sebuah pembungkus
+	 * bertinggi minimum 300 piksel agar tab tidak mengempis saat daftar kosong. Toolbar memuat dua
+	 * tombol dan <b>seluruhnya disembunyikan bila tidak ada pengguna yang masuk</b>
+	 * ({@code Common.getCurrentUser()} bernilai {@code null}) &mdash; satu-satunya penjagaan wewenang
+	 * pada tab ini:</p>
+	 * <ul>
+	 * <li><b>Ambil Mahasiswa</b> membuka {@code AmbilDataMahasiswaForAsistenHelper} untuk memilih
+	 * mahasiswa yang akan diangkat menjadi asisten; setelah pemilihan selesai, grid dimuat ulang
+	 * dengan penyegaran cache lewat {@code Common.createDefaultTimer}.</li>
+	 * <li><b>Refresh</b> memaksa {@code Common.getFormatNilais(perkuliahan, true)} membaca ulang
+	 * definisi komponen nilai, lalu memuat ulang grid. Pembacaan ulang format nilai di tab asisten
+	 * mungkin tampak ganjil, tetapi berguna karena tab ini kerap dibuka setelah bobot penilaian
+	 * diubah di layar lain.</li>
+	 * </ul>
+	 *
+	 * <p>Tujuh kolom didefinisikan: NIM, Nama, Input Nilai, Input Absen, Aktif, Keterangan, dan satu
+	 * kolom aksi. Kolom terakhir dilebarkan menjadi 5% hanya bila ada pengguna yang masuk, dan
+	 * dikempiskan ke 0% bila tidak &mdash; cara sederhana menyembunyikan tombol hapus. Grid memakai
+	 * cetakan {@code paging} dengan ukuran halaman 1000, praktis menampilkan semua asisten dalam satu
+	 * halaman.</p>
+	 *
+	 * <p>Pemuatan awal dilakukan dengan {@code refresh} bernilai {@code false} sehingga cache asosiasi
+	 * yang mungkin sudah hangat tetap dipakai; hanya aksi pengguna yang memaksa pembacaan ulang.</p>
+	 *
+	 * @param detailPenilaian komponen tujuan, lazimnya {@link Tabpanel} tab Asisten Dosen; isinya
+	 *                        dikosongkan lebih dulu.
+	 * @param perkuliahan     kelas yang daftar asistennya dikelola; ditangkap oleh listener tombol
+	 *                        sehingga harus {@code final}.
+	 * @see #loadDataDetailAsisten(Object, Perkuliahan, MyGrid, boolean)
+	 */
 	public static void displayAsistenMahasiswa(org.zkoss.zk.ui.Component detailPenilaian, final Perkuliahan perkuliahan) {
 		Common.clear(detailPenilaian);
 

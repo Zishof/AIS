@@ -59,19 +59,28 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class PenjadwalanKknHelper {
 
+	/** Kelompok KKN yang jadwal pertemuannya dikelola, ditetapkan di {@link #display(KelompokKkn, DataLoader)}. */
 	private KelompokKkn kelompokKkn;
+	/** Grid daftar pertemuan yang sedang ditampilkan, diisi ulang oleh {@link #onSearchDefault(Event)}. */
 	private MyGrid grid;
+	/** Callback penyegar tampilan pemanggil, dipanggil setelah simpan/hapus/tambah pertemuan. */
 	private DataLoader dataLoader;
 
+	/** Tanggal pertemuan terakhir yang ditambahkan/dirender pada sesi tampilan ini; dasar perhitungan tanggal +7 hari untuk pertemuan baru. */
 	private Date currDate;
 
 	/** Perender baris grid: textbox topik, tanggal (readonly datepicker), jam mulai/selesai, combobox status/jenis pertemuan (semuanya tersimpan otomatis on-change), dan tombol hapus (dengan pengecekan {@link PenjadwalanHelper#checkBolehHapus} + konfirmasi). */
 	class PertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Konstruktor tanpa argumen; tidak ada state renderer yang perlu diinisialisasi. */
 		public PertemuanRenderer() {
 
 		}
 
+		/**
+		 * Merender satu baris pertemuan ({@code arg1}, harus {@link Pertemuan}): lihat dokumentasi
+		 * kelas {@link PertemuanRenderer} untuk rincian kontrol yang dibangun.
+		 */
 		@Override
 		public void render(Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");

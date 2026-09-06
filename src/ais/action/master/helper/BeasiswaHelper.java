@@ -54,14 +54,23 @@ import ais.database.model.MahasiswaDapatBeasiswa;
  */
 public class BeasiswaHelper implements DataLoader {
 
+	/** Grid daftar penerima beasiswa yang sedang ditampilkan; dibangun di {@link #displayPrasyaratBeasiswa(Beasiswa, Component, MyWindow)}, diisi ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Beasiswa yang daftar penerimanya dikelola oleh instance ini, ditetapkan di {@link #displayPrasyaratBeasiswa(Beasiswa, Component, MyWindow)}. */
 	private Beasiswa beasiswa;
+	/** Textbox filter NIM mahasiswa penerima; dicocokkan case-insensitive-anywhere pada {@link #loadData(Object)}. */
 	private Textbox nim;
+	/** Textbox filter nama mahasiswa penerima; dicocokkan case-insensitive-anywhere pada {@link #loadData(Object)}. */
 	private Textbox nama;
 
 	/** Merender satu baris grid: identitas mahasiswa (NIM, nama, jurusan, fakultas) dan tombol hapus penerima beasiswa. */
 	class DetailBeasiswaRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris penerima beasiswa ({@code data}, harus {@link MahasiswaDapatBeasiswa}):
+		 * NIM, nama, jurusan, fakultas mahasiswa penerima, dan tombol hapus (dengan konfirmasi) yang
+		 * menghapus baris {@link MahasiswaDapatBeasiswa} lewat {@link MahasiswaDapatBeasiswaDao}.
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final MahasiswaDapatBeasiswa mahasiswaDapatBeasiswa = (MahasiswaDapatBeasiswa) data;
