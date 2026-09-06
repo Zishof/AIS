@@ -1004,6 +1004,47 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		this.sekolah = sekolah == null || sekolah.getId() == null ? null : sekolah;
 	}
 
+	/**
+	 * Menyemai (seed) dua grup baku kuesioner Tracer Study Kemendikbud beserta seluruh butir
+	 * pertanyaannya: "Kuisioner Wajib" dan "Kuisioner Opsional".
+	 *
+	 * <p>Bekerja pada {@code HibernateUtil.currentSession()} — sesi/transaksi AMBIENT milik pemanggil, bukan
+	 * sesi sendiri. Method ini hanya memanggil {@code save} dan {@code flush}, tidak pernah
+	 * {@code commit} maupun {@code rollback}, sehingga tuntas-tidaknya penyemaian sepenuhnya ditentukan
+	 * transaksi pemanggil.</p>
+	 *
+	 * <p><b>Idempotensi lewat pencocokan NAMA, bukan penanda versi.</b> Kedua blok dijaga hitungan
+	 * {@code GrupParameterTambahan} dengan {@code ilike(nama, ..., MatchMode.ANYWHERE)}. Konsekuensinya:</p>
+	 * <ul>
+	 * <li>Penjagaan bersifat SUBSTRING dan abai huruf besar/kecil — grup buatan pengguna yang kebetulan
+	 * namanya MEMUAT kalimat penjaga akan mencegah penyemaian, dan ini terjadi tanpa peringatan.</li>
+	 * <li>Sebaliknya, MENGGANTI NAMA grup hasil semai membuat penjagaan tak lagi mengenalinya, sehingga
+	 * pemanggilan berikutnya menyemai satu set duplikat lengkap.</li>
+	 * <li>Karena penjagaan hanya melihat GRUP, butir pertanyaan yang dihapus sebagian tidak akan pernah
+	 * dipulihkan selama grupnya masih ada; method ini bukan alat perbaikan, hanya penyemai awal.</li>
+	 * </ul>
+	 *
+	 * <p><b>Parameter hasil semai berlaku LINTAS LINGKUP.</b> Tidak satu pun butir diberi
+	 * {@link #setJurusan(Jurusan)}, {@link #setFakultas(Fakultas)}, {@link #setYayasan(Yayasan)}, atau
+	 * {@link #setSekolah(Sekolah)}, sehingga keempat pembatas lingkupnya {@code null} dan butir-butir ini
+	 * tampil di seluruh lingkup yang kuerinya tidak menyaring secara eksplisit.</p>
+	 *
+	 * <p><b>Kelompok hasil semai sengaja DORMAN.</b> Setiap blok ditutup dengan pembuatan satu
+	 * {@link KelompokParameterTambahanAlumni} yang menaungi seluruh butir lewat
+	 * {@link ParameterTambahanAlumni}, tetapi dibuat dengan {@code aktif = false} dan
+	 * {@code digunakanUntukPenggunaAlumni = false}. Jadi hasil penyemaian TIDAK langsung muncul bagi
+	 * pengguna alumni — pengelola harus mengaktifkannya sendiri. Bila sebuah instalasi melaporkan
+	 * "kuesioner tracer tidak muncul padahal sudah di-generate", inilah sebab pertama yang perlu
+	 * diperiksa.</p>
+	 *
+	 * <p>Isi kuesionernya sendiri mengikuti penomoran resmi Kemendikbud ({@code f8}, {@code f504},
+	 * {@code f1101}, {@code f17a}, dan seterusnya) yang disimpan pada {@link #getKode()}. Beberapa butir
+	 * bertipe {@link ParameterTambahanAstract#TIDAK_ADA} dan sengaja tidak punya komponen isian — perannya
+	 * murni sebagai JUDUL bagi butir-butir turunan yang menunjuknya lewat {@link #setParent(ParameterTambahan)}.</p>
+	 *
+	 * @see #initContoh()
+	 * @see KelompokParameterTambahanAlumni
+	 */
 	@SuppressWarnings("unchecked")
 	public static void generateKuetionerTracerkemendikbud() {
 		Session session = HibernateUtil.currentSession();
@@ -1999,6 +2040,33 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 
 	}
 
+	/**
+	 * Menyemai satu grup CONTOH bernama "Data Kelulusan Alumni" berisi sebelas butir angket kepuasan
+	 * alumni.
+	 *
+	 * <p>Berbeda tujuan dari {@link #generateKuetionerTracerkemendikbud()}: yang itu menyemai instrumen
+	 * resmi Kemendikbud, yang ini sekadar contoh peraga agar layar master parameter tambahan tidak kosong
+	 * pada instalasi baru. Butir-butirnya memperagakan beragam tipe —
+	 * {@link ParameterTambahanAstract#PILIHAN_CUSTOM}, {@link ParameterTambahanAstract#TEXT} multi-baris,
+	 * dan {@link ParameterTambahanAstract#PILIHAN_BANYAK} — berikut pemakaian
+	 * {@link #setTampilkanIsianKeterangan(Boolean)} untuk meminta alasan.</p>
+	 *
+	 * <p>Sama seperti method saudaranya, bekerja pada sesi ambient {@code HibernateUtil.currentSession()}
+	 * tanpa mengelola transaksi sendiri, dan dijaga hitungan {@code ilike(nama, "kelulusan", ANYWHERE)}
+	 * sehingga bersifat idempoten selama nama grupnya tidak diubah.</p>
+	 *
+	 * <p><b>Butir hasil semai ini YATIM.</b> Berbeda dengan
+	 * {@link #generateKuetionerTracerkemendikbud()}, method ini TIDAK membuat
+	 * {@link KelompokParameterTambahanAlumni} maupun baris {@link ParameterTambahanAlumni} penghubungnya.
+	 * Butir-butirnya hanya bernaung pada {@link GrupParameterTambahan} — pengelompokan untuk layar master
+	 * — sehingga tidak terpasang pada satu pun form pengguna sampai seseorang menautkannya secara manual.
+	 * Ini memang wajar untuk data peraga, tetapi berarti memanggil method ini saja tidak akan pernah
+	 * memunculkan angket apa pun bagi pengguna akhir.</p>
+	 *
+	 * <p>Seluruh butir juga dibuat tanpa pembatas lingkup, jadi berlaku lintas jurusan/fakultas/sekolah.</p>
+	 *
+	 * @see #generateKuetionerTracerkemendikbud()
+	 */
 	public static void initContoh() {
 		Session session = HibernateUtil.currentSession();
 		int count = ((Number) session.createCriteria(GrupParameterTambahan.class)
@@ -2353,6 +2421,48 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 	 * entitas (Penyedia/Mahasiswa/Dosen/Guru/Siswa/KelasSiswa/Pilihan Object) — SEMUA property
 	 * objek terpilih via {@link #masukkanData(String, String, Map)} dengan prefix
 	 * {@code <kelId>_<ptId>.<field>} dan {@code param.kode.<kode>.<field>}.
+	 *
+	 * <p><b>Method ini adalah pembaca RESMI format penyimpanan nilai parameter tambahan</b>, dan karena itu
+	 * tempat terbaik untuk memahami bentuknya. Tiap baris dipecah dua tahap: {@code "<=>"} memisahkan
+	 * kolom, lalu kolom pertama dipecah lagi dengan {@code "->"} menjadi {@code kelId} (id baris kelompok
+	 * milik modul pemakai) dan {@code ptId} (id baris {@code ParameterTambahan}). Baris yang tidak
+	 * menghasilkan minimal dua kolom atau dua id DILEWATI diam-diam.</p>
+	 *
+	 * <p>Perhatikan pergantian pemisah: pada penyimpanan, pasangan id dirangkai dengan {@code "->"};
+	 * begitu masuk map laporan ia ditulis ulang sebagai {@code <kelId>_<ptId>} memakai GARIS BAWAH. Ini
+	 * disengaja agar kunci laporan aman dipakai dalam ekspresi template. Bentuk {@code "->"} yang asli
+	 * itulah yang juga menjadi kunci namespace {@code jenis} untuk lampiran — akar {@code task_484d4bd0};
+	 * penjelasan definitifnya ada di
+	 * {@link ParameterTambahanAstract#initComponent(org.zkoss.zul.Row, org.zkoss.zul.Rows, String,
+	 * java.util.List, java.util.Map, Long, String, String, ParameterTambahan,
+	 * org.zkoss.zk.ui.event.EventListener, boolean, String)}.</p>
+	 *
+	 * <p><b>Kolom ketiga (url lampiran) tetap MENTAH.</b> Nilai {@code kolom[2]} dimasukkan apa adanya
+	 * sebagai {@code <kelId>_<ptId>_url}. Kolom ini menyimpan kunci/URL lampiran dalam bentuk lama tanpa
+	 * diskriminator kelas; ia sengaja TIDAK dinamespace agar baris data lama tetap terbaca. Kode yang
+	 * mencocokkan kunci ini dengan {@code jenis} hasil
+	 * {@code LampiranLain.resolveJenisParameterTambahan} harus menormalkannya lebih dulu lewat
+	 * {@code LampiranLain.kunciNilaiParameterTambahan}, jika tidak pencocokannya gagal dalam senyap.</p>
+	 *
+	 * <p><b>Kolom keempat (keterangan) tidak dibaca method ini</b> — hanya kolom 0..2 yang dipakai, jadi
+	 * keterangan per-parameter tidak tersedia di map laporan lewat jalur ini.</p>
+	 *
+	 * <p>Tiap baris dibungkus {@code try/catch} yang mencatat ke {@code ErrorAuditUtil} lalu melanjutkan ke
+	 * baris berikutnya, sehingga satu baris rusak (mis. {@code ptId} bukan angka, atau parameter sudah
+	 * dihapus sehingga {@code ConstantValues.ambil} mengembalikan {@code null}) tidak menggagalkan seluruh
+	 * laporan. Sisi lain dari sifat pemaaf ini: nilai yang hilang tidak pernah tampak sebagai kesalahan,
+	 * hanya sebagai kolom kosong pada hasil cetak.</p>
+	 *
+	 * <p><b>Tabrakan kunci mungkin terjadi.</b> {@link #getNama()} dan {@link #getKode()} tidak dijamin unik.
+	 * Dua parameter bernama sama — mudah terjadi karena {@code getNama()} menurunkan nilainya dari label —
+	 * akan menulis ke kunci {@code param.nama.<nama>} yang sama, dan yang terakhir diproses menang. Kunci
+	 * {@code param.id.<ptId>} dan {@code <kelId>_<ptId>} tetap unik dan merupakan rujukan yang aman.</p>
+	 *
+	 * @param parameterTambahanInds isi kolom penyimpanan nilai; {@code null}/kosong menjadikan method ini
+	 *                              tanpa efek.
+	 * @param map                   map parameter laporan yang akan ditambahi; diubah di tempat. {@code null}
+	 *                              menjadikan method ini tanpa efek.
+	 * @see #masukkanData(String, String, Map)
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void masukkanSemuaParameterKeMap(String parameterTambahanInds, Map map) {

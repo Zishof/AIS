@@ -1157,172 +1157,634 @@ public class LogHostToHost extends GeneralValueObject {
 		return response;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info1}.
+	 *
+	 * <h4>Peringatan umum untuk seluruh keluarga {@code infoN}</h4>
+	 * <p>
+	 * Sembilan belas kolom {@code info0}..{@code info18} adalah <b>ruang penyimpanan tanpa
+	 * skema</b>. Tidak ada satu pun konstanta, enumerasi, atau tabel kamus di codebase yang
+	 * menetapkan arti masing-masing slot. Setiap modul integrasi memakai penomorannya sendiri,
+	 * dan penomoran itu <b>bertabrakan antar modul</b>. Contoh nyata yang sudah terverifikasi:
+	 * jalur SOAP Bank Mandiri menaruh {@code ChannelID} di {@code info1}, sedangkan jalur BNI
+	 * menaruh {@code billKey} di slot yang sama, dan jalur pembayaran generik menaruh data yang
+	 * lain lagi.
+	 * </p>
+	 * <p>
+	 * Akibat praktisnya: <b>menulis query, laporan, atau logika bisnis yang menyaring
+	 * {@code infoN} tanpa sekaligus menyaring {@link #getBankHost()} atau modul asal adalah
+	 * kesalahan</b>. Hasilnya akan mencampur nilai yang secara semantik tidak sebanding, dan
+	 * karena semuanya bertipe {@code text} tidak akan ada galat apa pun yang menandai
+	 * kekeliruan itu. Satu-satunya cara mengetahui arti sebuah slot pada sebuah baris adalah
+	 * menelusuri kode modul yang menulis baris tersebut.
+	 * </p>
+	 *
+	 * @return isi slot {@code info1}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info1", columnDefinition = "text", nullable = true)
 	public String getInfo1() {
 		return info1;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info1}. Baca peringatan tabrakan penomoran antar modul di
+	 * {@link #getInfo1()} sebelum memakai slot ini untuk integrasi baru.
+	 *
+	 * @param info1 nilai yang disimpan apa adanya; tanpa validasi maupun penyamaran
+	 */
 	public void setInfo1(String info1) {
 		this.info1 = info1;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info2}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code CompanyCode}; jalur BNI memakainya untuk nomor transaksi ({@code trxID}).
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info2}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info2", columnDefinition = "text", nullable = true)
 	public String getInfo2() {
 		return info2;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info2}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo2()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info2 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo2(String info2) {
 		this.info2 = info2;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info3}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code Currency}; jalur BNI memakainya untuk nomor referensi finansial ({@code financialReffNum}).
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info3}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info3", columnDefinition = "text", nullable = true)
 	public String getInfo3() {
 		return info3;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info3}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo3()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info3 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo3(String info3) {
 		this.info3 = info3;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info4}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code Language}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info4}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info4", columnDefinition = "text", nullable = true)
 	public String getInfo4() {
 		return info4;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info4}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo4()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info4 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo4(String info4) {
 		this.info4 = info4;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info5}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk stempel waktu transmisi asal ({@code OrigTransmissionDateTime}) pada transaksi reversal.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info5}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info5", columnDefinition = "text", nullable = true)
 	public String getInfo5() {
 		return info5;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info5}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo5()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info5 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo5(String info5) {
 		this.info5 = info5;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info6}.
+	 *
+	 * <p>
+	 * Dua pemakaian yang perlu dibedakan. Jalur SOAP Bank Mandiri menaruh {@code OrigTrxDateTime}, sedangkan jalur pembayaran generik menaruh <b>nominal tagihan</b>. Yang membuat slot ini istimewa: layar pemantauan log membaca {@code getInfo6()} dan memperlakukannya sebagai nominal tagihan ketika menyiapkan pemeriksaan/pengiriman ulang transaksi. Artinya <b>slot ini bukan sekadar catatan pasif — nilainya ikut menentukan perilaku fitur pengulangan transaksi</b>, sehingga baris yang ditulis modul Mandiri (berisi stempel waktu, bukan angka) dapat menyesatkan fitur tersebut.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info6}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info6", columnDefinition = "text", nullable = true)
 	public String getInfo6() {
 		return info6;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info6}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo6()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info6 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo6(String info6) {
 		this.info6 = info6;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info7}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code PaymentAmount}, yakni nominal yang benar-benar dibayarkan.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info7}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info7", columnDefinition = "text", nullable = true)
 	public String getInfo7() {
 		return info7;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info7}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo7()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info7 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo7(String info7) {
 		this.info7 = info7;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info8}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code Reference1} — salah satu dari tiga slot referensi bebas yang isinya ditentukan bank.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info8}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info8", columnDefinition = "text", nullable = true)
 	public String getInfo8() {
 		return info8;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info8}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo8()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info8 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo8(String info8) {
 		this.info8 = info8;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info9}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code Reference2}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info9}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info9", columnDefinition = "text", nullable = true)
 	public String getInfo9() {
 		return info9;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info9}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo9()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info9 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo9(String info9) {
 		this.info9 = info9;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info10}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code Reference3}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info10}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info10", columnDefinition = "text", nullable = true)
 	public String getInfo10() {
 		return info10;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info10}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo10()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info10 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo10(String info10) {
 		this.info10 = info10;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info11}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code TerminalID}, penanda kanal/perangkat asal transaksi di sisi bank.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info11}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info11", columnDefinition = "text", nullable = true)
 	public String getInfo11() {
 		return info11;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info11}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo11()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info11 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo11(String info11) {
 		this.info11 = info11;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info12}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code TransactionID}. Bersama {@link #getInfo11()} inilah pasangan kunci yang dipakai bank saat menanyakan status sebuah transaksi.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info12}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info12", columnDefinition = "text", nullable = true)
 	public String getInfo12() {
 		return info12;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info12}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo12()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info12 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo12(String info12) {
 		this.info12 = info12;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info13}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code TransmissionDateTime}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info13}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info13", columnDefinition = "text", nullable = true)
 	public String getInfo13() {
 		return info13;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info13}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo13()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info13 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo13(String info13) {
 		this.info13 = info13;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info0}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo0()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info0 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo0(String info0) {
 		this.info0 = info0;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info0}.
+	 *
+	 * <p>
+	 * Jalur terpusat pencatatan gateway pembayaran menaruh <b>seluruh baris permintaan HTTP beserta semua header</b> di slot ini (diawali penanda teks berformat "=== HTTP REQUEST ... ==="). Karena "semua header" berarti benar-benar semua, isinya mencakup header otentikasi seperti {@code Authorization}, {@code signature}, atau {@code token} milik mitra. Dengan kata lain slot ini <b>setara sensitifnya dengan {@link #getRequest()}</b> dan wajib diperlakukan sama. Jalur lain memakai slot ini untuk hal yang sepenuhnya berbeda: jalur SOAP Bank Mandiri menaruh {@code BillKey1}, jalur BRI menaruh nomor Virtual Account (BRIVA), dan jalur pembayaran generik menaruh NIM pembayar.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info0}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info0", columnDefinition = "text", nullable = true)
 	public String getInfo0() {
 		return info0;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info14}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo14()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info14 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo14(String info14) {
 		this.info14 = info14;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info14}.
+	 *
+	 * <p>
+	 * Jalur SOAP Bank Mandiri memakainya untuk {@code TrxDateTime}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info14}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info14", columnDefinition = "text", nullable = true)
 	public String getInfo14() {
 		return info14;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info15}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo15()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info15 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo15(String info15) {
 		this.info15 = info15;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info15}.
+	 *
+	 * <p>
+	 * Belum ditemukan modul yang menulis slot ini; secara praktis ia adalah cadangan yang tidak terpakai. Kolomnya tetap dibuat dan tetap ikut terduplikasi ke tabel revisi Envers.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info15}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info15", columnDefinition = "text", nullable = true)
 	public String getInfo15() {
 		return info15;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info16}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo16()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info16 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo16(String info16) {
 		this.info16 = info16;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info16}.
+	 *
+	 * <p>
+	 * Belum ditemukan modul yang menulis slot ini; cadangan yang tidak terpakai. Lihat catatan pada {@link #getInfo15()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info16}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info16", columnDefinition = "text", nullable = true)
 	public String getInfo16() {
 		return info16;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info17}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo17()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info17 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo17(String info17) {
 		this.info17 = info17;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info17}.
+	 *
+	 * <p>
+	 * Belum ditemukan modul yang menulis slot ini; cadangan yang tidak terpakai. Lihat catatan pada {@link #getInfo15()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info17}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info17", columnDefinition = "text", nullable = true)
 	public String getInfo17() {
 		return info17;
 	}
 
+	/**
+	 * Menyetel slot serbaguna {@code info18}. Nilai disimpan apa adanya: tanpa validasi, tanpa
+	 * batas panjang (kolom {@code text}), dan tanpa penyamaran data sensitif. Baca
+	 * {@link #getInfo18()} untuk konvensi pemakaian yang sudah terpakai, dan {@link #getInfo1()}
+	 * untuk peringatan tabrakan penomoran antar modul.
+	 *
+	 * @param info18 nilai yang akan disimpan; boleh {@code null}
+	 */
 	public void setInfo18(String info18) {
 		this.info18 = info18;
 	}
 
+	/**
+	 * Mengembalikan isi slot serbaguna {@code info18}.
+	 *
+	 * <p>
+	 * Belum ditemukan modul yang menulis slot ini; cadangan yang tidak terpakai dan sekaligus penanda batas atas keluarga slot serbaguna pada entitas ini. Lihat catatan pada {@link #getInfo15()}.
+	 * </p>
+	 *
+	 * <p>
+	 * Sebagaimana seluruh keluarga {@code info0}..{@code info18}, slot ini tidak punya makna
+	 * tetap lintas modul dan penomorannya bertabrakan antar integrasi. Jangan menyaring atau
+	 * mengagregasi kolom ini tanpa sekaligus membatasi {@link #getBankHost()} atau modul asal.
+	 * Baca {@link #getInfo1()} untuk penjelasan lengkap pola ini.
+	 * </p>
+	 *
+	 * @return isi slot {@code info18}; maknanya bergantung modul penulis, boleh {@code null}
+	 */
 	@Column(name = "info18", columnDefinition = "text", nullable = true)
 	public String getInfo18() {
 		return info18;

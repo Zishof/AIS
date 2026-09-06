@@ -1171,10 +1171,76 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return this.userPassword;
 	}
 
+	/**
+	 * Menetapkan kata sandi akun.
+	 *
+	 * <p>Setter mentah: <b>tidak</b> melakukan enkripsi, <b>tidak</b> memperbarui
+	 * {@link #setIs_encripted(Boolean)}, dan <b>tidak</b> mencatat
+	 * {@link #setUbahPasword(Date)}. Seluruh tanggung jawab itu ada pada pemanggil &mdash;
+	 * pola bakunya adalah menyimpan hasil {@code Common.desEncrypter.get().encrypt(...)}.
+	 * Menyimpan sandi polos lewat setter ini akan membuat autentikasi gagal karena jalur
+	 * login selalu mendekripsi nilai yang tersimpan.</p>
+	 *
+	 * <p>Perlu diingat pula bahwa untuk akun yang tertaut ke peserta didik, anggota koperasi,
+	 * atau pedagang, nilai yang ditetapkan di sini <b>akan diabaikan</b> oleh
+	 * {@link #getUserPassword()} yang selalu mengambil ulang dari entitas tertaut.</p>
+	 *
+	 * @param userPassword kata sandi yang sudah ter-encode DES
+	 */
 	public void setUserPassword(String userPassword) {
 		this.userPassword = userPassword;
 	}
 
+	/**
+	 * Mengembalikan <b>peran utama</b> akun &mdash; sumber seluruh hak akses pengguna.
+	 *
+	 * <p>Kolom {@code userrole} bersifat {@code nullable=false}, sehingga setiap akun yang
+	 * tersimpan sah <i>seharusnya</i> selalu punya peran. Meskipun begitu method ini tetap
+	 * <b>dapat mengembalikan {@code null}</b>; kondisi itu dan akibatnya dibahas di bawah dan
+	 * secara lengkap di {@link #hakAkses()}.</p>
+	 *
+	 * <h3>Peran diturunkan, bukan sekadar dibaca</h3>
+	 * <p>Getter ini <b>menimpa</b> field {@code userRole} berdasarkan jenis aktor, dengan
+	 * urutan berikut:</p>
+	 * <ol>
+	 *   <li>{@code penyediaAsset != null} &rarr; {@code ConstantValues.tbmrolePenyedia};</li>
+	 *   <li>{@code mahasiswa != null} &rarr; {@code ConstantValues.tbmroleMahasiswa};</li>
+	 *   <li>{@code siswa != null} &rarr; {@code ConstantValues.tbmroleSiswa};</li>
+	 *   <li>{@code penduduk != null} &rarr; {@code ConstantValues.tbmrolePenduduk};</li>
+	 *   <li>selain itu: pakai {@code userRole} tersimpan (setelah
+	 *   {@link GeneralValueObject#check(Object) check(...)}); bila hasilnya {@code null},
+	 *   coba turunkan dari {@code dosen} ({@code ConstantValues.roleDosen}) lalu
+	 *   {@code guru} ({@code ConstantValues.roleGuru}).</li>
+	 * </ol>
+	 *
+	 * <h3>Tiga cara method ini dapat menghasilkan {@code null}</h3>
+	 * <ul>
+	 *   <li><b>Konstanta peran belum ter-<i>seed</i>.</b> Cabang 2&ndash;4 dijaga
+	 *   {@code ConstantValues.tbmroleXxx != null}, tetapi <b>cabang 1 (penyedia aset) tidak
+	 *   dijaga</b>: bila {@code ConstantValues.tbmrolePenyedia} masih {@code null} (cache
+	 *   konstanta belum terisi, mis. tepat setelah <i>restart</i> aplikasi), field
+	 *   {@code userRole} akan <b>ditimpa {@code null}</b> &mdash; menghapus peran yang
+	 *   sebenarnya tersimpan di database, di memori maupun pada {@code flush} berikutnya.</li>
+	 *   <li><b>{@code check()} gagal me-resolve.</b> Bila baris {@link Tbmrole} yang dirujuk
+	 *   sudah dihapus atau proxy-nya <i>detached</i> tanpa cache pendukung, {@code check()}
+	 *   mengembalikan {@code null} dan tidak ada dosen/guru yang bisa menggantikan.</li>
+	 *   <li><b>Akun tanpa relasi apa pun</b> yang belum pernah diberi peran (mis. hasil
+	 *   konstruktor konversi pada cabang yang tidak menetapkan peran).</li>
+	 * </ul>
+	 *
+	 * <p><b>Mengapa ini penting.</b> Hasil {@code null} di sini merambat ke
+	 * {@link #hakAkses()} dan seterusnya ke puluhan {@code *ApiHelper.bolehAksi()} yang
+	 * memperlakukan {@code role == null} sebagai <b>izinkan penuh</b> (<i>fail-open</i>).
+	 * Rinciannya didokumentasikan di {@link #hakAkses()}.</p>
+	 *
+	 * <p>Untuk membaca peran <b>efektif</b> pengguna, jangan panggil method ini secara
+	 * langsung &mdash; pakai {@link #hakAkses()}. Untuk mengumpulkan seluruh peran termasuk
+	 * slot tambahan, pakai {@link #ambilRoles()}.</p>
+	 *
+	 * @return peran utama akun, atau {@code null} pada kondisi anomali di atas
+	 * @see #hakAkses()
+	 * @see #ambilRoles()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "userrole", nullable = false)
 	public Tbmrole getUserRole() {
@@ -1205,6 +1271,24 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return this.userRole;
 	}
 
+	/**
+	 * Menetapkan peran utama akun.
+	 *
+	 * <p><b>Setter satu arah:</b> {@code null} <b>diabaikan</b> (method langsung
+	 * {@code return}). Ini pelindung yang disengaja &mdash; kolomnya {@code nullable=false},
+	 * sehingga membiarkan {@code null} tertulis akan membuat baris gagal disimpan. Efek
+	 * sampingnya: <b>peran tidak dapat dicabut lewat setter ini</b>; untuk memindahkan akun
+	 * ke peran lain harus menetapkan {@link Tbmrole} pengganti yang valid.</p>
+	 *
+	 * <p><b>Setter ini TIDAK memperbarui cache {@link #getUserRoleYgDipakai}.</b> Selama
+	 * cache masih memuat entri untuk {@code userId} ini, {@link #hakAkses()} akan terus
+	 * mengembalikan peran <b>lama</b> walaupun kolom di database sudah berubah. Pemanggil
+	 * yang mengubah peran wajib memutakhirkan cache itu sendiri &mdash; itulah yang
+	 * dilakukan {@code TbmuserAction} dan {@code MainAction} (pemilih peran) setelah
+	 * menyimpan. Lihat pembahasan lengkap di {@link #hakAkses()}.</p>
+	 *
+	 * @param userRole peran baru; {@code null} diabaikan
+	 */
 	public void setUserRole(Tbmrole userRole) {
 		if (userRole == null) {
 			return;
@@ -1212,19 +1296,86 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		this.userRole = userRole;
 	}
 
+	/**
+	 * Penanda tampil/sembunyi akun pada daftar pengguna. Nilai default {@code 1} (tampil).
+	 *
+	 * <p>Ini <b>bukan</b> gerbang keamanan &mdash; menyembunyikan akun dari daftar tidak
+	 * mencegahnya login. Untuk memblokir akses pakai {@link #getAktif()}.</p>
+	 *
+	 * <p>Salah satu dari sangat sedikit getter di kelas ini yang benar-benar non-delegatif
+	 * dan bebas efek samping.</p>
+	 *
+	 * @return {@code 1} bila akun ditampilkan, nilai lain bila disembunyikan
+	 */
 	@Column(name = "usershow", nullable = true)
 	public Integer getUserShow() {
 		return this.userShow;
 	}
 
+	/**
+	 * Menetapkan penanda tampil/sembunyi akun pada daftar pengguna.
+	 *
+	 * @param userShow {@code 1} untuk ditampilkan
+	 * @see #getUserShow()
+	 */
 	public void setUserShow(Integer userShow) {
 		this.userShow = userShow;
 	}
 
+	/**
+	 * Menetapkan relasi ke data dosen.
+	 *
+	 * <p>Setter mentah dua arah ({@code null} diterima). Perlu diingat bahwa
+	 * {@link #getDosen()} melakukan auto-resolusi sehingga nilai {@code null} yang ditetapkan
+	 * di sini dapat "hidup kembali" bila akun berperan {@code DOSEN} dan ada data dosen yang
+	 * namanya cocok dengan {@link #getUserNama()}.</p>
+	 *
+	 * @param dosen data dosen yang ditautkan; boleh {@code null}
+	 */
 	public void setDosen(Dosen dosen) {
 		this.dosen = dosen;
 	}
 
+	/**
+	 * Mengembalikan data dosen pemilik akun ini, atau {@code null} bila akun bukan milik
+	 * dosen aktif.
+	 *
+	 * <h3>Empat sumber, dievaluasi berurutan</h3>
+	 * <ol>
+	 *   <li>Field {@code dosen} yang sudah ter-resolve lewat
+	 *   {@link GeneralValueObject#check(Object) check(...)};</li>
+	 *   <li><b>Turunan dari pegawai:</b> bila akun tertaut ke {@link Pegawai} yang punya
+	 *   {@code getDosen()}, nilai itu menimpa hasil langkah 1 (pegawai dapat merangkap
+	 *   dosen);</li>
+	 *   <li><b>Auto-resolusi berbasis nama:</b> bila belum ada dosen ber-{@code id} dan
+	 *   {@link #ambilRolesIdLower()} memuat peran {@code DOSEN}, seluruh cache
+	 *   {@link Dosen} ditelusuri dan diambil entri pertama yang {@code getNama()}-nya sama
+	 *   persis (tanpa memandang huruf besar/kecil) dengan {@code userNama};</li>
+	 *   <li><b>Turunan dari anggota koperasi:</b> {@code anggotaKoperasi.getDosen()} menimpa
+	 *   hasil sebelumnya bila ada.</li>
+	 * </ol>
+	 *
+	 * <p><b>Kewaspadaan pada langkah 3.</b> Pencocokan dilakukan <b>berdasarkan nama</b>,
+	 * bukan kunci asing. Dua dosen bernama identik akan menghasilkan penautan ke entri
+	 * pertama yang kebetulan ditemui pada iterasi {@code Map} cache &mdash; urutannya tidak
+	 * dijamin stabil antar-<i>restart</i>. Selain itu langkah ini memindai seluruh cache
+	 * dosen, sehingga mahal untuk akun berperan {@code DOSEN} yang memang belum tertaut.
+	 * Perhatikan pula bahwa langkah ini memanggil {@link #ambilRolesIdLower()} yang pada
+	 * gilirannya memanggil {@link #getUserRole()} &mdash; sumber rekursi tidak langsung yang
+	 * membuat getter ini jauh lebih mahal daripada tampilannya.</p>
+	 *
+	 * <p><b>Penyaring keaktifan di akhir:</b> dosen yang ditemukan tetapi
+	 * {@code getAktif()}-nya {@code false} dikembalikan sebagai {@code null}. Jadi
+	 * {@code null} di sini berarti "bukan dosen <i>aktif</i>", bukan "tidak punya data
+	 * dosen". Perbedaan ini penting karena {@link #getAktif()} memakai kondisi
+	 * {@code getDosen() == null} untuk menonaktifkan akun "yatim peran".</p>
+	 *
+	 * <p>Seluruh exception pada langkah 3 dan 4 ditelan dan hanya dicatat ke
+	 * {@code ErrorAuditUtil}.</p>
+	 *
+	 * @return data dosen aktif pemilik akun, atau {@code null}
+	 * @see #ambilDosen()
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen", nullable = true)
 	public Dosen getDosen() {
@@ -1270,6 +1421,15 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return (dosen == null || (dosen != null && !dosen.getAktif())) ? null : dosen;
 	}
 
+	/**
+	 * Menetapkan relasi ke data tenaga medis (Dokter/Perawat/Bidan) modul SIRS.
+	 *
+	 * <p>Setter mentah dua arah. Seperti pada {@link #setDosen(Dosen)}, nilai {@code null}
+	 * dapat "hidup kembali" lewat auto-resolusi berbasis nama di {@link #getDokter()} bila
+	 * akun berperan {@link Tbmrole#DOKTER}.</p>
+	 *
+	 * @param dokter data tenaga medis yang ditautkan; boleh {@code null}
+	 */
 	public void setDokter(ais.database.model.sirs.Dokter dokter) {
 		this.dokter = dokter;
 	}
@@ -1315,10 +1475,51 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		return (dokter.getAktif() != null && !dokter.getAktif().booleanValue()) ? null : dokter;
 	}
 
+	/**
+	 * Menetapkan relasi ke data mahasiswa.
+	 *
+	 * <p>Setter mentah. Ingat bahwa {@link #getMahasiswa()} bersifat {@code @Transient}
+	 * (tidak ada kolom {@code mahasiswa} di tabel {@code tbmuser}), sehingga nilai ini
+	 * <b>tidak bertahan</b> setelah entity dimuat ulang &mdash; ia harus diturunkan kembali
+	 * dari {@code biodataCalonMahasiswa} atau {@code anggotaKoperasi}.</p>
+	 *
+	 * @param mahasiswa data mahasiswa yang ditautkan; boleh {@code null}
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Mengembalikan data mahasiswa pemilik akun ini, atau {@code null}.
+	 *
+	 * <p><b>Relasi transien.</b> Ditandai {@code @Transient}, jadi tidak ada kolom kunci
+	 * asing untuk mahasiswa di tabel {@code tbmuser}. Nilainya hanya hidup selama object ada
+	 * di memori dan harus diturunkan ulang setiap kali entity dimuat.</p>
+	 *
+	 * <h3>Gerbang dan urutan resolusi</h3>
+	 * <ol>
+	 *   <li><b>Gerbang {@link #bukanPesertaDidik()}.</b> Bila akun terbukti milik pedagang,
+	 *   pegawai, guru, dosen, atau administrator, method langsung mengembalikan {@code null}.
+	 *   Ini mencegah akun staf yang kebetulan juga terdaftar sebagai mahasiswa diperlakukan
+	 *   sebagai peserta didik &mdash; sekaligus berarti <b>staf yang berkuliah tidak akan
+	 *   dapat melihat data kemahasiswaannya sendiri</b> lewat jalur ini.</li>
+	 *   <li>{@code biodataCalonMahasiswa.getMahasiswa()} &mdash; pendaftar PMB yang sudah
+	 *   menjadi mahasiswa;</li>
+	 *   <li>{@code anggotaKoperasi.getMahasiswa()};</li>
+	 *   <li>field {@code mahasiswa} apa adanya, <b>tetapi hanya bila</b>
+	 *   {@link #getUserRole()} bernilai tepat {@link Tbmrole#MAHASISWA}. Peran apa pun selain
+	 *   itu menghasilkan {@code null} meski field-nya terisi.</li>
+	 * </ol>
+	 *
+	 * <p>Syarat peran pada langkah 4 membuat method ini <b>bergantung pada
+	 * {@link #getUserRole()}</b>. Karena getter peran itu dapat mengembalikan {@code null}
+	 * pada kondisi anomali (lihat {@link #hakAkses()}), akun mahasiswa yang sah dapat sesaat
+	 * tampak "bukan mahasiswa" &mdash; yang selanjutnya mengubah hasil
+	 * {@link #getUserNama()}, {@link #getEmail()}, {@link #getUserPassword()}, dan
+	 * {@link #getSekolah()}.</p>
+	 *
+	 * @return data mahasiswa, atau {@code null} bila akun bukan akun mahasiswa
+	 */
 	@Transient
 	public Mahasiswa getMahasiswa() {
 		if (bukanPesertaDidik()) {
