@@ -84,21 +84,34 @@ import ais.ui.util.MyWindow;
  */
 public class AmbilDataIkutPerkuliahanHelper {
 
+	/** Tahun akademik jadwal perkuliahan yang dicari/ditampilkan (mis. "2026/2027"). */
 	private String tahunAjaran;
+	/** Nomor semester default untuk filter pencarian, sekaligus nilai yang dicatat pada {@link Detailperkuliahan} baru. */
 	private Integer semester;
+	/** Mahasiswa yang akan mengikuti perkuliahan; sumber filter Fakultas/Prodi/Program awal dan pemilik {@link Detailperkuliahan} yang disimpan. */
 	private Mahasiswa mahasiswa;
+	/** Grid hasil pencarian jadwal {@link Perkuliahan}, dirender oleh {@link MatakuliahRenderer}. */
 	private MyGrid grid;
 
 	/* Paging server-side per 5 baris (pola AmbilDataPagingHelper). */
+	/** Helper paging server-side (tidak dipakai aktif pada grid mold "paging" saat ini; dipertahankan untuk kompatibilitas). */
 	private final ais.ui.util.AmbilDataPagingHelper pagingHelper = new ais.ui.util.AmbilDataPagingHelper();
+	/** Kotak filter kode Mata Kuliah (pencocokan ILIKE, dipicu {@code onChange}). */
 	private Textbox kodeMk;
+	/** Kotak filter nama Mata Kuliah (pencocokan ILIKE, dipicu {@code onChange}). */
 	private Textbox namaMk;
+	/** Combobox filter Fakultas; pra-isi dari fakultas {@link #mahasiswa}. */
 	private Combobox searchfakultas = new Combobox();
+	/** Combobox filter Program Studi ({@link Jurusan}); pra-isi dari jurusan {@link #mahasiswa}, opsi dibatasi ke fakultas terpilih. */
 	private Combobox jurusanCombobox = new Combobox();
+	/** Combobox filter {@link Program}; pra-isi dari program {@link #mahasiswa}. */
 	private Combobox programCombobox = new Combobox();
+	/** Combobox filter nomor semester (1..{@code max_semester_pilihan}); pra-isi dari {@link #semester}. */
 	private Combobox semesterBox;
+	/** Penanda konteks Semester Pendek/Antara ({@code null} untuk reguler); diteruskan dari konstruktor. */
 	private Integer semesterPendek;
 
+	/** Helper agenda/aktivitas perkuliahan yang dipakai saat baris grid dibuka ({@link MyDetail} onOpen) untuk menampilkan agenda kelas. */
 	protected AktifitasPerkuliahanHelper aktifitasPerkuliahanHelper;
 
 	/** @param semesterPendek penanda konteks Semester Pendek/Antara; {@code null} untuk reguler. */
@@ -124,10 +137,21 @@ public class AmbilDataIkutPerkuliahanHelper {
 	 */
 	class MatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** DAO {@link Perkuliahan} dipakai hanya untuk mengambil {@link #session} yang sedang berjalan. */
 		private PerkuliahanDao perkuliahanDao = DaoFactory.getInstance().getPerkuliahanDao();
 
+		/** Session Hibernate aktif, dipakai menghitung jumlah {@link Detailperkuliahan} mahasiswa pada {@link Perkuliahan} baris ini. */
 		private Session session = perkuliahanDao.getCurrentSession();
 
+		/**
+		 * Merender satu baris jadwal {@link Perkuliahan}: tautan buka-agenda ({@link MyDetail}), info
+		 * mata kuliah/dosen/jadwal/ruang, dan checkbox pilih yang disembunyikan bila mahasiswa sudah
+		 * mengikuti/mengambil mata kuliah tersebut (label "Terpilih" vs "Tersedia").
+		 *
+		 * @param row  baris grid target; diberi atribut {@code myValue} (perkuliahan) dan
+		 *             {@code checkbox} (state pilihan) untuk dibaca {@link #save()}
+		 * @param arg1 data baris, di-cast ke {@link Perkuliahan}
+		 */
 		@Override
 		public void render(Row row, Object arg1) throws Exception {
 			// TODO Auto-generated method stub

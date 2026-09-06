@@ -526,7 +526,9 @@ public class RekapitulasiTugasKelompokHelper {
 	 */
 	public static class DetailPertemuanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/** Callback dipanggil untuk memuat ulang grid setelah window {@link PertemuanHelper} yang dibuka dari baris ini ditutup. */
 		private EventListener eventListener;
+		/** User yang sedang login; konteks mahasiswa/calon mahasiswanya diteruskan ke {@link PertemuanHelper} saat membuka detail pertemuan. */
 		private Tbmuser tbmuser = Common.getCurrentUser();
 
 		/** @param eventListener callback yang dipanggil untuk memuat ulang grid setelah window {@link PertemuanHelper} ditutup */
@@ -535,6 +537,15 @@ public class RekapitulasiTugasKelompokHelper {
 			this.eventListener = eventListener;
 		}
 
+		/**
+		 * Merender satu baris untuk satu {@link TugasKelompok} (lihat javadoc kelas
+		 * {@link DetailPertemuanRenderer} untuk rincian tautan yang dibangun); baris disembunyikan
+		 * bila tugas tidak punya {@link Pertemuan} terkait.
+		 *
+		 * @param row  baris grid yang diisi
+		 * @param data instance {@link TugasKelompok} untuk baris ini
+		 * @throws Exception diteruskan dari kegagalan pembangunan UI atau akses data
+		 */
 		@Override
 		public void render(final Row row, Object data) throws Exception {row.setValign("top");
 			final TugasKelompok tugas = (TugasKelompok) data;

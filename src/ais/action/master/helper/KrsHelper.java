@@ -90,31 +90,69 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class KrsHelper implements DataLoader {
 
+	/** Grid daftar matakuliah KRS; model barisnya berupa id {@link Detailperkuliahan} (bukan entity), dirender {@link DetailMahasiswaRenderer}. */
 	private MyGrid grid;
+	/** Grid komentar/catatan konsultasi Dosen Pembimbing Akademik, diisi ulang oleh {@link #loadDataKomentar()}. */
 	private MyGrid gridKomentar;
+	/** Panel "Informasi Jam Bentrok"; isinya dibersihkan lalu ditulis ulang setiap kali {@link #loadData(Object)} dipanggil. */
 	private MyDiv jamBentrok = new MyDiv();
+	/** Mahasiswa pemilik KRS yang sedang ditampilkan; diisi dari argumen {@link #display}. */
 	private Mahasiswa mahasiswa;
+	/** Semester KRS yang sedang ditampilkan; ganjil/genap-nya juga menentukan jenis semester konfigurasi periode KRS. */
 	private Integer semester;
+	/**
+	 * Dosen Pembimbing Akademik hasil {@code krsMahasiswa.getDosenPa()}. Bernilai {@code null} bila
+	 * mahasiswa belum memiliki PA, yang memblokir tombol "Ambil Perkuliahan" selama konfigurasi
+	 * {@code dosen_pa_harus_ada_sebelum_isi_krs} bernilai aktif.
+	 */
 	private Dosen dosenPembimbingAkademik;
 
+	/**
+	 * Daftar id {@link Detailperkuliahan} milik KRS yang sedang ditampilkan; disegarkan oleh
+	 * {@link #loadData(Object)} dan dipakai ulang sebagai penanda "sudah pernah mengambil KRS"
+	 * pada mode perbaikan serta sebagai daftar pengecualian saat membuka {@code AmbilDataPerkuliahanHelper}.
+	 */
 	private List<Long> detailperkuliahans;
 
+	/**
+	 * Tombol "Ambil Perkuliahan". Visibilitasnya ditentukan oleh aktif-tidaknya {@link #konfigurasi}
+	 * atau {@link #konfigurasiPerbaikan}, dan dapat dipaksa tampil belakangan oleh
+	 * {@link Common#checkApakahMahasiswaBolehAmbilKrsLewatPengecualian}.
+	 */
 	private MyButtonConfig buttonPerkuliahan;
+	/** Label ringkasan status persetujuan KRS ("Belum disetujui semua" / "Sebagian sudah disetujui" / "Sudah disetujui semua"), diperbarui {@link #loadStatus()}. */
 	private Label statusPersetujuan;
 	// private Html keterangan;
+	/** Komponen {@link Html} milik pemanggil tempat keterangan analisis KRS ditulis ulang oleh {@link #loadStatus()} lewat {@code KrsMahasiswaAnalisisPopupHelper}. */
 	private Html keteranganParent;
+	/** Label total SKS yang sudah diambil pada KRS ini; dihitung ulang dari {@link #detailperkuliahans} oleh {@link #loadStatus()}. */
 	private Label jumlahKRS;
+	/** Label batas maksimum SKS yang boleh diambil (dari {@link Common#getMinDanMaxIPK}); nilainya hanya diisi sekali saat {@link #display}. */
 	private Label jumlahMaxSks;
 
+	/** Konfigurasi periode pengambilan KRS awal ({@code KRS} / {@code KRS_SP} / {@code KRS_REMEDIAL}) untuk tahun ajaran dan jenis semester yang berlaku. */
 	private Konfigurasi konfigurasi;
+	/**
+	 * Konfigurasi periode perbaikan KRS ({@code PERBAIKAN_KRS} / {@code PERBAIKAN_KRS_SP} /
+	 * {@code PERBAIKAN_KRS_REMEDIAL}). Bila periode ini yang aktif (dan {@link #konfigurasi} tidak),
+	 * pengambilan hanya diizinkan bagi mahasiswa yang sudah pernah mengisi KRS.
+	 */
 	private Konfigurasi konfigurasiPerbaikan;
+	/** Tahun ajaran KRS yang sedang ditampilkan; diisi dari argumen {@link #display} dan dipakai untuk pencarian konfigurasi periode serta pemuatan komentar. */
 	private String tahunAjaran;
+	/** Status semester pendek yang berlaku; {@code null} berarti KRS reguler (bukan semester pendek). */
 	private Integer semesterPendek = null;
 
+	/** Tahapan pembayaran/KRS bila fitur tahapan aktif. Nilai khusus {@code -1} menyembunyikan grid, toolbar, panel jam bentrok, dan grid komentar. */
 	private Integer tahapan;
+	/** Bila {@code true}, helper beroperasi dalam mode KRS remedial sehingga memakai pasangan konfigurasi {@code *_REMEDIAL}. */
 	private boolean remedial = false;
 
 	/**
+	 * Menyimpan mode operasi helper (reguler / semester pendek / remedial). Mode inilah yang
+	 * menentukan pasangan {@link Konfigurasi} periode KRS mana yang dibaca di {@link #display}
+	 * serta parameter yang diteruskan ke {@code AmbilDataPerkuliahanHelper}, laporan, dan komentar.
+	 *
 	 * @param semesterPendek status semester pendek yang berlaku ({@code null} untuk KRS reguler)
 	 * @param remedial       bila {@code true}, helper beroperasi dalam mode KRS remedial
 	 *                       (konfigurasi {@code KRS_REMEDIAL}/{@code PERBAIKAN_KRS_REMEDIAL})

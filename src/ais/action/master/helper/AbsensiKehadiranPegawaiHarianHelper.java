@@ -1369,6 +1369,31 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 							detailJenisShiftPegawaiManual.setWidth("90%");
 							EventListener eventListenerDetailJenisShiftPegawaiManual = new EventListener() {
 
+								/**
+								 * Menangani centang/lepas checkbox "Manual" pada kolom Shift sekaligus dipakai untuk
+								 * inisialisasi kontrol saat baris pertama kali dirender.
+								 *
+								 * <p>Saat dicentang: combobox shift ditampilkan dan diisi ulang hanya dengan
+								 * {@link DetailJenisShiftPegawai} milik {@link JenisShiftPunyaPegawai} pegawai ini yang
+								 * masih berlaku pada tanggal baris ({@code berlakuMulai &le; tanggal} dan
+								 * {@code berlakuSampai} null atau {@code &ge; tanggal}, hanya jenis shift aktif, diambil
+								 * satu jenis shift terbaru lewat {@code setMaxResults(1)}); bila pegawai tidak punya jenis
+								 * shift yang berlaku, daftar sengaja dikosongkan dengan {@code Restrictions.sqlRestriction("false")}
+								 * sehingga hanya menyisakan pilihan "Shift dibuat otomatis". Saat dilepas, override
+								 * {@code detailJenisShiftPegawaiManual} dikosongkan sehingga shift kembali mengikuti
+								 * perhitungan otomatis.</p>
+								 *
+								 * <p><b>Efek samping:</b> selain mengubah tampilan, listener ini juga menulis kembali
+								 * bulan/tahun/tanggal/minggu ke entity dan — HANYA bila dipicu event UI nyata
+								 * ({@code arg0 != null}, bukan pemanggilan inisialisasi dengan {@code null}) — langsung
+								 * mem-persist perubahan lewat {@link Common#refreshSaveOrUpdate(Object)} tanpa dialog
+								 * konfirmasi. Semua label besaran penggajian (jam masuk, lembur, cepat keluar, terlambat)
+								 * dan info shift dihitung ulang dari getter turunan entity setelah override berubah.</p>
+								 *
+								 * @param arg0 event ZK pemicu, atau {@code null} bila dipanggil untuk inisialisasi awal
+								 *             baris (mode ini sengaja tidak menyimpan ke database)
+								 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									detailJenisShiftPegawaiManual
@@ -1460,6 +1485,21 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 							detailJenisShiftPegawaiManual.addEventListener("onChange", new EventListener() {
 
+								/**
+								 * Menyimpan pilihan shift manual yang baru dipilih operator pada kolom Shift. Berbeda
+								 * dengan listener checkbox "Manual", method ini SELALU mem-persist (tidak ada cabang
+								 * {@code arg0 != null}) karena hanya bisa terpicu oleh interaksi pemakai: override
+								 * {@code detailJenisShiftPegawaiManual} beserta bulan/tahun/tanggal/minggu ditulis ke
+								 * entity lalu disimpan lewat {@link Common#refreshSaveOrUpdate(Session, Object)} tanpa
+								 * dialog konfirmasi.
+								 *
+								 * <p>Setelah menyimpan, seluruh label besaran penggajian (jam masuk, lembur, cepat
+								 * keluar, terlambat) dan label info shift dihitung ulang dari getter turunan
+								 * {@link StatuskehadiranKaryawanHarian} agar langsung mencerminkan shift baru.</p>
+								 *
+								 * @param arg0 event {@code onChange} dari combobox shift manual
+								 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									Session session = HibernateUtil.currentSession();
@@ -1537,6 +1577,30 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 							EventListener eventListenerDetailJenisShiftPegawaiLembur = new EventListener() {
 
+								/**
+								 * Kembaran {@code eventListenerDetailJenisShiftPegawaiManual} untuk kolom Lembur:
+								 * menangani checkbox "Manual" lembur sekaligus dipakai untuk inisialisasi baris.
+								 * Selain combobox shift lembur, listener ini juga menampilkan/menyembunyikan sepasang
+								 * {@link Timebox} {@code lamburMulai}/{@code lamburSampai} sehingga operator dapat
+								 * membatasi jendela jam lembur secara manual.
+								 *
+								 * <p>Query pengisian combobox identik dengan kolom Shift (hanya
+								 * {@link DetailJenisShiftPegawai} dari {@link JenisShiftPunyaPegawai} pegawai ini yang
+								 * berlaku pada tanggal baris, kosong-total lewat
+								 * {@code Restrictions.sqlRestriction("false")} bila tidak ada), tetapi label pilihan
+								 * bawaannya "Samakan dengan shift utama" — artinya lembur mengikuti shift utama bila
+								 * tidak dipilih shift khusus. Melepas centang mengosongkan
+								 * {@code detailJenisShiftPegawaiLembur}.</p>
+								 *
+								 * <p><b>Efek samping:</b> sama seperti kembarannya, perubahan langsung dipersist lewat
+								 * {@link Common#refreshSaveOrUpdate(Object)} tanpa konfirmasi HANYA bila
+								 * {@code arg0 != null}; pemanggilan inisialisasi dengan {@code null} sengaja tidak
+								 * menyimpan. Seluruh label besaran penggajian dihitung ulang setelahnya.</p>
+								 *
+								 * @param arg0 event ZK pemicu, atau {@code null} bila dipanggil untuk inisialisasi awal
+								 *             baris
+								 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									detailJenisShiftPegawaiLembur
@@ -1634,6 +1698,22 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 
 							EventListener eventListenerData = new EventListener() {
 
+								/**
+								 * Listener bersama yang dipasang pada tiga kontrol sekaligus — combobox shift lembur
+								 * ({@code onChange}) serta kedua {@link Timebox} jam lembur {@code lamburMulai} dan
+								 * {@code lamburSampai} — sehingga perubahan pada salah satunya menyimpan ketiga nilai
+								 * secara utuh dan konsisten.
+								 *
+								 * <p>Menulis {@code detailJenisShiftPegawaiLembur}, {@code lamburMulai},
+								 * {@code lamburSampai}, dan penanda periode (bulan/tahun/tanggal/minggu) ke entity, lalu
+								 * mem-persist lewat {@link Common#refreshSaveOrUpdate(Session, Object)} tanpa dialog
+								 * konfirmasi bila dipicu event nyata ({@code arg0 != null}). Seluruh label besaran
+								 * penggajian dan info shift dihitung ulang dari getter turunan entity setelahnya.</p>
+								 *
+								 * @param arg0 event ZK pemicu dari salah satu dari ketiga kontrol lembur, atau
+								 *             {@code null} bila dipanggil tanpa menyimpan
+								 * @throws Exception diteruskan dari akses Hibernate/komponen ZK bila terjadi kegagalan
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 
@@ -1699,6 +1779,22 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 								checkboxConfig.setChecked(statuskehadiranKaryawanHarian.getAbaikanJarak());
 								checkboxConfig.addEventListener(Events.ON_CHECK, new EventListener() {
 
+									/**
+									 * Menyimpan langsung flag "Abaikan Jarak" pada baris kehadiran ini: bila dicentang,
+									 * validasi radius/jarak lokasi absensi online tidak diberlakukan untuk tanggal
+									 * tersebut, sehingga scan dari luar area kantor tetap dihitung sah.
+									 *
+									 * <p>Perubahan ditulis seketika tanpa dialog konfirmasi:
+									 * {@code session.refresh()} menyegarkan entity dari database lebih dulu (menghindari
+									 * menimpa perubahan bersamaan dari sesi lain), lalu {@code update()} dan
+									 * {@code flush()} langsung dijalankan pada session ZK berjalan. Checkbox ini hanya
+									 * dirender untuk baris yang sudah tersimpan ({@code getId() != null}); baris yang
+									 * belum tersimpan hanya menampilkan nilai turunan dari
+									 * {@link JenisShiftPunyaPegawai#getAbaikanJarak()} sebagai label read-only.</p>
+									 *
+									 * @param arg0 event {@code onCheck} dari checkbox "Abaikan Jarak"
+									 * @throws Exception diteruskan dari akses Hibernate bila penyimpanan gagal
+									 */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 										Session session = HibernateUtil.currentSession();
@@ -1734,6 +1830,16 @@ public class AbsensiKehadiranPegawaiHarianHelper extends MyDetail {
 							button.setVisible(edit && statuskehadiranKaryawanHarian.getDikunci() == null);
 
 							button.addEventListener("onClick", new EventListener() {
+								/**
+								 * Membuka jendela modal "Ubah Waktu Kehadiran" untuk baris tanggal ini lewat
+								 * {@link AbsensiKehadiranPegawaiHarianHelper#editJam(StatuskehadiranKaryawanHarian)}.
+								 * Tombol pemicunya hanya terlihat bila panel berada dalam mode edit dan baris belum
+								 * dikunci ({@code getDikunci() == null}); penyembunyian ini murni di sisi tampilan,
+								 * sedangkan penulisan sebenarnya dilakukan di dalam {@code editJam}.
+								 *
+								 * @param event event {@code onClick} dari tombol Ubah Data
+								 * @throws Exception diteruskan dari pembangunan jendela edit
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									editJam(statuskehadiranKaryawanHarian);

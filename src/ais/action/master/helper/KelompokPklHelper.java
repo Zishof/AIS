@@ -79,13 +79,20 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class KelompokPklHelper implements DataLoader, DataCriteria {
 
+	/** Grid berpaging yang menampilkan daftar anggota {@link #kelompokPkl}, dirender oleh {@link DetailKelompokPklRenderer}. */
 	private MyGrid grid;
+	/** Kelompok PKL yang anggotanya sedang ditampilkan/dikelola pada tampilan ini. */
 	private KelompokPkl kelompokPkl;
+	/** User yang sedang login; menentukan hak edit baris (dosen/admin) vs baca-saja (mahasiswa bersangkutan). */
 	private Tbmuser tbmuser;
 
+	/** Komponen paging grid; dimuat ulang lewat {@link #loadData} setiap kali halaman aktif berubah. */
 	private Paging paging;
+	/** Checkbox filter toolbar: bila dicentang, hanya tampilkan anggota berstatus diterima. */
 	private MyCheckboxConfig diterima;
+	/** Checkbox filter toolbar: bila dicentang, hanya tampilkan anggota berstatus belum diterima. */
 	private MyCheckboxConfig belumDiterima;
+	/** Kotak pencarian toolbar: kata kunci NIM/nama mahasiswa yang menyaring {@link #initCriteria(boolean)}. */
 	private Textbox nim;
 
 	/**
@@ -285,6 +292,7 @@ public class KelompokPklHelper implements DataLoader, DataCriteria {
 
 	}
 
+	/** @return {@code this} sebagai {@link DataLoader}, diteruskan ke dialog tambah anggota agar dapat memicu {@link #loadData} setelah simpan. */
 	private DataLoader getDataloader() {
 		return this;
 	}
