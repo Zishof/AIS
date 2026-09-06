@@ -99,10 +99,77 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * {@code HibernateUtil.getSessionFactory().openSession()} dengan pola try-catch-finally eksplisit dan
  * rollback bila terjadi exception.
  *
- * <p><b>Hak akses:</b> Dua peran dibedakan berdasarkan field {@code mahasiswa} dan {@code biodataCalonMahasiswa}:
+ * <p><b>Hak akses (FAKTA ARSITEKTUR — wajib dipahami sebelum mengubah kelas ini):</b> Kelas ini hanya
+ * mengenal <b>satu</b> pembeda peran, yaitu "akun peserta" versus "akun bukan-peserta". Predikat yang
+ * dipakai berulang di seluruh kelas adalah:
+ * <pre>
+ * mahasiswa == null &amp;&amp; biodataCalonMahasiswa == null
+ *         &amp;&amp; tbmuser.getPesertaKursus() == null &amp;&amp; tbmuser.getSiswa() == null
+ * </pre>
  * <ul>
- *   <li>Peserta (mahasiswa/calon/siswa): tampilan read-only untuk jawaban, koreksi, dan nilai.</li>
- *   <li>Staf/dosen/admin: dapat mengedit koreksi, nilai esai, dan (jika dikonfigurasi) jawaban PG.</li>
+ *   <li><b>Peserta</b> (punya profil {@link Mahasiswa}, {@link BiodataCalonMahasiswa},
+ *       {@code PesertaKursus}, atau {@code Siswa}): seluruh tampilan jawaban, koreksi, dan nilai
+ *       bersifat read-only — hanya {@link Label}, tanpa {@link Textbox}/{@link MyDoublebox}.</li>
+ *   <li><b>Bukan peserta</b> (akun staf apa pun): mendapat {@link Textbox} koreksi, {@link MyDoublebox}
+ *       nilai esai, tombol "Ulang Ujian", "Koreksi Otomatis (AI)", "History", dan "Riwayat Jawaban".</li>
+ * </ul>
+ * <p><b>Yang TIDAK diperiksa kelas ini:</b> apakah pengguna adalah dosen pengampu mata kuliah / pembuat
+ * ujian yang sedang dikoreksi, apakah ujian berada dalam cakupan satuan kerja / fakultas / program studi
+ * pengguna, dan apakah nilai sudah dikunci atau sudah diposting ke KHS. Konsekuensinya, <b>setiap akun
+ * non-peserta</b> yang berhasil mencapai layar ini dapat mengubah nilai esai dan catatan koreksi peserta
+ * mana pun, serta me-reset seluruh jawaban peserta lewat "Ulang Ujian". Keputusan boleh/tidak boleh
+ * diserahkan sepenuhnya kepada pemanggil ({@link HasilUjianMahasiswaHelper} dan
+ * {@code HasilUjianSiswaHelper}) melalui rute menu. Ini adalah pola yang sama persis dengan yang
+ * didokumentasikan pada {@link DetailperkuliahanForPenilaianHelper} (lihat bagian "Catatan cakupan" di
+ * Javadoc kelas tersebut): penjaga di lapisan helper bersifat <i>antarmuka</i> — ia menentukan apa yang
+ * <i>tampil</i>, bukan apa yang <i>boleh tersimpan</i>. Satu-satunya gerbang yang benar-benar memeriksa
+ * peran di kelas ini adalah {@code Common.getApakahAdmin() && adminBolehMerubahJawabanUjian} untuk
+ * mengubah pilihan jawaban Pilihan Ganda.
+ *
+ * <p><b>Jejak audit (Envers) — FAKTA ARSITEKTUR:</b> {@link HasilUjianMahasiswaDetail} beranotasi
+ * {@code @Audited}, sehingga <b>setiap</b> perubahan koreksi, nilai, dan pilihan jawaban yang ditulis
+ * kelas ini (termasuk yang ditulis lewat sesi Hibernate mandiri {@code openSession()} — Envers terpasang
+ * sebagai event listener di level {@code SessionFactory}, bukan per-sesi) menghasilkan baris revisi pada
+ * tabel {@code new_audit.*__audit}. Riwayatnya dapat dibaca pengguna lewat
+ * {@link RevisiHelper#createNewRevisi} per-baris jawaban dan lewat tombol "History"
+ * ({@link RevisiHasilUjianMahasiswaHelper}).
+ * <p><b>Batasan jejak audit yang perlu diketahui:</b> repositori ini <b>tidak</b> mendefinisikan
+ * {@code @RevisionEntity}/{@code RevisionListener} kustom, sehingga Envers memakai
+ * {@code DefaultRevisionEntity} bawaan yang hanya menyimpan <i>nomor revisi</i> dan <i>timestamp</i>.
+ * Artinya: revisi mencatat <b>apa</b> yang berubah dan <b>kapan</b>, tetapi <b>tidak mencatat siapa</b>
+ * yang mengubahnya. Digabung dengan gerbang otorisasi lebar di atas, koreksi nilai pasca-simpan tidak
+ * dapat diatribusikan ke satu pengguna dari data audit saja. Ini adalah fakta arsitektur yang berlaku
+ * untuk seluruh entity {@code @Audited} di aplikasi, bukan khusus kelas ini.
+ *
+ * <p><b>Koreksi otomatis berbasis AI:</b> Tombol "Koreksi Otomatis (AI)" mengirim soal, kunci jawaban,
+ * jawaban peserta, dan konteks OBE mata kuliah ke model bahasa via
+ * {@link GenerateAiHelper#jalankanAiStreaming}, lalu menerapkan jawabannya ke DB. Ada dua jalur berbeda
+ * tergantung jenis ujian:
+ * <ul>
+ *   <li><b>Esai</b> — {@link #kumpulkanEssay} &rarr; {@link #promptKoreksiEssay} &rarr;
+ *       {@link #terapkanKoreksiEssay}: <b>menulis kolom {@code nilai} DAN {@code koreksi}</b> (nilai
+ *       di-<i>clamp</i> ke rentang {@code [0, skor soal]}), lalu memicu
+ *       {@link UjianRecomputeUtil#hitungUlangSekarang} untuk menghitung ulang total nilai peserta.</li>
+ *   <li><b>Pilihan Ganda</b> — {@link #kumpulkanPg} &rarr; {@link #promptKoreksiPg} &rarr;
+ *       {@link #terapkanKoreksiPg}: <b>hanya menulis kolom {@code koreksi}</b> (penjelasan edukatif);
+ *       skor PG tetap dihitung sistem dan tidak disentuh AI.</li>
+ * </ul>
+ * Kedua jalur menulis massal untuk seluruh soal peserta dalam satu transaksi, tanpa konfirmasi
+ * per-nilai. Perubahan tetap terekam Envers dengan batasan atribusi yang dijelaskan di atas.
+ *
+ * <p><b>Relasi dengan kelas lain:</b>
+ * <ul>
+ *   <li>{@link ais.database.model.Ujian} / {@link PertemuanPunyaUjian} — definisi ujian, jenis soal,
+ *       jendela waktu ({@code mulaiUjian}/{@code sampaiUjian}), dan template sertifikat.</li>
+ *   <li>{@link HasilUjianMahasiswa} — agregat hasil per peserta; menyediakan
+ *       {@code ambilUjianPunyaSoals}, {@code ambilHasilUjianMahasiswaDetail}, tiga helper set
+ *       ({@code ambilBankSoalIdTerjawab}/{@code Benar}/{@code Dinilai}), dan {@code reset()}.</li>
+ *   <li>{@link UjianRecomputeUtil} — penghitung ulang total nilai peserta; dipanggil setelah perubahan
+ *       nilai esai (manual maupun AI). Kelas tersebut di luar cakupan dokumen ini.</li>
+ *   <li>{@link ProsesUjianHelper#hitungPilihanGanda} — penghitung ulang skor Pilihan Ganda; dipakai
+ *       tombol "Hitung Ulang".</li>
+ *   <li>{@code UtsDanUasCheckerHelper} — pemeriksa kelengkapan UTS/UAS; tidak dipanggil dari kelas ini,
+ *       tetapi bekerja pada entity hasil ujian yang sama.</li>
  * </ul>
  *
  * <p><b>Threading:</b> Semua operasi UI berjalan di thread ZK. Event listener bersifat inner class anonymous

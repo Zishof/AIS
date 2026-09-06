@@ -131,17 +131,164 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * {@link #calonSiswa} {@code null}); satu siswa melihat hasilnya sendiri; atau satu calon
  * siswa (PMB) melihat hasilnya sendiri.
  * </p>
+ *
+ * <h3>Hubungan dengan mekanisme ujian mahasiswa — bukan mesin terpisah</h3>
+ * <p>
+ * Meskipun nama kelas ini memakai kata "Siswa" (domain sekolah) dan bukan "Mahasiswa"
+ * (domain perguruan tinggi), <b>tidak ada mesin ujian tersendiri untuk sekolah</b>.
+ * Penelusuran memastikan bahwa <b>tidak ada entity {@code HasilUjianSiswa} maupun
+ * {@code HasilUjianSiswaDetail}</b> di {@code ais.database.model} maupun
+ * {@code ais.database.model.sekolah}. Modul sekolah <b>memakai ulang secara langsung</b>
+ * rantai tiga lapis yang sama dengan modul mahasiswa:
+ * </p>
+ * <ol>
+ * <li>{@link ais.database.model.Ujian} — master ujian (jenis soal, aturan tampilan
+ * huruf pilihan, dsb.);</li>
+ * <li>{@link PertemuanPunyaUjian} — penempelan ujian pada satu {@link Pertemuan}
+ * beserta parameter pelaksanaan ({@code jmlDitampilkan}, {@code mulaiUjian},
+ * {@code sampaiUjian}, {@code mhsYgTidakIkut});</li>
+ * <li>{@link HasilUjianMahasiswa} + {@link HasilUjianMahasiswaDetail} — lembar jawaban
+ * satu peserta dan jawaban per soal.</li>
+ * </ol>
+ * <p>
+ * Yang membedakan siswa dari mahasiswa hanyalah <b>kolom peserta mana yang terisi</b> pada
+ * {@link HasilUjianMahasiswa}: entity tersebut bersifat polimorfik dengan empat kolom
+ * peserta yang saling eksklusif — {@code mahasiswa}, {@code biodataCalonMahasiswa},
+ * {@code siswa}, dan {@code calonSiswa} — yang dirangkum menjadi satu kunci alami
+ * {@code keyhasil} lewat {@code HasilUjianMahasiswa.genKey(...)} dan diambil lewat
+ * {@link HasilUjianMahasiswa#ambilByKey(PertemuanPunyaUjian, ais.database.model.Mahasiswa,
+ * ais.database.model.BiodataCalonMahasiswa, Siswa, CalonSiswa)}. Karena itu kelas ini
+ * bekerja penuh di atas tipe {@code HasilUjianMahasiswa} walaupun pesertanya siswa; nama
+ * variabel lokal {@code hasilUjianMahasiswa}/{@code hasilUjianMahasiswas} di sepanjang
+ * berkas ini bukan salah salin-tempel, melainkan memang tipe entity yang benar.
+ * </p>
+ * <p>
+ * Konsekuensinya kelas ini adalah <b>kembaran UI</b> dari
+ * {@link HasilUjianMahasiswaHelper} — bukan turunan, bukan pemakainya, melainkan salinan
+ * paralel dengan perbedaan pada sumber daftar peserta (daftar hadir kelas sekolah lewat
+ * {@link AbsensiSiswaHelper#populateSiswaDariPertemuan(Pertemuan)} / gelombang PSB, bukan
+ * daftar peserta perkuliahan), pada label kolom cetak
+ * ({@code siswa.nim}/{@code calonSiswa.noRegistrasi} alih-alih padanan mahasiswa), dan
+ * pada pemilihan cabang di pemanggilnya ({@code DetailUjianHelper} memilih kelas ini bila
+ * {@code pertemuan.getJadwalPelajaran() != null || pertemuan.getJadwalUjianPSB() != null},
+ * selain itu memakai {@link HasilUjianMahasiswaHelper}). Beberapa bagian bahkan langsung
+ * memanggil kembali milik kembarannya, misalnya tombol analisis butir soal
+ * ({@code HasilUjianMahasiswaHelper.analsisButirSoal}). Perender detail koreksi
+ * soal-per-soal ({@link KoreksiHasilUjian}) dan mesin penilaian pilihan ganda
+ * ({@link ProsesUjianHelper#hitungPilihanGanda}) juga dipakai bersama oleh kedua domain.
+ * </p>
+ *
+ * <h3>Catatan otorisasi (fakta arsitektur)</h3>
+ * <p>
+ * Kelas ini <b>tidak memiliki gerbang otorisasi maupun pemeriksaan kepemilikan sendiri</b>.
+ * Tidak ada pemeriksaan cakupan satuan kerja
+ * ({@code getMelihatDataSatkerLain()}), tidak ada verifikasi bahwa pengguna yang sedang
+ * masuk adalah guru pengampu {@link #pertemuan} tersebut, dan tidak ada pembatasan bahwa
+ * peserta yang ditampilkan berada dalam lingkup tenant pengguna. Seluruh kendali akses
+ * bertumpu pada layar pemanggil, dan di sana pun bentuknya hanya
+ * {@code button.setVisible(...)} — gerbang tingkat tampilan, bukan gerbang tingkat
+ * server. Satu-satunya pemeriksaan peran di dalam berkas ini adalah syarat kasar
+ * "akun bukan mahasiswa dan bukan siswa"
+ * ({@code tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null}) yang
+ * memunculkan tombol "Reset Ujian" per peserta. Beberapa tombol destruktif/berdampak luas
+ * bahkan tidak diberi {@code setVisible} sama sekali (misalnya "Lampiran ke Drive", yang
+ * memindahkan berkas jawaban ke Google Drive pengguna yang sedang masuk lalu
+ * <b>menghapus BLOB aslinya</b> dari basis data lewat {@code FileFoto.hapusTotal}) — sama
+ * seperti pada kembarannya {@link HasilUjianMahasiswaHelper}, jadi ini konsistensi
+ * lintas-kelas, bukan penyimpangan lokal. Fakta ini didokumentasikan agar pembaca tidak
+ * mengira ada perlindungan tersembunyi di lapisan helper.
+ * </p>
  */
 public class HasilUjianSiswaHelper implements DataLoader {
 
+	/**
+	 * Ujian yang sedang ditampilkan — lapisan KEDUA dari mekanisme ujian AIS
+	 * ({@link ais.database.model.Ujian} = master soal/aturan &rarr;
+	 * {@link PertemuanPunyaUjian} = penempelan ujian pada satu pertemuan/jadwal
+	 * beserta parameter pelaksanaannya seperti {@code jmlDitampilkan},
+	 * {@code mulaiUjian}, {@code sampaiUjian}, {@code mhsYgTidakIkut} &rarr;
+	 * {@link HasilUjianMahasiswa} = lembar jawaban satu peserta).
+	 *
+	 * <p>
+	 * Diisi <b>bukan</b> lewat konstruktor melainkan pada awal
+	 * {@link #display(PertemuanPunyaUjian, Component)}, sehingga sebelum {@code display}
+	 * dipanggil field ini masih {@code null}. {@link #tampilRow} juga dapat
+	 * menyinkronkan ulang field ini dari {@link HasilUjianMahasiswa#getPertemuanPunyaUjian()}
+	 * baris yang dibuka, sebagai pengaman bila satu instance helper dipakai lintas
+	 * beberapa ujian.
+	 * </p>
+	 */
 	private PertemuanPunyaUjian pertemuanPunyaUjian;
+
+	/**
+	 * Grid utama tab "Peserta": satu baris {@link Row} per peserta, dirender oleh
+	 * {@link DetailPertemuanPunyaUjianRenderer}. Dibuat di awal
+	 * {@link #display(PertemuanPunyaUjian, Component)} dan dipasang dengan
+	 * {@code pageSize} 1000 (praktis "semua peserta dalam satu halaman") serta paging
+	 * di atas dan bawah. Model-nya diisi ulang setiap kali {@link #loadData(Object)}
+	 * dijalankan.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * Mode "satu siswa": bila terisi, layar hanya menampilkan hasil ujian milik siswa
+	 * ini dan sebagian besar tombol aksi massal disembunyikan (lihat
+	 * {@link #display(PertemuanPunyaUjian, Component)}). Bernilai {@code null} pada mode
+	 * admin/guru.
+	 *
+	 * <p>
+	 * <b>Catatan penelusuran:</b> konstruktor yang mengisi field ini
+	 * ({@link #HasilUjianSiswaHelper(Siswa, CalonSiswa, Pertemuan)}) tidak dipanggil dari
+	 * mana pun di basis kode saat dokumentasi ini ditulis; kedua pemanggil nyata
+	 * ({@code DetailUjianHelper} dan {@code sekolah.helper.PertemuanPunyaUjianSiswaHelper})
+	 * memakai konstruktor mode admin/guru. Jadi cabang-cabang {@code siswa != null} di
+	 * kelas ini praktis merupakan jalur cadangan yang belum aktif.
+	 * </p>
+	 */
 	private Siswa siswa;
+
+	/**
+	 * Mode "satu calon siswa" (peserta PMB/PSB yang belum menjadi siswa): sepadan dengan
+	 * {@link #siswa} tetapi untuk pendaftar. Bernilai {@code null} pada mode admin/guru.
+	 * Sama seperti {@link #siswa}, hanya terisi lewat konstruktor tiga-argumen yang
+	 * saat ini tidak dipakai pemanggil mana pun.
+	 */
 	private CalonSiswa calonSiswa;
 
+	/**
+	 * Region ZK tempat tab "Statistik" digambar ulang setiap kali
+	 * {@link #displayStatistik(int, int, int)} dipanggil (isi lama dibersihkan lebih
+	 * dulu dengan {@link Common#clear(Component)}). Dibuat di
+	 * {@link #display(PertemuanPunyaUjian, Component)} dan dipasang sebagai anak
+	 * borderlayout tab kedua.
+	 */
 	private Center east;
 
+	/**
+	 * Pertemuan (sesi kelas/jadwal) sumber daftar peserta. Diisi lewat konstruktor.
+	 * Perannya ada dua:
+	 * <ol>
+	 * <li>menentukan sumber daftar peserta pada {@link #loadData(Object)} — bila terisi,
+	 * daftar hadir kelas diambil lewat
+	 * {@link AbsensiSiswaHelper#populateSiswaDariPertemuan(Pertemuan)};</li>
+	 * <li>mengaktifkan tombol "Peserta dianggap hadir" (konversi hasil ujian menjadi
+	 * catatan absensi lewat {@link #ujianDianggapHadir}) — tombol tersebut hanya tampil
+	 * bila field ini tidak {@code null}.</li>
+	 * </ol>
+	 * Perhatikan bahwa nilai ini bisa berbeda objek dari
+	 * {@code pertemuanPunyaUjian.getPertemuan()}; sebagian besar logika justru memakai
+	 * yang terakhir.
+	 */
 	private Pertemuan pertemuan;
+
+	/**
+	 * Kotak pencarian pada toolbar (nama/NIM peserta, atau nama/no registrasi/no ujian
+	 * calon siswa). Hanya tampil pada mode admin/guru. Nilainya dibaca ulang setiap
+	 * {@link #loadData(Object)} dan dipakai sebagai filter {@code ILIKE ANYWHERE} pada
+	 * seluruh jalur pengambilan daftar peserta. Kosongnya kotak ini juga menjadi penanda
+	 * "muat penuh" yang memicu penulisan ulang cache lokasi hasil ujian
+	 * ({@code bersihkanLokasiHasilUjianMahasiswa}/{@code tulisLokasiHasilUjianMahasiswa}).
+	 */
 	private Textbox nama;
 
 	/** Membuat helper dalam mode admin/guru: menampilkan hasil ujian SELURUH peserta {@code pertemuan}. */

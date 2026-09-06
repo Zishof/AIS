@@ -93,15 +93,24 @@ import ais.ui.util.MyWindow;
  */
 public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 
+	/** Grid tampilan daftar (mode {@link #display}); dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Kalender akademik yang sedang dikelola relasi konfigurasinya; diset di awal {@link #display} / {@link #displayPilihanInline}. */
 	private KalenderAkademik kalenderAkademik;
+	/** Baris {@link KonfigurasiKalenderAkademik} yang sedang diedit/dibuat lewat form manual ({@link #init}/{@link #onSave(Event)}). */
 	private KonfigurasiKalenderAkademik konfigurasiKalenderAkademik;
+	/** Window modal form tambah/ubah, dibuat oleh {@link #init(KonfigurasiKalenderAkademik)}. */
 	private MyWindow addWindow;
 
+	/** Input keterangan bebas pada form manual (dibangun oleh {@link #init}/{@link #tampilkanFormKonfigurasiLain}). */
 	private Textbox keterangan;
+	/** Kombo pilihan nilai target {@link Konfigurasi} saat kalender MULAI (biasanya {@link Konfigurasi#AKTIF}/{@link Konfigurasi#TIDAK_AKTIF}). */
 	private Combobox padaSaatMulaiBerubahMenjadi;
+	/** Kombo pilihan nilai target {@link Konfigurasi} saat kalender SELESAI (biasanya {@link Konfigurasi#AKTIF}/{@link Konfigurasi#TIDAK_AKTIF}). */
 	private Combobox padaSaatSelesaiBerubahMenjadi;
+	/** Bandbox pencarian/pemilihan {@link Konfigurasi} target pada form manual; nilai terpilih disimpan di atribut komponen ("konfigurasi"). */
 	private AmbilDataKonfigurasiBanbox konfigurasi;
+	/** Listener yang dipicu ulang setiap kali data relasi berubah, biasanya untuk menyegarkan layar induk. */
 	private EventListener eventListener;
 
 	/**
@@ -398,8 +407,21 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 
 	}
 
+	/**
+	 * Nama {@link Konfigurasi} (via {@link Konfigurasi#getNama()}) yang sedang tercentang pada
+	 * checklist "sering dipakai" ({@link #displayPilihanInline}/{@link #init}). Diisi ulang dari
+	 * database oleh {@link #ambilKonfigurasiTerpilihDariDatabase()} dan diubah langsung oleh
+	 * listener {@code onClick} tiap checkbox; hanya dipersist ke database saat {@link #simpanInline}
+	 * atau tombol Simpan pada {@link #init} dijalankan.
+	 */
 	private Set<String> dataSelected = new HashSet<String>();
 
+	/**
+	 * Mengisi ulang {@link #dataSelected} dari relasi {@link KonfigurasiKalenderAkademik} yang sudah
+	 * tersimpan di database untuk {@link #kalenderAkademik} saat ini, agar checklist tampilan inline
+	 * merefleksikan status tersimpan. Tidak melakukan apa pun bila {@link #kalenderAkademik} belum
+	 * diset.
+	 */
 	private void ambilKonfigurasiTerpilihDariDatabase() {
 		if (kalenderAkademik == null) {
 			return;
@@ -417,6 +439,20 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Membangun daftar statis nama+deskripsi {@link Konfigurasi} yang "sering dipakai" (KRS,
+	 * penjadwalan, penilaian, checklist penilaian dosen/guru, dsb.), disaring berdasarkan jenis
+	 * institusi (Perguruan Tinggi dan/atau Sekolah/Yayasan) via {@link Common#chekPtAtauSekolah()}.
+	 * Dipakai baik oleh {@link #tampilkanChecklistKonfigurasiSering(Component)} maupun oleh
+	 * {@link #simpanKonfigurasiTerpilih()} untuk menentukan nama mana yang termasuk kelompok
+	 * "sering dipakai" (bukan form manual).
+	 *
+	 * <p><b>Perhatian:</b> daftar yang sama (nama dan deskripsinya) juga dituliskan ulang secara
+	 * terpisah di dalam {@link #init(KonfigurasiKalenderAkademik)} — lihat catatan duplikasi pada
+	 * Javadoc kelas ini.</p>
+	 *
+	 * @return daftar pasangan {@code {nama, deskripsi}}, tiap elemen array berukuran 2
+	 */
 	private List<String[]> ambilDataKonfigurasiSering() {
 		List<String[]> dataKonfigurasi = new ArrayList<String[]>();
 
@@ -457,6 +493,14 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		return dataKonfigurasi;
 	}
 
+	/**
+	 * Merender grid checklist "Konfigurasi yang sering dipakai" (tab pertama pada
+	 * {@link #displayPilihanInline}): satu baris per item {@link #ambilDataKonfigurasiSering()},
+	 * checkbox diinisialisasi checked/unchecked dari {@link #dataSelected}, dan tiap klik langsung
+	 * menambah/menghapus nama konfigurasi dari {@link #dataSelected} (belum dipersist ke database).
+	 *
+	 * @param parent komponen ZK induk tempat grid checklist dirender
+	 */
 	private void tampilkanChecklistKonfigurasiSering(Component parent) {
 		MyGrid gridChecklist = new MyGrid();
 		gridChecklist.setSclass("fgrid");
@@ -492,6 +536,16 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Merender form manual "Konfigurasi Lain" (tab kedua pada {@link #displayPilihanInline}): kombo
+	 * {@link #padaSaatMulaiBerubahMenjadi}/{@link #padaSaatSelesaiBerubahMenjadi}, bandbox
+	 * {@link #konfigurasi} untuk memilih {@link Konfigurasi} target di luar daftar "sering dipakai",
+	 * dan {@link #keterangan}. Nilai awal komponen diambil dari {@code konfigurasiKalenderAkademik}
+	 * yang diberikan (baris baru atau baris existing bila sedang mengubah).
+	 *
+	 * @param parent                     komponen ZK induk tempat form dirender
+	 * @param konfigurasiKalenderAkademik sumber nilai awal form; boleh berupa instance baru (kosong)
+	 */
 	private void tampilkanFormKonfigurasiLain(Component parent,
 			KonfigurasiKalenderAkademik konfigurasiKalenderAkademik) {
 		MyGrid gridForm = new MyGrid();
@@ -585,6 +639,17 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		displayPilihanInline(kalenderAkademik, component);
 	}
 
+	/**
+	 * Menyimpan hasil checklist "sering dipakai" ({@link #dataSelected}) ke database untuk
+	 * {@link #kalenderAkademik} saat ini: nama yang di-uncheck (tapi sebelumnya tersimpan dan
+	 * termasuk kelompok "sering dipakai" menurut {@link #ambilDataKonfigurasiSering()}) dilepas
+	 * relasinya (baris {@link KonfigurasiKalenderAkademik} dihapus, {@link Konfigurasi} terkait
+	 * dilepas dari kalender ini), sedangkan nama yang tercentang dicarikan/dibuatkan
+	 * {@link Konfigurasi} (dicocokkan berdasarkan nama+tahun akademik+jenis semester) lalu direlasikan
+	 * lewat baris {@link KonfigurasiKalenderAkademik} baru bila belum ada. Diakhiri dengan menjalankan
+	 * ulang {@code KonfigurasiKalenderAkademikProcessor.doProcess()} agar efek konfigurasi langsung
+	 * diterapkan sesuai fase kalender saat ini.
+	 */
 	private void simpanKonfigurasiTerpilih() {
 		Session session = HibernateUtil.currentSession();
 		List<String[]> dataKonfigurasi = ambilDataKonfigurasiSering();
@@ -650,6 +715,20 @@ public class KonfigurasiKalenderAkademikHelper implements DataLoader {
 		KonfigurasiKalenderAkademikProcessor.doProcess();
 	}
 
+	/**
+	 * Membangun dan menampilkan window modal tambah/ubah satu relasi {@link KonfigurasiKalenderAkademik}.
+	 * Untuk baris BARU ({@code konfigurasiKalenderAkademik.getId() == null}) window menampilkan dua tab
+	 * ("Konfigurasi yang sering dipakai" sebagai checklist, dan "Konfigurasi Lain" sebagai form manual
+	 * yang membangun ulang grid via {@link #ambilDataKonfigurasiSering()}/{@link #dataSelected} —
+	 * duplikat dari {@link #tampilkanChecklistKonfigurasiSering}, lihat catatan duplikasi pada Javadoc
+	 * kelas); untuk baris EXISTING hanya form manual yang ditampilkan (tab checklist tidak relevan
+	 * karena baris sudah terikat satu {@link Konfigurasi} tertentu). Tombol Simpan menyimpan baris
+	 * checklist yang tercentang (bila ada, logika sama seperti {@link #simpanKonfigurasiTerpilih()}
+	 * namun disalin inline) dan/atau memanggil {@link #onSave(Event)} untuk form manual.
+	 *
+	 * @param konfigurasiKalenderAkademik baris yang akan diedit, atau instance baru untuk membuat baris baru
+	 * @throws Exception diteruskan dari kegagalan render/akses database
+	 */
 	private void init(KonfigurasiKalenderAkademik konfigurasiKalenderAkademik) throws Exception {
 		this.konfigurasiKalenderAkademik = konfigurasiKalenderAkademik;
 		addWindow = new MyWindow();
