@@ -51,8 +51,11 @@ import ais.common.Common;
 import ais.common.CommonMedia;
 import ais.common.ConstantValues;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Fakultas;
+import ais.database.model.Jurusan;
 import ais.database.model.KelompokStatusKeluarMahasiswa;
 import ais.database.model.Mahasiswa;
+import ais.database.model.Tbmuser;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.MyCaptionStyled;
 import ais.ui.util.MyColumnConfig;
@@ -973,7 +976,7 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 	@Override
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
-		return session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+		Criteria criteria = session.createCriteria(Mahasiswa.class).add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
 
 				.add(pencarian.getValue().trim().isEmpty() ? Restrictions.sqlRestriction("true")
 						: Restrictions.or(Restrictions.ilike("nama", pencarian.getValue().trim(), MatchMode.ANYWHERE),
@@ -981,6 +984,52 @@ public class KelompokStatusKeluarMahasiswaDetailAction extends MyDetail implemen
 
 				.addOrder(Order.desc("id"))
 				.add(Restrictions.eq("kelompokStatusKeluarMahasiswa", kelompokStatusKeluarMahasiswa));
+		terapkanCakupanProdi(criteria);
+		return criteria;
+	}
+
+	/**
+	 * Menerapkan gerbang cakupan program studi (fail-closed) atas kriteria anggota kelompok status
+	 * keluar mahasiswa, dipakai bersama oleh {@link #loadData(Object)}, tombol "Hapus Semua", dan
+	 * tombol cetak/ekspor toolbar ({@code Common.cetakData(Mahasiswa.class, this, contents)}) karena
+	 * ketiganya memanggil {@link #initCriteria(boolean)} yang sama.
+	 *
+	 * <p>Sebelum gerbang ini, kelas dan seluruh rantai di atasnya (lihat Javadoc kelas) tidak
+	 * memiliki penyaring kepemilikan apa pun: hanya privilese menu (CREATE/UPDATE/DELETE) yang
+	 * dicek di kelas induk. Pola gerbang ini meniru
+	 * {@code RekeningDosenAction.terapkanCakupanSatuanKerja(Criteria)} yang dipakai untuk membatasi
+	 * akses data dosen: user dengan {@code hakAkses().getMelihatDataSatkerLain() == true} tetap
+	 * melihat seluruh mahasiswa keluar lintas prodi (mis. staf akademik pusat/BAAK); user lain
+	 * dibatasi ke mahasiswa yang sejurusan dengannya, atau sefakultas bila cakupan jurusannya tidak
+	 * ada tetapi cakupan fakultasnya ada. Bila TIDAK ADA cakupan jurusan maupun fakultas yang dapat
+	 * ditentukan untuk user tersebut, kriteria ditutup total ({@code 1=0}, tidak mengembalikan baris
+	 * apa pun) alih-alih diam-diam membuka seluruh data mahasiswa keluar.</p>
+	 *
+	 * <p>{@link KelompokStatusKeluarMahasiswa} sendiri tidak punya kolom jurusan/fakultas (kelompok
+	 * memang global lintas prodi), sehingga cakupan di sini dikenakan pada {@link Mahasiswa} anggota
+	 * lewat kolom {@code jurusan}-nya, bukan lewat kelompoknya.</p>
+	 *
+	 * @param criteria kriteria {@link Mahasiswa} yang akan dibatasi in-place
+	 */
+	private void terapkanCakupanProdi(Criteria criteria) {
+		Tbmuser tbmuser = Common.getCurrentUser();
+		boolean bolehLihatSatkerLain = tbmuser != null && tbmuser.hakAkses() != null
+				&& Boolean.TRUE.equals(tbmuser.hakAkses().getMelihatDataSatkerLain());
+		if (bolehLihatSatkerLain) {
+			return;
+		}
+
+		Jurusan jurusanScope = tbmuser == null ? null : tbmuser.ambilJurusan();
+		Fakultas fakultasScope = tbmuser == null ? null : tbmuser.ambilFakultas();
+
+		if (jurusanScope != null) {
+			criteria.add(Restrictions.eq("jurusan", jurusanScope));
+		} else if (fakultasScope != null) {
+			criteria.createAlias("jurusan", "kelompokKeluarScopeJurusan");
+			criteria.add(Restrictions.eq("kelompokKeluarScopeJurusan.fakultas", fakultasScope));
+		} else {
+			criteria.add(Restrictions.sqlRestriction("1=0"));
+		}
 	}
 
 	/**

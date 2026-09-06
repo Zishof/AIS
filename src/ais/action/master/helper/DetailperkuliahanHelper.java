@@ -1419,14 +1419,23 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 
-										for (Long detailperkuliahanid : detailperkuliahan) {
-											Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
-													.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
-											if (detailperkuliahan != null) {
-												detailperkuliahan.setPersetujuan(Detailperkuliahan.BELUM_DISETUJUI);
-												Common.refreshUpdate(detailperkuliahan);
+									final List<String> dilewatiKarenaNilai = new ArrayList<String>();
+									for (Long detailperkuliahanid : detailperkuliahan) {
+										Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
+												.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
+										if (detailperkuliahan != null) {
+											if (Common.bolehKonfigurasi("batalkan_persetujuan_harus_memiliki_nilai_nol")
+													&& detailperkuliahan.getPersetujuan() != null
+													&& detailperkuliahan.getPersetujuan().equals(Detailperkuliahan.DISETUJUI)
+													&& detailperkuliahan.getTotalNilai() > 1.0) {
+												dilewatiKarenaNilai.add(detailperkuliahan.getMahasiswa() == null ? detailperkuliahanid.toString()
+														: detailperkuliahan.getMahasiswa().getNim() + " - " + detailperkuliahan.getMahasiswa().getNama());
+												continue;
 											}
+											detailperkuliahan.setPersetujuan(Detailperkuliahan.BELUM_DISETUJUI);
+											Common.refreshUpdate(detailperkuliahan);
 										}
+									}
 										perkuliahan.belum("detailperkulaiahan");
 										Common.createDefaultTimer(new EventListener() {
 

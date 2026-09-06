@@ -6413,6 +6413,32 @@ public class AbsensiHelper {
 	}
 
 	/**
+	 * Gerbang fail-closed bersama {@link #bolehKonfirmasi} dan {@link #bolehKonfirmasiRps}: memastikan
+	 * {@code mahasiswa} benar-benar terdaftar sebagai peserta {@code pertemuan} (dicocokkan terhadap
+	 * {@link #populateMahasiswaDariPertemuan(Pertemuan)}) sebelum diberi kartu konfirmasi yang bisa menulis.
+	 * Diletakkan DI DALAM kedua method tersebut (bukan hanya di pemanggilnya) karena keduanya adalah method
+	 * statis {@code public} yang bisa dipanggil dari jalur lain tanpa melewati pemeriksaan
+	 * {@link #createStatusKehadiranKonfirmasi}/{@link #createStatusSesuaiDenganRpsKonfirmasi}.
+	 *
+	 * @param pertemuan pertemuan yang keanggotaannya diperiksa
+	 * @param mahasiswa mahasiswa yang akan diberi kartu konfirmasi
+	 * @return {@code true} bila {@code mahasiswa} ada pada daftar peserta {@code pertemuan}
+	 */
+	private static boolean merupakanPesertaPertemuan(Pertemuan pertemuan, Mahasiswa mahasiswa) {
+		if (pertemuan == null || mahasiswa == null || mahasiswa.getId() == null) {
+			return false;
+		}
+
+		for (GeneralValueObject gvo : populateMahasiswaDariPertemuan(pertemuan)) {
+			if (gvo instanceof Mahasiswa && mahasiswa.getId().equals(((Mahasiswa) gvo).getId())) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Membangun kartu KONFIRMASI kehadiran dosen oleh {@code mahasiswa} (perwakilan kelas), dipakai pada blok
 	 * "Konfirmasi kehadiran dosen oleh perwakilan kelas" di {@link #createListMahasiswaIzin}. Berbeda dari
 	 * {@link #boleh}, kartu ini mencatat status kehadiran dosen ke SET DATA KONFIRMASI TERPISAH (bukan status
@@ -6425,12 +6451,20 @@ public class AbsensiHelper {
 	 * {@code sesuaikan} milik form induk, karena kartu ini berdiri sendiri di panel izin, bukan di form info
 	 * pertemuan).</p>
 	 *
+	 * <p><b>Gerbang otorisasi:</b> {@code mahasiswa} WAJIB benar-benar peserta {@code pertemuan} (lihat
+	 * {@link #merupakanPesertaPertemuan}); bila tidak, kartu kosong (non-editable) dikembalikan — fail-closed,
+	 * karena tidak ada peran "perwakilan kelas" di kode ini.</p>
+	 *
 	 * @param dosen     dosen yang kehadirannya sedang dikonfirmasi
 	 * @param pertemuan pertemuan terkait
 	 * @param mahasiswa mahasiswa (perwakilan kelas) yang melakukan konfirmasi
-	 * @return kartu kontrol konfirmasi kehadiran dosen
+	 * @return kartu kontrol konfirmasi kehadiran dosen, atau kartu kosong bila {@code mahasiswa} bukan peserta
 	 */
 	public static Component bolehKonfirmasi(final Dosen dosen, final Pertemuan pertemuan, final Mahasiswa mahasiswa) {
+
+		if (!merupakanPesertaPertemuan(pertemuan, mahasiswa)) {
+			return new Label();
+		}
 
 		Statusabsensi statusabsensi = (Statusabsensi) ConstantValues.ambil(Statusabsensi.class.getName(),
 				pertemuan.retreiveAbsensiIdKonfirmasi(mahasiswa.getId(), dosen));

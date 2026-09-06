@@ -480,51 +480,34 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 	 * laporan mencakup yudisium hasil hitung ulang ({@link Common#hitungJudisium}), data KRS
 	 * lulus tersinkron, foto kelulusan, serta seluruh properti {@link BiodataMahasiswa},
 	 * {@link Mahasiswa}, dan {@link Skripsi} terkait. Dipanggil dari tombol "Bukti" pada baris
-	 * grid helper ini dan dari tombol "Cetak Bukti" di {@code MahasiswaRegistrasiWisudaAction}.
+	 * grid helper ini dan dari tombol "Cetak Bukti" di {@code MahasiswaRegistrasiWisudaAction} —
+	 * kedua tombol tampil untuk semua pengguna yang dapat membuka layarnya, tanpa memeriksa hak
+	 * {@link #edit}.
 	 *
 	 * <p>
-	 * <b>Method ini MENULIS ke basis data sebelum mencetak.</b> Sebelum menyusun laporan ia
-	 * dapat menetapkan No. Kursi dari id pendaftaran yang di-padding nol hingga 8 digit lalu
-	 * menyimpannya lewat {@link Common#refreshSaveOrUpdate(Object)}. Dua hal perlu diketahui
-	 * pemelihara sebelum menyentuh blok tersebut:
-	 * </p>
-	 * <ul>
-	 * <li><b>Syarat penulisannya terbalik dari maksudnya.</b> Kondisi yang dipakai adalah
-	 * {@code getNoKursi() == null || !getNoKursi().isEmpty()}, sehingga nomor kursi yang SUDAH
-	 * terisi justru ditulis ulang setiap kali kartu dicetak, sedangkan nomor bernilai string
-	 * kosong ({@code ""}) — satu-satunya nilai yang benar-benar berarti "belum diisi" selain
-	 * {@code null} — malah dilewati. Bacaan yang sejalan dengan komentar aslinya ("bila nomor
-	 * kursi belum diisi") seharusnya {@code == null || isEmpty()}. Karena rumusnya idempoten
-	 * (selalu id yang sama), dampaknya bukan nomor yang berubah-ubah, melainkan nomor kursi
-	 * hasil penyuntingan manual atau hasil unggah Excel (kolom {@code noKursi} ada di
-	 * {@link #contents}) tertimpa diam-diam, plus satu penulisan dan revisi audit pada setiap
-	 * pencetakan.</li>
-	 * <li><b>Tidak ada pemeriksaan persetujuan di sini.</b> Jalur resmi penomoran,
-	 * {@code GenerateNoKursiDanNoRegistrasiWindow.onGenerateNoKursiWisuda}, mensyaratkan No.
-	 * Registrasi sudah ada DAN kelima status persetujuan (Administrasi, Administrasi Fakultas,
-	 * Keuangan, Perpustakaan, Perpustakaan Fakultas) sudah terpenuhi. Blok di method ini
-	 * menetapkan No. Kursi tanpa satu pun syarat tersebut dan tanpa memeriksa hak {@link #edit},
-	 * padahal tombol "Bukti" yang memanggilnya tampil untuk semua pengguna yang dapat membuka
-	 * daftar peserta.</li>
-	 * </ul>
-	 * <p>
-	 * Kedua hal di atas didokumentasikan apa adanya, BUKAN diubah di sini.
+	 * <b>Method ini TIDAK menetapkan No. Kursi.</b> Sebelumnya method ini menetapkan No. Kursi
+	 * sendiri dari id pendaftaran (di-padding nol 8 digit) lewat syarat yang keliru dan tanpa
+	 * satu pun gerbang persetujuan — sehingga nomor kursi hasil penyuntingan manual/unggah Excel
+	 * bisa tertimpa diam-diam, dan mahasiswa yang cuma bisa mencetak kartu bisa memperoleh No.
+	 * Kursi tanpa melewati verifikasi keuangan/perpustakaan/administrasi. Sekarang penomoran
+	 * murni tanggung jawab jalur resmi ber-gerbang,
+	 * {@code GenerateNoKursiDanNoRegistrasiWindow.onGenerateNoKursiWisuda} (mensyaratkan No.
+	 * Registrasi sudah ada DAN kelima status persetujuan — Administrasi, Administrasi Fakultas,
+	 * Keuangan, Perpustakaan, Perpustakaan Fakultas — sudah terpenuhi); method ini hanya MEMBACA
+	 * {@link PendaftaranWisuda#getNoKursi()} dan menolak mencetak (menampilkan peringatan, tidak
+	 * melempar exception) bila nilainya masih kosong.
 	 * </p>
 	 *
 	 * @param pendaftaranWisuda pendaftaran yang kartunya dicetak; mahasiswa dan skripsinya dibaca dari sini
-	 * @throws Exception diteruskan dari sinkronisasi KRS, penyimpanan No. Kursi, atau {@link Report#generatePDFReport}
+	 * @throws Exception diteruskan dari sinkronisasi KRS atau {@link Report#generatePDFReport}
 	 */
 	@SuppressWarnings("unchecked")
 	public static void cetakBukti(PendaftaranWisuda pendaftaranWisuda) throws Exception {
-		if (pendaftaranWisuda.getNoKursi() == null || !pendaftaranWisuda.getNoKursi().isEmpty()) {
-			String noKursi = pendaftaranWisuda.getId().toString();
-
-			while (noKursi.length() < 8) {
-				noKursi = "0" + noKursi;
-			}
-
-			pendaftaranWisuda.setNoKursi(noKursi);
-			Common.refreshSaveOrUpdate(pendaftaranWisuda);
+		if (pendaftaranWisuda.getNoKursi() == null || pendaftaranWisuda.getNoKursi().trim().isEmpty()) {
+			MyMessageboxConfig.show(
+					"Mahasiswa ini belum mendapat nomor kursi, lakukan generate lebih dulu.", "Peringatan",
+					MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return;
 		}
 
 		Mahasiswa mahasiswa = pendaftaranWisuda.getMahasiswa();

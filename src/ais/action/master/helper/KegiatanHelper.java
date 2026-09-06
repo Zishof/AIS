@@ -3477,7 +3477,9 @@ public class KegiatanHelper {
 														Restrictions.eq("prodi4.fakultas", fak));
 												calonmhsbaruOr = Restrictions.or(calonmhsbaruOr,
 														Restrictions.eq("prodi5.fakultas", fak));
-												calonmhsbaru = Restrictions.and(mhsbaru, calonmhsbaruOr);
+												calonmhsbaruOr = Restrictions.or(calonmhsbaruOr,
+														Restrictions.eq("prodiLulus.fakultas", fak));
+												calonmhsbaru = Restrictions.and(calonmhsbaru, calonmhsbaruOr);
 											}
 
 											if (jur != null) {
@@ -3490,7 +3492,9 @@ public class KegiatanHelper {
 														Restrictions.eq("prodi4", jur));
 												calonmhsbaruOr = Restrictions.or(calonmhsbaruOr,
 														Restrictions.eq("prodi5", jur));
-												calonmhsbaru = Restrictions.and(mhsbaru, calonmhsbaruOr);
+												calonmhsbaruOr = Restrictions.or(calonmhsbaruOr,
+														Restrictions.eq("prodiLulus", jur));
+												calonmhsbaru = Restrictions.and(calonmhsbaru, calonmhsbaruOr);
 											}
 
 											Session session = null;

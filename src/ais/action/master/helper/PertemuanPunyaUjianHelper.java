@@ -1482,15 +1482,17 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 							return;
 						}
 
-						if (hasilUjianMahasiswa != null && hasilUjianMahasiswa.getLengkapiJawaban()
-								|| (hasilUjianMahasiswa.getJumlahIkut() > 0 && pertemuanPunyaUjian
-										.getJumlahBolehIkut() >= hasilUjianMahasiswa.getJumlahIkut())) {
-							ProsesUjianHelper.ikut(mahasiswa, biodataCalonMahasiswa,
-									tbmuser == null ? null : tbmuser.getSiswa(),
-									tbmuser == null ? null : tbmuser.getCalonSiswa(), pertemuanPunyaUjian,
-									hasilUjianMahasiswa, true, eventListener);
-							return;
-						} else if (!masihBolehIkut) {
+						// Gerbang jatah fail-closed: dihitung ulang dari data live tepat sebelum memulai
+						// percobaan baru (bukan sekadar mewarisi variabel masihBolehIkut yang dipakai
+						// untuk label tombol), memakai pembanding yang SAMA (<) agar label dan aksi klik
+						// tidak pernah lagi berbeda. Sebelumnya cabang ini memakai (>=) yang satu langkah
+						// lebih longgar daripada masihBolehIkut, sehingga saat jatah PERSIS habis tombol
+						// berlabel "Lihat Hasil" tetap memulai percobaan baru.
+						boolean bolehMulaiPercobaanBaru = hasilUjianMahasiswa == null
+								|| hasilUjianMahasiswa.getLengkapiJawaban()
+								|| hasilUjianMahasiswa.getJumlahIkut() < pertemuanPunyaUjian.getJumlahBolehIkut();
+
+						if (!bolehMulaiPercobaanBaru) {
 							ProsesUjianHelper.tampil(mahasiswa, biodataCalonMahasiswa,
 									tbmuser == null ? null : tbmuser.getSiswa(),
 									tbmuser == null ? null : tbmuser.getCalonSiswa(), pertemuanPunyaUjian, true,

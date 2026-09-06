@@ -1289,11 +1289,12 @@ public class PembayaranUtilHelper {
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:632");}
 				}
 
-				TreeSet treeSet = new TreeSet(maps.values());
+				List sortedList = new ArrayList(maps.values());
+				Collections.sort(sortedList);
 
 				JSONObject data = new JSONObject();
 				try {
-					for (Object o : treeSet) {
+					for (Object o : sortedList) {
 						if (o instanceof DetailBiaya) {
 							DetailBiaya detailBiaya1 = (DetailBiaya) o;
 							detailBiaya1.updateKeterangan(mahasiswa, semester);
@@ -1308,8 +1309,8 @@ public class PembayaranUtilHelper {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:651");}
 
 				mahasiswa.put(data.toString(), key);
-				
-				return treeSet;
+
+				return sortedList;
 			}
 			
 		} catch(Exception e) {
@@ -1737,7 +1738,8 @@ public class PembayaranUtilHelper {
 				}
 			}
 
-			TreeSet d = new TreeSet(maps.values());
+			List<DetailBiaya> d = new ArrayList<DetailBiaya>(maps.values());
+			Collections.sort(d);
 
 			JSONObject data = new JSONObject();
 			try {

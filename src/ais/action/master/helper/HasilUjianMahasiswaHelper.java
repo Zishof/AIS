@@ -4648,6 +4648,56 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/** Kategori DP: soal belum dijawab siapa pun ({@code totalJawab == 0}). */
+	private static final int DP_KAT_BLM_DIKERJAKAN = 0;
+	/** Kategori DP: sudah dijawab tapi tidak ada kelompok "Atas" ({@code jumlahAtas == 0}), DP tak terdefinisi. */
+	private static final int DP_KAT_TIDAK_DAPAT_DIHITUNG = 1;
+	/** Kategori DP: {@code DP < 0.20}. */
+	private static final int DP_KAT_GANTI = 2;
+	/** Kategori DP: {@code 0.20 <= DP < 0.30}. */
+	private static final int DP_KAT_PERLU_REVISI = 3;
+	/** Kategori DP: {@code 0.30 <= DP < 0.40}. */
+	private static final int DP_KAT_BAIK = 4;
+	/** Kategori DP: {@code DP >= 0.40}. */
+	private static final int DP_KAT_SANGAT_BAIK = 5;
+
+	/**
+	 * <h3>Sumber ambang kategori Daya Pembeda TUNGGAL — dipakai dashboard dan Excel</h3>
+	 *
+	 * <p><b>Latar belakang.</b> {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}
+	 * menghasilkan dua keluaran (dashboard HTML dan berkas Excel) dari satu perhitungan DP. Sebelum
+	 * method ini ada, tiap keluaran menulis ulang sendiri ambang 0.40/0.30/0.20 secara terpisah dan
+	 * keduanya diam-diam menyimpang: Excel memakai batas "Gunakan" di DP &ge; 0.40, sedangkan
+	 * dashboard (dan panduan di bawah tabelnya) memakai DP &ge; 0.30. Akibatnya soal dengan DP pada
+	 * pita 0.30&ndash;0.399 tampil "Baik/Layak Pakai" di layar tetapi "Revisi" di berkas unduhan.
+	 * Jalur Excel juga membagi {@code jumlahAtas} tanpa penjagaan sehingga saat seluruh peserta
+	 * bernilai sama ({@code jumlahAtas == 0}) hasil baginya {@code NaN} dan jatuh ke cabang
+	 * "Gunakan" — soal yang sama sekali tidak bisa membedakan siapa pun malah tercatat layak pakai.</p>
+	 *
+	 * <p><b>Kontrak.</b> KEDUA jalur WAJIB memanggil method ini untuk menentukan kategori DP alih-alih
+	 * menulis ulang perbandingan ambangnya sendiri, dan KEDUA jalur wajib menjaga pembagian dengan
+	 * {@code adaKelompokAtas} sebelum menghitung {@code dp} itu sendiri (lihat pemanggil). Bila ambang
+	 * ini perlu diubah di masa depan, ubah SATU kali di sini — jangan pernah menduplikasinya lagi.</p>
+	 *
+	 * @param dp             nilai Daya Pembeda yang sudah dihitung (harus {@code 0.0}, BUKAN
+	 *                       {@code NaN}, bila {@code adaKelompokAtas} false — lihat pemanggil)
+	 * @param sudahDijawab   {@code false} bila soal ini sama sekali belum dijawab siapa pun
+	 *                       ({@code totalJawab == 0} di dashboard, atau {@code benar==0 && salah==0}
+	 *                       di Excel — keduanya ekuivalen)
+	 * @param adaKelompokAtas {@code false} bila {@code jumlahAtas == 0} (seluruh peserta bernilai
+	 *                        sama sehingga tidak ada yang masuk kelompok "Atas"), membuat DP tak
+	 *                        terdefinisi terlepas dari nilai {@code dp} yang diteruskan
+	 * @return salah satu konstanta {@code DP_KAT_*} di atas
+	 */
+	private static int kategoriDayaPembeda(double dp, boolean sudahDijawab, boolean adaKelompokAtas) {
+		if (!sudahDijawab) return DP_KAT_BLM_DIKERJAKAN;
+		if (!adaKelompokAtas) return DP_KAT_TIDAK_DAPAT_DIHITUNG;
+		if (dp >= 0.40) return DP_KAT_SANGAT_BAIK;
+		if (dp >= 0.30) return DP_KAT_BAIK;
+		if (dp >= 0.20) return DP_KAT_PERLU_REVISI;
+		return DP_KAT_GANTI;
+	}
+
 	/**
 	 * <b>Overload kompatibilitas (2 argumen)</b> dari
 	 * {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}: meneruskan
@@ -5082,6 +5132,24 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						 * invalidate panel terpilih agar tata letak (dan scroll) dihitung ulang.
 						 */
 						tabbox.addEventListener("onSelect", new EventListener() {
+							/**
+							 * Penanggulangan tata letak ZK 5: meng-{@code invalidate} panel tab
+							 * yang baru dipilih agar tinggi dan {@code overflow}-nya dihitung
+							 * ulang, sehingga scrollbar-nya muncul.
+							 *
+							 * <p><b>Gejala yang diatasi:</b> di ZK 5, tabpanel yang sedang aktif
+							 * baru memperoleh tinggi/overflow yang benar setelah terjadi
+							 * perpindahan tab (re-layout). Tanpa listener ini, konten tab yang
+							 * lebih tinggi dari jendela terpotong tanpa dapat digulir.</p>
+							 *
+							 * <p>Kegagalan {@code invalidate} diabaikan dan direkam ke jejak audit
+							 * — pada kasus terburuk hanya scrollbar yang tidak muncul, bukan
+							 * kehilangan data.</p>
+							 *
+							 * @param ev event {@code onSelect}; tidak dipakai (panel terpilih
+							 *           diambil dari tabbox)
+							 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+							 */
 							@Override
 							public void onEvent(Event ev) throws Exception {
 								try {
@@ -5138,6 +5206,26 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						 * jadi solusi pengguna). Dijalankan via timer agar terjadi setelah render awal.
 						 */
 						Common.createDefaultTimer(new EventListener() {
+							/**
+							 * Penanggulangan tata letak kedua: memicu re-layout AWAL agar tab
+							 * pertama langsung dapat digulir tanpa pengguna perlu membuka tab
+							 * "Data Lengkap" lebih dulu.
+							 *
+							 * <p>Caranya meniru langkah manual yang selama ini menjadi solusi
+							 * pengguna: berpindah sekejap ke tab kedua lalu kembali ke tab
+							 * pertama, ditutup {@code invalidate()} pada panel terpilih.
+							 * Dijalankan lewat {@code Common.createDefaultTimer} agar terjadi
+							 * SETELAH render awal — bila dijalankan langsung, komponen belum
+							 * terpasang di klien sehingga perpindahan tab tidak memicu re-layout
+							 * apa pun.</p>
+							 *
+							 * <p>Dijaga terhadap tabbox yang hanya memiliki satu tab, dan
+							 * kegagalan diabaikan (direkam ke jejak audit) karena dampak
+							 * terburuknya hanya scrollbar yang belum muncul.</p>
+							 *
+							 * @param ev event timer; tidak dipakai
+							 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+							 */
 							@Override
 							public void onEvent(Event ev) throws Exception {
 								try {
@@ -5159,6 +5247,65 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 				new Thread(new Runnable() {
 
+					/**
+					 * Thread latar penghitung <b>Analisis Butir Soal</b>. Menyusun sheet Excel
+					 * berisi matriks jawaban seluruh peserta, menghitung statistik butir
+					 * (Tingkat Kesukaran dan Daya Pembeda), lalu mengisi wadah bersama untuk
+					 * dashboard visual.
+					 *
+					 * <h4>Bagian 1 — matriks jawaban per peserta</h4>
+					 * <p>Baris header memuat No./Kode/Nama/Kelas-Prodi, satu kolom per soal
+					 * (dengan komentar sel berisi teks soal lengkap), lalu Benar/Salah/Skor/
+					 * Rangking/Kelompok Rangking. Tiap peserta mengisi satu baris; sel jawaban
+					 * memuat huruf pilihan dan komentar selnya memuat teks jawaban beserta
+					 * skornya. Identitas peserta diambil dari salah satu dari empat jenis, dengan
+					 * catatan khusus untuk {@code Siswa}: kelas diambil dari jadwal pelajaran
+					 * pertemuan bila tersedia, mengalahkan kelas yang melekat pada siswa —
+					 * agar rekap mencerminkan kelas tempat ujian berlangsung.</p>
+					 *
+					 * <h4>Bagian 2 — pengelompokan dan pencacahan</h4>
+					 * <p>Peringkat dan kelompok Atas/Tengah/Bawah dihitung dengan belah-dua atas
+					 * jumlah TINGKAT SKOR distinct — bukan kaidah 27%. Tiga peta pencacah diisi
+					 * sepanjang penelusuran: {@code hurufsJawab} (berkunci
+					 * {@code soalId + "_" + huruf}, termasuk {@code "-"} untuk tidak dijawab),
+					 * {@code jumlahBenar}/{@code jumlahSalah} per soal, dan {@code jumlahPosisi}
+					 * (berkunci {@code soalId + "_" + kelompok}) yang hanya mencacah jawaban
+					 * BENAR. Ketiganya mencacah BARIS RINCIAN, bukan peserta — lihat catatan pada
+					 * Javadoc {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}
+					 * mengenai dampaknya pada soal berjawaban ganda.</p>
+					 *
+					 * <h4>Bagian 3 — data dashboard</h4>
+					 * <p>Peta {@code nomorToSubCpmk} dibangun dari JSON
+					 * {@code pertemuanPunyaUjian.getFormatNilais()}, mendukung notasi RENTANG
+					 * {@code a-b} selain angka satuan agar selaras dengan {@code ambilMapNomor}
+					 * saat penilaian. Untuk tiap soal dihitung TK, kategori TK, DP, kategori DP,
+					 * dan HTML batang distribusi pilihan yang dinormalisasi tepat 100% memakai
+					 * {@link #persenDistribusiSeratus(int[], int)}. Hasilnya di-{@code add} ke
+					 * {@code soalAnalisisList} sebagai {@code String[12]}, sementara
+					 * {@code statsGlobal} dan {@code nilaiGlobal} diisi agregatnya.</p>
+					 *
+					 * <h4>Bagian 4 — blok analisis pada sheet</h4>
+					 * <p>Di bawah baris peserta ditulis blok analisis yang seluruh selnya diawali
+					 * penanda {@code "**"} — penanda inilah yang dibaca {@code Common.setStyled}
+					 * untuk membedakan baris analisis dari baris data. Awalan
+					 * {@code GREEN}/{@code YELLOW}/{@code RED} pada teks kategori adalah instruksi
+					 * pewarnaan, bukan bagian teks yang dimaksudkan terbaca.</p>
+					 *
+					 * <h4>Penyelesaian dan hal yang perlu diwaspadai</h4>
+					 * <p>Workbook ditulis ke {@code filename}, dimensi sheet disimpan ke
+					 * {@code intbox}/{@code colsbox}, lalu label dikosongkan sehingga callback ZK
+					 * membangun jendela hasil. <b>Pengosongan label berada DI DALAM blok
+					 * {@code try}</b>: exception apa pun — termasuk
+					 * {@link NullPointerException} ketika {@code ambil.ambil()} mengembalikan
+					 * {@code null} — membuat bilah pemuatan menggantung selamanya dan jendela
+					 * hasil tidak pernah terbuka. Blok {@code finally} hanya menutup
+					 * {@code fileOut} dan session, tidak menyentuh label. Bila menambah kode di
+					 * sini, pertimbangkan memindahkan pengosongan label ke {@code finally}.</p>
+					 *
+					 * <p>Kegagalan per peserta dan per soal ditangkap terpisah sehingga satu baris
+					 * rusak tidak membatalkan laporan; {@code session.clear()} setiap 50 peserta
+					 * menahan pertumbuhan cache.</p>
+					 */
 					@SuppressWarnings({ "unchecked", "deprecation" })
 					@Override
 					public void run() {
