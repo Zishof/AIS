@@ -85,9 +85,11 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 	/** Cache kelas siswa, otomatis diisi dari {@link #siswa} bila kosong. */
 	private KelasSiswa kelasSiswa;
 
+	/** Konstruktor default (dibutuhkan Hibernate). */
 	public PesertaJadwalAntarJemput() {
 	}
 
+	/** @return ID unik baris peserta (primary key, auto-increment via {@code IDENTITY}). */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -95,14 +97,21 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return id;
 	}
 
+	/** @param id lihat {@link #getId()}. Normalnya tidak perlu diisi manual — dihasilkan DB saat insert. */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/** @return ID pengguna (username) yang terakhir mengubah baris ini. Field audit shadow — lihat {@link #getOleh()}. */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Setter {@link #getOlehId()}. Nilai kosong/blank diabaikan (no-op) agar jejak audit lama
+	 * tidak tertimpa saat proses simpan tidak membawa identitas pengguna — pola baku di semua
+	 * entitas modul antarjemput.
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -110,10 +119,12 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		this.olehId = olehId;
 	}
 
+	/** @return nama pengguna yang terakhir mengubah baris ini (field audit shadow, diisi via {@link #onUpdate()}). */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/** Setter {@link #getOleh()}. Nilai kosong/blank diabaikan (no-op), sama seperti {@link #setOlehId(String)}. */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -121,29 +132,47 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Callback JPA {@code @PreUpdate}: dipanggil otomatis oleh Hibernate tepat sebelum baris ini
+	 * di-UPDATE, memperbarui {@link #tanggal_dirubah} (dan field audit terkait) lewat
+	 * {@link ais.database.hibernate.AuditTimestampInterceptor#ubah(Object)}.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** @return timestamp terakhir baris ini diubah; diisi otomatis saat objek dibuat dan diperbarui via {@link #onUpdate()}. */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/** @param tanggal_dirubah lihat {@link #getTanggal_dirubah()}. */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/** @return kode singkat peserta ini, di-trim; {@code null} bila belum diisi. */
 	@Column(name = "kode", length = 50)
 	public String getKode() {
 		return kode == null ? null : kode.trim();
 	}
 
+	/** @param kode lihat {@link #getKode()}. */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * @return nama peserta, di-trim bila diisi manual pada field {@link #nama}. Bila kosong,
+	 *         jatuh berurutan ke nama {@link #getSiswa()}, lalu {@link #getMahasiswa()}, lalu
+	 *         {@link #getGuru()}, lalu {@link #getDosen()}, dan terakhir {@link #getPegawai()} —
+	 *         urutan prioritas ini mencerminkan hanya SATU dari kelima relasi tersebut yang
+	 *         diharapkan terisi per baris (lihat javadoc kelas). Hasil fallback TIDAK di-cache ke
+	 *         field {@link #nama} (berbeda dari pola fallback di entitas antarjemput lain seperti
+	 *         {@link JadwalAntarJemput#getNama()}) — setiap pemanggilan mengevaluasi ulang relasi.
+	 */
 	@Column(name = "nama", length = 255)
 	public String getNama() {
 		if (nama != null) {
@@ -164,71 +193,94 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return getPegawai() == null ? null : getPegawai().getNama();
 	}
 
+	/** @param nama lihat {@link #getNama()}. */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/** @return keterangan/catatan bebas untuk peserta ini. */
 	@Column(name = "keterangan")
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/** @param keterangan lihat {@link #getKeterangan()}. */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/** @return nomor urut peserta ini pada jadwalnya (dipakai untuk mengurutkan pemanggilan peserta per rute); default {@code 0} bila belum di-set. */
 	public Integer getNomorUrut() {
 		return nomorUrut == null ? 0 : nomorUrut;
 	}
 
+	/** @param nomorUrut lihat {@link #getNomorUrut()}. */
 	public void setNomorUrut(Integer nomorUrut) {
 		this.nomorUrut = nomorUrut;
 	}
 
+	/** @return lokasi/alamat titik penjemputan peserta ini. */
 	@Column(name = "titik_jemput")
 	public String getTitikJemput() {
 		return titikJemput;
 	}
 
+	/** @param titikJemput lihat {@link #getTitikJemput()}. */
 	public void setTitikJemput(String titikJemput) {
 		this.titikJemput = titikJemput;
 	}
 
+	/** @return lokasi/alamat titik penurunan peserta ini. */
 	@Column(name = "titik_turun")
 	public String getTitikTurun() {
 		return titikTurun;
 	}
 
+	/** @param titikTurun lihat {@link #getTitikTurun()}. */
 	public void setTitikTurun(String titikTurun) {
 		this.titikTurun = titikTurun;
 	}
 
+	/**
+	 * @return catatan kondisi kesehatan peserta yang relevan bagi petugas antar-jemput (mis.
+	 *         alergi, kondisi medis yang perlu diwaspadai kru selama perjalanan). Data sensitif —
+	 *         entitas ini tidak menerapkan pembatasan akses sendiri; pembatasan siapa yang boleh
+	 *         membaca field ini (petugas/kru vs. pihak lain) sepenuhnya bergantung pada layar/aksi
+	 *         pemanggil (lihat catatan kepemilikan pada javadoc kelas
+	 *         {@link ais.database.model.antarjemput.LogNotifikasiAntarJemput}).
+	 */
 	@Column(name = "catatan_kesehatan")
 	public String getCatatanKesehatan() {
 		return catatanKesehatan;
 	}
 
+	/** @param catatanKesehatan lihat {@link #getCatatanKesehatan()}. */
 	public void setCatatanKesehatan(String catatanKesehatan) {
 		this.catatanKesehatan = catatanKesehatan;
 	}
 
+	/** @return status langganan layanan antar-jemput peserta ini; default {@code "AKTIF"} bila belum di-set (tidak di-cache ke field). */
 	@Column(name = "status_langganan", length = 30)
 	public String getStatusLangganan() {
 		return statusLangganan == null ? "AKTIF" : statusLangganan;
 	}
 
+	/** @param statusLangganan lihat {@link #getStatusLangganan()}. */
 	public void setStatusLangganan(String statusLangganan) {
 		this.statusLangganan = statusLangganan;
 	}
 
+	/** @return {@code true} bila peserta aktif; default {@code true} bila belum di-set (tidak di-cache ke field). */
 	public Boolean getAktif() {
 		return aktif == null ? Boolean.TRUE : aktif;
 	}
 
+	/** @param aktif lihat {@link #getAktif()}. */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/** @return jadwal/rute antar-jemput yang diikuti peserta ini (relasi lazy); dilewatkan {@code check()} agar proxy Hibernate yang sudah dihapus/tidak valid tidak ikut terekspos ke pemanggil. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jadwal_antar_jemput")
 	public JadwalAntarJemput getJadwalAntarJemput() {
@@ -236,10 +288,12 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return jadwalAntarJemput;
 	}
 
+	/** @param jadwalAntarJemput lihat {@link #getJadwalAntarJemput()}. */
 	public void setJadwalAntarJemput(JadwalAntarJemput jadwalAntarJemput) {
 		this.jadwalAntarJemput = jadwalAntarJemput;
 	}
 
+	/** @return siswa yang diwakili peserta ini, bila jenis pesertanya siswa (modul sekolah); {@code null} bila peserta jenis lain. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa")
 	public Siswa getSiswa() {
@@ -247,10 +301,12 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return siswa;
 	}
 
+	/** @param siswa lihat {@link #getSiswa()}. */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
 
+	/** @return mahasiswa yang diwakili peserta ini, bila jenis pesertanya mahasiswa (modul perguruan tinggi); {@code null} bila peserta jenis lain. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa")
 	public Mahasiswa getMahasiswa() {
@@ -258,10 +314,12 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return mahasiswa;
 	}
 
+	/** @param mahasiswa lihat {@link #getMahasiswa()}. */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/** @return guru yang diwakili peserta ini, bila jenis pesertanya guru (modul sekolah); {@code null} bila peserta jenis lain. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "guru")
 	public Guru getGuru() {
@@ -269,10 +327,12 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return guru;
 	}
 
+	/** @param guru lihat {@link #getGuru()}. */
 	public void setGuru(Guru guru) {
 		this.guru = guru;
 	}
 
+	/** @return dosen yang diwakili peserta ini, bila jenis pesertanya dosen (modul perguruan tinggi); {@code null} bila peserta jenis lain. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "dosen")
 	public Dosen getDosen() {
@@ -280,10 +340,12 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return dosen;
 	}
 
+	/** @param dosen lihat {@link #getDosen()}. */
 	public void setDosen(Dosen dosen) {
 		this.dosen = dosen;
 	}
 
+	/** @return pegawai/staf yang diwakili peserta ini, bila jenis pesertanya pegawai; {@code null} bila peserta jenis lain. */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "pegawai")
 	public Pegawai getPegawai() {
@@ -291,10 +353,18 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return pegawai;
 	}
 
+	/** @param pegawai lihat {@link #getPegawai()}. */
 	public void setPegawai(Pegawai pegawai) {
 		this.pegawai = pegawai;
 	}
 
+	/**
+	 * @return kelas siswa peserta ini. Bila belum di-set langsung dan peserta ini adalah siswa
+	 *         ({@link #getSiswa()} tidak null), diisi otomatis dari kelas siswa tersebut dan
+	 *         hasilnya ikut di-cache ke field {@link #kelasSiswa} in-memory (pola fallback yang
+	 *         sama seperti {@link JadwalAntarJemput#getNama()}). Dilewatkan {@code check()} agar
+	 *         proxy Hibernate yang sudah dihapus/tidak valid tidak ikut terekspos ke pemanggil.
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelas_siswa")
 	public KelasSiswa getKelasSiswa() {
@@ -305,6 +375,7 @@ public class PesertaJadwalAntarJemput extends GeneralValueObject {
 		return kelasSiswa;
 	}
 
+	/** @param kelasSiswa lihat {@link #getKelasSiswa()}. */
 	public void setKelasSiswa(KelasSiswa kelasSiswa) {
 		this.kelasSiswa = kelasSiswa;
 	}
