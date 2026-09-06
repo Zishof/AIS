@@ -81,23 +81,20 @@ import ais.database.model.asset.Lokasi;
  * dan {@link #reInitMahasiswaDapatKelompokPkl(Session)} adalah satu-satunya jalur yang benar-benar
  * mengueri tabel {@code MahasiswaDapatKelompokPkl} langsung.</p>
  *
- * <h3>Parsing JSON — TIDAK ada pengaman legacy (divergensi dari kembaran KKN)</h3>
- * <p><b>Catatan konsistensi lintas modul (temuan audit dokumentasi ini):</b> kembaran kelas ini,
- * {@link ais.database.model.kkn.KelompokKkn}, memiliki method privat
- * {@code amanJadikanJSONObject(String)} yang memvalidasi teks sebelum di-parse sebagai JSON
- * (menangkal {@code JSONException} dari data legacy/rusak — string kosong, angka, atau format
- * non-JSON lain). Kelas {@code KelompokPkl} ini <b>TIDAK memiliki pembungkus pengaman setara</b>:
- * kelima method paralelnya ({@link #ambilLokasiDetailKelompokPkl()} tidak langsung, tapi
- * {@link #removeMahasiswaDapatKelompokPkl(Serializable)},
- * {@link #populateMahasiswaDapatKelompokPkl(MahasiswaDapatKelompokPkl)}, kedua overload
- * {@link #ambilMahasiswaDapatKelompokPkl}, dan {@link #ambilJumlahDetailperkuliahanLangsung()})
- * memanggil {@code new JSONObject(...)} secara LANGSUNG. Ini divergensi robustness yang genuinely
- * baru ditemukan selama audit dokumentasi ini (bukan bagian dari bug SKS/IPK atau kode mati
- * {@code reload...} yang sudah tercatat sebelumnya di memori proyek), dan sudah dilaporkan lewat
- * task terpisah untuk ditelaah/ditambal pada sesi lain — bukan bagian dari perubahan dokumentasi
- * ini. Lihat javadoc masing-masing method di bawah untuk rincian try/catch yang membungkusnya
- * (sebagian ADA perlindungan parsial lewat try/catch generik di sekitarnya, tapi TIDAK ada satu
- * titik terpusat yang menjamin "data legacy/rusak = dianggap kosong" seperti pola KKN).</p>
+ * <h3>Parsing JSON aman terhadap data legacy — {@code amanJadikanJSONObject(String)}</h3>
+ * <p><b>Catatan konsistensi lintas modul:</b> kelas ini kini memiliki method privat
+ * {@link #amanJadikanJSONObject(String)}, porting persis dari kembaran
+ * {@link ais.database.model.kkn.KelompokKkn#amanJadikanJSONObject(String) KelompokKkn.amanJadikanJSONObject(String)},
+ * yang memvalidasi teks sebelum di-parse sebagai JSON (menangkal {@code JSONException} dari data
+ * legacy/rusak — string kosong, angka, atau format non-JSON lain) alih-alih membiarkan kegagalan
+ * parse membatalkan seluruh operasi pemanggil. Sebelumnya kelima method paralel di kelas ini
+ * ({@link #removeMahasiswaDapatKelompokPkl(Serializable)},
+ * {@link #populateMahasiswaDapatKelompokPkl(MahasiswaDapatKelompokPkl)}, kedua pemanggilan di
+ * {@link #ambilMahasiswaDapatKelompokPkl(String, String, String, boolean)}, dan
+ * {@link #ambilJumlahDetailperkuliahanLangsung()}) memanggil {@code new JSONObject(...)} secara
+ * LANGSUNG — divergensi robustness yang ditemukan lewat audit dokumentasi, lalu ditambal (lihat
+ * javadoc {@link #amanJadikanJSONObject(String)} untuk rincian dampak sebelum-sesudahnya). Kelas
+ * ini sekarang konsisten dengan pola KKN pada seluruh titik parsing JSON.</p>
  *
  * <h3>Sepuluh slot dosen pembimbing, lima slot wewenang penilaian</h3>
  * <p>Kelompok ini punya sepuluh slot dosen pembimbing ({@link #getDosen_pembimbing1()} s.d.
@@ -503,6 +500,62 @@ public class KelompokPkl extends VOPembelajaran {
 	}
 
 	/**
+	 * Parsing JSON yang aman terhadap data legacy/rusak — porting persis dari kembaran
+	 * {@code KelompokKkn.amanJadikanJSONObject(String)}. Kolom penyimpanan lokasi detail PKL
+	 * semestinya selalu berisi teks JSON (mis. "{...}"), tapi data lama bisa saja berisi string
+	 * kosong, angka, atau nilai non-JSON lain sehingga {@link JSONObject#JSONObject(String)}
+	 * melempar {@code JSONException} ("A JSONObject text must begin with '{'"). Validasi dulu
+	 * SEBELUM parse: kalau bukan JSON objek yang valid, anggap saja "tidak ada data" (JSONObject
+	 * kosong) alih-alih membiarkan exception menjalar/menggagalkan seluruh operasi pemanggil.
+	 *
+	 * <p>Tiga kondisi diperiksa berurutan sebelum benar-benar mencoba parse: (1) {@code data == null}
+	 * &rarr; langsung kembalikan objek kosong; (2) setelah di-{@code trim()}, string kosong &rarr;
+	 * juga dianggap "tidak ada data"; (3) karakter pertama string yang sudah di-trim BUKAN
+	 * {@code '{'} &rarr; ditolak lebih awal SEBELUM mencoba parse sama sekali. Baru setelah lolos
+	 * ketiga pemeriksaan itu, method mencoba {@code new JSONObject(trimmed)} di dalam blok
+	 * {@code try}/{@code catch} sebagai jaring pengaman lapis kedua, dengan exception-nya DIREKAM
+	 * lewat {@link ais.common.ErrorAuditUtil#record(Throwable, String)}.</p>
+	 *
+	 * <p>Ini menutup divergensi robustness yang dicatat sebelumnya pada javadoc kelas ini dan pada
+	 * javadoc {@code KelompokKkn.amanJadikanJSONObject(String)}: sebelum method ini ada, kelima
+	 * method paralel di kelas ini ({@link #removeMahasiswaDapatKelompokPkl(Serializable)},
+	 * {@link #populateMahasiswaDapatKelompokPkl(MahasiswaDapatKelompokPkl)}, kedua pemanggilan
+	 * {@code new JSONObject(...)} di dalam
+	 * {@link #ambilMahasiswaDapatKelompokPkl(String, String, String, boolean)}, dan
+	 * {@link #ambilJumlahDetailperkuliahanLangsung()}) memanggil {@code new JSONObject(...)} secara
+	 * LANGSUNG. Akibatnya, indeks/berkas detail legacy yang rusak membuat blok {@code try}/{@code catch}
+	 * PEMBUNGKUS (bukan validasi di titik parse) yang menyerap kegagalan — cakupannya lebih luas dari
+	 * sekadar parsing (ikut menelan kegagalan I/O/logic lain di blok yang sama), dan pada
+	 * {@code removeMahasiswaDapatKelompokPkl}/{@code populateMahasiswaDapatKelompokPkl} kegagalan itu
+	 * membatalkan SELURUH operasi tulis (entri yang seharusnya dihapus/ditambahkan gagal tersimpan),
+	 * berbeda dari KKN yang tetap berhasil menuliskan indeks baru (dianggap kosong lalu lanjut)
+	 * meski indeks lama rusak. Dengan helper ini, kelima titik tersebut kini punya perilaku yang
+	 * SAMA dengan KKN.</p>
+	 *
+	 * @param data teks mentah yang diharapkan berupa JSON objek; boleh {@code null}, kosong, atau
+	 *             format apa pun (tidak divalidasi tipenya oleh pemanggil).
+	 * @return {@link JSONObject} hasil parse {@code data}, atau {@link JSONObject} KOSONG (bukan
+	 *         {@code null}) bila {@code data} bukan JSON objek yang valid dengan alasan apa pun.
+	 *         Method ini TIDAK PERNAH melempar exception ke pemanggil.
+	 */
+	private static JSONObject amanJadikanJSONObject(String data) {
+		if (data == null) {
+			return new JSONObject();
+		}
+		String trimmed = data.trim();
+		if (trimmed.isEmpty() || trimmed.charAt(0) != '{') {
+			return new JSONObject();
+		}
+		try {
+			return new JSONObject(trimmed);
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e,
+					"auto-audit(JSON legacy tidak valid, dilewati) src/ais/database/model/pkl/KelompokPkl.java:amanJadikanJSONObject");
+			return new JSONObject();
+		}
+	}
+
+	/**
 	 * Membaca isi berkas indeks JSON anggota kelompok ini dari disk — berkas yang memetakan
 	 * id-mahasiswa (dari {@link MahasiswaDapatKelompokPkl#getId()}) ke path absolut berkas detail
 	 * anggota tersebut (lihat javadoc kelas, bagian "Pola berkas-JSON untuk anggota kelompok").
@@ -517,11 +570,10 @@ public class KelompokPkl extends VOPembelajaran {
 	 * isi berkas yang kosong/blank akan menghasilkan hasil yang SAMA:
 	 * {@link VOMahasiswa#dataJSON} (representasi JSON kosong standar yang dipakai bersama seluruh
 	 * entity turunan {@code VOPembelajaran}/{@code VOMahasiswa} di repo ini), bukan {@code null}
-	 * atau exception. <b>Catatan penting:</b> method ini SENDIRI tidak memvalidasi format JSON
-	 * (berbeda dari kembaran KKN, {@code KelompokKkn.ambilLokasiDetailKelompokKkn()}, yang
-	 * strukturnya identik — validasi format hanya terjadi di sisi PEMANGGIL lewat
-	 * {@code new JSONObject(...)} langsung, lihat javadoc kelas untuk rincian divergensinya);
-	 * method ini HANYA mengembalikan teks mentah berkas apa adanya.</p>
+	 * atau exception. <b>Catatan (diperbarui):</b> method ini SENDIRI tidak memvalidasi format JSON;
+	 * validasi kini dilakukan di sisi PEMANGGIL lewat {@link #amanJadikanJSONObject(String)}
+	 * (identik dengan pola kembaran KKN, {@code KelompokKkn.ambilLokasiDetailKelompokKkn()}); method
+	 * ini HANYA mengembalikan teks mentah berkas apa adanya.</p>
 	 *
 	 * @return isi berkas indeks JSON (teks mentah, belum di-parse) bila berkas ada dan tidak kosong;
 	 *         {@link VOMahasiswa#dataJSON} pada seluruh kasus lain (berkas tidak ada, gagal dibaca,
@@ -567,23 +619,18 @@ public class KelompokPkl extends VOPembelajaran {
 	/**
 	 * Menghapus satu entri anggota dari berkas indeks JSON kelompok ini, TANPA menghapus berkas
 	 * detail anggota itu sendiri dari disk. Secara mekanis: baca peta lengkap lewat
-	 * {@link #ambilLokasiDetailKelompokPkl()}, parse langsung lewat {@code new JSONObject(...)},
+	 * {@link #ambilLokasiDetailKelompokPkl()}, parse lewat {@link #amanJadikanJSONObject(String)},
 	 * timpa nilai entri berkunci {@code id.toString()} menjadi string kosong {@code ""} (BUKAN
 	 * menghapus kunci itu dari peta — {@code JSONObject.put(key, "")} bukan {@code remove(key)}),
 	 * lalu tulis ulang seluruh peta lewat {@link #tulisLokasiDetailKelompokPkl(String)}.
 	 *
-	 * <p><b>Divergensi dari kembaran KKN (lihat javadoc kelas untuk analisis lengkap):</b> method
-	 * kembaran {@code KelompokKkn.removeMahasiswaDapatKelompokKkn(Serializable)} membungkus parse
-	 * JSON-nya lewat {@code amanJadikanJSONObject(...)}, sehingga indeks yang isinya legacy/rusak
-	 * tetap diperlakukan sebagai "kosong" dan operasi hapus tetap bisa jalan (menghasilkan indeks
-	 * baru yang bersih). Method ini memanggil {@code new JSONObject(...)} LANGSUNG: bila isi berkas
-	 * indeks saat ini bukan JSON valid, {@code JSONException} akan dilempar SEBELUM baris
-	 * {@code c.put(...)} sempat dieksekusi — ditangkap oleh blok {@code try}/{@code catch} yang
-	 * membungkus SELURUH badan method (sama seperti kembarannya), sehingga TIDAK ADA exception yang
-	 * bocor ke pemanggil, TAPI operasi hapus itu sendiri GAGAL TOTAL secara diam-diam: baris
-	 * {@code tulisLokasiDetailKelompokPkl(...)} tidak pernah tereksekusi, sehingga entri yang
-	 * seharusnya dihapus TETAP ADA di indeks (tidak seperti KKN, yang tetap berhasil menuliskan
-	 * indeks baru meski indeks lama rusak).</p>
+	 * <p><b>Konsisten dengan kembaran KKN (lihat javadoc {@link #amanJadikanJSONObject(String)}
+	 * untuk analisis lengkap):</b> parsing kini dibungkus {@link #amanJadikanJSONObject(String)},
+	 * sama seperti {@code KelompokKkn.removeMahasiswaDapatKelompokKkn(Serializable)}, sehingga
+	 * indeks yang isinya legacy/rusak tetap diperlakukan sebagai "kosong" dan operasi hapus tetap
+	 * bisa jalan (menghasilkan indeks baru yang bersih), alih-alih sebelumnya (pemanggilan
+	 * {@code new JSONObject(...)} langsung) yang membuat {@code JSONException} dari indeks rusak
+	 * membatalkan operasi hapus secara diam-diam.</p>
 	 *
 	 * @param id id mahasiswa ({@code MahasiswaDapatKelompokPkl.getId()}) yang entrinya hendak
 	 *           dikosongkan dari indeks; dikonversi ke {@code String} lewat {@code id.toString()}
@@ -593,7 +640,7 @@ public class KelompokPkl extends VOPembelajaran {
 	 */
 	public void removeMahasiswaDapatKelompokPkl(Serializable id) {
 		try {
-			JSONObject c = new JSONObject(ambilLokasiDetailKelompokPkl());
+			JSONObject c = amanJadikanJSONObject(ambilLokasiDetailKelompokPkl());
 			c.put(id.toString(), "");
 			tulisLokasiDetailKelompokPkl(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/pkl/KelompokPkl.java:339");
@@ -608,15 +655,14 @@ public class KelompokPkl extends VOPembelajaran {
 	 * id mahasiswa tersebut. Ini adalah kebalikan operasional dari
 	 * {@link #removeMahasiswaDapatKelompokPkl(Serializable)}.
 	 *
-	 * <p>Alur: baca peta lengkap lewat {@link #ambilLokasiDetailKelompokPkl()}, parse langsung
-	 * lewat {@code new JSONObject(...)} (TANPA validasi format terlebih dahulu — lihat catatan
-	 * divergensi pada javadoc {@link #removeMahasiswaDapatKelompokPkl(Serializable)}, yang berlaku
-	 * sama persis di sini: bila indeks lama berisi data legacy/rusak, {@code JSONException} akan
-	 * membatalkan seluruh operasi pendaftaran anggota ini secara diam-diam, tertangkap oleh blok
-	 * {@code try}/{@code catch} luar tapi TIDAK diteruskan ke pemanggil), timpa/tambahkan entri
-	 * berkunci {@code mahasiswaDapatKelompokPkl.getId().toString()}, tulis ulang seluruh peta lewat
-	 * {@link #tulisLokasiDetailKelompokPkl(String)}. Bila {@code mahasiswaDapatKelompokPkl} bernilai
-	 * {@code null}, method ini early-return TANPA melakukan apa pun.</p>
+	 * <p>Alur: baca peta lengkap lewat {@link #ambilLokasiDetailKelompokPkl()}, parse lewat
+	 * {@link #amanJadikanJSONObject(String)} (indeks legacy/rusak kini diperlakukan sebagai
+	 * "kosong" alih-alih membatalkan seluruh operasi pendaftaran anggota ini — lihat catatan pada
+	 * javadoc {@link #removeMahasiswaDapatKelompokPkl(Serializable)}, yang berlaku sama persis di
+	 * sini), timpa/tambahkan entri berkunci {@code mahasiswaDapatKelompokPkl.getId().toString()},
+	 * tulis ulang seluruh peta lewat {@link #tulisLokasiDetailKelompokPkl(String)}. Bila
+	 * {@code mahasiswaDapatKelompokPkl} bernilai {@code null}, method ini early-return TANPA
+	 * melakukan apa pun.</p>
 	 *
 	 * @param mahasiswaDapatKelompokPkl entity keanggotaan yang hendak didaftarkan/diperbarui pada
 	 *                                  indeks kelompok ini; bila {@code null}, method ini tidak
@@ -628,7 +674,7 @@ public class KelompokPkl extends VOPembelajaran {
 				return;
 			}
 
-			JSONObject c = new JSONObject(ambilLokasiDetailKelompokPkl());
+			JSONObject c = amanJadikanJSONObject(ambilLokasiDetailKelompokPkl());
 			c.put(mahasiswaDapatKelompokPkl.getId().toString(), mahasiswaDapatKelompokPkl.write().getAbsolutePath());
 			tulisLokasiDetailKelompokPkl(c.toString());
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/pkl/KelompokPkl.java:353");
@@ -712,24 +758,12 @@ public class KelompokPkl extends VOPembelajaran {
 	 * dahulu. Strukturnya identik tahap-demi-tahap dengan kembaran
 	 * {@code KelompokKkn.ambilMahasiswaDapatKelompokKkn(String, String, String, boolean)} — lihat
 	 * javadoc method tersebut untuk penjelasan lengkap ketiga tahap (keputusan refresh, baca+parse
-	 * indeks, deduplikasi+filter) dan penanganan error keseluruhan, yang berlaku sama persis di
-	 * sini KECUALI satu hal: parsing JSON pada Tahap 2 memanggil {@code new JSONObject(...)}
-	 * LANGSUNG (baik untuk berkas indeks maupun berkas detail per-entri), TANPA melalui pembungkus
-	 * validasi-sebelum-parse setara {@code amanJadikanJSONObject(...)} milik KKN.
-	 *
-	 * <p><b>Dampak praktis dari perbedaan ini:</b> try/catch YANG ADA di sekitar setiap pemanggilan
-	 * {@code new JSONObject(...)} di method ini (baik yang membungkus keseluruhan proses baca+parse
-	 * indeks, maupun yang membungkus proses per-entri di dalam loop) TETAP mencegah exception bocor
-	 * ke pemanggil — dalam hal ini perilaku akhir method ini terhadap PEMANGGIL LUAR tetap konsisten
-	 * dengan versi KKN (tidak pernah melempar exception, selalu mengembalikan koleksi, TIDAK PERNAH
-	 * {@code null}). Yang berbeda adalah TITIK KEGAGALAN dan CAKUPAN kegagalannya: karena tidak ada
-	 * validasi format SEBELUM parse, {@code JSONException} pada indeks yang legacy/rusak akan
-	 * langsung memicu blok catch pembungkus proses baca+parse (menganggap SELURUH indeks gagal
-	 * dibaca, bukan "dianggap kosong lalu lanjut memproses" seperti pola KKN yang tetap bisa lanjut
-	 * dengan {@link JSONObject} kosong hasil {@code amanJadikanJSONObject}), sehingga hasil akhirnya
-	 * kebetulan SAMA (koleksi kosong untuk kasus itu) tapi jalur eksekusinya berbeda. Untuk berkas
-	 * DETAIL per-entri yang legacy/rusak, kegagalan tertangkap oleh try/catch dalam loop (identik
-	 * posisinya dengan versi KKN) sehingga entri itu dilewati — perilaku ini SAMA dengan KKN.</p>
+	 * indeks, deduplikasi+filter) dan penanganan error keseluruhan, yang kini berlaku SAMA PERSIS
+	 * di sini: parsing JSON pada Tahap 2 kini dibungkus {@link #amanJadikanJSONObject(String)}
+	 * (baik untuk berkas indeks maupun berkas detail per-entri), identik dengan pola KKN — indeks
+	 * atau berkas detail legacy/rusak diperlakukan sebagai "kosong" lalu lanjut memproses, bukan
+	 * memicu blok catch pembungkus. Try/catch di sekitar setiap pemanggilan tetap dipertahankan
+	 * sebagai jaring pengaman lapis kedua untuk kegagalan non-parsing (mis. I/O).</p>
 	 *
 	 * @param nim NIM (case-insensitive, dicocokkan sebagian/{@code contains}) untuk memfilter
 	 *            anggota; diabaikan bila {@code hanyaNama} diisi, dan diabaikan (tidak memfilter)
@@ -757,7 +791,7 @@ public class KelompokPkl extends VOPembelajaran {
 
 			List<MahasiswaDapatKelompokPkl> mahasiswaDapatKelompokPklsTemp = new ArrayList<MahasiswaDapatKelompokPkl>();
 			try {
-				JSONObject c = new JSONObject(ambilLokasiDetailKelompokPkl());
+				JSONObject c = amanJadikanJSONObject(ambilLokasiDetailKelompokPkl());
 				Iterator<String> keys = c.keys();
 				while (keys.hasNext()) {
 					String key = keys.next();
@@ -765,7 +799,7 @@ public class KelompokPkl extends VOPembelajaran {
 						String s = c.getString(key);
 						if (!s.trim().isEmpty()) {
 							MahasiswaDapatKelompokPkl mahasiswaDapatKelompokPkl = (MahasiswaDapatKelompokPkl) Common
-									.convertToObject(new JSONObject(ais.common.BacaTulisUtil.baca(new File(s))),
+									.convertToObject(amanJadikanJSONObject(ais.common.BacaTulisUtil.baca(new File(s))),
 											MahasiswaDapatKelompokPkl.class);
 							if (mahasiswaDapatKelompokPkl != null) {
 								mahasiswaDapatKelompokPkl.setKelompokPkl(this);
@@ -821,15 +855,12 @@ public class KelompokPkl extends VOPembelajaran {
 	 * Menghitung jumlah anggota kelompok ini langsung dari berkas indeks JSON, TANPA memuat/
 	 * mem-parsing berkas detail masing-masing anggota. Mengimplementasikan method abstrak
 	 * {@code ambilJumlahDetailperkuliahanLangsung()} dari superclass
-	 * {@link ais.database.model.VOPembelajaran}. Perilakunya identik dengan kembaran
+	 * {@link ais.database.model.VOPembelajaran}. Perilakunya kini identik dengan kembaran
 	 * {@code KelompokKkn.ambilJumlahDetailperkuliahanLangsung()} (lihat javadoc method tersebut
-	 * untuk rincian alur), KECUALI parsing JSON di sini memanggil {@code new JSONObject(...)}
-	 * LANGSUNG tanpa validasi format terlebih dahulu — bila berkas indeks berisi data legacy/rusak,
-	 * blok {@code try}/{@code catch} terluar akan menangkap {@code JSONException} SEBELUM loop
-	 * penghitungan sempat berjalan sama sekali, sehingga hasilnya {@code 0} (sama seperti hasil
-	 * yang didapat KKN untuk kasus serupa, meski jalur eksekusinya berbeda — lihat javadoc
-	 * {@code ambilMahasiswaDapatKelompokPkl(String, String, String, boolean)} untuk penjelasan pola
-	 * ini secara lebih lengkap).
+	 * untuk rincian alur): parsing JSON di sini dibungkus {@link #amanJadikanJSONObject(String)},
+	 * sehingga berkas indeks yang berisi data legacy/rusak diperlakukan sebagai "kosong" (bukan
+	 * memicu blok {@code try}/{@code catch} terluar SEBELUM loop penghitungan sempat berjalan) —
+	 * hasilnya tetap {@code 0} untuk kasus itu, tapi lewat jalur yang sama dengan KKN.
 	 *
 	 * @return jumlah entri ber-nilai tidak kosong pada berkas indeks JSON kelompok ini; {@code 0}
 	 *         bila berkas tidak ada/kosong/gagal dibaca/gagal di-parse.
@@ -839,7 +870,7 @@ public class KelompokPkl extends VOPembelajaran {
 	public Integer ambilJumlahDetailperkuliahanLangsung() {
 		int jumlah = 0;
 		try {
-			JSONObject c = new JSONObject(ambilLokasiDetailKelompokPkl());
+			JSONObject c = amanJadikanJSONObject(ambilLokasiDetailKelompokPkl());
 			Iterator<String> keys = c.keys();
 			while (keys.hasNext()) {
 				String key = keys.next();
