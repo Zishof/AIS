@@ -88,12 +88,24 @@ import ais.ui.util.WaktuUtil;
 public class DoUpload extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	// Pending files untuk GDrive auth handoff
+	/**
+	 * Berkas yang sudah diterima dan tersimpan sementara di disk, menunggu proses OAuth Google
+	 * Drive selesai (alur "NeedAuth" pada {@link #processHibernateTransaction}). Kunci peta adalah
+	 * id {@link FileFotoLain} yang sudah dibuat di database; dibaca kembali oleh {@code accept.jsp}
+	 * setelah pengguna menyelesaikan otorisasi Drive.
+	 */
 	public static Map<String, File> filesPending = new ConcurrentHashMap<String, File>();
 
-	// === RETRY QUEUE: file diterima tapi DB gagal → coba ulang 10 menit kemudian ===
-	// Thread DAEMON + bernama: versi lama memakai factory default (non-daemon, tanpa
-	// shutdown) sehingga thread scheduler menahan classloader webapp saat redeploy.
+	/**
+	 * === RETRY QUEUE: file diterima tapi DB gagal → coba ulang 10 menit kemudian ===
+	 * Thread DAEMON + bernama: versi lama memakai factory default (non-daemon, tanpa
+	 * shutdown) sehingga thread scheduler menahan classloader webapp saat redeploy.
+	 *
+	 * <p>Scheduler tunggal yang mengeksekusi {@link #cobaUlangSimpan} 10 menit setelah sebuah
+	 * upload gagal disimpan ke database (lihat {@link #masukkanAntriRetry}). Dibuat dengan
+	 * {@link java.util.concurrent.ThreadFactory} kustom agar thread-nya daemon dan bernama
+	 * {@code "doupload-retry"}, sehingga tidak menahan classloader webapp saat redeploy.</p>
+	 */
 	private static final ScheduledExecutorService RETRY_SCHEDULER =
 		Executors.newSingleThreadScheduledExecutor(new java.util.concurrent.ThreadFactory() {
 			@Override
@@ -103,9 +115,13 @@ public class DoUpload extends HttpServlet {
 				return t;
 			}
 		});
+	/**
+	 * Blok inisialisasi statis: mendaftarkan {@link #RETRY_SCHEDULER} ke {@code
+	 * AppStartupListener} agar dihentikan otomatis saat webapp stop/redeploy. Daftarkan object
+	 * executor, bukan callback ke kelas DoUpload. Dengan begitu contextDestroyed tidak perlu
+	 * menginisialisasi ulang servlet saat classloader teardown.
+	 */
 	static {
-		// Daftarkan object executor, bukan callback ke kelas DoUpload. Dengan begitu
-		// contextDestroyed tidak perlu menginisialisasi ulang servlet saat classloader teardown.
 		ais.common.AppStartupListener.registerDoUploadRetryScheduler(RETRY_SCHEDULER);
 	}
 
@@ -121,6 +137,12 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Antrian upload yang sudah tersimpan di disk tapi gagal disimpan ke database, menunggu
+	 * eksekusi ulang oleh {@link #RETRY_SCHEDULER}. Kunci peta dihasilkan {@link
+	 * #masukkanAntriRetry} ({@code "retry_" + timestamp + acak}); entri dihapus begitu retry
+	 * berhasil atau gagal final (lihat {@link #cobaUlangSimpan}).
+	 */
 	private static final ConcurrentHashMap<String, PendingUpload> RETRY_QUEUE =
 		new ConcurrentHashMap<String, PendingUpload>();
 
@@ -139,13 +161,20 @@ public class DoUpload extends HttpServlet {
 	 */
 	@SuppressWarnings("rawtypes")
 	private static class PendingUpload {
+		/** Berkas fisik yang sudah tersimpan di disk, menunggu penyimpanan metadata ke database. */
 		final File file;
+		/** Subkelas {@link FileFotoLain} tujuan penyimpanan (hasil {@link DoUpload#resolveKelasLampiran}). */
 		final Class clazz;
+		/** Id entitas pemilik lampiran (nilai {@code ref} pada {@link FileFotoLain#createFileFotoLain}). */
 		final Serializable ref;
+		/** Jenis/kategori lampiran, diteruskan apa adanya ke {@link FileFotoLain#createFileFotoLain}. */
 		final String jenis;
+		/** Data tambahan JSON (subdata) yang menyertai upload; disimpan agar dapat dipakai ulang saat retry. */
 		final String subdata;
+		/** Nama berkas asli yang diunggah pengguna. */
 		final String nama;
 
+		/** Menyimpan seluruh parameter yang diperlukan {@link DoUpload#cobaUlangSimpan} untuk mengulang penyimpanan {@link FileFotoLain} bila percobaan pertama gagal. */
 		PendingUpload(File file, Class clazz, Serializable ref, String jenis, String subdata, String nama) {
 			this.file = file;
 			this.clazz = clazz;
@@ -156,6 +185,13 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Mendaftarkan upload yang gagal disimpan ke database untuk dicoba ulang otomatis 10 menit
+	 * kemudian: membungkus parameter ke {@link PendingUpload}, menyimpannya ke {@link
+	 * #RETRY_QUEUE} dengan kunci unik berbasis waktu+acak, lalu menjadwalkan {@link
+	 * #cobaUlangSimpan} lewat {@link #RETRY_SCHEDULER}. Berkas fisik {@code file} sudah tersimpan
+	 * di disk sebelum method ini dipanggil sehingga aman diproses ulang kapan pun.
+	 */
 	@SuppressWarnings("rawtypes")
 	private static void masukkanAntriRetry(final File file, final Class clazz,
 			final Serializable ref, final String jenis, final String subdata, final String nama) {
@@ -170,6 +206,15 @@ public class DoUpload extends HttpServlet {
 		System.err.println("[DoUpload] Antri retry: " + nama + " ref=" + ref + " key=" + key);
 	}
 
+	/**
+	 * Mengeksekusi satu percobaan ulang penyimpanan {@link FileFotoLain} dari {@link
+	 * PendingUpload} yang terdaftar di {@link #RETRY_QUEUE}. Entri selalu dihapus dari antrian
+	 * setelah percobaan ini, baik berhasil maupun gagal — tidak ada percobaan ulang kedua. Bila
+	 * gagal final, berkas fisik sementara dihapus dari disk agar tidak menumpuk.
+	 *
+	 * @param key     kunci entri pada {@link #RETRY_QUEUE} yang sedang diproses
+	 * @param pending data upload yang tertunda, dibungkus saat {@link #masukkanAntriRetry}
+	 */
 	@SuppressWarnings({"rawtypes", "unchecked"})
 	private static void cobaUlangSimpan(String key, PendingUpload pending) {
 		Session s = null;
@@ -199,18 +244,32 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/** Menangani permintaan {@code GET} dengan mendelegasikan ke {@link #processRequest}; identik perilakunya dengan {@link #doPost}. */
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		processRequest(request, response);
 	}
 
+	/** Menangani permintaan {@code POST} dengan mendelegasikan ke {@link #processRequest}; ini jalur normal upload multipart dari klien. */
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		processRequest(request, response);
 	}
 
+	/**
+	 * Implementasi utama penerimaan upload: mem-parsing permintaan multipart ({@code
+	 * ServletFileUpload}) dengan batas ukuran per-berkas dari konfigurasi {@code
+	 * ukuran_maksimal_file_diupload} (default 1024 KB) dan batas jumlah berkas 64, memisahkan
+	 * field form biasa dari satu berkas terunggah, menyimpan berkas ke disk lewat {@link
+	 * #saveFileToDisk}, lalu meneruskan ke salah satu dari dua alur hilir berdasarkan field form
+	 * {@code pertemuanFileContent}: konten materi pertemuan ({@link #handlePertemuanContent}) atau
+	 * upload profil/lampiran umum ({@link #handleUserProfileUpload}). Galat ukuran berlebih,
+	 * konflik versi library upload ({@link LinkageError}), dan exception lain masing-masing
+	 * diterjemahkan ke respons JSON status "Gagal" dengan keterangan yang sesuai, tidak dilempar
+	 * ke container. Respons akhir selalu ditulis lewat {@link #sendJsonResponse}.
+	 */
 	@SuppressWarnings("unchecked")
 	protected void processRequest(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -290,6 +349,13 @@ public class DoUpload extends HttpServlet {
 		sendJsonResponse(response, jsonObject);
 	}
 
+	/**
+	 * Menyalin isi {@code inputStream} ke berkas baru bernama {@code fileName} di bawah direktori
+	 * laporan aplikasi ({@link Common#ambilREAL_PATH_REPORT()}). Nama berkas berasal langsung dari
+	 * field form klien tanpa sanitasi path di titik ini.
+	 *
+	 * @return berkas hasil penyimpanan di disk
+	 */
 	private File saveFileToDisk(String fileName, InputStream inputStream) throws IOException {
 		File outputFile = new File(Common.ambilREAL_PATH_REPORT() + "/" + fileName);
 		FileOutputStream outputStream = null;
@@ -302,6 +368,12 @@ public class DoUpload extends HttpServlet {
 		return outputFile;
 	}
 
+	/**
+	 * Menyimpan berkas konten pertemuan (materi kuliah/sekolah) ke peta transien {@link
+	 * AmbilDataPertemuanFileContent#mapFileUpload}, dikunci oleh {@code pertemuanContentId} yang
+	 * dikirim klien, agar dapat diambil kembali oleh layar yang memintanya. Tidak menyentuh
+	 * database — hanya menandai status sukses/gagal berdasarkan keberadaan berkas.
+	 */
 	private void handlePertemuanContent(JSONObject jsonObject, String pertemuanContentId, File file)
 			throws JSONException {
 		if (file != null && file.exists()) {
@@ -384,6 +456,25 @@ public class DoUpload extends HttpServlet {
 		return c;
 	}
 
+	/**
+	 * Gerbang akses utama untuk upload profil/lampiran umum (jalur ke-19 layar JSP/ZUL yang
+	 * dilayani servlet ini). Menyalin seluruh field form ke {@code jsonObject}, lalu menentukan
+	 * identitas pemanggil dari field {@code token} (via {@link
+	 * ais.action.servlet.api.ApiUtil#currentUser}, dipakai klien POS) atau dari sesi HTTP ({@link
+	 * Common#getCurrentUser}).
+	 *
+	 * <p><b>Catatan keamanan:</b> permintaan tanpa sesi/token valid TETAP diloloskan bila field
+	 * form {@code tanpaLogin} bernilai {@code "true"} — nilai yang sepenuhnya dikendalikan klien.
+	 * Ini disengaja untuk alur yang memang sah tanpa akun (bukti bayar PMB, dokumen calon anggota
+	 * sebelum berakun), namun method ini sendiri tidak membatasi kelas lampiran ({@code clazz})
+	 * atau id entitas ({@code id}) yang boleh disasar saat {@code tanpaLogin=true}; pembatasan itu
+	 * hanya berupa validasi bahwa kelasnya subkelas {@link FileFotoLain} (lihat {@link
+	 * #resolveKelasLampiran}), bukan pembatasan ke jenis lampiran anonim yang dimaksud alur PMB.</p>
+	 *
+	 * <p>Batas ukuran lampiran gambar POS (500 KB, {@link #periksaLampiranPos}) hanya ditegakkan
+	 * untuk pemanggil yang mengirim {@code token} (klien POS); layar ZK/JSP berbasis sesi tidak
+	 * kena batas ini karena pindaian dokumen resmi rutin melebihi 500 KB.</p>
+	 */
 	private void handleUserProfileUpload(HttpServletRequest request, JSONObject jsonObject, Map<String, String> fields,
 			File file) throws Exception {
 		for (Map.Entry<String, String> entry : fields.entrySet())
@@ -420,6 +511,26 @@ public class DoUpload extends HttpServlet {
 		processHibernateTransaction(request, tbmuser, fields, file, jsonObject);
 	}
 
+	/**
+	 * Menyimpan hasil upload ke database, bercabang menjadi dua alur: (1) bila field {@code
+	 * fotoProfile="true"} dan pemanggil sudah login, mengganti foto profil pengguna lewat {@link
+	 * #processProfilePhoto} dalam satu transaksi; (2) selain itu, membuat lampiran umum lewat
+	 * {@link FileFotoLain#createFileFotoLain} untuk kelas ({@code clazz}, divalidasi lewat {@link
+	 * #resolveKelasLampiran}) dan id entitas ({@code id}) yang dikirim klien — bila penyimpanan
+	 * database gagal padahal berkas sudah ada di disk, upload diantre untuk dicoba ulang ({@link
+	 * #masukkanAntriRetry}) alih-alih dianggap gagal total.
+	 *
+	 * <p>Upload bukti bayar PMB ({@code clazz=LampiranLainBiodataCalonMahasiswa}, jenis bukti bayar
+	 * pendaftaran/daftar ulang) memicu pembuatan tambahan {@link BuktiPembayaran} lewat {@link
+	 * #buatBuktiPembayaranDariLampiran} agar bagian keuangan dapat melihatnya — kegagalan langkah
+	 * tambahan ini tidak menggagalkan upload utama yang sudah ter-commit.</p>
+	 *
+	 * <p>Bila field {@code toDrive="true"}, method mencoba mengunggah langsung ke Google Drive
+	 * pengguna ({@link GDriveUtilPerPengguna#kirimBackupLangsung}); kegagalan koneksi (token
+	 * kedaluwarsa/belum diotorisasi) menghapus cache token yang rusak, menyimpan berkas ke {@link
+	 * #filesPending} untuk diproses ulang setelah popup OAuth selesai, dan mengembalikan status
+	 * {@code "NeedAuth"} berikut URL otorisasi Google.</p>
+	 */
 	@SuppressWarnings("rawtypes")
 	private void processHibernateTransaction(HttpServletRequest request, final Tbmuser tbmuser, Map<String, String> fields, final File file, JSONObject jsonObject) throws Exception {
 		Session session = null;
@@ -586,6 +697,14 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menentukan entitas foto profil yang tepat untuk {@code user} berdasarkan peran aktifnya
+	 * (mahasiswa/siswa/dosen/guru/pegawai, fallback admin/tbmuser bila tidak ada peran spesifik),
+	 * lalu mendelegasikan penyimpanan ke {@link #saveFotoEntity} dengan kelas {@link FileFotoLain}
+	 * dan nama kolom foreign-key yang sesuai peran tersebut.
+	 *
+	 * @return URI tautan foto yang baru disimpan
+	 */
 	private String processProfilePhoto(Session session, Tbmuser user, String nama, String jenis, File file,
 			JSONObject jsonObject) throws Exception {
 		if (user.getMahasiswa() != null)
@@ -607,6 +726,14 @@ public class DoUpload extends HttpServlet {
 			return saveFotoEntity(session, FotoAdmin.class, "tbmuser", user.getUserId(), nama, jenis, file, jsonObject);
 	}
 
+	/**
+	 * Mengganti foto profil satu entitas: menghapus baris foto lama (bila ada, dicari lewat {@code
+	 * fkField}/{@code fkId}), lalu membuat baris baru berisi blob berkas via reflection
+	 * ({@code setNama}/{@code setKeterangan}/{@code set<FkField>}/{@code setFoto}) karena
+	 * {@code entityClass} berbeda-beda per peran pengguna.
+	 *
+	 * @return URI tautan foto yang baru disimpan ({@code createLinkUri(false)})
+	 */
 	@SuppressWarnings("deprecation")
 	private String saveFotoEntity(Session session, Class<? extends FileFotoLain> entityClass, String fkField,
 			Serializable fkId, String nama, String jenis, File file, JSONObject jsonObject) throws Exception {
@@ -753,6 +880,7 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/** Menerjemahkan exception tak terduga selama {@link #processRequest} menjadi respons JSON status "Gagal" berisi pesan exception, tanpa melempar ulang. */
 	private void handleException(HttpServletRequest request, JSONObject jsonObject, Exception e) {
 		try {
 			jsonObject.put("status", "Gagal");
@@ -761,6 +889,7 @@ public class DoUpload extends HttpServlet {
 		}
 	}
 
+	/** Menuliskan {@code jsonObject} sebagai respons JSON lengkap dengan header {@code Content-Length}, {@code Content-Type}, dan CORS permisif ({@code Access-Control-Allow-Origin: *}). */
 	private void sendJsonResponse(HttpServletResponse response, JSONObject jsonObject) throws IOException {
 		String body = jsonObject.toString();
 		response.setHeader("Content-Length", String.valueOf(body.length()));
