@@ -65,9 +65,48 @@ import ais.delivery.email.sender.MailSender;
 /**
  * Helper class khusus untuk menangani proses pengiriman Email, Broadcast, dan WhatsApp.
  * Dioptimalkan untuk efisiensi memori (StringBuilder & HashSet) dan kueri database.
+ *
+ * <p><b>Otorisasi broadcast:</b> kelas ini murni mesin pengiriman (resolusi penerima +
+ * kirim email/notifikasi/WA) — TIDAK melakukan pemeriksaan otorisasi sendiri. Siapa yang
+ * boleh memicu pengiriman ditentukan sepenuhnya oleh pemanggil:</p>
+ * <ul>
+ *   <li>{@link #broadcastEmail(PengumumanAkademis)} dan {@link #kirimEmailKeKorespondensi(PengumumanAkademis)}
+ *       dipanggil dari {@code PengumumanAkademisAction} setelah pengumuman akademik disimpan —
+ *       akses ke halaman/aksi simpan itu digerbangi oleh registrasi menu/peran AIS standar
+ *       (bukan oleh kelas ini). Penerima ditentukan oleh kombinasi flag {@code broadcastKe*}
+ *       pada {@link PengumumanAkademis} beserta filter fakultas/jurusan/program/sekolah/yayasan
+ *       yang MELEKAT pada entitas itu sendiri — bukan input bebas dari pemanggil, sehingga
+ *       cakupan penerima seluas yang diizinkan saat pengumuman dibuat/disimpan.</li>
+ *   <li>{@link #kirimEmailSuratKeluar} dan {@link #kirimEmailSuratMasuk} (yang meneruskan pesan
+ *       WhatsApp lewat {@link ais.action.servlet.Wa#kirimWaViaUltramsg}) mengirim HANYA ke
+ *       kontak yang sudah ditentukan oleh alur persetujuan/disposisi surat itu sendiri
+ *       ({@code usernamePengguna}, pejabat pada {@code AlurPersetujuanSuratKeluarStatus}/
+ *       {@code AlurPersetujuanSuratMasukStatus}, dan pihak terkait langsung pada surat) — bukan
+ *       daftar kontak bebas yang bisa dipilih pemanggil di luar konfigurasi routing surat.</li>
+ * </ul>
+ * <p>Dengan demikian potensi penyalahgunaan ("broadcast ke siapa saja") bergantung pada
+ * kebenaran otorisasi di titik pembuatan/persetujuan dokumen (Action/menu), bukan pada kelas
+ * ini. Kredensial WhatsApp (token Ultramsg) TIDAK berada di kelas ini — lihat
+ * {@link ais.action.servlet.Wa} dan {@code WaApi}.</p>
  */
 public class BroadcastHelper {
 
+	/**
+	 * Mengirim notifikasi email atas SATU komentar baru ({@code diskusiPengumumanAkademis})
+	 * pada sebuah pengumuman akademik, ke: pembuat komentar sendiri, seluruh
+	 * korespondensi ({@code PengumumanAkademis.getKorespondensi()}), dan seluruh peserta
+	 * diskusi sebelumnya (mahasiswa/siswa/tbmuser) pada pengumuman yang sama — dikumpulkan
+	 * lewat beberapa query proyeksi terpisah agar hemat memori (hanya kolom email/id yang
+	 * diambil, bukan entitas penuh). Badan email menyertakan rekap seluruh komentar pada
+	 * pengumuman tersebut.
+	 *
+	 * <p>Dijalankan asinkron lewat {@link Common#createDefaultTimer(EventListener)} dengan
+	 * sesi Hibernate sendiri (bukan sesi request), yang selalu dibersihkan
+	 * ({@code clear/disconnect/close}) pada blok {@code finally}. Tidak melakukan apa pun bila
+	 * isi komentar kosong.</p>
+	 *
+	 * @param diskusiPengumumanAkademis komentar baru yang memicu notifikasi
+	 */
 	@SuppressWarnings("unchecked")
 	public static void kirimEmail(final DiskusiPengumumanAkademis diskusiPengumumanAkademis) {
 		if (!diskusiPengumumanAkademis.getCatatan().trim().isEmpty()) {
@@ -184,6 +223,31 @@ public class BroadcastHelper {
 		}
 	}
 
+	/**
+	 * Mengirim broadcast email pengumuman akademik ke seluruh segmen penerima yang
+	 * DIAKTIFKAN pada {@code pengumumanAkademis} sendiri (masing-masing lewat flag
+	 * {@code getBroadcastKe*()}/{@code getBroadcastCalonMahasiswa()}): siswa aktif, mahasiswa
+	 * aktif, mahasiswa yang sedang cuti pada TA/semester berjalan, mahasiswa alumni, calon
+	 * mahasiswa (PMB), dosen, guru, dan admin (tbmuser tanpa relasi dosen). Setiap segmen
+	 * disaring lebih lanjut oleh fakultas/jurusan/program/sekolah/yayasan yang tersimpan pada
+	 * {@code pengumumanAkademis} itu sendiri (nilai {@code null}/kosong berarti "semua",
+	 * diimplementasikan lewat {@code Restrictions.sqlRestriction("1=1")} sebagai predikat
+	 * netral) — sehingga cakupan penerima sepenuhnya ditentukan oleh nilai yang dipilih saat
+	 * pengumuman dibuat/disimpan, bukan oleh parameter method ini.
+	 *
+	 * <p>Setiap segmen memakai proyeksi Hibernate (hanya kolom email + id/NIM/NIN/userId)
+	 * untuk efisiensi memori pada basis data pengguna yang besar. Alamat email divalidasi
+	 * ({@link Common#isValidEmailAddress(String)}) dan dikumpulkan ke {@link HashSet} agar
+	 * dedup otomatis sebelum digabung jadi satu string dipisah koma. Badan email menyertakan
+	 * rekap seluruh komentar pada pengumuman.</p>
+	 *
+	 * <p>Dijalankan asinkron lewat {@link Common#createDefaultTimer(EventListener)} dengan
+	 * sesi Hibernate sendiri, dibersihkan pada blok {@code finally}. Tidak melakukan apa pun
+	 * bila isi pengumuman kosong.</p>
+	 *
+	 * @param pengumumanAkademis pengumuman akademik yang di-broadcast; flag dan filter
+	 *        segmennya menentukan seluruh cakupan penerima
+	 */
 	public static void broadcastEmail(final PengumumanAkademis pengumumanAkademis) {
 		if (!pengumumanAkademis.getCatatan().trim().isEmpty()) {
 			Common.createDefaultTimer(new EventListener() {
