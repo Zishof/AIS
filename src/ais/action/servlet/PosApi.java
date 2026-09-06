@@ -4358,7 +4358,9 @@ public class PosApi extends HttpServlet {
 							+ " COALESCE(NULLIF(TRIM(a.nama),''),NULLIF(TRIM(p.nama),''),'Produk tanpa nama'),"
 							+ " COALESCE(NULLIF(TRIM(a.kode),''),NULLIF(TRIM(p.kode),''),''),"
 							+ " COALESCE(a.qty,0), COALESCE(a.hargasatuan,0), COALESCE(a.diskon,0),"
-							+ " COALESCE(a.total,0), a.qty_input, COALESCE(sj.nama,''), COALESCE(sd.nama,''), a.id"
+							+ " COALESCE(a.total,0), a.qty_input, COALESCE(sj.nama,''), COALESCE(sd.nama,''), a.id,"
+							+ " a.produk, COALESCE(NULLIF(TRIM(p.kode),''),NULLIF(TRIM(a.kode),''),''),"
+							+ " COALESCE(NULLIF(TRIM(p.nama),''),NULLIF(TRIM(a.nama),''),'Produk tanpa nama')"
 							+ " FROM koperasi.pembelian a"
 							+ " LEFT JOIN koperasi.produk p ON p.id = a.produk"
 							+ " LEFT JOIN koperasi.satuan_produk sj ON sj.id = a.satuan_jual"
@@ -4383,6 +4385,14 @@ public class PosApi extends HttpServlet {
 							b.put("sesiKode", induk == null ? "" : induk.opt("sesiKode"));
 							b.put("produkNama", rs.getString(2));
 							b.put("produkKode", rs.getString(3));
+							// Identitas rekap HARUS stabil lintas nota. a.kode/a.nama adalah snapshot
+							// penjualan dan pada data An Nahl dapat berisi awalan kode transaksi
+							// (EB...-AN...), sehingga produk yang sama terlihat sebagai baris berbeda.
+							// Detail tetap memakai snapshot di atas; rekap memakai id+master berikut.
+							long produkId = rs.getLong(12);
+							b.put("produkId", rs.wasNull() ? JSONObject.NULL : Long.valueOf(produkId));
+							b.put("produkKodeRekap", rs.getString(13));
+							b.put("produkNamaRekap", rs.getString(14));
 							double qty = rs.getDouble(4);
 							double hargaSatuan = rs.getDouble(5);
 							double diskon = rs.getDouble(6);

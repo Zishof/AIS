@@ -848,14 +848,10 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 * pun di basis kode; bila kelak dipakai, penjagaan kepemilikan perlu ditambahkan lebih
 	 * dulu.</p>
 	 *
-	 * <p><b>Cabang BENAR_SALAH tidak pernah tercapai di varian ini.</b> Variabel
-	 * {@code jumlahJawaban} dideklarasikan bernilai 0 lalu diuji dengan
-	 * {@code else if (jumlahJawaban == 2)}, namun tidak pernah dinaikkan di sepanjang method ini
-	 * &mdash; berbeda dari {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)} yang
-	 * menaikkannya pada tiap opsi yang tersimpan. Akibatnya soal hasil impor lewat method ini
-	 * tidak pernah diklasifikasikan {@link BankSoal#BENAR_SALAH}: hanya
-	 * {@link BankSoal#COMBINATION_CHOICE} (bila lebih dari satu opsi benar) atau
-	 * {@link BankSoal#MULTIPLE_COICE}.</p>
+	 * <p><b>Penyimpulan jenis pilihan ganda</b> mengikuti urutan yang sama dengan
+	 * {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)}: {@code jumlahJawaban} dinaikkan
+	 * pada tiap opsi pilihan ganda yang tersimpan, sehingga cabang {@link BankSoal#BENAR_SALAH}
+	 * dapat tercapai saat tepat dua opsi terisi.</p>
 	 *
 	 * <p><b>Sesi dan transaksi.</b> Penulisan memakai
 	 * {@code HibernateUtil.currentNativeSession()} dengan pasangan {@code begin()}/
@@ -1014,6 +1010,7 @@ public class DetailGrupSoalHelper implements DataLoader {
 										session.getTransaction().begin();
 										Common.refreshSaveOrUpdate(session, bankSoalDetail);
 										session.getTransaction().commit();
+										jumlahJawaban++;
 									}
 									j++;
 								} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/DetailGrupSoalHelper.java:731");

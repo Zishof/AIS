@@ -4836,29 +4836,31 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	 * </pre>
 	 * <p>Peserta berkelompok "Tengah" tidak ikut menyumbang pembilang mana pun — sesuai kaidah
 	 * item analysis yang membuang kelompok tengah.</p>
-	 * <p><b>Kategori DP versi dashboard</b> (dan versi yang dicetak pada panduan di bawah tabel):
+	 * <p><b>Kategori DP (identik antara dashboard dan Excel, lihat
+	 * {@link #kategoriDayaPembeda(double, boolean, boolean)}):</b>
 	 * {@code totalJawab == 0} &rarr; <b>"Blm dikerjakan"</b>;
+	 * {@code jumlahAtas == 0} (seluruh peserta bernilai sama, DP tak terdefinisi) &rarr;
+	 * <b>"Tidak dapat dihitung"</b>;
 	 * {@code DP &ge; 0.40} &rarr; <b>"Sangat Baik"</b>;
 	 * {@code DP &ge; 0.30} &rarr; <b>"Baik"</b>;
 	 * {@code DP &ge; 0.20} &rarr; <b>"Perlu Revisi"</b>;
 	 * selain itu &rarr; <b>"Ganti"</b>. Tidak ada kategori "Cukup", "Jelek", maupun "Negatif" —
-	 * DP negatif jatuh ke "Ganti".</p>
-	 * <p><b>PERINGATAN — kategori Excel BERBEDA.</b> Baris "Kriteria" pada sheet memakai ambang
-	 * lain: {@code DP &lt; 0.20} &rarr; "Ganti"; {@code DP &lt; 0.40} &rarr; "Revisi"; selain itu
-	 * "Gunakan". Untuk DP di pita <b>0.30 &ndash; 0.399</b> dashboard menyatakan "Baik" dan
-	 * menghitungnya sebagai soal LAYAK PAKAI ({@code statsGlobal[2]}), sedangkan Excel menyatakan
-	 * "Revisi". Kedua keluaran berasal dari satu tombol yang sama, jadi bila dosen membandingkan
-	 * layar dengan berkas unduhan ia akan menemukan angka "Soal Layak Pakai" yang tidak cocok.
-	 * Jangan menyamakan keduanya tanpa memutuskan lebih dulu ambang mana yang menjadi kebijakan
-	 * institusi.</p>
-	 * <p><b>PERINGATAN — pembagian nol pada jalur Excel.</b> Perhitungan dashboard menjaga
-	 * {@code jumlahAtas > 0}, tetapi baris "Daya Pembeda" pada Excel membagi langsung tanpa
-	 * penjagaan. Bila SELURUH peserta bernilai sama ({@code jumlahTingkatSkor == 1}), tidak ada
-	 * seorang pun yang masuk kelompok Atas sehingga {@code jumlahAtas == 0.0} dan hasil bagi
-	 * {@code double} menjadi {@code NaN}. Seluruh perbandingan {@code NaN < ambang} bernilai
-	 * {@code false}, sehingga cabang {@code else} terpilih dan SEMUA soal tercetak
-	 * "GREENGunakan" di berkas Excel. Kondisi ini nyata pada kuis yang seluruh pesertanya
-	 * memperoleh skor identik.</p>
+	 * DP negatif jatuh ke "Ganti". Pada Excel, "Sangat Baik" dan "Baik" sama-sama dicetak
+	 * "GREENGunakan" (satu-satunya bucket "layak pakai" di sana), "Perlu Revisi" dicetak
+	 * "YELLOWRevisi", dan "Ganti" dicetak "REDGanti"; "Blm dikerjakan" dan "Tidak dapat
+	 * dihitung" dicetak apa adanya tanpa awalan warna.</p>
+	 * <p><b>Riwayat perbaikan (sebelumnya menyimpang, sekarang satu sumber ambang).</b>
+	 * Dahulu baris "Kriteria" pada sheet Excel menulis ulang ambangnya sendiri dengan batas
+	 * "Gunakan" di {@code DP &ge; 0.40} (bukan {@code 0.30} seperti dashboard), sehingga soal
+	 * dengan DP pada pita 0.30&ndash;0.399 tampil "Baik/Layak Pakai" di layar tetapi "Revisi"
+	 * di berkas unduhan. Jalur Excel juga membagi {@code jumlahAtas} tanpa penjagaan
+	 * {@code jumlahAtas > 0}, sehingga saat SELURUH peserta bernilai sama
+	 * ({@code jumlahTingkatSkor == 1}) hasil baginya {@code NaN} dan (karena semua perbandingan
+	 * {@code NaN < ambang} bernilai {@code false}) SEMUA soal tercetak "GREENGunakan" walau
+	 * sama sekali tidak membedakan siapa pun. Kedua cacat ini ditutup dengan memindahkan
+	 * ambang dan penjagaan pembagian ke {@link #kategoriDayaPembeda(double, boolean, boolean)}
+	 * yang dipakai KEDUA jalur — jangan pernah menulis ulang ambang 0.40/0.30/0.20 secara
+	 * terpisah lagi di salah satu jalur.</p>
 	 *
 	 * <h3>5. Rekomendasi soal — hanya dari DP</h3>
 	 * <p>Pencacah {@code statsGlobal[2..4]} (Gunakan / Perlu Revisi / Ganti) yang menjadi dasar
@@ -5746,20 +5748,30 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 									if (jmlAtasAnal == null) jmlAtasAnal = 0;
 									Integer jmlBawahAnal = jumlahPosisi.get(soalIdAnal + "_Bawah");
 									if (jmlBawahAnal == null) jmlBawahAnal = 0;
-									double dpAnal = jumlahAtas > 0
+									boolean adaKelompokAtasAnal = jumlahAtas > 0;
+									double dpAnal = adaKelompokAtasAnal
 											? (jmlAtasAnal.doubleValue() - jmlBawahAnal.doubleValue()) / jumlahAtas
 											: 0.0;
 									String katDPAnal;
-									if (totalJawabAnal == 0) {
+									switch (kategoriDayaPembeda(dpAnal, totalJawabAnal != 0, adaKelompokAtasAnal)) {
+									case DP_KAT_BLM_DIKERJAKAN:
 										katDPAnal = "Blm dikerjakan";
-									} else if (dpAnal >= 0.40) {
+										break;
+									case DP_KAT_TIDAK_DAPAT_DIHITUNG:
+										katDPAnal = "Tidak dapat dihitung";
+										break;
+									case DP_KAT_SANGAT_BAIK:
 										katDPAnal = "Sangat Baik"; statsGlobal[2]++;
-									} else if (dpAnal >= 0.30) {
+										break;
+									case DP_KAT_BAIK:
 										katDPAnal = "Baik"; statsGlobal[2]++;
-									} else if (dpAnal >= 0.20) {
+										break;
+									case DP_KAT_PERLU_REVISI:
 										katDPAnal = "Perlu Revisi"; statsGlobal[3]++;
-									} else {
+										break;
+									default:
 										katDPAnal = "Ganti"; statsGlobal[4]++;
+										break;
 									}
 
 									StringBuilder distribSb = new StringBuilder();
@@ -6093,20 +6105,32 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 										salah = 0;
 									}
 
-									double jml = (jmlAtas.doubleValue() - jmlBawah.doubleValue()) / jumlahAtas;
+									boolean adaKelompokAtas = jumlahAtas > 0;
+									double jml = adaKelompokAtas
+											? (jmlAtas.doubleValue() - jmlBawah.doubleValue()) / jumlahAtas
+											: 0.0;
 
 									XSSFCell cell = rowhead.createCell(col);
 									cell.setCellValue("**" + Common.numberFormat.get().format(jml));
 
+									boolean sudahDijawabExcel = !(benar.equals(0) && salah.equals(0));
 									String ni;
-									if (benar.equals(0) && salah.equals(0)) {
+									switch (kategoriDayaPembeda(jml, sudahDijawabExcel, adaKelompokAtas)) {
+									case DP_KAT_BLM_DIKERJAKAN:
 										ni = "Blm dikerjakan";
-									} else if (jml < 0.20) {
+										break;
+									case DP_KAT_TIDAK_DAPAT_DIHITUNG:
+										ni = "Tidak dapat dihitung";
+										break;
+									case DP_KAT_GANTI:
 										ni = "REDGanti";
-									} else if (jml < 0.40) {
+										break;
+									case DP_KAT_PERLU_REVISI:
 										ni = "YELLOWRevisi";
-									} else {
+										break;
+									default:
 										ni = "GREENGunakan";
+										break;
 									}
 									cell = rowhead1.createCell(col);
 									cell.setCellValue("**" + ni);
@@ -6472,6 +6496,33 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 			EventListener eventListener = new EventListener() {
 
+				/**
+				 * Listener {@code onOpen} panel detail baris, merangkap penerima sinyal
+				 * "data berubah". Menangani DUA peristiwa yang berbeda:
+				 *
+				 * <ol>
+				 *   <li><b>Event membawa {@link HasilUjianMahasiswa}</b> — sinyal dari panel
+				 *       koreksi bahwa data peserta baru saja berubah. Baris dibersihkan lalu
+				 *       {@code render(arg0, arg1)} dipanggil ULANG lewat timer ZK, sehingga
+				 *       seluruh sel (skor, nilai, statistik, pewarnaan latar) dibangun kembali
+				 *       dari data terbaru. Pemakaian timer penting: merender ulang komponen dari
+				 *       dalam listener komponen itu sendiri dapat merusak pohon komponen yang
+				 *       sedang diproses ZK.</li>
+				 *   <li><b>Event biasa (panel dibuka)</b> — isi detail dibangun secara MALAS lewat
+				 *       {@link HasilUjianMahasiswaHelper#tampilRow(MyDetail, HasilUjianMahasiswa)}.
+				 *       Tanpa pemuatan malas, satu halaman grid berisi sampai 1000 peserta akan
+				 *       memuat rincian soal dan jawaban semuanya sekaligus.</li>
+				 * </ol>
+				 *
+				 * <p><b>{@code detail.setAttribute("eventListener", this)}</b> menyimpan referensi
+				 * listener ini pada komponen agar kode lain (mis. panel koreksi) dapat
+				 * mengambilnya kembali dan mengirimkan sinyal "data berubah" tanpa perlu
+				 * menyimpan referensi tersendiri.</p>
+				 *
+				 * @param event event {@code onOpen}, atau sinyal perubahan data yang membawa
+				 *              {@link HasilUjianMahasiswa} pada {@code getData()}
+				 * @throws Exception diteruskan dari pembangunan panel detail
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					detail.setAttribute("eventListener", this);
@@ -6480,6 +6531,25 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 						Common.clear(arg0);
 						Common.createDefaultTimer(new EventListener() {
 
+							/**
+							 * Membangun ulang seluruh isi baris dengan memanggil kembali
+							 * {@code render(arg0, arg1)} setelah data peserta berubah.
+							 *
+							 * <p>Dijalankan lewat timer, BUKAN langsung, karena pemanggil berada
+							 * di dalam listener milik komponen yang barusan dibersihkan
+							 * {@code Common.clear(arg0)}. Merender ulang di tengah pemrosesan
+							 * event atas pohon komponen yang sama berisiko merusak keadaan ZK;
+							 * timer menunda pekerjaan itu ke siklus event berikutnya ketika
+							 * pembersihan sudah tuntas.</p>
+							 *
+							 * <p>{@code arg0} (baris) dan {@code arg1} (objek peserta) ditangkap
+							 * dari parameter {@code render} terluar, sehingga baris dibangun ulang
+							 * untuk peserta yang sama — data terbarunya diambil ulang dari
+							 * {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas}.</p>
+							 *
+							 * @param event event timer; tidak dipakai
+							 * @throws Exception diteruskan dari perenderan ulang baris
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								render(arg0, arg1);
@@ -6539,6 +6609,31 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 			new MyLabelKecil("kali").setParent(hb);
 			ikut.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menyimpan perubahan kolom <b>"Ikut ujian ... kali"</b> ({@code jumlahIkut}).
+				 *
+				 * <p><b>Untuk apa kolom ini.</b> {@code jumlahIkut} membatasi berapa kali peserta
+				 * boleh mengulang ujian. Menaikkannya memberi kesempatan ujian ulang — misalnya
+				 * bagi peserta yang koneksinya terputus di tengah ujian.</p>
+				 *
+				 * <p><b>Pola muat-ubah-simpan</b> dipakai di sini (berbeda dari {@code Sisa Waktu}
+				 * dan {@code Lengkapi ulang jawaban} yang wajib memakai HQL bulk update), karena
+				 * {@code jumlahIkut} tidak memiliki getter yang memutasi field dari cache berkas,
+				 * sehingga dirty-check Hibernate tidak akan menimpa nilai yang baru diketik.</p>
+				 *
+				 * <p><b>Kelemahan yang perlu diketahui: kegagalan berlangsung SENYAP.</b> Blok
+				 * {@code catch} hanya me-rollback transaksi tanpa memberi tahu pengguna dan tanpa
+				 * merekam ke {@code ErrorAuditUtil} — berbeda dari editor {@code Nilai} dan
+				 * {@code Keterangan} di baris yang sama, yang menampilkan tanda &#10007; beserta
+				 * pesan kegagalannya. Akibatnya admin dapat mengira perubahan tersimpan padahal
+				 * tidak. Kotak isian juga tidak dikembalikan ke nilai lama saat gagal.</p>
+				 *
+				 * <p><b>Otorisasi.</b> Tidak ada pemeriksaan peran di dalam listener; lihat
+				 * bagian Otorisasi pada Javadoc {@code render(...)}.</p>
+				 *
+				 * @param arg0 event {@code onChange}; nilai baru dibaca dari komponen {@code ikut}
+				 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					Session session = null;
@@ -6570,6 +6665,40 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 			sisaWaktu.setDisabled(hasilUjianMahasiswa.getSisaWaktuPengerjaan() == null);
 			sisaWaktu.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menyimpan penambahan/pengurangan <b>Sisa Waktu</b> pengerjaan seorang peserta —
+				 * fitur yang dipakai admin untuk memberi tambahan waktu saat ujian masih
+				 * BERLANGSUNG.
+				 *
+				 * <p><b>Mengapa memakai HQL bulk update, bukan muat-ubah-simpan.</b> Ini
+				 * perbaikan atas laporan "admin tidak bisa menambah waktu ujian, nilainya kembali
+				 * ke 0 setelah refresh". Pola lama ({@code session.get} + setter +
+				 * {@code session.update} + commit) memicu Hibernate MEMANGGIL
+				 * {@code getSisaWaktuPengerjaan()} saat dirty-check/flush karena pemetaan
+				 * entity ini berbasis PROPERTY access. Getter tersebut SENGAJA menimpa nilai
+				 * in-memory dengan isi cache berkas "live" ({@code retreive()}) yang pada saat
+				 * commit masih memuat nilai LAMA — sinkronisasi ke berkas baru baru dilakukan
+				 * SETELAH commit. Akibatnya nilai yang baru diketik admin tertimpa nilai lama.
+				 * {@code update HasilUjianMahasiswa set sisaWaktuPengerjaan = :v where id = :id}
+				 * tidak memuat entity dan tidak memanggil getter sama sekali, sehingga yang
+				 * tersimpan persis sesuai masukan admin. Ini contoh konkret dampak pola
+				 * arsitektur <i>getter yang memutasi field</i> yang tersebar di paket model —
+				 * fakta arsitektur yang harus dipertahankan, bukan bug untuk "dirapikan".</p>
+				 *
+				 * <p><b>Dua langkah setelah commit.</b> {@code hasilUjianMahasiswa.put(...)}
+				 * menyinkronkan cache berkas "live" agar layar ujian peserta yang MASIH berjalan
+				 * tidak membaca sisa waktu basi, lalu {@code setSisaWaktuPengerjaan(...)}
+				 * menyegarkan objek in-memory milik grid. Urutan ini penting: {@code put}
+				 * lebih dulu, karena getter membaca dari berkas.</p>
+				 *
+				 * <p><b>Penjagaan.</b> Tidak melakukan apa pun bila nilai kosong. Komponen
+				 * sendiri di-{@code setDisabled(...)} ketika {@code sisaWaktuPengerjaan} null
+				 * (peserta belum mulai ujian). Kegagalan di-rollback dan direkam ke
+				 * {@code ErrorAuditUtil}, meski tidak ditampilkan ke pengguna.</p>
+				 *
+				 * @param arg0 event {@code onChange}; nilai baru dibaca dari komponen {@code sisaWaktu}
+				 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (sisaWaktu.getValue() != null) {
@@ -6700,6 +6829,31 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 			startIndexInput.setCols(2);
 			startIndexInput.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menyimpan <b>"Nomor Terakhir"</b>, yaitu nomor soal tempat peserta akan
+				 * melanjutkan ujian.
+				 *
+				 * <p><b>Bukan ke basis data.</b> Berbeda dari editor lain di baris ini, nilai
+				 * ditulis ke penyimpanan berkas "live" milik entity lewat
+				 * {@code hasilUjianMahasiswa.put(nilai, "index")} — bukan lewat transaksi
+				 * Hibernate. Penyimpanan berkas itulah yang dibaca layar ujian peserta yang
+				 * sedang berjalan, sehingga perubahan langsung berlaku tanpa menunggu commit
+				 * maupun invalidasi cache.</p>
+				 *
+				 * <p><b>Pergeseran satu.</b> Yang ditampilkan kepada admin adalah nomor
+				 * BERBASIS-SATU (soal ke-1, ke-2, ...), sedangkan yang disimpan adalah indeks
+				 * BERBASIS-NOL. Karena itu nilai dikurangi 1 saat disimpan, sebagaimana ia
+				 * ditambah 1 saat dibaca ke dalam {@code MyIntbox}. Masukan kosong
+				 * ({@code getValue()} null) disimpan sebagai 0 — mengembalikan peserta ke soal
+				 * pertama.</p>
+				 *
+				 * <p><b>Tanpa penanganan error.</b> Tidak ada {@code try/catch}: kegagalan
+				 * penulisan berkas akan merambat sebagai exception ZK dan tampil sebagai galat
+				 * pada antarmuka.</p>
+				 *
+				 * @param arg0 event {@code onChange}; nilai baru dibaca dari {@code startIndexInput}
+				 * @throws Exception diteruskan dari penulisan berkas penyimpanan "live"
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					hasilUjianMahasiswa.put(
@@ -6728,6 +6882,30 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 			lengkapiJawaban.setChecked(hasilUjianMahasiswa.getLengkapiJawaban());
 			lengkapiJawaban.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menyimpan centang <b>"Lengkapi ulang jawaban"</b> — izin bagi peserta untuk
+				 * kembali masuk dan melengkapi jawaban yang belum terisi.
+				 *
+				 * <p>Label komponennya menegaskan bahwa pilihan ini TIDAK aktif lagi begitu
+				 * peserta menjalani ujian ulang, sehingga izin bersifat sekali pakai.</p>
+				 *
+				 * <p><b>Memakai HQL bulk update</b> dengan alasan yang sama seperti editor
+				 * {@code Sisa Waktu} di atas — laporan aslinya berbunyi "checklist ini kembali
+				 * hilang setelah refresh". Memuat entity lalu menyimpannya berisiko memicu getter
+				 * lain milik entity ini yang memiliki efek samping (menimpa field dari cache
+				 * berkas) saat dirty-check, sehingga nilai yang tersimpan tidak sesuai pilihan
+				 * admin. Bulk update tidak memuat entity dan tidak memanggil getter apa pun.</p>
+				 *
+				 * <p>Setelah commit, objek in-memory milik grid ikut disegarkan dengan
+				 * {@code setLengkapiJawaban(...)} supaya keadaan centang konsisten tanpa perlu
+				 * memuat ulang baris. Kegagalan di-rollback dan direkam ke {@code ErrorAuditUtil},
+				 * namun tidak ditampilkan ke pengguna dan centang tidak dikembalikan ke keadaan
+				 * semula.</p>
+				 *
+				 * @param arg0 event {@code onClick}; keadaan baru dibaca dari
+				 *             {@code lengkapiJawaban.isChecked()}
+				 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					// FIX (laporan: checklist ini kembali hilang setelah refresh) — pola sama dengan
@@ -6808,6 +6986,26 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 									final FormatNilai fnKlik = nilai;
 									final HasilUjianMahasiswa himKlik = hasilUjianMahasiswa;
 									lblNilai.addEventListener("onClick", new EventListener() {
+										/**
+										 * Membuka popup rincian skor untuk Sub-CPMK yang labelnya
+										 * diklik.
+										 *
+										 * <p>Variabel {@code himKlik} dan {@code fnKlik} adalah
+										 * salinan {@code final} yang dibuat tepat sebelum listener
+										 * ini — perlu karena {@code nilai} adalah variabel
+										 * perulangan yang berubah pada iterasi berikutnya.
+										 * Tanpa salinan, seluruh label akan merujuk Sub-CPMK yang
+										 * terakhir diproses (dan pada Java 7 kode tidak akan
+										 * dikompilasi sama sekali).</p>
+										 *
+										 * <p>Listener ini hanya dipasang bila {@code nilaiMax != 0};
+										 * pada skor maksimal nol rincian tidak bermakna sehingga
+										 * label dibiarkan sebagai teks biasa tanpa gaya
+										 * dapat-diklik.</p>
+										 *
+										 * @param ev event {@code onClick}; tidak dipakai
+										 * @throws Exception diteruskan dari pembangunan popup
+										 */
 										@Override
 										public void onEvent(Event ev) throws Exception {
 											bukaPopupRincianSubCpmk(himKlik, fnKlik);
@@ -6834,6 +7032,25 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					lblNilaiPg.setStyle("cursor:pointer; text-decoration:underline; color:#2563eb;");
 					lblNilaiPg.setTooltiptext("Klik untuk melihat perbandingan Skor Jawaban vs Skor Diperoleh per soal");
 					lblNilaiPg.addEventListener("onClick", new EventListener() {
+						/**
+						 * Membuka popup <b>"Perbandingan Skor Jawaban vs Skor Diperoleh"</b> untuk
+						 * peserta ujian pilihan ganda non-OBE.
+						 *
+						 * <p>Popup ini adalah alat diagnosis nilai janggal: ia menyorot MERAH
+						 * setiap soal bertipe poin yang skor diperolehnya MELEBIHI skor
+						 * maksimalnya — data tak wajar yang menjadi penyebab lazim nilai peserta
+						 * melampaui 100.</p>
+						 *
+						 * <p>{@code himNilaiKlik} adalah salinan {@code final} dari entity baris,
+						 * disiapkan tepat sebelum listener ini karena ditangkap anonymous inner
+						 * class pada Java 7.</p>
+						 *
+						 * <p>Berbeda dari label Sub-CPMK versi OBE, label ini SELALU dibuat dapat
+						 * diklik tanpa syarat skor maksimal.</p>
+						 *
+						 * @param ev event {@code onClick}; tidak dipakai
+						 * @throws Exception diteruskan dari pembangunan popup
+						 */
 						@Override
 						public void onEvent(Event ev) throws Exception {
 							bukaPopupPerbandinganSkor(himNilaiKlik);
@@ -6865,6 +7082,41 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				lblAutoNilai.setParent(hbox);
 				doublebox.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * <b>Editor NILAI langsung</b> untuk ujian esai: menyimpan angka yang diketik
+					 * dosen ke kolom {@code nilai} peserta.
+					 *
+					 * <p>Inilah jalur paling langsung untuk mengubah nilai peserta di seluruh
+					 * kelas ini — satu kali ketik lalu pindah fokus, dan nilai tersimpan. Tidak
+					 * ada dialog konfirmasi, tidak ada validasi rentang (nilai negatif atau lebih
+					 * dari 100 diterima apa adanya), dan tidak ada jejak audit nilai lama.</p>
+					 *
+					 * <p><b>Otorisasi.</b> Listener TIDAK memeriksa peran pengguna sama sekali.
+					 * Bandingkan dengan tombol "Reset Ujian" beberapa sel di kanannya, yang
+					 * dijaga {@code Common.getCurrentUser()} bukan mahasiswa dan bukan siswa.
+					 * Ketimpangan ini disengaja atau tidak, dampaknya sama: perlindungan kolom
+					 * nilai bersandar sepenuhnya pada asumsi bahwa grid rekap hanya dapat dibuka
+					 * dari layar dosen/admin. Setiap penambahan jalur baru yang memanggil
+					 * {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)}
+					 * WAJIB memverifikasi peran pemanggilnya.</p>
+					 *
+					 * <p><b>Umpan balik simpan-otomatis.</b> Berhasil menampilkan &#10003; hijau
+					 * bertooltip "Tersimpan" yang memudar sendiri setelah 2,5 detik lewat
+					 * {@code Clients.evalJavaScript}; gagal menampilkan &#10007; merah bertooltip
+					 * berisi pesan kesalahan. Pola ini jauh lebih baik daripada editor
+					 * {@code Ikut ujian} yang gagal secara senyap, dan layak ditiru bila menambah
+					 * editor sebaris baru.</p>
+					 *
+					 * <p><b>Catatan konsistensi.</b> Menulis {@code nilai} secara langsung TIDAK
+					 * memperbarui {@code nilaiObe}, {@code jawabanBenar}, maupun cache MapDB.
+					 * Menjalankan "Hitung Ulang Semua" setelahnya akan MENIMPA angka yang diketik
+					 * di sini dengan hasil perhitungan otomatis — meski pada ujian esai
+					 * {@code hitungWaktu} tidak menyentuh kolom nilai, sehingga dalam praktik
+					 * nilai esai yang diketik manual bertahan.</p>
+					 *
+					 * @param arg0 event {@code onChange}; nilai baru dibaca dari {@code doublebox}
+					 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						Session session = null;
@@ -6908,6 +7160,44 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				button.setOrient("horizontal");
 				button.setTooltiptext("Hitung Ulang");
 				button.addEventListener("onClick", new EventListener() {
+					/**
+					 * Tombol <b>Hitung Ulang</b> per baris (ikon saja, tanpa label): menghitung
+					 * ulang nilai SATU peserta esai dari skor koreksi per soal.
+					 *
+					 * <p><b>Label sengaja dikosongkan</b> ({@code setLabel("")}) agar tombol tidak
+					 * melebarkan sel Nilai yang sempit — tanpa itu tabel meluap dan kolom paling
+					 * kanan ("Pelanggaran") terpotong. Maksudnya tetap terbaca lewat
+					 * {@code tooltiptext}.</p>
+					 *
+					 * <p><b>Rumus yang dipakai BERBEDA dari mesin penilaian pusat.</b> Untuk tiap
+					 * soal dalam paket peserta, diambil <b>SATU</b> {@link HasilUjianMahasiswaDetail}
+					 * saja ({@code hasilUjianMahasiswaDetails.iterator().next()}), lalu
+					 * dijumlahkan {@code (nilaiDetail * 100 / skorSoal)} dan hasilnya dibagi
+					 * jumlah soal. Untuk soal berjawaban ganda — yang memiliki lebih dari satu
+					 * baris detail — jawaban selain yang pertama diabaikan, sehingga hasilnya
+					 * dapat menyimpang dari {@code ProsesUjianHelper.hitungPilihanGanda}.
+					 * Perbedaan ini perlu diketahui sebelum membandingkan angka tombol ini dengan
+					 * angka hasil "Hitung Ulang Semua".</p>
+					 *
+					 * <p><b>Pemuatan paksa.</b> Detail jawaban diambil dengan overload empat
+					 * argumen ber-{@code refresh=true}, sehingga skor koreksi yang baru saja
+					 * disimpan dosen langsung terbaca tanpa terhalang cache.</p>
+					 *
+					 * <p><b>Ambang 0.1.</b> Nilai hanya ditulis bila total {@code > 0.1}. Bila
+					 * tidak, muncul pesan bahwa hasil ujian peserta ini belum dikoreksi, disertai
+					 * dua langkah yang dapat dilakukan. Penjagaan ini mencegah peserta yang belum
+					 * dikoreksi tertimpa nilai 0.</p>
+					 *
+					 * <p><b>Pembagian nol.</b> {@code skor} soal bernilai 0 menghasilkan
+					 * {@code Infinity}, bukan exception; nilai yang tercemar akan lolos ambang dan
+					 * tersimpan. Periksa skor soal di bank soal bila menemukan nilai janggal.</p>
+					 *
+					 * <p>Setelah commit, {@code doublebox} disegarkan agar angka baru langsung
+					 * terlihat. Kegagalan di-rollback dan direkam, tanpa pesan ke pengguna.</p>
+					 *
+					 * @param event event {@code onClick}; tidak dipakai
+					 * @throws Exception diteruskan dari pemuatan detail jawaban
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 
@@ -7020,6 +7310,28 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				btnReset.setTooltiptext("Reset ujian " + namaPesertaReset + " — seolah belum pernah mengikuti ujian sama sekali");
 				btnReset.setStyle("color:#b91c1c;");
 				btnReset.addEventListener("onClick", new EventListener() {
+					/**
+					 * Tombol <b>Reset Ujian</b> per peserta: meminta konfirmasi sebelum menghapus
+					 * seluruh jawaban dan riwayat pengerjaan seorang peserta, seolah ia belum
+					 * pernah mengikuti ujian sama sekali.
+					 *
+					 * <p>Berbeda dari "Ulang Semua" di toolbar yang mengosongkan SELURUH peserta,
+					 * tombol ini bekerja pada satu peserta — dipakai ketika hanya satu orang yang
+					 * perlu mengulang, misalnya karena kendala teknis saat ujian berlangsung.
+					 * Nama peserta disebut eksplisit pada dialog konfirmasi dan pada
+					 * {@code tooltiptext} agar admin tidak salah sasaran.</p>
+					 *
+					 * <p><b>Gerbang otorisasi.</b> Tombol hanya dibuat bila
+					 * {@code Common.getCurrentUser()} bukan mahasiswa dan bukan siswa. Perhatikan
+					 * bahwa gerbang ini TIDAK mengecualikan pengguna ber-{@code biodataCalonMahasiswa}
+					 * maupun ber-{@code calonSiswa} — berbeda dari gerbang tombol toolbar di
+					 * {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)}
+					 * yang memeriksa keempat peran peserta. Ini satu-satunya pemeriksaan peran di
+					 * dalam renderer baris.</p>
+					 *
+					 * @param onClickEvent event {@code onClick}; tidak dipakai
+					 * @throws Exception diteruskan dari pembangunan dialog konfirmasi
+					 */
 					@Override
 					public void onEvent(Event onClickEvent) throws Exception {
 						MyMessageboxConfig.show(
@@ -7028,11 +7340,52 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL,
 							MyMessageboxConfig.QUESTION,
 							new EventListener() {
+								/**
+								 * Menerima jawaban dialog konfirmasi Reset Ujian dan meneruskannya
+								 * bila pengguna memilih OK.
+								 *
+								 * <p>Pekerjaan sesungguhnya tidak dijalankan langsung melainkan
+								 * dibungkus {@code Common.createDefaultTimer(...)}, agar transaksi
+								 * penghapusan berjalan di siklus event berikutnya dan tidak
+								 * memblokir antrean event ZK selagi dialog ditutup.</p>
+								 *
+								 * @param okEvent event dialog; {@code getData()} berisi kode tombol
+								 * @throws Exception diteruskan dari penguraian kode tombol
+								 */
 								@Override
 								public void onEvent(Event okEvent) throws Exception {
 									int pilihan = Integer.parseInt(okEvent.getData().toString());
 									if (pilihan == MyMessageboxConfig.OK) {
 										Common.createDefaultTimer(new EventListener() {
+											/**
+											 * Melaksanakan reset ujian satu peserta dalam SATU
+											 * transaksi.
+											 *
+											 * <p><b>Tiga langkah.</b> (1) Seluruh
+											 * {@link HasilUjianMahasiswaDetail} milik peserta
+											 * di-{@code null}-kan pada {@code bankSoalDetail},
+											 * {@code jawaban}, dan {@code waktuJawab} — baris
+											 * detail sengaja TIDAK dihapus agar struktur paket
+											 * soal peserta tetap utuh dan relasi ke lampiran
+											 * jawaban tidak putus, sama seperti aksi "Ulang
+											 * Semua". (2) Entity utama diambil ulang sebagai
+											 * instance terkelola lalu {@code reset()} dipanggil,
+											 * disusul pengosongan {@code sisaWaktuPengerjaan},
+											 * {@code jumlahPelanggaran}, dan
+											 * {@code logPelanggaran} — sehingga rekam jejak
+											 * pelanggaran pengawasan ujian IKUT TERHAPUS, hal
+											 * yang perlu disadari bila catatan itu masih
+											 * diperlukan sebagai bukti. (3) Baris dirender ulang
+											 * lewat timer bersarang.</p>
+											 *
+											 * <p>Kegagalan me-rollback transaksi, merekam ke
+											 * {@code ErrorAuditUtil} dengan menyertakan id
+											 * peserta, dan menampilkan pesan galat kepada
+											 * pengguna. Session ditutup di {@code finally}.</p>
+											 *
+											 * @param timerEvent event timer; tidak dipakai
+											 * @throws Exception diteruskan dari operasi basis data
+											 */
 											@SuppressWarnings("unchecked")
 											@Override
 											public void onEvent(Event timerEvent) throws Exception {
@@ -7065,6 +7418,22 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 													tx.commit();
 													// 3. Reload baris
 													Common.createDefaultTimer(new EventListener() {
+														/**
+														 * Merender ulang baris setelah reset
+														 * berhasil, sehingga sel skor, nilai,
+														 * statistik jawaban, pewarnaan latar, dan
+														 * kolom pelanggaran kembali menampilkan
+														 * keadaan "belum mengerjakan".
+														 *
+														 * <p>Timer bersarang di dalam timer:
+														 * pembersihan dan perenderan ditunda satu
+														 * siklus lagi setelah transaksi commit,
+														 * agar pembacaan ulang data tidak
+														 * mendahului penyelesaian transaksi.</p>
+														 *
+														 * @param reloadEvent event timer; tidak dipakai
+														 * @throws Exception diteruskan dari perenderan ulang
+														 */
 														@Override
 														public void onEvent(Event reloadEvent) throws Exception {
 															Common.clear(arg0);
@@ -7096,6 +7465,30 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 			keterangan.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menyimpan catatan bebas dosen pada kolom <b>Keterangan</b> peserta.
+				 *
+				 * <p>Dipakai untuk mencatat hal-hal yang tidak tertampung kolom terstruktur —
+				 * misalnya alasan pemberian tambahan waktu, catatan kendala teknis, atau
+				 * keterangan hasil verifikasi dugaan kecurangan.</p>
+				 *
+				 * <p><b>Pola muat-ubah-simpan</b> dipakai di sini; {@code keterangan} tidak
+				 * memiliki getter yang memutasi field sehingga tidak memerlukan HQL bulk update
+				 * seperti {@code Sisa Waktu} dan {@code Lengkapi ulang jawaban}.</p>
+				 *
+				 * <p><b>Umpan balik simpan-otomatis</b> sama seperti editor Nilai: &#10003; hijau
+				 * bertooltip "Tersimpan" yang memudar sendiri setelah 2,5 detik lewat
+				 * {@code Clients.evalJavaScript}, atau &#10007; merah bertooltip berisi pesan
+				 * kesalahan bila gagal.</p>
+				 *
+				 * <p><b>Tanpa pembatasan panjang dan tanpa pelolosan HTML</b> di sisi ini; isi
+				 * kolom diperlakukan sebagai teks biasa oleh komponen {@code Textbox} yang
+				 * menampilkannya kembali, sehingga tidak menjadi jalur injeksi pada layar ini.
+				 * Berhati-hatilah bila kelak kolom ini dirender melalui komponen HTML.</p>
+				 *
+				 * @param arg0 event {@code onChange}; nilai baru dibaca dari {@code keterangan}
+				 * @throws Exception tidak dilempar dalam praktik — badan dibungkus try/catch
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					Session session = null;
@@ -7502,6 +7895,32 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	    }
 
 	    final org.zkoss.zul.Label label = Common.displayLoadBar(new org.zkoss.zk.ui.event.EventListener() {
+	        /**
+	         * Callback bilah pemuatan {@code loadData}: memasang model grid, menghitung
+	         * statistik, dan membersihkan daftar sementara — dijalankan pada thread ZK setelah
+	         * seluruh tugas thread pool selesai mengisi
+	         * {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas}.
+	         *
+	         * <p><b>Urutan yang penting.</b> {@code SimpleListModel} dibungkus dari
+	         * {@link HasilUjianMahasiswaHelper#mahasiswasTemorary}, renderer dipasang, lalu
+	         * {@code setModelCheckMobile(strset)} memicu perenderan baris. Renderer memerlukan
+	         * map hasil ujian sudah terisi — itulah sebabnya callback ini baru berjalan setelah
+	         * label dikosongkan thread koordinator.</p>
+	         *
+	         * <p><b>Statistik.</b> Menjumlahkan soal terjawab seluruh peserta dan mencacah
+	         * peserta yang himpunan jawabannya TIDAK KOSONG sebagai {@code pesertaYgIkutUjian}.
+	         * Definisi "sudah ikut ujian" ini — ada minimal satu soal terjawab — sama persis
+	         * dengan yang dipakai dashboard Analisis Butir Soal, sehingga kedua layar konsisten.
+	         * Hasilnya diserahkan ke {@link HasilUjianMahasiswaHelper#displayStatistik(int, int, int)}
+	         * dengan {@link HasilUjianMahasiswaHelper#jumlahPeserta} sebagai penyebut.</p>
+	         *
+	         * <p><b>Pembersihan tertunda.</b> Timer ZK mengosongkan {@code mahasiswasTemorary}
+	         * setelah model terpasang, untuk melepas referensi entity agar tidak menahan memori
+	         * sepanjang umur desktop.</p>
+	         *
+	         * @param arg0 event penanda selesai; tidak dipakai
+	         * @throws Exception diteruskan dari pemasangan model dan pembangunan panel statistik
+	         */
 	        @Override
 	        public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 	            org.zkoss.zul.ListModel strset = new org.zkoss.zul.SimpleListModel(mahasiswasTemorary);
@@ -7525,6 +7944,26 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	            displayStatistik(jumlahPeserta, terjawab, pesertaYgIkutUjian);
 
 	            Common.createDefaultTimer(new org.zkoss.zk.ui.event.EventListener() {
+	                /**
+	                 * Melepas isi {@link HasilUjianMahasiswaHelper#mahasiswasTemorary} setelah
+	                 * model grid terpasang, agar referensi entity peserta tidak menahan memori
+	                 * sepanjang umur desktop ZK.
+	                 *
+	                 * <p>Dijalankan lewat timer — bukan langsung — karena {@code SimpleListModel}
+	                 * yang baru saja dipasang masih membaca daftar ini selama render awal.
+	                 * Mengosongkannya seketika akan menghasilkan grid kosong.</p>
+	                 *
+	                 * <p><b>Perhatian konkurensi:</b> thread latar pengisi
+	                 * {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas} mengiterasi daftar
+	                 * yang sama. Bila pembersihan ini terjadi selagi iterasi berlangsung,
+	                 * {@link java.util.ConcurrentModificationException} dapat terjadi — tertangkap
+	                 * {@code catch} terluar thread tersebut, dengan akibat sebagian baris tidak
+	                 * terisi (grid tampak kosong sebagian) tanpa merusak data. Menekan Refresh
+	                 * memulihkannya.</p>
+	                 *
+	                 * @param arg0 event timer; tidak dipakai
+	                 * @throws Exception tidak dilempar dalam praktik
+	                 */
 	                @Override
 	                public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 	                    if (mahasiswasTemorary != null) {
@@ -7543,6 +7982,30 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 	    // Threading dan Background Processing
 	    new Thread(new Runnable() {
+	        /**
+	         * Thread <b>koordinator</b> fase kedua {@code loadData}: menyebar satu tugas per
+	         * peserta ke kolam thread, menunggu seluruhnya selesai, lalu mengosongkan label bilah
+	         * pemuatan sehingga callback ZK memasang model grid.
+	         *
+	         * <p><b>Ukuran kolam.</b> {@code Executors.newFixedThreadPool(DbThreadPool.safe(100))}
+	         * — dua kali lipat kolam "Hitung Ulang Semua" (50), karena tugas di sini hanya
+	         * MEMBACA sehingga lebih ringan dan tidak menahan kunci tulis.
+	         * {@code DbThreadPool.safe} membatasi angka itu terhadap kapasitas kolam koneksi
+	         * database agar tidak terjadi kelaparan koneksi.</p>
+	         *
+	         * <p><b>Jalan pintas.</b> Bila tidak ada peserta sama sekali, label langsung
+	         * dikosongkan dan thread berakhir — tanpa membuat kolam thread.</p>
+	         *
+	         * <p><b>Lewati yang sudah ada.</b> Peserta yang null atau yang id-nya sudah terdapat
+	         * pada {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas} dilewati, namun pencacah
+	         * progres tetap dinaikkan agar persentase tidak macet.</p>
+	         *
+	         * <p><b>Penyelesaian.</b> {@code shutdown()} lalu
+	         * {@code awaitTermination(Long.MAX_VALUE, NANOSECONDS)} — menunggu tanpa batas waktu.
+	         * Pengosongan label berada di blok {@code finally}, sehingga bilah pemuatan SELALU
+	         * hilang meski terjadi kegagalan; ini berbeda dari thread Analisis Butir Soal yang
+	         * mengosongkan label di dalam {@code try} dan karenanya dapat menggantung.</p>
+	         */
 	        @Override
 	        public void run() {
 	            try {
@@ -7562,6 +8025,41 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	                    }
 
 	                    executor.submit(new Runnable() {
+	                        /**
+	                         * Tugas pemuatan hasil ujian untuk <b>satu peserta</b>, dijalankan di
+	                         * kolam thread.
+	                         *
+	                         * <p><b>Membuang session ThreadLocal basi lebih dulu.</b> Baris
+	                         * pertama memanggil {@code HibernateUtil.closeSession()}. Ini
+	                         * perbaikan atas galat "You can't operate on a closed Connection":
+	                         * kolam thread ({@code DbThreadPool}) DIPAKAI ULANG lintas
+	                         * request/operasi, sehingga session native {@code ThreadLocal} milik
+	                         * thread ini bisa basi — {@code isOpen()} masih {@code true} padahal
+	                         * koneksi JDBC-nya sudah ditutup c3p0 atau basis data. Membuangnya di
+	                         * muka memaksa method entity ({@code ambilByKey},
+	                         * {@code ambilBankSoalIdTerjawab}) membuka session native yang SEGAR.
+	                         * Panggilan kedua di {@code finally} menutup session yang dibuka tugas
+	                         * ini agar tidak menggantung untuk pemakai kolam berikutnya.</p>
+	                         *
+	                         * <p><b>Alur.</b> Peserta dipilah menjadi {@code Mahasiswa} atau
+	                         * {@code BiodataCalonMahasiswa} lewat {@code instanceof} (jenis lain
+	                         * diteruskan sebagai dua-duanya null), lalu
+	                         * {@code HasilUjianMahasiswa.ambilByKey(...)} mengambil baris hasilnya.
+	                         * Bila {@code reloadNama} aktif — yaitu pemuatan penuh tanpa kata kunci
+	                         * pencarian — {@code populateHasilUjianMahasiswa(...)} menulis ulang
+	                         * peta lokasi peserta pada {@code PertemuanPunyaUjian}. Terakhir,
+	                         * pasangan {@code Object[]{hasilUjian, idSoalTerjawab}} disimpan ke
+	                         * map berkunci id peserta; argumen {@code refresh} menentukan apakah
+	                         * himpunan jawaban dibaca ulang atau boleh dari cache.</p>
+	                         *
+	                         * <p><b>Ketahanan.</b> Kegagalan per peserta dicatat ke
+	                         * {@code ErrorAuditUtil} dan tidak menghentikan peserta lain — baris
+	                         * yang bersangkutan akan tampil kosong di grid. Pembaruan label progres
+	                         * dibungkus {@code try/catch} tersendiri agar galat UI di luar Desktop
+	                         * tidak mematikan tugas. Pencacah {@code processedCounter} bertipe
+	                         * {@link java.util.concurrent.atomic.AtomicInteger} karena dinaikkan
+	                         * sampai 100 thread.</p>
+	                         */
 	                        @Override
 	                        public void run() {
 	                            try {
@@ -7706,12 +8204,64 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 				new EventListener() {
 
+					/**
+					 * Menerima jawaban dialog konfirmasi "Peserta dianggap hadir" dan meneruskan
+					 * bila pengguna memilih OK.
+					 *
+					 * <p>Pelaksanaannya dibungkus {@code Common.createDefaultTimer(...)} agar
+					 * penulisan presensi seluruh peserta — yang dapat memakan waktu pada kelas
+					 * besar — berjalan di siklus event berikutnya dan tidak memblokir antrean
+					 * event ZK selagi dialog ditutup.</p>
+					 *
+					 * @param event event dialog; {@code getData()} berisi kode tombol yang ditekan
+					 * @throws Exception diteruskan dari penguraian kode tombol
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						int i = Integer.parseInt(event.getData().toString());
 						if (i == MyMessageboxConfig.OK) {
 							Common.createDefaultTimer(new EventListener() {
 
+								/**
+								 * Menuliskan presensi HADIR bagi seluruh peserta yang benar-benar
+								 * mengerjakan ujian, dalam SATU transaksi.
+								 *
+								 * <p><b>Syarat seorang peserta ditandai hadir</b> — ketiganya
+								 * harus terpenuhi: memiliki {@code mahasiswa} ATAU
+								 * {@code biodataCalonMahasiswa}; {@code mulaiPada} tidak null; dan
+								 * {@code selesaiPada} tidak null. Artinya peserta yang membuka
+								 * ujian tetapi tidak pernah menyelesaikannya TIDAK dianggap hadir.
+								 * Perhatikan bahwa peserta berjenis {@code Siswa}/{@code CalonSiswa}
+								 * tidak pernah lolos syarat pertama sehingga fitur ini efektif
+								 * hanya untuk domain perguruan tinggi.</p>
+								 *
+								 * <p><b>Isi catatan presensi.</b> {@code pertemuan.populate(...)}
+								 * dipanggil dengan status {@code ConstantValues.MASUK} dan
+								 * keterangan yang menyebut nama ujian, waktu mulai dan selesai
+								 * pengerjaan, jumlah soal, serta jumlah soal terjawab — jejak yang
+								 * memadai untuk audit kehadiran di kemudian hari. Jam mulai dan
+								 * selesai presensi diambil dari catatan absensi peserta bila ada,
+								 * dengan cadangan jam pertemuan.</p>
+								 *
+								 * <p><b>Entity pertemuan diambil ulang</b> lewat
+								 * {@code session.get(Pertemuan.class, id)} agar yang dimodifikasi
+								 * adalah instance TERKELOLA milik session ini, bukan objek
+								 * detached dari layar pemanggil. Satu {@code session.update} di
+								 * akhir menyimpan seluruh perubahan presensi sekaligus.</p>
+								 *
+								 * <p><b>Transaksi tunggal</b> berarti kegagalan di tengah proses
+								 * me-rollback SEMUA presensi — tidak ada keadaan setengah
+								 * tertulis. Session ditutup di {@code finally}, lalu
+								 * {@code eventListener} pemanggil dijalankan lewat timer untuk
+								 * menyegarkan tampilan.</p>
+								 *
+								 * <p><b>Otorisasi.</b> Tidak ada pemeriksaan peran di dalam
+								 * listener; gerbangnya hanya {@code setVisible(...)} pada tombol
+								 * pemicu di toolbar.</p>
+								 *
+								 * @param arg0 event timer; tidak dipakai
+								 * @throws Exception diteruskan dari operasi basis data dan presensi
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 

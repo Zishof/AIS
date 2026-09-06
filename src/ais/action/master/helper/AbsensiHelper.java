@@ -4838,7 +4838,7 @@ public class AbsensiHelper {
 		row.setParent(rowUtama.getParent());
 		row.setValign("top");
 
-		Group group = new ais.ui.util.MyGroupConfig("Konfirmasi kehadiran dosen oleh perwakilan kelas");
+		Group group = new ais.ui.util.MyGroupConfig("Konfirmasi kehadiran dosen oleh mahasiswa peserta");
 		group.setVisible(pertemuan.getJadwalPelajaran() == null && pertemuan.getJadwalUjianPMB() == null
 				&& pertemuan.getJadwalUjianPSB() == null);
 		group.setParent(rowUtama.getParent());
@@ -4860,7 +4860,7 @@ public class AbsensiHelper {
 		row.setParent(rowUtama.getParent());
 		row.setValign("top");
 
-		group = new ais.ui.util.MyGroupConfig("Konfirmasi kesesuaian dengan RPS oleh perwakilan kelas");
+		group = new ais.ui.util.MyGroupConfig("Konfirmasi kesesuaian dengan RPS oleh mahasiswa peserta");
 		group.setVisible(pertemuan.getJadwalPelajaran() == null && pertemuan.getJadwalUjianPMB() == null
 				&& pertemuan.getJadwalUjianPSB() == null);
 		group.setParent(rowUtama.getParent());
@@ -7424,7 +7424,7 @@ public class AbsensiHelper {
 				row = new MyFormRow();
 				row.setParent(rowssub);
 				row.appendChild(new MyLabelAgakKecilBoldBiru(
-						"Belum ada konfirmasi dari Ketua/Perwakilan Kelas terkait kehadiran dosen"));
+						"Belum ada konfirmasi dari mahasiswa peserta terkait kehadiran dosen"));
 			} else if (!ada && mahasiswa != null) {
 				Row row;
 				row = new MyFormRow();
@@ -7577,7 +7577,7 @@ public class AbsensiHelper {
 				row = new MyFormRow();
 				row.setParent(rowssub);
 				row.appendChild(new MyLabelAgakKecilBoldBiru(
-						"Belum ada konfirmasi dari perwakilan kelas apakah pertemuan ini sesuai dengan RPS"));
+						"Belum ada konfirmasi dari mahasiswa peserta apakah pertemuan ini sesuai dengan RPS"));
 			} else if (!ada && mahasiswa != null) {
 				Row row;
 				row = new MyFormRow();
