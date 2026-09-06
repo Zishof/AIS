@@ -176,6 +176,20 @@ public class BCA extends HttpServlet {
 	 * polanya tidak memuat offset zona, pemanggil lebih dulu membuang sufiks {@code +07:00}.</p>
 	 */
 	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
+		/**
+		 * Membuat pemformat milik thread pemanggil saat {@code dateFormat1.get()} dipakai pertama
+		 * kali pada thread itu.
+		 *
+		 * <p>Setiap thread memperoleh instance {@link SimpleDateFormat} tersendiri, sehingga
+		 * ketiadaan keamanan-thread pada kelas tersebut tidak menjadi masalah. Pola
+		 * {@code yyyy-MM-dd'T'HH:mm:ss} sengaja tanpa offset zona: pemanggil membuang sufiks
+		 * {@code +07:00} lebih dulu.</p>
+		 *
+		 * <p>Pemformat ini bersifat <i>lenient</i> (bawaan {@link SimpleDateFormat}), sehingga
+		 * tanggal di luar jangkauan seperti bulan ke-13 akan digulung, bukan ditolak.</p>
+		 *
+		 * @return pemformat baru khusus untuk thread pemanggil
+		 */
 		@Override
 		protected DateFormat initialValue() {
 			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");

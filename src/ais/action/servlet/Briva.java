@@ -126,6 +126,20 @@ public class Briva extends HttpServlet {
 	 * transaksi yang sesungguhnya.</p>
 	 */
 	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
+		/**
+		 * Membuat pemformat milik thread pemanggil saat {@code dateFormat1.get()} dipakai pertama
+		 * kali pada thread itu.
+		 *
+		 * <p>Setiap thread memperoleh instance {@link SimpleDateFormat} tersendiri, sehingga
+		 * ketiadaan keamanan-thread pada kelas tersebut tidak menjadi masalah. Pola
+		 * {@code yyyy-MM-dd'T'HH:mm:ss} sengaja tanpa offset zona: {@link #doProses} membuang
+		 * sufiks {@code +07:00} lebih dulu.</p>
+		 *
+		 * <p>Pemformat ini bersifat <i>lenient</i> (bawaan {@link SimpleDateFormat}), sehingga
+		 * tanggal di luar jangkauan seperti bulan ke-13 akan digulung, bukan ditolak.</p>
+		 *
+		 * @return pemformat baru khusus untuk thread pemanggil
+		 */
 		@Override
 		protected DateFormat initialValue() {
 			return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
@@ -920,6 +934,73 @@ public class Briva extends HttpServlet {
 		return response;
 	}
 
+	/**
+	 * Pemilah cabang SNAP: menentukan apakah permintaan adalah penerbitan <i>access token</i> atau
+	 * notifikasi transaksi, lalu menjalankan otentikasi yang sesuai untuk cabang itu.
+	 *
+	 * <p>Pemilahan dilakukan semata oleh <b>ada-tidaknya {@code grantType} pada body</b>, bukan
+	 * oleh URL. Kedua {@code url-pattern} servlet ini bermuara di metode yang sama, sehingga
+	 * permintaan bergrant-type yang dikirim ke URL notifikasi tetap diperlakukan sebagai
+	 * penerbitan token, dan sebaliknya.</p>
+	 *
+	 * <h3>Cabang penerbitan token ({@code grantType != null})</h3>
+	 * <ol>
+	 *   <li>Tanda tangan {@code SHA256withRSA} atas {@code "<X-Client-Key>|<X-Timestamp>"}
+	 *       diverifikasi terhadap kunci publik konfigurasi {@code strPublicKey_bri} (dengan kunci
+	 *       bawaan tertanam di kode sebagai cadangan — aman, karena ini kunci <i>publik</i>). Gagal
+	 *       berarti {@code 4017300 Unathorized. [Signature]}.</li>
+	 *   <li>Kesegaran {@code X-Timestamp} diperiksa lewat gerbang
+	 *       {@code gerbang_timestamp_h2h_briva} dengan toleransi
+	 *       {@code toleransi_menit_timestamp_h2h_briva}; gagal berarti {@code 4017301}.</li>
+	 *   <li>Sebuah {@link UUID} diterbitkan sebagai token, didaftarkan ke simpanan bersama
+	 *       {@code PembayaranGatewayHelper.terbitkanTokenH2h} dengan masa berlaku internal dari
+	 *       {@code masa_berlaku_token_h2h_briva_menit} (bawaan 15 menit).</li>
+	 * </ol>
+	 * <p><b>Catatan kontrak:</b> nilai {@code expiresIn} yang dikirim ke bank tetap {@code 1000*15}
+	 * dan sengaja <b>tidak</b> disamakan dengan masa berlaku internal di atas, karena angka itu
+	 * bagian kontrak SNAP yang sudah disepakati. Perlu disadari bahwa spesifikasi SNAP menyatakan
+	 * {@code expiresIn} dalam detik, sehingga 15.000 terbaca sebagai lebih dari empat jam —
+	 * ketidakselarasan yang dipertahankan demi kompatibilitas, bukan kekeliruan baru.</p>
+	 *
+	 * <h3>Cabang transaksi ({@code grantType == null})</h3>
+	 * <p>Merakit {@code virtualAccountData} dari field body, membaca header {@code Authorization}
+	 * (kedua ejaan huruf besar-kecil), mengevaluasi gerbang token H2H lewat
+	 * {@code PembayaranGatewayHelper.periksaGerbangTokenH2h} dengan konfigurasi
+	 * {@code gerbang_token_h2h_briva}, lalu meneruskan hasilnya ke {@link #doProcess doProcess}.
+	 * Lihat Javadoc kelas untuk riwayat gerbang ini dan arti mode
+	 * {@code nonaktif}/{@code log}/{@code aktif}.</p>
+	 * <p>Perhatikan bahwa {@code virtualAccountData.paymentStatus} diisi {@code "Success"}
+	 * <b>sebelum</b> pemrosesan berlangsung; {@link #doProcess doProcess} akan menimpa
+	 * {@code responseCode} bila transaksi ditolak, tetapi field ini sendiri tidak ikut disesuaikan.</p>
+	 *
+	 * <h3>Perilaku lain</h3>
+	 * <ul>
+	 *   <li>{@code reversal} dipaku {@code false}, sehingga jalur pembatalan di
+	 *       {@link #doProcess doProcess} tidak terjangkau dari servlet ini.</li>
+	 *   <li>Nominal diambil dari {@code additionalInfo.paymentAmount}; kegagalan penguraian
+	 *       menjadikannya {@code 0.0} secara diam-diam, yang lalu tertolak penjaga pencocokan
+	 *       nominal di {@link #doProcess doProcess}.</li>
+	 *   <li>Setiap {@link Exception} diterjemahkan menjadi {@link #errorDb} ({@code 91 Link Down}),
+	 *       sehingga bank akan mengirim ulang.</li>
+	 *   <li>Bila konfigurasi {@code otto_va_sleep} aktif, balasan apa pun <b>ditimpa</b>
+	 *       {@link #timeoutDb} setelah jeda tiga detik — sakelar simulasi galat yang harus tetap
+	 *       nonaktif di lingkungan produksi.</li>
+	 *   <li>Body dan seluruh header dicetak ke {@code System.out}; keluarannya memuat data
+	 *       transaksi nasabah sehingga berkas log server harus diperlakukan sebagai data sensitif.</li>
+	 * </ul>
+	 *
+	 * @param data     body JSON mentah dari bank
+	 * @param request  permintaan asli, dipakai membaca header dan mencatat log H2H
+	 * @param bankHost {@link BankHost} hasil pemetaan IP penelepon; boleh {@code null}
+	 * @param bank     label validator, selalu {@code "Briva"} dari {@link #process}
+	 * @param chek     diteruskan apa adanya ke {@link #doProcess doProcess}; nilai {@code true}
+	 *                 melumpuhkan penjaga VA kadaluarsa dan penjaga tagihan sudah dibayar — lihat
+	 *                 peringatan pada {@link #doProcess doProcess}
+	 * @return badan respons JSON siap kirim
+	 * @throws Exception bila penguraian body atau jeda simulasi gagal
+	 * @see #doProcess(double, String, String, String, BankHost, HttpServletRequest, String,
+	 *      boolean, boolean, boolean, boolean, JSONObject, String)
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
@@ -1088,6 +1169,43 @@ public class Briva extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Titik masuk tunggal kedua endpoint SNAP BRI: membaca body, memetakan IP penelepon, lalu
+	 * menyerahkan pemilahan cabang dan otentikasi ke {@link #doProses}.
+	 *
+	 * <p>Dipanggil {@link #doGet} maupun {@link #doPost}. Berbeda dengan {@link BCA} yang menegakkan
+	 * rantai otentikasi di dalam metode ini sendiri, di sini seluruh keputusan otentikasi berada di
+	 * {@link #doProses}; metode ini hanya menyiapkan masukan dan menuliskan hasilnya.</p>
+	 *
+	 * <h3>Pemetaan {@link BankHost}</h3>
+	 * <p>{@link BankHost} dicari dari {@code request.getRemoteAddr()}. Perlu dicatat sebagai hal
+	 * positif bahwa kelas ini <b>tidak</b> memercayai header {@code X-Forwarded-For} maupun
+	 * {@code CF-Connecting-IP} yang dapat dipalsukan penelepon — berbeda dengan
+	 * {@code PembayaranUtil.getBankHost(HttpServletRequest)} yang memang membaca header-header
+	 * tersebut dan karenanya tidak dipakai di sini. Hasil {@code null} tidak menghentikan inquiry;
+	 * khusus jalur posting, keadaan itu dapat dibuat gagal-tertutup lewat gerbang
+	 * {@code gerbang_bankhost_null_posting_briva}.</p>
+	 *
+	 * <h3>PERINGATAN: argumen {@code chek} yang menyimpang</h3>
+	 * <p>Metode ini memanggil {@link #doProses} dengan {@code chek = true}. Semua gateway sejenis
+	 * ({@code Bankaltimtara}, {@code BMS}, {@code BSI}, {@code Esmartlink}) memanggil padanan
+	 * metodenya dengan {@code false}. Karena {@code chek} muncul sebagai {@code !chek} pada dua
+	 * penjaga di {@link #doProcess doProcess}, nilai {@code true} melumpuhkan <b>penjaga VA
+	 * kadaluarsa</b> sekaligus <b>penjaga tagihan sudah dibayar</b> pada endpoint notifikasi
+	 * pembayaran. Keadaan ini telah dilaporkan sebagai temuan tersendiri; jangan menyalin polanya
+	 * ke gateway lain, dan jangan menganggapnya perilaku yang disengaja.</p>
+	 *
+	 * <h3>Penulisan respons</h3>
+	 * <p>Respons dikirim dengan {@code Content-Type: application/json} dan header non-standar
+	 * {@code length}. Status HTTP <b>selalu 200</b> — tidak seperti {@link BCA} yang menetapkan
+	 * 400/401/404; keberhasilan atau kegagalan disampaikan sepenuhnya lewat {@code responseCode}
+	 * atau {@code errorCode} di dalam badan JSON.</p>
+	 *
+	 * @param request  permintaan dari BRI
+	 * @param response respons yang akan diisi JSON
+	 * @throws Exception bila pembacaan body atau penulisan respons gagal
+	 * @see #doProses(String, HttpServletRequest, BankHost, String, boolean)
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -1118,6 +1236,27 @@ public class Briva extends HttpServlet {
 
 	}
 
+	/**
+	 * Merakit balasan simulasi <i>timeout</i> ({@code errorCode "68" Connection Timeout}).
+	 *
+	 * <p>Body permintaan digemakan kembali sebagai kerangka, lalu dua field status ditimpakan di
+	 * atasnya. Dipakai <b>hanya</b> oleh {@link #doProses} ketika konfigurasi {@code otto_va_sleep}
+	 * aktif: setelah jeda tiga detik, balasan apa pun — termasuk yang menandakan pembayaran
+	 * berhasil diposting — akan <b>ditimpa</b> oleh nilai ini.</p>
+	 *
+	 * <p><b>Peringatan:</b> ini sakelar pengujian ketahanan yang harus tetap nonaktif di
+	 * lingkungan produksi. Bila dinyalakan, pembayaran tetap tercatat di basis data sementara bank
+	 * menerima jawaban gagal dan akan mengirim ulang, sehingga menimbulkan ketidaksesuaian
+	 * setelmen.</p>
+	 *
+	 * @param inquery <b>tidak dipakai.</b> Parameter ini diabaikan sepenuhnya oleh badan metode;
+	 *                ia tetap ada agar tanda tangan seragam dengan {@link #errorDb} dan dengan
+	 *                gateway sejenis
+	 * @param data    body JSON mentah yang dipakai sebagai kerangka balasan
+	 * @return balasan JSON bertanda {@code errorCode "68"}
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 * @see #errorDb(boolean, String)
+	 */
 	private static String timeoutDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);
@@ -1126,6 +1265,29 @@ public class Briva extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 
+	/**
+	 * Merakit balasan galat umum ({@code errorCode "91" Link Down}).
+	 *
+	 * <p>Body permintaan digemakan kembali sebagai kerangka, lalu dua field status ditimpakan di
+	 * atasnya. Dipakai {@link #doProses} sebagai penampung terakhir: setiap {@link Exception} yang
+	 * lolos dari pemilahan cabang maupun dari {@link #doProcess doProcess} diterjemahkan menjadi
+	 * balasan ini.</p>
+	 *
+	 * <p>Kode {@code 91} memberi tahu bank bahwa gangguan bersifat sementara, sehingga BRI akan
+	 * mengirim ulang notifikasi yang sama. Pengulangan itu aman terhadap penggandaan karena
+	 * {@code CicilanPembayaran} memakai kunci {@code ref} deterministik, tetapi perlu diingat bahwa
+	 * kegagalan di tengah rangkaian transaksi pendek dapat menyisakan {@code Kegiatan} yang
+	 * tersimpan sebagian.</p>
+	 *
+	 * @param inquery <b>tidak dipakai.</b> Parameter ini diabaikan sepenuhnya oleh badan metode;
+	 *                ia tetap ada agar tanda tangan seragam dengan {@link #timeoutDb} dan dengan
+	 *                gateway sejenis
+	 * @param data    body JSON mentah yang dipakai sebagai kerangka balasan
+	 * @return balasan JSON bertanda {@code errorCode "91"}
+	 * @throws Exception bila {@code data} bukan JSON yang sah — dalam hal itu galat asli tertutupi
+	 *                   oleh galat penguraian ini
+	 * @see #timeoutDb(boolean, String)
+	 */
 	private static String errorDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);

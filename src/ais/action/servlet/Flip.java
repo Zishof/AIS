@@ -39,14 +39,64 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.VirtualAccountBank;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet penerima <i>webhook</i> pembayaran <b>Flip</b>.
+ *
+ * <h4>Bentuk pesan</h4>
+ * <p>Flip mengirim notifikasi sebagai parameter formulir bernama {@code data} yang berisi
+ * JSON; bila parameter itu kosong, badan permintaan dibaca langsung sebagai cadangan. Kunci
+ * yang dipakai kelas ini adalah {@code bill_link_id} (menjadi nomor VA), {@code bill_link},
+ * {@code amount}, {@code created_at}, dan {@code status}.</p>
+ *
+ * <p>Nilai {@code status} menentukan mode: hanya {@code "SUCCESSFUL"} yang diperlakukan
+ * sebagai pembayaran nyata; nilai lain diproses sebagai inquiry yang tidak membukukan apa
+ * pun. Balasan berupa teks biasa {@code "OK"}, {@code "ALREADY_PAID"}, atau {@code "ERROR"}.</p>
+ *
+ * <h4>PERINGATAN KEAMANAN &mdash; tanda tangan webhook tidak pernah diperiksa</h4>
+ * <ul>
+ *   <li>{@link #process} membaca seluruh header <b>hanya untuk mencetaknya</b> ke
+ *       {@code System.out}. Token maupun tanda tangan webhook yang dikirim Flip tidak pernah
+ *       diambil, apalagi diverifikasi.</li>
+ *   <li>Pemetaan alamat IP menjadi {@link BankHost} <b>tidak dipakai sebagai gerbang</b>;
+ *       pemrosesan berjalan meskipun hasilnya {@code null}. Pemetaan itu sendiri punya dua
+ *       jalur pelonggaran: konfigurasi
+ *       {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} yang membuat baris
+ *       {@link BankHost} baru untuk IP pemanggil apa pun, dan baris cadangan ber-IP
+ *       {@code 0.0.0.0}.</li>
+ *   <li>Pada {@code applicationContext-security.xml} URL {@code /Flip} jatuh ke aturan
+ *       penampung {@code /**} yang bernilai {@code IS_AUTHENTICATED_ANONYMOUSLY}.</li>
+ * </ul>
+ * <p>Akibatnya medan {@code status} &mdash; satu-satunya penentu apakah sebuah tagihan
+ * dibukukan lunas &mdash; sepenuhnya berada di tangan pengirim pesan, tanpa apa pun yang
+ * membuktikan pesan itu benar berasal dari Flip.</p>
+ *
+ * <h4>Catatan arsitektur</h4>
+ * <p>Setiap permintaan wajib menghasilkan satu baris {@code LogHostToHost} lewat
+ * {@code PembayaranGatewayHelper.catatLogHostToHost} di blok {@code finally}, tanpa syarat
+ * {@code bankHost}. Ini pola <i>audit shadow</i> yang berlaku di seluruh gerbang pembayaran
+ * AIS dan merupakan fakta arsitektur yang disengaja, bukan cacat.</p>
+ *
+ * @see ais.database.model.VirtualAccountBank
+ * @see ais.action.ws.util.PembayaranGatewayHelper
  */
 public class Flip extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran, dipakai di {@link #process} untuk memetakan alamat IP
+	 * pemanggil menjadi {@link BankHost}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field
+	 * statis {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Flip() {
@@ -54,8 +104,17 @@ public class Flip extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Servlet ini memperlakukan GET, POST, PUT, dan TRACE secara identik karena bentuk
+	 * pengiriman <i>webhook</i> dapat berbeda antar konfigurasi mitra. Kegagalan ditelan
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga pengirim tidak menerima 5xx.</p>
+	 *
+	 * @param request  permintaan masuk dari Flip
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -67,8 +126,14 @@ public class Flip extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST &mdash; metode yang lazim dipakai <i>webhook</i> Flip &mdash;
+	 * dengan meneruskannya ke {@link #process}.
+	 *
+	 * @param request  permintaan masuk dari Flip
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -80,8 +145,15 @@ public class Flip extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP PUT dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Perilaku sama persis dengan {@link #doGet}.</p>
+	 *
+	 * @param request  permintaan masuk dari Flip
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPut(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPut(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -93,8 +165,16 @@ public class Flip extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP TRACE dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Menimpa perilaku bawaan {@link HttpServlet#doTrace} yang seharusnya hanya memantulkan
+	 * header; di sini TRACE diperlakukan sebagai kanal notifikasi biasa.</p>
+	 *
+	 * @param request  permintaan masuk dari Flip
+	 * @param response balasan berisi teks status singkat
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doTrace(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doTrace(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -105,6 +185,60 @@ public class Flip extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memproses satu notifikasi Flip: menyelesaikan VA-nya lalu membukukan pembayaran bila
+	 * memang bermode pembayaran.
+	 *
+	 * <h4>Menemukan VA</h4>
+	 * <p>Pencarian utama memakai {@link VirtualAccountBank#ambilVa(String, Double, BankHost)}
+	 * atas {@code va}. Bila gagal dan {@code link} terisi, dicoba sekali lagi lewat
+	 * {@link VirtualAccountBank#ambilLink(String, BankHost)} &mdash; menampung tagihan Flip yang
+	 * dikenali dari tautan pembayarannya, bukan dari nomor.</p>
+	 *
+	 * <p>VA yang tidak ditemukan, atau yang totalnya tidak lebih dari 0,1, membuat method
+	 * berakhir tanpa membukukan apa pun. VA yang sudah lunas dijawab {@code "ALREADY_PAID"}.</p>
+	 *
+	 * <h4>Dua cabang pemilik tagihan</h4>
+	 * <ul>
+	 *   <li><b>Sekolah</b> &mdash; bila VA menunjuk {@code siswa} atau {@code calonSiswa},
+	 *       pembukuan diserahkan ke {@link VirtualAccountBank#bayarSiswa}, dengan {@code inquery}
+	 *       diteruskan apa adanya sehingga mode inquiry tidak menyimpan apa pun.</li>
+	 *   <li><b>Perguruan tinggi</b> &mdash; sebuah {@link Kegiatan} dicari atau dibuat, lalu
+	 *       daftar {@code cicilan} pada VA diurai per token: angka murni dan awalan
+	 *       {@code Bulanan-} menunjuk {@link PengaturanPembayaranBulanan}, awalan {@code Item-}
+	 *       menunjuk {@link ItemBiaya}, dan awalan {@code Keranjang-} diserahkan ke
+	 *       {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}. Tiap token menghasilkan
+	 *       satu {@link CicilanPembayaran} yang di-<i>idempoten</i>-kan lewat kolom {@code ref},
+	 *       sekaligus satu entri rincian pada larik JSON yang ikut disimpan ke log H2H.</li>
+	 * </ul>
+	 *
+	 * <p>Pada mode pembayaran, setelah semua token selesai total dan denda dihitung ulang,
+	 * {@link Kegiatan} disimpan, dan VA ditandai lunas lewat
+	 * {@link VirtualAccountBank#updateVa}.</p>
+	 *
+	 * <p><b>Keamanan:</b> method ini menerima {@code bankHost} bernilai {@code null} dan tetap
+	 * memproses; seluruh pemeriksaan yang ada bersifat konsistensi data, <b>bukan</b> otorisasi.
+	 * Lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Apa pun hasilnya, satu baris log H2H selalu ditulis di blok {@code finally} &mdash;
+	 * termasuk jejak <i>stack trace</i> bila terjadi galat.</p>
+	 *
+	 * @param nominalP  nominal setoran yang dilaporkan mitra
+	 * @param tanggalP  tanggal transaksi dalam format {@code Common.databaseDateFormat1}; bila
+	 *                  gagal diurai dipakai waktu server saat ini
+	 * @param va        nomor VA, diambil dari {@code bill_link_id}
+	 * @param link      tautan tagihan Flip, dipakai sebagai jalur pencarian cadangan
+	 * @param bank      label bank yang disimpan sebagai {@code validator} pada data pembayaran
+	 * @param bankHost  host bank hasil pemetaan IP; boleh {@code null} dan tidak menjadi gerbang
+	 * @param request   permintaan asal, diteruskan ke pencatat log H2H
+	 * @param data      payload JSON mentah, disimpan apa adanya pada log H2H
+	 * @param chekLagi  penanda warisan; saat ini tidak dipakai di badan method
+	 * @param inquery   {@code true} untuk inquiry (tidak membukukan), {@code false} untuk
+	 *                  pembayaran
+	 * @param chek      {@code true} untuk melewati pemeriksaan status lunas
+	 * @return {@code "OK"} bila selesai, atau {@code "ALREADY_PAID"} bila tagihan sudah lunas
+	 * @throws Exception bila kegagalan terjadi di luar jangkauan penanganan internal
+	 */
 	@SuppressWarnings("unchecked")
 	public static String doProcess(double nominalP, String tanggalP, String va, String link, String bank,
 			BankHost bankHost, HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean chek)
@@ -505,6 +639,29 @@ public class Flip extends HttpServlet {
 		return "OK";
 	}
 
+	/**
+	 * Mengurai payload JSON Flip lalu memanggil {@link #doProcess}.
+	 *
+	 * <p>Nomor VA diambil dari {@code bill_link_id}, tautan tagihan dari {@code bill_link},
+	 * nominal dari {@code amount}, dan tanggal dari {@code created_at}. Ketiadaan atau kesalahan
+	 * format {@code amount} ditelan sehingga nominal bernilai {@code 0.0}.</p>
+	 *
+	 * <p>Mode operasi ditentukan medan {@code status}: hanya nilai {@code "SUCCESSFUL"} (tanpa
+	 * memandang besar kecil huruf) yang membuat {@code inquery} bernilai {@code false} sehingga
+	 * pembayaran benar-benar dibukukan. Nilai lain, termasuk {@code status} yang tidak ada
+	 * &mdash; yang diganti literal {@code "ERROR"} &mdash; diproses sebagai inquiry.</p>
+	 *
+	 * <p>Bila {@link #doProcess} melempar kegagalan, method mengembalikan literal
+	 * {@code "ERROR"}.</p>
+	 *
+	 * @param data     payload JSON mentah dari Flip
+	 * @param request  permintaan asal, diteruskan ke pencatat log H2H
+	 * @param bankHost host bank hasil pemetaan IP; boleh {@code null}
+	 * @param bank     label bank yang dipakai sebagai {@code validator}
+	 * @param chek     {@code true} untuk melewati pemeriksaan status lunas
+	 * @return hasil {@link #doProcess}, atau {@code "ERROR"} bila pemrosesan gagal
+	 * @throws Exception bila payload bukan JSON yang sah sehingga penguraian awal gagal
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = new JSONObject(data);
@@ -534,6 +691,35 @@ public class Flip extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Membaca notifikasi Flip dari parameter formulir atau badan permintaan, memprosesnya, dan
+	 * menuliskan balasan.
+	 *
+	 * <p>Langkah yang dijalankan berurutan:</p>
+	 * <ol>
+	 *   <li>seluruh nama dan nilai header ditelusuri lalu dicetak ke {@code System.out};</li>
+	 *   <li>peta parameter ditelusuri untuk mengambil parameter bernama {@code data} &mdash;
+	 *       bentuk pengiriman baku <i>webhook</i> Flip;</li>
+	 *   <li>bila parameter itu kosong, badan permintaan dibaca baris demi baris sebagai
+	 *       cadangan; pemisah baris dibuang sehingga payload multi-baris digabung rapat;</li>
+	 *   <li>alamat IP pemanggil dipetakan menjadi {@link BankHost} dengan label {@code "Flip"};</li>
+	 *   <li>bila payload tidak kosong, {@link #doProses} dipanggil dengan {@code chek} bernilai
+	 *       {@code false}; payload kosong menghasilkan balasan kosong;</li>
+	 *   <li>hasil ditulis disertai header {@code length} khusus berisi panjang badan balasan, dan
+	 *       header {@code Content-Type} bernilai {@code application/json} &mdash; padahal isinya
+	 *       sebenarnya teks biasa seperti {@code "OK"}.</li>
+	 * </ol>
+	 *
+	 * <p><b>Keamanan:</b> header dibaca semata untuk dicetak, sehingga tanda tangan atau token
+	 * <i>webhook</i> Flip tidak pernah diverifikasi; hasil pemetaan {@link BankHost} juga tidak
+	 * pernah diuji sebelum pemrosesan dilanjutkan. Pencetakan seluruh header, payload, dan
+	 * <i>query string</i> ke keluaran standar berarti bahan autentikasi apa pun yang dikirim
+	 * mitra tersalin ke log server. Lihat peringatan pada dokumentasi kelas.</p>
+	 *
+	 * @param request  permintaan masuk dari Flip
+	 * @param response balasan berisi teks status singkat
+	 * @throws Exception bila pembacaan permintaan atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({ "rawtypes" })
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
