@@ -116,30 +116,45 @@ import ais.ui.util.WaktuUtil;
  * sebagai singleton atau dibagikan antar desktop/session. Event handler harus tetap memakai konteks pengguna
  * serta session Hibernate milik request yang aktif.</p>
  *
- * <p><b>Cakupan akses data mahasiswa keluar (hasil penelusuran seluruh rantai).</b> Kelas ini
- * tidak memiliki penjagaan kepemilikan data apa pun, dan rantai di atasnya juga tidak:</p>
+ * <p><b>Cakupan akses data mahasiswa keluar (hasil penelusuran seluruh rantai; DIPERBAIKI).</b>
+ * Sebelumnya kelas ini dan rantai di atasnya sama sekali tidak memiliki penjagaan kepemilikan
+ * data:</p>
  * <ul>
  * <li>Entitas {@link KelompokStatusKeluarMahasiswa} tidak punya kolom fakultas, jurusan,
  * sekolah, maupun satuan kerja &mdash; kelompok memang dirancang global.</li>
  * <li>{@code KelompokStatusKeluarMahasiswaAction.initCriteria(boolean)} (grid induk) menyaring
- * hanya berdasarkan nama kelompok dan kata kunci NIM/nama, tanpa penyaring kepemilikan.</li>
- * <li>{@link #initCriteria(boolean)} di kelas ini menyaring hanya berdasarkan FK kelompok dan
- * status aktif mahasiswa.</li>
- * <li>Picker {@code AmbilDataMahasiswaBanyak} pada tombol "Ambil Data Mahasiswa" mencari ke
- * SELURUH {@link Mahasiswa} aktif di basis data; kolom prodi di sana adalah penyaring teks
- * bebas yang diketik pengguna, bukan pembatas cakupan.</li>
+ * hanya berdasarkan nama kelompok dan kata kunci NIM/nama, tanpa penyaring kepemilikan. Ini
+ * TETAP demikian &mdash; grid induk hanya memilih baris kelompok (yang memang global), bukan
+ * anggota mahasiswanya.</li>
+ * <li>{@link #initCriteria(boolean)} di kelas ini SEKARANG memanggil
+ * {@link #terapkanCakupanProdi(Criteria)} (fail-closed, meniru pola
+ * {@code RekeningDosenAction.terapkanCakupanSatuanKerja(Criteria)}) selain menyaring FK kelompok
+ * dan status aktif mahasiswa. Karena {@code initCriteria} dipakai bersama oleh
+ * {@link #loadData(Object)}, tombol "Hapus Semua", dan tombol cetak/ekspor toolbar, satu gerbang
+ * ini menutup ketiganya sekaligus.</li>
+ * <li>Picker {@code AmbilDataMahasiswaBanyak} pada tombol "Ambil Data Mahasiswa" MASIH mencari ke
+ * SELURUH {@link Mahasiswa} aktif di basis data tanpa penyaring cakupan; kolom prodi di sana
+ * adalah penyaring teks bebas yang diketik pengguna, bukan pembatas cakupan. Kelas ini dipakai
+ * 15 titik pemanggilan lain di luar modul ini, sehingga mengubah cakupannya berisiko berdampak
+ * luas dan SENGAJA belum disentuh &mdash; lihat catatan pada
+ * {@link #terapkanCakupanProdi(Criteria)} serta laporan kerja terpisah yang direkomendasikan
+ * untuknya.</li>
  * </ul>
- * <p>Satu-satunya gerbang adalah privilese menu tingkat aksi
- * ({@link ais.common.CommonPrivilages} CREATE/UPDATE/DELETE) yang dibaca di kelas induk.
- * Akibatnya siapa pun yang dapat membuka menu ini dapat: melihat seluruh mahasiswa keluar
- * lintas program studi, memasukkan mahasiswa aktif mana pun ke dalam kelompok, menyunting
- * langsung sembilan kolom dokumen kelulusan (termasuk NOMOR IJAZAH dan nomor SK), menimpanya
- * secara massal lewat unggah Excel ({@link #uploadDataMahasiswa}), serta mencetak berkas PDF
- * ijazah dan transkrip untuk seluruh anggota grid sekaligus. Perlu dicatat bahwa memasukkan
- * mahasiswa ke kelompok di sini juga MENGELUARKANNYA dari kelompok status keluar sebelumnya,
- * karena keanggotaan berupa FK tunggal pada baris {@link Mahasiswa}.</p>
- * <p>Uraian ini adalah dokumentasi keadaan terkini, bukan perubahan perilaku; tidak ada
- * gerbang yang ditambahkan atau dihapus oleh commit dokumentasi ini.</p>
+ * <p>Sebelum perbaikan, satu-satunya gerbang adalah privilese menu tingkat aksi
+ * ({@link ais.common.CommonPrivilages} CREATE/UPDATE/DELETE) yang dibaca di kelas induk, sehingga
+ * siapa pun yang dapat membuka menu ini dapat melihat seluruh mahasiswa keluar lintas program
+ * studi, menyunting langsung sembilan kolom dokumen kelulusan (termasuk NOMOR IJAZAH dan nomor
+ * SK), menimpanya secara massal lewat unggah Excel ({@link #uploadDataMahasiswa}), serta mencetak
+ * berkas PDF ijazah dan transkrip untuk seluruh anggota grid sekaligus. {@link #initCriteria(boolean)}
+ * kini membatasi SIAPA yang tampil di grid (dan karenanya siapa yang terdampak keempat aksi di
+ * atas) ke mahasiswa dalam cakupan prodi pengguna, tetapi TIDAK membatasi "Ambil Data Mahasiswa"
+ * (lihat butir picker di atas) &mdash; lewat tombol itu, pengguna tetap dapat memasukkan mahasiswa
+ * aktif mana pun ke dalam kelompok ini, di luar cakupan prodinya sendiri. Perlu dicatat bahwa
+ * memasukkan mahasiswa ke kelompok di sini juga MENGELUARKANNYA dari kelompok status keluar
+ * sebelumnya, karena keanggotaan berupa FK tunggal pada baris {@link Mahasiswa}.</p>
+ * <p>Audit historis (mis. penelusuran riwayat Envers untuk perubahan nomor ijazah/dokumen
+ * kelulusan lintas prodi sebelum perbaikan ini berlaku) direkomendasikan tetapi BELUM
+ * dijalankan sebagai bagian dari perbaikan ini.</p>
  *
  * @see MyDetail
  */

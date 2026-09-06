@@ -115,10 +115,13 @@ import ais.database.model.StatusMahasiswa;
  * <li><b>Dedup akhir memakai {@link TreeSet} di atas {@code compareTo} yang hanya membandingkan
  * kode item biaya.</b> Dua {@link ItemBiaya} yang kodenya sama-sama kosong akan saling menghapus,
  * sehingga satu baris tagihan hilang diam-diam dari layar.</li>
- * <li><b>Nol hasil hitungan diperlakukan sebagai "belum dihitung".</b>
- * {@link #ambilNominalPengaturanBulananAman} membuang nominal modifikasi bernilai {@code 0} —
- * yang menurut {@link PembayaranNominalModifikasiHelper} adalah nilai sah — lalu kembali ke
- * nominal dasar.</li>
+ * <li><b>[DIPERBAIKI] Nol hasil hitungan sempat diperlakukan sebagai "belum dihitung".</b>
+ * {@link #ambilNominalPengaturanBulananAman} sempat membuang nominal modifikasi bernilai {@code 0}
+ * — yang menurut {@link PembayaranNominalModifikasiHelper} adalah nilai sah — lalu kembali ke
+ * nominal dasar (harga per SKS untuk item berbasis SKS, bukan tagihan). Sudah ditambal dengan
+ * mempercayai langsung nilai kembalian {@code ambilNominalModifikasi} (yang sudah menormalkan
+ * "tidak ada modifikasi" menjadi nominal dasar itu sendiri) tanpa ambang magnitudo; lihat javadoc
+ * method tersebut untuk detail konsekuensi pada gerbang tampil.</li>
  * <li><b>{@link #fallbackTagihanDariCicilan} menulis ke data master bersama dari jalur
  * tampilan</b>, tanpa gerbang otorisasi dan tanpa {@code posting_history}, dan pada mode angsuran
  * memakai dasar perhitungan yang berbeda dari mode non-angsuran.</li>
@@ -1910,51 +1913,48 @@ public class PembayaranUtilHelper {
 	}
 
 	/**
-	 * Mengambil nilai nominal efektif satu baris {@link PengaturanPembayaranBulanan}: mengutamakan
-	 * nominal hasil modifikasi khusus mahasiswa via
-	 * {@code PembayaranNominalModifikasiHelper.ambilNominalModifikasi(...)} bila nilainya signifikan
-	 * (> 0.01 secara absolut); jika tidak ada modifikasi atau modifikasinya nol, jatuh kembali ke
-	 * {@code pembayaranBulanan.getNominal()} asli. Selalu mengembalikan {@link Double} tidak-null
-	 * (default {@code 0.0}); semua exception ditangkap dan dicatat, tidak pernah dilempar ke pemanggil.
+	 * Mengambil nilai nominal efektif satu baris {@link PengaturanPembayaranBulanan}: hasil
+	 * {@code PembayaranNominalModifikasiHelper.ambilNominalModifikasi(...)} dipakai apa adanya,
+	 * termasuk ketika nilainya {@code 0} — method itu sendiri sudah menormalkan setiap kasus
+	 * "tidak ada modifikasi" (parameter {@code null}, item tanpa skema penghitungan,
+	 * {@code mahasiswa}/{@code semester} {@code null}, {@code dikalikanDenganKondisiKhusus} mati,
+	 * atau skema {@code penghitungan} yang tak dikenali) menjadi nominal dasar
+	 * ({@code pembayaranBulanan.getNominal()}) itu sendiri, bukan {@code null}. Fallback ke
+	 * {@code pembayaranBulanan.getNominal()} di sini karena itu hanya jalur darurat bila pemanggilan
+	 * {@code ambilNominalModifikasi} melempar exception. Selalu mengembalikan {@link Double}
+	 * tidak-null (default {@code 0.0}); semua exception ditangkap dan dicatat, tidak pernah
+	 * dilempar ke pemanggil.
 	 *
 	 * @param pembayaranBulanan baris pengaturan bulanan yang nominalnya dicari; {@code null} menghasilkan {@code 0.0}
 	 * @param mahasiswa konteks mahasiswa untuk pencarian modifikasi nominal khusus, boleh {@code null}
 	 * @param semester konteks semester untuk pencarian modifikasi nominal khusus
-	 * <p><b>PERINGATAN INTEGRITAS — nol hasil hitungan diperlakukan sebagai "belum dihitung".</b>
-	 * Ambang {@code Math.abs(nominal) > 0.01} di atas tidak bisa membedakan dua hal yang berbeda:
-	 * (a) tidak ada modifikasi nominal untuk mahasiswa ini, dan (b) ada modifikasi dan hasilnya
-	 * memang {@code 0}. Keduanya sama-sama gagal melewati ambang, lalu keduanya sama-sama jatuh
-	 * kembali ke {@code pembayaranBulanan.getNominal()}.</p>
-	 *
-	 * <p>Ini bertentangan dengan invarian yang dinyatakan tegas pada javadoc
+	 * <p><b>[DIPERBAIKI] Nol hasil hitungan sempat diperlakukan sebagai "belum dihitung".</b>
+	 * Versi sebelumnya memakai ambang {@code Math.abs(nominal) > 0.01}: bila nominal modifikasi
+	 * gagal melewatinya — baik karena memang tidak ada modifikasi <i>maupun</i> karena modifikasinya
+	 * benar-benar {@code 0} — keduanya sama-sama ditimpa dengan {@code pembayaranBulanan.getNominal()}.
+	 * Ini bertentangan dengan invarian yang dinyatakan tegas pada javadoc
 	 * {@link PembayaranNominalModifikasiHelper}: <i>"Hasil 0 adalah nilai sah, bukan nilai kosong.
 	 * Mahasiswa yang tidak mengambil satu SKS pun memang harus ditagih 0 untuk item berbasis SKS;
 	 * hasil itu tidak boleh dipaksa kembali ke nominal awal."</i> Kasus nyatanya ada pada item
 	 * ber-{@link ItemBiaya#DIKALI_JUMLAH_SKS_MAHASISWA} dan kerabatnya: di sana
 	 * {@code ambilNominalModifikasi} menghitung {@code jmlSKS * harga}, sehingga mahasiswa yang
 	 * belum/tidak mengambil SKS pada semester dan tahapan itu menghasilkan {@code 0.0} yang benar
-	 * — dan method ini justru membuangnya, lalu memakai {@code getNominal()} yang untuk item
-	 * semacam itu adalah <b>harga per SKS</b>, bukan tagihan bulanan yang sudah jadi.</p>
+	 * — dan versi lama method ini membuangnya, lalu memakai {@code getNominal()} yang untuk item
+	 * semacam itu adalah <b>harga per SKS</b>, bukan tagihan bulanan yang sudah jadi. Ambang
+	 * magnitudo itu kini dihapus sepenuhnya; lihat isi method untuk cara barunya.</p>
 	 *
 	 * <p>Perlu ditegaskan supaya tidak ditafsirkan berlebihan: nilai kembalian method ini
 	 * <b>tidak</b> dipakai sebagai nominal yang ditagihkan. Ia hanya dipakai di dua tempat, yaitu
 	 * {@link #isPengaturanBulananLayakDitampilkan} (gerbang tampil/tidak) dan penentuan
 	 * {@code isZeroFilter} di {@link #saringPengaturanPembayaranBulanan(List, boolean, Mahasiswa, Integer)}
-	 * (pemilihan baris saat ada duplikat). Karena itu dampaknya bukan salah nominal secara
-	 * langsung, melainkan: (1) baris bulanan yang seharusnya bernilai {@code 0} tetap lolos
-	 * gerbang tampil seolah bernilai penuh, dan (2) ketika {@code nolMasukFilter} menyala,
-	 * mekanisme "ganti baris nol dengan baris berikutnya" praktis lumpuh untuk item berbasis SKS
-	 * karena nol yang sah selalu tersamar menjadi bukan-nol. Nominal yang benar-benar dicetak ke
-	 * layar tetap berasal dari {@code PengaturanPembayaranBulanan.ambilNominalModifikasi(...)}
-	 * yang dipanggil renderer.</p>
+	 * (pemilihan baris saat ada duplikat). Nominal yang benar-benar dicetak ke layar tetap berasal
+	 * dari {@code PengaturanPembayaranBulanan.ambilNominalModifikasi(...)} yang dipanggil renderer.
+	 * Efek langsung dari perbaikan ini karena itu bukan pada angka tagihan, melainkan pada
+	 * keputusan tampil/sembunyi dan pemilihan baris duplikat — lihat javadoc
+	 * {@link #isPengaturanBulananLayakDitampilkan} untuk konsekuensinya.</p>
 	 *
-	 * <p>Bila suatu saat ambang ini diperbaiki, caranya bukan menurunkan angka {@code 0.01}
-	 * melainkan membedakan "tidak ada modifikasi" dari "modifikasi bernilai nol" — mis. dengan
-	 * memperlakukan {@code null} sebagai satu-satunya penanda "tidak ada", dan menerima
-	 * {@code 0.0} apa adanya. Selama itu belum dilakukan, jangan memakai method ini sebagai
-	 * sumber nominal tagihan.</p>
-	 *
-	 * @return nominal efektif (modifikasi bila ada dan signifikan, selain itu nominal asli), tidak pernah {@code null}
+	 * @return nominal efektif (modifikasi apa adanya termasuk {@code 0} yang sah, atau nominal asli
+	 *         bila modifikasi gagal dihitung), tidak pernah {@code null}
 	 */
 	private static Double ambilNominalPengaturanBulananAman(PengaturanPembayaranBulanan pembayaranBulanan,
 			Mahasiswa mahasiswa, Integer semester) {
@@ -1967,12 +1967,9 @@ public class PembayaranUtilHelper {
 				Double nominalModifikasi = PembayaranNominalModifikasiHelper.ambilNominalModifikasi(pembayaranBulanan,
 						mahasiswa, semester);
 				if (nominalModifikasi != null) {
-					nominal = nominalModifikasi;
+					return nominalModifikasi;
 				}
 			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/PembayaranUtilHelper.java:1018");
-			}
-			if (Math.abs(nominal.doubleValue()) > 0.01) {
-				return nominal;
 			}
 			try {
 				Double nominalAsli = pembayaranBulanan.getNominal();
@@ -2001,24 +1998,28 @@ public class PembayaranUtilHelper {
 	 * @param tampilkanNolNilaiBisaDiubah hasil {@link #tampilkanPengaturanBulananNolNilaiBisaDiubah}, diteruskan agar tidak dibaca ulang per baris
 	 * @param mahasiswa konteks mahasiswa untuk perhitungan nominal efektif, boleh {@code null}
 	 * @param semester konteks semester untuk perhitungan nominal efektif
-	 * <p><b>Catatan tentang langkah (2).</b> Nominal efektif yang diuji di sini datang dari
-	 * {@link #ambilNominalPengaturanBulananAman}, yang menyamarkan hasil hitungan bernilai
-	 * {@code 0} menjadi nominal asli (lihat peringatan integritas pada javadoc method tersebut).
-	 * Akibatnya baris berbasis SKS milik mahasiswa yang belum mengambil SKS akan lolos di langkah
-	 * (2) seolah bernilai penuh, dan tidak pernah sampai ke langkah (3)–(5) yang sebenarnya
-	 * dirancang untuk memutuskan nasib baris bernilai nol. Ketiga pengecualian nol di bawah
-	 * ({@link ItemBiaya#DIKALI_NILAI_MINUS}, {@code tetapDitampilkanWalaupunNol}, dan
-	 * {@code nilaiBisaDiubah}) karena itu hanya benar-benar berperan untuk baris yang nominal
-	 * tersimpannya memang {@code 0}, bukan untuk baris yang <i>hasil hitungannya</i> {@code 0}.</p>
+	 * <p><b>[PERILAKU BERUBAH] Catatan tentang langkah (2).</b> Nominal efektif yang diuji di sini
+	 * datang dari {@link #ambilNominalPengaturanBulananAman}. Sebelum diperbaiki, method itu
+	 * menyamarkan hasil hitungan bernilai {@code 0} menjadi nominal asli, sehingga baris berbasis
+	 * SKS milik mahasiswa yang belum mengambil SKS lolos di langkah (2) seolah bernilai penuh dan
+	 * tidak pernah sampai ke langkah (3)–(5). Sekarang nol hasil hitungan sampai apa adanya ke
+	 * langkah (2): baris seperti itu <b>gagal</b> di langkah (2) dan baru lolos bila salah satu
+	 * dari langkah (3)–(5) berlaku ({@link ItemBiaya#DIKALI_NILAI_MINUS},
+	 * {@code tetapDitampilkanWalaupunNol}, atau {@code nilaiBisaDiubah}) — sama seperti perlakuan
+	 * baris yang nominal tersimpannya memang {@code 0}. Ini perubahan perilaku yang disengaja:
+	 * baris berbasis SKS yang hasil hitungannya nol kini bisa tersembunyi dari layar tagihan bulanan
+	 * bila tidak ditandai salah satu pengecualian itu, sesuai rancangan awal langkah (3)–(5).</p>
 	 *
-	 * <p><b>Ketidakselarasan dengan penghitung baris bulanan.</b> Gerbang ini memakai
-	 * {@code Math.abs(nominal) > 0.01}, sehingga baris bernominal negatif (potongan/diskon yang
-	 * tidak ditandai {@link ItemBiaya#DIKALI_NILAI_MINUS}) tetap ditampilkan. Sebaliknya
+	 * <p><b>Ketidakselarasan dengan penghitung baris bulanan (belum ditambal, sengaja).</b> Gerbang
+	 * ini memakai {@code Math.abs(nominal) > 0.01}, sehingga baris bernominal negatif
+	 * (potongan/diskon yang tidak ditandai {@link ItemBiaya#DIKALI_NILAI_MINUS}) tetap ditampilkan.
+	 * Sebaliknya
 	 * {@link #countBulanan(Session, Mahasiswa, BiodataCalonMahasiswa, JenisKegiatan, Integer, Collection, boolean, boolean)}
 	 * menghitung baris memakai {@code Restrictions.gt("nominal", 0.01)} yang menolak nilai
 	 * negatif. Untuk data yang memuat baris bernominal negatif semacam itu, jumlah baris yang
 	 * dihitung bisa lebih kecil daripada jumlah baris yang benar-benar tampil. Bila salah satu
-	 * sisi diselaraskan, keduanya harus diubah bersama.</p>
+	 * sisi diselaraskan, keduanya harus diubah bersama; di luar cakupan perbaikan nol-vs-tidak-ada
+	 * modifikasi ini karena menyangkut kebijakan tampilan nominal negatif, bukan ambiguitas nol.</p>
 	 *
 	 * @return {@code true} bila baris ini harus ditampilkan ke pengguna
 	 */

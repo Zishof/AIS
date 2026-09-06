@@ -6605,13 +6605,21 @@ public class AbsensiHelper {
 	 * hanya aktif bila pilihan "Sesuai" dipilih. Setiap perubahan langsung mempersist lewat
 	 * {@code pertemuan.populateKonfirmasiRps} dan {@link Common#refreshUpdate}.
 	 *
+	 * <p><b>Gerbang otorisasi:</b> sama seperti {@link #bolehKonfirmasi} — {@code mahasiswa} WAJIB benar-benar
+	 * peserta {@code pertemuan} (lihat {@link #merupakanPesertaPertemuan}); bila tidak, kartu kosong
+	 * (non-editable) dikembalikan — fail-closed, karena tidak ada peran "perwakilan kelas" di kode ini.</p>
+	 *
 	 * @param dosen     dosen yang materinya sedang dikonfirmasi kesesuaiannya
 	 * @param pertemuan pertemuan terkait
 	 * @param mahasiswa mahasiswa (perwakilan kelas) yang melakukan konfirmasi
-	 * @return kartu kontrol konfirmasi kesesuaian RPS
+	 * @return kartu kontrol konfirmasi kesesuaian RPS, atau kartu kosong bila {@code mahasiswa} bukan peserta
 	 */
 	public static Component bolehKonfirmasiRps(final Dosen dosen, final Pertemuan pertemuan,
 			final Mahasiswa mahasiswa) {
+
+		if (!merupakanPesertaPertemuan(pertemuan, mahasiswa)) {
+			return new Label();
+		}
 
 		Long status = pertemuan.retreiveAbsensiIdKonfirmasiRps(mahasiswa.getId(), dosen);
 		if (status == null) {
