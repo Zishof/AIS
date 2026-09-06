@@ -370,6 +370,32 @@ public class TampilStudiMahasiswaHelper {
 		tabpanelabsen.setParent(tabpanels);
 
 		EventListener listener = new EventListener() {
+			/**
+			 * Pemuat MALAS (lazy) isi tab, dipakai BERSAMA oleh tab Dasbor, KRS, KRS SP dan Remedial.
+			 * Panel tujuan ditentukan dari {@code arg0.getTarget()} ({@link MyTabConfig#getLinkedPanel()});
+			 * bila {@code arg0} {@code null} &mdash; pemanggilan langsung untuk memuat tab default &mdash;
+			 * atau targetnya bukan {@code MyTabConfig}, panel jatuh ke tab Dasbor.
+			 *
+			 * <p>Isi hanya dibangun bila panel masih KOSONG, sehingga klik berulang pada tab yang sama tidak
+			 * membangun ulang UI. Untuk tab Dasbor pekerjaan didelegasikan ke
+			 * {@link TampilStudiMahasiswaHelper#initDashboard(Tabpanel, Mahasiswa, MyWindow, DataLoader, boolean)}
+			 * dengan {@code keDatabase = false}. Untuk tiga tab lain, listener LEBIH DAHULU menimpa state
+			 * instance {@link TampilStudiMahasiswaHelper#semesterPendek} dan
+			 * {@link TampilStudiMahasiswaHelper#remedial} sesuai tab yang diklik (Remedial memaksa
+			 * {@code semesterPendek = null}) &mdash; inilah sebabnya nilai dari konstruktor tidak bertahan
+			 * &mdash; lalu membangun {@code Borderlayout} berisi kartu identitas mahasiswa (foto, NIM, nama,
+			 * HP/email, fakultas/jurusan/program), grid KRS dari
+			 * {@link TampilStudiMahasiswaHelper#initMain(Mahasiswa, DataLoader, Component, Integer)}, dan
+			 * toolbar bawah.
+			 *
+			 * <p><b>Gerbang baca-saja:</b> pada akhir pembangunan tab KRS, jendela di-{@code Common.freeze}
+			 * bila parameter {@code edit} bernilai {@code false}, ATAU bila pengguna bukan role istimewa
+			 * (Akademik / Admin Fakultas / Admin Jurusan / Administrator) dan role-nya tidak terdaftar pada
+			 * konfigurasi {@code admin_lain_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs}.
+			 * Tombol Tutup, kedua combo semester dan tombol Refresh sengaja tetap diaktifkan setelah freeze.
+			 * Perhatikan bahwa pembekuan ini hanya berlaku untuk panel tab KRS/SP/Remedial; tab Dasbor
+			 * dibangun pada cabang {@code return} lebih awal sehingga tidak melewati blok ini.
+			 */
 			@SuppressWarnings("deprecation")
 			@Override
 			public void onEvent(final Event arg0) throws Exception {
@@ -484,6 +510,10 @@ public class TampilStudiMahasiswaHelper {
 					buttonTutup.setAttribute("janganDisabled", true);
 					buttonTutup.setTooltiptext("Tutup");
 					buttonTutup.addEventListener("onClick", new EventListener() {
+						/**
+						 * Tombol "Tutup" pada toolbar tab KRS: memanggil kembali {@code dataLoader} (bila ada) agar grid
+						 * pemanggil me-refresh datanya, lalu melepas jendela dari komponen induk ({@code window.detach()}).
+						 */
 						@Override
 						public void onEvent(Event event) throws Exception {
 							if (dataLoader != null)
@@ -552,6 +582,11 @@ public class TampilStudiMahasiswaHelper {
 		tabremedial.addEventListener("onClick", listener);
 
 		tababsen.addEventListener("onClick", new EventListener() {
+			/**
+			 * Pemuat malas tab <b>Absensi</b> (terpisah dari listener tab bersama karena isinya bukan grid
+			 * KRS): sekali saja membangun {@code DashboardRekapAbsensiMahasiswa} untuk mahasiswa terkait dan
+			 * memenuhi seluruh panel.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				if (tabpanelabsen.getChildren().isEmpty()) {
@@ -647,10 +682,19 @@ public class TampilStudiMahasiswaHelper {
 
 	/** Hasil data "MK Belum Diambil" (dipakai bersama oleh tampilan HTML dan export Excel). */
 	private static class MkbdData {
+		/** Nama kurikulum yang dipakai sebagai pembanding (hasil deteksi otomatis atau pilihan pengguna). */
 		String kurikulumNama = "";
+		/** Jumlah seluruh MK pada kurikulum tersebut SETELAH filter jenis/status diterapkan. */
 		int totalKur = 0;
+		/** Total SKS dari MK yang belum diambil (penjumlahan kolom SKS pada {@link #rows}). */
 		int sksBelum = 0;
+		/** Baris hasil, tiap elemen {@code {no, kode, nama, sks, semester, jenis/status}} (nilai mentah, belum di-escape HTML). */
 		List<String[]> rows = new ArrayList<String[]>(); // {no, kode, nama, sks, smt, jenis/status}
+		/**
+		 * Bila tidak {@code null}, berisi pesan penjelas kenapa perbandingan tidak dapat dilakukan
+		 * (mis. prodi/kurikulum tak ditemukan, atau terjadi error) &mdash; pemanggil WAJIB memeriksa
+		 * field ini lebih dulu karena {@link #rows} tidak bermakna dalam keadaan tersebut.
+		 */
 		String pesan = null;
 	}
 
@@ -1458,6 +1502,17 @@ public class TampilStudiMahasiswaHelper {
 
 		// Listener bersama: bangun ulang tabel memakai kurikulum + jenis MK yang sedang dipilih.
 		final EventListener refreshMkbd = new EventListener() {
+			/**
+			 * Bangun ulang HANYA tabel "Mata Kuliah Belum Diambil" sesuai kurikulum dan jenis MK yang sedang
+			 * dipilih, tanpa membangun ulang panel/dasbor. Isi {@code hostMkbd} dikosongkan lalu diisi
+			 * {@code Html} baru dari {@link TampilStudiMahasiswaHelper#buildMkBelumDiambilHtml(Mahasiswa, List, Long, String)}.
+			 *
+			 * <p>Nilai {@code null} pada kedua combo bermakna "tanpa batasan": kurikulum {@code null} &rarr;
+			 * deteksi otomatis kurikulum terbaru prodi, jenis {@code null} &rarr; semua jenis MK. Listener ini
+			 * dipasang PADA KEDUA combo sehingga perubahan salah satu selalu memakai nilai terkini keduanya.
+			 * Dipakai kembali {@code detailDataMkbd} (salinan final {@code detailData} yang sudah dimuat),
+			 * jadi tidak ada query ulang riwayat MK &mdash; hanya query kurikulum yang diulang.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				Long idKur = (cbKurikulumMkbd.getSelectedItem() == null
@@ -1505,6 +1560,14 @@ public class TampilStudiMahasiswaHelper {
 		buttonPdf.setAttribute("janganDisabled", true);
 		buttonPdf.setTooltiptext("Buka laporan lengkap ber-grafik (Distribusi Nilai, Kehadiran, SKS per Semester) + tabel yang siap dicetak atau disimpan sebagai PDF.");
 		buttonPdf.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Cetak Laporan (Grafik &amp; Tabel)": membuka laporan HTML lengkap ber-grafik lewat
+			 * {@code DashboardReportKit.bukaLaporan} dengan sumber data dari
+			 * {@link TampilStudiMahasiswaHelper#buildSumberLaporanStudi(Mahasiswa, List)}. Laporan tampil di
+			 * iframe modal sehingga bisa dicetak/disimpan sebagai PDF oleh peramban beserta seluruh grafiknya.
+			 * {@code ownerLaporanStudi} (panel Distribusi Nilai) hanya dipakai sebagai komponen induk/pemilik
+			 * jendela laporan.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				ais.action.master.helper.DashboardReportKit.bukaLaporan(ownerLaporanStudi,
@@ -1517,6 +1580,11 @@ public class TampilStudiMahasiswaHelper {
 		buttonExport.setAttribute("janganDisabled", true);
 		buttonExport.setTooltiptext("Unduh data studi mahasiswa (Ringkasan, Riwayat MK, KRS, Kehadiran, Distribusi Nilai, Skripsi, Pengajuan Judul, MK Belum Diambil) ke berkas Excel (.xlsx, sheet terpisah).");
 		buttonExport.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Export Excel": mengunduh seluruh data studi mahasiswa ke berkas {@code .xlsx} multi-sheet
+			 * lewat {@link TampilStudiMahasiswaHelper#exportStudiMahasiswaExcel(Mahasiswa, List)}. Memakai
+			 * {@code detailDataMkbd} yang sudah dimuat dasbor, sehingga riwayat MK tidak diquery ulang.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				exportStudiMahasiswaExcel(mahasiswa, detailDataMkbd);
@@ -1528,6 +1596,12 @@ public class TampilStudiMahasiswaHelper {
 		buttonHitungUlang.setAttribute("janganDisabled", true);
 		buttonHitungUlang.setTooltiptext("Hitung ulang ringkasan akademik dan sinkronkan data terbaru ke database.");
 		buttonHitungUlang.addEventListener("onClick", new EventListener() {
+			/**
+			 * Tombol "Hitung Ulang": membangun ULANG seluruh dasbor pada panel yang sama dengan
+			 * {@code keDatabase = true}, sehingga {@code initDashboard} memanggil
+			 * {@code mahasiswa.reInitDetailperkuliahan(session)} &mdash; artinya hasil hitung ulang IP/IPK dan
+			 * sinkronisasi nilai benar-benar DITULIS ke database, bukan sekadar dihitung untuk tampilan.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				TampilStudiMahasiswaHelper.initDashboard(parent, mahasiswa, window, dataLoader, true);
@@ -1540,6 +1614,11 @@ public class TampilStudiMahasiswaHelper {
 			buttonTutup.setAttribute("janganDisabled", true);
 			buttonTutup.setTooltiptext("Tutup jendela studi mahasiswa.");
 			buttonTutup.addEventListener("onClick", new EventListener() {
+				/**
+				 * Tombol "Tutup" pada toolbar dasbor (hanya dibuat bila {@code window} tidak {@code null}, yaitu
+				 * saat dasbor dipakai di dalam jendela Studi Mahasiswa): memanggil ulang {@code dataLoader} agar
+				 * grid pemanggil me-refresh datanya, lalu melepas jendela.
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					if (dataLoader != null) {

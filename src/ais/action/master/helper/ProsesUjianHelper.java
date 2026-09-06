@@ -1430,6 +1430,16 @@ public class ProsesUjianHelper extends MyWindow {
 						pertemuanPunyaUjian.getUjian() == null ? "" : pertemuanPunyaUjian.getUjian().getNama())) {
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Menutup jendela ujian secara otomatis ketika syarat ujian PER-UJIAN tidak terpenuhi.
+						 *
+						 * <p>Dipanggil lewat {@code Common.createDefaultTimer} — bukan {@code detach()} langsung —
+						 * agar pelepasan komponen terjadi pada siklus event ZK berikutnya, sesudah dialog penjelasan
+						 * syarat dari {@code SyaratUjianAction.checkSyaratSyaratUjian} sempat terbaca oleh peserta.</p>
+						 *
+						 * @param arg0 event timer ZK sekali-jalan (isinya tidak dipakai)
+						 * @throws Exception bila pelepasan komponen ZK gagal
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							ProsesUjianHelper.this.detach();
@@ -1495,6 +1505,18 @@ public class ProsesUjianHelper extends MyWindow {
 										: pertemuanPunyaUjian.getUjian().getNama())) {
 							Common.createDefaultTimer(new EventListener() {
 
+								/**
+								 * Menutup jendela ujian secara otomatis ketika salah satu {@code SyaratUjian} berlaku-GLOBAL
+								 * tidak terpenuhi.
+								 *
+								 * <p>Kembaran dari listener sebelumnya, tetapi untuk gelombang pemeriksaan kedua: daftar
+								 * {@code SyaratUjian} hasil query fakultas/jurusan/program/status pertemuan, ditambah syarat
+								 * yang ditandai {@code berlakuUntukSemuaUjian}. Begitu satu syarat gagal, iterasi dihentikan
+								 * dan jendela dilepas pada siklus event ZK berikutnya.</p>
+								 *
+								 * @param arg0 event timer ZK sekali-jalan (isinya tidak dipakai)
+								 * @throws Exception bila pelepasan komponen ZK gagal
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									ProsesUjianHelper.this.detach();
@@ -1511,6 +1533,35 @@ public class ProsesUjianHelper extends MyWindow {
 
 		final Label label = Common.displayLoadBar(new EventListener() {
 
+			/**
+			 * Callback loading-bar: berjalan di thread event ZK SETELAH thread latar selesai menyiapkan
+			 * soal ({@link ProsesUjianHelper#initSoal(Label)}).
+			 *
+			 * <p><b>Tiga keputusan yang diambil di sini, berurutan:</b></p>
+			 * <ol>
+			 *   <li><b>Kuota ujian bersamaan.</b> Batas dibaca dari konfigurasi {@code kuota_ujian}
+			 *       (bawaan 120). Konfigurasi lama dapat berisi teks {@code "null"} atau bukan angka,
+			 *       karena itu parsing dibungkus try-catch dan nilai bawaan tetap dipakai bila gagal —
+			 *       supaya peserta tidak gagal membuka ujian hanya karena konfigurasi rusak. Bila kuota
+			 *       penuh DAN peserta ini belum terdaftar di {@link ProsesUjianHelper#kuotaUjian}, pesan
+			 *       ditampilkan lalu jendela dilepas.</li>
+			 *   <li><b>Ketersediaan soal.</b> Bila {@link ProsesUjianHelper#ujianPunyaSoals} null atau
+			 *       kosong, peserta diberi pesan dan jendela dilepas.</li>
+			 *   <li><b>Pencatatan keikutsertaan.</b> Bila ini ujian sungguhan ({@code hanyaLihat=false}),
+			 *       {@code keyhasil} peserta dimasukkan ke {@link ProsesUjianHelper#kuotaUjian}; dan bila
+			 *       {@code tambah=true}, counter {@code jumlahIkut} DINAIKKAN satu lalu disimpan.
+			 *       <b>Inilah satu-satunya tempat {@code jumlahIkut} bertambah di seluruh kelas ini.</b>
+			 *       Pemeriksaan apakah penambahan tersebut masih berada dalam jatah
+			 *       ({@code jumlahBolehIkut}) sudah dilakukan jauh sebelumnya oleh
+			 *       {@code PertemuanPunyaUjianHelper} — bukan di sini.</li>
+			 * </ol>
+			 *
+			 * <p>Setelah ketiganya lolos, {@link ProsesUjianHelper#prosesProsesUjian()} dipanggil untuk
+			 * membangun antarmuka CBT penuh.</p>
+			 *
+			 * @param arg0 event ZK dari loading-bar (isinya tidak dipakai)
+			 * @throws Exception bila konstruksi antarmuka CBT gagal
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -1572,6 +1623,19 @@ public class ProsesUjianHelper extends MyWindow {
 
 		new Thread(new Runnable() {
 
+			/**
+			 * Menyiapkan soal ujian di thread latar agar antarmuka tidak membeku.
+			 *
+			 * <p>Hanya memanggil {@link ProsesUjianHelper#initSoal(Label)}, yang pada gilirannya memanggil
+			 * {@link ProsesUjianHelper#initHasilUjian(Label)}. Karena berjalan di luar konteks request ZK,
+			 * kedua method itu memakai {@code HibernateUtil.currentNativeSession()} dengan begin/commit
+			 * eksplisit, bukan session milik request.</p>
+			 *
+			 * <p><b>Catatan:</b> thread ini dibuat langsung dengan {@code new Thread(...)} — bukan daemon
+			 * dan bukan dari pool — berbeda dengan thread countdown yang sudah dipindah ke
+			 * {@link ProsesUjianHelper#COUNTDOWN_SCHEDULER}. Karena umurnya pendek (sekali jalan lalu
+			 * selesai), pola ini masih dipertahankan.
+			 */
 			@Override
 			public void run() {
 				initSoal(label);
@@ -1801,6 +1865,18 @@ public class ProsesUjianHelper extends MyWindow {
 					new Label("" + index).setParent(btn);
 
 					btn.addEventListener("onClick", new EventListener() {
+						/**
+						 * Melompat ke soal yang lingkarannya diklik pada panel "Nomor Soal".
+						 *
+						 * <p>Menelusuri {@link ProsesUjianHelper#ujianPunyaSoals} untuk menemukan indeks soal yang
+						 * cocok dengan {@code ujianPunyaSoalid} lingkaran ini, memperbarui {@code index} milik
+						 * instance, lalu me-render ulang soal lewat {@link ProsesUjianHelper#doProcessUjian(int)}.
+						 * Render ulang otomatis membangun kembali panel nomor soal sehingga warna lingkaran (biru =
+						 * sedang dikerjakan, hijau = sudah dijawab, abu-abu = belum) ikut diperbarui.</p>
+						 *
+						 * @param e event {@code onClick} ZK dari div lingkaran nomor soal
+						 * @throws Exception bila render ulang soal gagal
+						 */
 						@Override
 						public void onEvent(Event e) throws Exception {
 							int idx = 0;
@@ -1938,6 +2014,30 @@ public class ProsesUjianHelper extends MyWindow {
 						org.zkoss.zk.ui.sys.ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 				final Long hasilId = hasilUjianMahasiswa.getId();
 				pelanggaranSink.addEventListener("onPelanggaran", new EventListener() {
+					/**
+					 * Menerima laporan pelanggaran anti-curang yang dikirim dari browser peserta.
+					 *
+					 * <p>Skrip anti-curang di browser (lihat {@code buildCbtAntiCheatScript}) mengirim event ZK
+					 * {@code onPelanggaran} ke komponen tersembunyi {@code pelanggaranSink} setiap kali mendeteksi
+					 * perpindahan tab, blur jendela/Alt+Tab, atau keluar dari layar penuh. Listener ini
+					 * meneruskannya ke {@link ProsesUjianHelper#catatPelanggaranUjian(Long,String)} yang menaikkan
+					 * {@code jumlah_pelanggaran} dan menambah satu baris ke {@code log_pelanggaran} pada
+					 * {@code HasilUjianMahasiswa}.</p>
+					 *
+					 * <p><b>Mengapa memakai {@code hasilId} dan bukan entitasnya:</b> id di-<i>capture</i> sebagai
+					 * {@code Long} agar pencatatan dapat memakai session Hibernate terdedikasi walaupun session
+					 * ujian sudah ditutup. Bila {@code e.getData()} null, jenis pelanggaran dicatat sebagai teks
+					 * umum {@code "Pelanggaran"}.</p>
+					 *
+					 * <p><b>FAKTA arsitektur (bukan bug):</b> batas jumlah pelanggaran TIDAK ditegakkan di sisi
+					 * server. Penghentian otomatis ujian ketika batas tercapai dilakukan oleh skrip di browser
+					 * (yang mengklik tombol "Selesaikan Ujian"); server hanya MENCATAT. Peserta yang mematikan
+					 * JavaScript karenanya tidak akan tercatat maupun dihentikan — pengawasan ini bersifat
+					 * pencegah dan pembukti, bukan penjamin.</p>
+					 *
+					 * @param e event ZK {@code onPelanggaran}; {@code getData()} berisi teks jenis pelanggaran
+					 * @throws Exception bila pencatatan melempar kesalahan yang tidak tertangkap
+					 */
 					@Override
 					public void onEvent(Event e) throws Exception {
 						catatPelanggaranUjian(hasilId,
@@ -2006,6 +2106,37 @@ public class ProsesUjianHelper extends MyWindow {
 			timer.setRepeats(true);
 			timer.addEventListener("onTimer", new EventListener() {
 
+				/**
+				 * Tick ZK 1 detik: memperbarui tampilan sisa waktu, menyimpan titik-pulih berkala, dan
+				 * menghentikan ujian saat waktu habis.
+				 *
+				 * <p><b>Yang dikerjakan setiap detik:</b></p>
+				 * <ol>
+				 *   <li>Membaca jam/menit/detik dari {@link Waktu#getCurrentTime()} — nilai yang dikurangi satu
+				 *       detik oleh {@link ProsesUjianHelper#COUNTDOWN_SCHEDULER}, sehingga sumber kebenaran
+				 *       waktu berada di SISI SERVER, bukan di klien — lalu menuliskannya ke label countdown.</li>
+				 *   <li>Pada setiap kelipatan 10 detik, sisa waktu dan indeks soal aktif dititipkan ke cache
+				 *       peserta ({@code hasilUjianMahasiswa.put(...)}) sebagai titik pemulihan bila sesi
+				 *       terputus — nilai inilah yang dibaca kembali oleh
+				 *       {@link ProsesUjianHelper#prosesProsesUjian()} lewat {@code retreive()}.</li>
+				 *   <li>Bila ujian sungguhan, {@code lamaPengerjaan} diperbarui dan cache
+				 *       {@code hasilUjianMahasiswa} pada entitas peserta (mahasiswa / calon mahasiswa /
+				 *       calon siswa / siswa) di-invalidasi agar layar lain melihat data terkini.</li>
+				 *   <li><b>Deteksi waktu habis:</b> bila jam &gt; 23 (akibat <i>underflow</i> Calendar ketika
+				 *       sisa waktu menembus nol) ATAU jam, menit, dan detik semuanya nol, maka pada ujian
+				 *       bermode "tiap soal punya waktu sendiri" tombol Lanjut ditekan otomatis selama masih
+				 *       ada soal berikutnya; selain itu peserta diberi pesan dan
+				 *       {@link ProsesUjianHelper#onSelesai()} dipanggil sehingga jawaban yang SUDAH tersimpan
+				 *       langsung difinalisasi.</li>
+				 * </ol>
+				 *
+				 * <p><b>Penanganan error:</b> seluruh badan listener dibungkus try-catch — kegagalan satu tick
+				 * (misalnya {@code waktuTimer.getCurrentTime()} sempat null) hanya dicatat dan tidak
+				 * menghentikan timer ZK.</p>
+				 *
+				 * @param arg0 event {@code onTimer} ZK (isinya tidak dipakai)
+				 * @throws Exception tidak pernah lolos keluar; seluruh kesalahan ditangkap di dalam
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					try {
