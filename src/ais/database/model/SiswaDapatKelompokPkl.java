@@ -79,23 +79,45 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 
 	private static final long serialVersionUID = 2463821577548439810L;
 
+	/** Primary key baris kepesertaan, dihasilkan basis data (strategi {@code IDENTITY}). */
 	private Long id;
+	/** Jejak "siapa yang menulis baris ini", diisi otomatis lewat {@link #setOleh(String)}. */
 	private String oleh;
+	/** Pendamping {@link #oleh}. Lihat {@link #getOlehId()}. */
 	private String olehId;
 
+	/** Kelompok PKL yang diikuti siswa. Kolom FK wajib {@code kelompok_pkl}. */
 	private KelompokPkl kelompokPkl;
+	/** Siswa anggota kelompok PKL. Kolom FK wajib {@code siswa}. */
 	private Siswa siswa;
+	/** Catatan bebas kepesertaan. */
 	private String keterangan;
+	/** Ringkasan hasil/laporan PKL siswa. Lihat {@link #getHasil()}. */
 	private String hasil;
+	/** Total nilai akhir PKL. Lihat {@link #getTotalNilai()}. */
 	private Double totalNilai;
+	/** Nilai huruf akhir PKL. Lihat {@link #getNilaiHuruf()}. */
 	private String nilaiHuruf;
+	/** Status kelulusan PKL. Lihat {@link #getLulus()}. */
 	private Boolean lulus;
+	/** Penanda siswa sudah resmi diterima/ditempatkan di kelompok. Lihat {@link #getDiterima()}. */
 	private Boolean diterima;
+	/** Rincian nilai per komponen (teks bebas). Lihat {@link #getDetailNilai()}. */
 	private String detailNilai = "";
 
+	/** Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate. */
 	public SiswaDapatKelompokPkl() {
 	}
 
+	/**
+	 * Mengembalikan primary key baris kepesertaan.
+	 *
+	 * <p>Perhatikan {@code insertable = false}: nilai id sepenuhnya dihasilkan basis data
+	 * (strategi {@code IDENTITY}), sehingga memanggil {@link #setId(Long)} sebelum menyimpan
+	 * tidak memaksakan id tertentu.</p>
+	 *
+	 * @return id baris; {@code null} selama objek belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -103,14 +125,32 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key baris kepesertaan. Hanya relevan bagi Hibernate saat mengisi objek
+	 * dari hasil query, karena kolom dipetakan {@code insertable = false} (lihat {@link #getId()}).
+	 *
+	 * @param id nilai primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan rantai jejak pemanggil yang tersimpan bersama {@link #oleh}, diisi otomatis
+	 * oleh {@code AuditTimestampInterceptor}.
+	 *
+	 * @return jejak pemanggil; boleh {@code null} bila belum pernah diisi
+	 */
 	public String getOlehId() {
 		return olehId;
 	}
 
+	/**
+	 * Menyetel jejak pemanggil {@link #getOlehId()}. Setter ini <b>mengabaikan diam-diam</b>
+	 * nilai {@code null}/kosong sehingga jejak lama tidak dapat ditimpa nilai hampa.
+	 *
+	 * @param olehId jejak pemanggil baru; {@code null}/kosong diabaikan tanpa peringatan
+	 */
 	public void setOlehId(String olehId) {
 		if (olehId == null || olehId.trim().isEmpty()) {
 			return;
@@ -118,6 +158,12 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 		this.olehId = olehId;
 	}
 
+	/**
+	 * Menyetel identitas pelaku penyimpanan baris ini. Nilai {@code null}/kosong diabaikan
+	 * diam-diam agar jejak lama tidak tertimpa nilai hampa.
+	 *
+	 * @param oleh nama/identitas pelaku; {@code null}/kosong diabaikan tanpa peringatan
+	 */
 	public void setOleh(String oleh) {
 		if (oleh == null || oleh.trim().isEmpty()) {
 			return;
@@ -125,36 +171,74 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 		this.oleh = oleh;
 	}
 
+	/**
+	 * Mengembalikan identitas pelaku yang terakhir menyimpan baris ini.
+	 *
+	 * @return nama/identitas pelaku; boleh {@code null} bila belum pernah diisi
+	 */
 	public String getOleh() {
 		return oleh;
 	}
 
+	/**
+	 * <i>Callback</i> JPA {@link javax.persistence.PreUpdate} yang memperbarui
+	 * {@link #getTanggal_dirubah()}/{@link #getOleh()}/{@link #getOlehId()} lewat
+	 * {@code AuditTimestampInterceptor} pada setiap UPDATE baris.
+	 */
 	@javax.persistence.PreUpdate
 	protected void onUpdate() {
 		ais.database.hibernate.AuditTimestampInterceptor.ubah(this);
 	}
 
+	/** Stempel waktu terakhir baris diubah, diinisialisasi ke waktu server saat objek dibuat. */
 	private Date tanggal_dirubah = ais.ui.util.WaktuUtil.getDate();
 
+	/**
+	 * Menyetel stempel waktu perubahan terakhir. Umumnya diurus otomatis oleh {@link #onUpdate()}.
+	 *
+	 * @param tanggal_dirubah stempel waktu baru
+	 */
 	public void setTanggal_dirubah(Date tanggal_dirubah) {
 		this.tanggal_dirubah = tanggal_dirubah;
 	}
 
+	/**
+	 * Mengembalikan stempel waktu perubahan terakhir (presisi TIMESTAMP).
+	 *
+	 * @return waktu terakhir baris disimpan/diubah
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	public Date getTanggal_dirubah() {
 		return tanggal_dirubah;
 	}
 
+	/**
+	 * Representasi teks baris, berupa {@link #getKelompokPkl()} digabung {@link #getSiswa()}.
+	 * <b>Method ini bermutasi</b> field {@link #kelompokPkl} dan {@link #siswa} (memanggil ulang
+	 * getter masing-masing yang menormalkan proxy Hibernate).
+	 */
 	public String toString() {
 		kelompokPkl = getKelompokPkl();
 		siswa = getSiswa();
 		return kelompokPkl + "-" + siswa;
 	}
 
+	/**
+	 * Menyetel kelompok PKL yang diikuti.
+	 *
+	 * @param kelompokPkl kelompok PKL baru
+	 */
 	public void setKelompokPkl(KelompokPkl kelompokPkl) {
 		this.kelompokPkl = kelompokPkl;
 	}
 
+	/**
+	 * Mengembalikan kelompok PKL yang diikuti siswa ini. Relasi wajib ({@code nullable = false}),
+	 * diambil malas ({@code FetchType.LAZY}) dan dinormalkan lewat {@code check(...)} dari
+	 * {@link GeneralValueObject} agar aman terhadap proxy Hibernate yang belum terinisialisasi.
+	 *
+	 * @return kelompok PKL terkait; tidak seharusnya {@code null} pada baris yang valid
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "kelompok_pkl", nullable = false)
 	public KelompokPkl getKelompokPkl() {
@@ -162,10 +246,21 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 		return kelompokPkl;
 	}
 
+	/**
+	 * Menyetel siswa anggota kelompok PKL.
+	 *
+	 * @param siswa siswa baru
+	 */
 	public void setSiswa(Siswa siswa) {
 		this.siswa = siswa;
 	}
 
+	/**
+	 * Mengembalikan siswa anggota kelompok PKL. Relasi wajib ({@code nullable = false}), diambil
+	 * malas ({@code FetchType.LAZY}).
+	 *
+	 * @return siswa terkait; tidak seharusnya {@code null} pada baris yang valid
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "siswa", nullable = false)
 	public Siswa getSiswa() {
@@ -173,36 +268,78 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 		return siswa;
 	}
 
+	/**
+	 * Mengembalikan catatan bebas kepesertaan apa adanya (tanpa <i>trim</i>).
+	 *
+	 * @return keterangan; boleh {@code null}
+	 */
 	@Column(name = "keterangan")
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Menyetel catatan bebas kepesertaan.
+	 *
+	 * @param keterangan keterangan baru; boleh {@code null}
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Mengembalikan ringkasan hasil/laporan PKL siswa, dinormalisasi ke string kosong (bukan
+	 * {@code null}) bila belum diisi, dengan spasi tepi dipangkas.
+	 *
+	 * @return hasil/laporan yang sudah di-<i>trim</i>; tidak pernah {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getHasil() {
 		return hasil == null ? "" : hasil.trim();
 	}
 
+	/**
+	 * Menyetel ringkasan hasil/laporan PKL.
+	 *
+	 * @param hasil hasil/laporan baru; boleh {@code null}
+	 */
 	public void setHasil(String hasil) {
 		this.hasil = hasil;
 	}
 
+	/**
+	 * Mengembalikan total nilai akhir PKL siswa, dinormalisasi ke {@code 0.0} bila belum diisi.
+	 *
+	 * @return total nilai; tidak pernah {@code null}
+	 */
 	public Double getTotalNilai() {
 		return totalNilai == null ? 0.0 : totalNilai;
 	}
 
+	/**
+	 * Menyetel total nilai akhir PKL.
+	 *
+	 * @param totalNilai total nilai baru; {@code null} berarti kembali ke bawaan ({@code 0.0})
+	 */
 	public void setTotalNilai(Double totalNilai) {
 		this.totalNilai = totalNilai;
 	}
 
+	/**
+	 * Mengembalikan nilai huruf akhir PKL, dengan spasi tepi dipangkas. Dipakai
+	 * {@link #getLulus()} untuk menyimpulkan status kelulusan bila belum ditetapkan eksplisit.
+	 *
+	 * @return nilai huruf yang sudah di-<i>trim</i>; {@code null} bila belum diisi
+	 */
 	public String getNilaiHuruf() {
 		return this.nilaiHuruf == null ? null : this.nilaiHuruf.trim();
 	}
 
+	/**
+	 * Menyetel nilai huruf akhir PKL.
+	 *
+	 * @param nilaiHuruf nilai huruf baru; boleh {@code null}
+	 */
 	public void setNilaiHuruf(String nilaiHuruf) {
 		this.nilaiHuruf = nilaiHuruf;
 	}
@@ -230,23 +367,51 @@ public class SiswaDapatKelompokPkl extends GeneralValueObject implements VOPeser
 		return lulus;
 	}
 
+	/**
+	 * Menyetel status kelulusan PKL secara eksplisit, mem-<i>bypass</i> penyimpulan otomatis dari
+	 * {@link #getNilaiHuruf()}.
+	 *
+	 * @param lulus nilai eksplisit baru; {@code null} mengembalikan getter ke logika penyimpulan
+	 */
 	public void setLulus(Boolean lulus) {
 		this.lulus = lulus;
 	}
 
+	/**
+	 * Mengembalikan penanda siswa sudah resmi diterima/ditempatkan di kelompok PKL. Default
+	 * {@code false} bila belum disetel eksplisit.
+	 *
+	 * @return {@code true} bila sudah diterima
+	 */
 	public Boolean getDiterima() {
 		return diterima == null ? false : diterima;
 	}
 
+	/**
+	 * Menyetel penanda penerimaan/penempatan siswa di kelompok.
+	 *
+	 * @param diterima nilai baru; {@code null} berarti kembali ke bawaan ({@code false})
+	 */
 	public void setDiterima(Boolean diterima) {
 		this.diterima = diterima;
 	}
 
+	/**
+	 * Mengembalikan rincian nilai per komponen (format teks bebas), dinormalisasi ke string
+	 * kosong (bukan {@code null}) bila belum diisi, dengan spasi tepi dipangkas.
+	 *
+	 * @return rincian nilai yang sudah di-<i>trim</i>; tidak pernah {@code null}
+	 */
 	@Column(columnDefinition = "text")
 	public String getDetailNilai() {
 		return detailNilai == null ? "" : detailNilai.trim();
 	}
 
+	/**
+	 * Menyetel rincian nilai per komponen.
+	 *
+	 * @param detailNilai rincian nilai baru; boleh {@code null}
+	 */
 	public void setDetailNilai(String detailNilai) {
 		this.detailNilai = detailNilai;
 	}
