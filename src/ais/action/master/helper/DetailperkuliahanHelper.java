@@ -206,19 +206,129 @@ import ais.ui.util.MyWindow;
  */
 public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 
+	/**
+	 * Grid daftar peserta perkuliahan — satu baris per {@link Detailperkuliahan}.
+	 *
+	 * <p>Dibuat di {@link #display} dengan {@code mold="paging"} tetapi {@code pageSize=10000},
+	 * sehingga secara praktis seluruh peserta tampil sekaligus tanpa navigasi halaman; angka besar itu
+	 * disengaja karena satu kelas perkuliahan tidak pernah mendekati sepuluh ribu mahasiswa, sementara
+	 * dosen ingin melihat dan mencetak seluruh daftar dalam satu layar. Konsekuensinya seluruh baris
+	 * dirender di sisi server pada setiap {@link #loadData(Object)}.
+	 *
+	 * <p>Model dan renderer ({@link DetailPerkuliahanRenderer}) dipasang ulang setiap kali
+	 * {@link #loadData(Object)} dijalankan.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * Perkuliahan (kelas mata kuliah) yang daftar pesertanya sedang dikelola — konteks tunggal seluruh
+	 * kelas ini.
+	 *
+	 * <p>Diisi lewat {@link #display} atau {@link #setPerkuliahan}. Dibaca oleh
+	 * {@link #initCriteria(boolean)} sebagai filter {@code eq("perkuliahan", ...)}, oleh
+	 * {@link #loadData(Object)} sebagai sumber daftar id peserta, dan oleh
+	 * {@link #uploadDataMahasiswa} sebagai perkuliahan tujuan baris-baris Excel yang diunggah. Juga
+	 * menjadi sumber nilai default {@code semester} dan {@code tahap} ketika kotak isian pada baris
+	 * dikosongkan pengguna.
+	 *
+	 * <p>Bernilai {@code null} sampai salah satu dari kedua penyetel dipanggil; seluruh method lain
+	 * mengasumsikannya sudah terisi.
+	 */
 	private Perkuliahan perkuliahan;
 	// private Textbox nim;
+
+	/**
+	 * Kotak pencarian peserta pada toolbar — dipakai untuk NIM <b>maupun</b> nama, meski labelnya hanya
+	 * "Mhs :".
+	 *
+	 * <p>Nilainya dibaca di dua tempat dengan mekanisme yang berbeda:
+	 * {@link #initCriteria(boolean)} memakainya sebagai klausa {@code ilike} berpola
+	 * {@link MatchMode#ANYWHERE} pada {@code mahasiswa.nim} <i>atau</i> {@code mahasiswa.nama} (jalur
+	 * ekspor/cetak data), sedangkan {@link #loadData(Object)} meneruskannya ke
+	 * {@code perkuliahan.ambilDetailperkuliahan(...)} (jalur tampilan grid). Kedua jalur karenanya bisa
+	 * saja menerapkan aturan pencocokan yang tidak persis sama.
+	 *
+	 * <p>Menekan Enter di kotak ini memicu {@code loadData(null)} — memuat ulang tanpa membangun ulang
+	 * cache, berbeda dari tombol Refresh yang memanggil {@code loadData(true)}.
+	 *
+	 * <p>Diinisialisasi di {@link #display}; {@link #initCriteria(boolean)} sudah menjaga kemungkinan
+	 * field ini masih {@code null} (menggantinya dengan {@code sqlRestriction("true")}), tetapi
+	 * {@link #loadData(Object)} tidak — memanggilnya sebelum {@code display()} akan melempar NPE.
+	 */
 	private Textbox nama;
 
 	// private Paging paging;
 
+	/**
+	 * Penanda konteks <b>semester pendek</b>: {@code null} untuk perkuliahan reguler, selain itu berisi
+	 * status semester pendek yang berlaku.
+	 *
+	 * <p>Diterima lewat konstruktor dan diteruskan ke dua tempat: {@code AmbilDataMahasiswaHelper} saat
+	 * mengambil mahasiswa baru ke kelas ini, dan {@code Common.checkStatusPembayaranMahasiswa} pada
+	 * {@link #uploadDataMahasiswa} — di sana ia dikirim sebagai boolean {@code semesterPendek != null}
+	 * yang menentukan tagihan mana yang diperiksa. Karena hanya kehadiran/ketiadaannya yang dipakai di
+	 * jalur unggah, <i>nilai</i> integernya hanya bermakna bagi helper Ambil Mhs.
+	 */
 	private Integer semesterPendek;
 
+	/**
+	 * Izin menghapus: mengatur visibilitas tombol Hapus per-baris dan tombol "Hapus" massal pada
+	 * toolbar.
+	 *
+	 * <p>Sengaja {@code protected} (berbeda dari empat flag lain yang {@code private}) agar subclass
+	 * dalam paket turunan dapat menyesuaikannya; pemeliharaan berikutnya sebaiknya memeriksa apakah
+	 * pembedaan visibilitas ini masih diperlukan.
+	 *
+	 * <p><b>Perlu diketahui:</b> flag ini hanya menyembunyikan tombol. Penjaga penghapusan yang
+	 * sesungguhnya ada di listener tombol per-baris — baris yang sudah {@code DISETUJUI} ditolak, baris
+	 * yang masih dirujuk {@link MahasiswaRequestTugasAkhir} ditolak, dan baris bernilai tidak nol
+	 * ditolak bila konfigurasi {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif. Tombol
+	 * massal menerapkan penjaga yang lebih longgar: ia hanya melewati baris yang belum disetujui, tanpa
+	 * memeriksa relasi tugas akhir.
+	 */
 	protected boolean delete;
+
+	/**
+	 * Izin mengubah: mengatur visibilitas tombol "Pindah Data" dan "Ubah Persetujuan" per-baris, serta
+	 * status aktif tombol toolbar "Transfer", "Copy mhs", dan "History".
+	 *
+	 * <p>Tombol "Pindah Data" menambahkan satu syarat lagi di luar flag ini:
+	 * {@code Common.getCurrentUser().getDosen() == null}, sehingga akun dosen tidak dapat memindahkan
+	 * KRS mahasiswa meski flag {@code edit} bernilai {@code true}.
+	 */
 	private boolean edit;
+
+	/**
+	 * Izin menyetujui: mengatur status aktif ({@code setDisabled}) tombol "Setujui" massal.
+	 *
+	 * <p>Berbeda dari visibilitasnya, yang ditentukan penyaringan peran terpisah
+	 * ({@link Common#getApakahAdmin()} atau peran Akademik / Admin Fakultas / Admin Jurusan). Kedua
+	 * kendali bekerja berdampingan: flag ini menentukan tombol <i>aktif</i>, penyaringan peran
+	 * menentukan tombol <i>terlihat</i>.
+	 *
+	 * <p>Perhatikan bahwa persetujuan per-baris (tombol "Ubah Persetujuan") tidak memakai flag ini
+	 * melainkan {@link #edit}, dan tidak melewati penyaringan peran sama sekali.
+	 */
 	private boolean approve;
+
+	/**
+	 * Izin menolak: mengatur status aktif tombol "Tolak" massal, yang mengembalikan seluruh peserta ke
+	 * status {@code BELUM_DISETUJUI}.
+	 *
+	 * <p>Sama seperti {@link #approve}, visibilitas tombolnya ditentukan penyaringan peran terpisah.
+	 * Perlu dicatat bahwa aksi "Tolak" massal <b>tidak</b> menerapkan penjaga
+	 * {@code batalkan_persetujuan_harus_memiliki_nilai_nol} yang berlaku pada pencabutan persetujuan
+	 * per-baris — pencabutan massal dapat mengenai baris yang nilainya sudah terisi.
+	 */
 	private boolean reject;
+
+	/**
+	 * Izin menambah peserta: mengatur status aktif tombol "Ambil Mhs", yang membuka
+	 * {@code AmbilDataMahasiswaHelper} untuk memasukkan mahasiswa ke perkuliahan ini.
+	 *
+	 * <p>Tidak berlaku bagi jalur unggah Excel ({@link #uploadDataMahasiswa}), yang juga membuat baris
+	 * {@link Detailperkuliahan} baru tetapi tombolnya tidak dikendalikan flag ini.
+	 */
 	private boolean create;
 
 	/**
@@ -239,6 +349,23 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 		this.create = create;
 	}
 
+	/**
+	 * Daftar <b>id</b> {@link Detailperkuliahan} hasil pemuatan terakhir — sekaligus model baris grid dan
+	 * cakupan kerja ketiga tombol aksi massal.
+	 *
+	 * <p>Berisi id ({@link Long}), bukan entity, sesuai pola umum aplikasi: renderer dan listener
+	 * me-resolve tiap id lewat {@code GeneralValueObject.ambilData(...)} saat dibutuhkan, sehingga daftar
+	 * tetap ringan dan tidak menahan objek Hibernate yang mungkin sudah detached.
+	 *
+	 * <p><b>Konsekuensi penting untuk aksi massal:</b> tombol "Setujui", "Tolak", dan "Hapus" beriterasi
+	 * atas field ini, bukan atas hasil query baru. Artinya cakupannya adalah <i>apa yang sedang tampil</i>
+	 * — bila kotak pencarian {@link #nama} sedang terisi, aksi massal hanya mengenai baris yang lolos
+	 * pencarian, bukan seluruh peserta kelas. Teks konfirmasi ("semua mahasiswa di dalam perkuliahan
+	 * ini") tidak mencerminkan pembatasan tersebut.
+	 *
+	 * <p>Bernilai {@code null} sebelum pemuatan pertama; setiap listener massal karenanya memeriksa
+	 * {@code detailperkuliahan != null} lebih dulu.
+	 */
 	private List<Long> detailperkuliahan = null;
 
 	/**

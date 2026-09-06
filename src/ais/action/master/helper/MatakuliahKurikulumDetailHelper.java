@@ -120,24 +120,161 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * juga menampilkan ringkasan jumlah lampiran file/audio/video yang sudah tertaut lewat
  * {@link #createKeterangan}.
  * </p>
+ *
+ * <p>
+ * <b>Pembagian tanggung jawab dengan {@link MatakuliahKurikulumHelper}.</b> Kedua kelas bekerja
+ * pada dua tingkat yang berbeda dalam hierarki kurikulum dan tidak saling menggantikan:
+ * </p>
+ * <ul>
+ * <li>{@link MatakuliahKurikulumHelper} mengelola tingkat <i>matakuliah</i>: grid
+ * {@link KurikulumPunyaMatakuliah} milik satu {@link ais.database.model.Kurikulum} pada satu
+ * semester (SKS, tahap, status, jumlah jadwal, aktif/nonaktif, integrasi Neo Feeder).</li>
+ * <li>Kelas INI mengelola tingkat <i>pertemuan</i>: grid
+ * {@link KurikulumPunyaMatakuliahDetail} milik SATU {@link KurikulumPunyaMatakuliah}, dan
+ * dibuka sebagai baris detail dari grid milik kelas tersebut (lihat pemakaiannya di
+ * {@code MatakuliahKurikulumHelper}).</li>
+ * </ul>
+ *
+ * <p>
+ * Keduanya kebetulan memiliki method bernama SAMA,
+ * {@code tampilTombolBuatKurikulumPunyaMatakuliahDetail(Toolbar, EventListener)}, dengan tanda
+ * tangan identik namun cakupan dan kemampuan yang berbeda &mdash; perbedaan ini penting agar
+ * tidak tertukar:
+ * </p>
+ * <table border="1" summary="Perbandingan tombol pembuatan RPS pada kedua helper">
+ * <tr><th></th><th>MatakuliahKurikulumHelper</th><th>kelas ini</th></tr>
+ * <tr><td>Label tombol</td><td>"Generate Rencana Pembelajaran"</td>
+ *     <td>"Buat Rencana Pembelajaran"</td></tr>
+ * <tr><td>Cakupan</td><td>MASSAL &mdash; mengulang seluruh isi daftar
+ *     {@code kurikulumPunyaMatakuliahs} hasil penyaringan grid, jadi banyak matakuliah
+ *     sekaligus</td>
+ *     <td>TUNGGAL &mdash; hanya {@link #kurikulumPunyaMatakuliah} yang sedang dibuka</td></tr>
+ * <tr><td>Jumlah pertemuan</td><td>diambil dari nilai tersimpan tiap matakuliah
+ *     ({@code getJumlahPertemuanPerkuliahanDefault()}); pengguna tidak dapat mengubahnya di
+ *     dialog</td>
+ *     <td>diketik pengguna pada dialog, dan nilainya DISIMPAN kembali ke matakuliah</td></tr>
+ * <tr><td>Metadata matakuliah</td><td>tidak disentuh</td>
+ *     <td>ikut disunting: deskripsi pembelajaran, capaian/kompetensi prodi, flag inti,
+ *     institusional, dan bobot tugas &mdash; plus unggah lampiran Silabus</td></tr>
+ * </table>
+ *
+ * <p>
+ * Perilaku yang SAMA pada keduanya: pertemuan dengan {@code nomorUrut} yang sudah ada dilewati
+ * (idempoten, tidak menimpa hasil suntingan manual); penanda UTS diletakkan pada
+ * {@code i == jumlah / 2} memakai pembagian bilangan bulat &mdash; sehingga untuk 15 pertemuan
+ * UTS jatuh di pertemuan ke-7, dan untuk jumlah pertemuan 1 tidak ada pertemuan yang ditandai
+ * UTS sama sekali; serta opsi "Hapus pertamuan yang sebelumnya sudah ada" yang dijalankan
+ * sebagai {@code delete} SQL native langsung ke tabel, melewati kaskade Hibernate maupun
+ * pencatatan revisi Envers.
+ * </p>
+ *
+ * <p>
+ * <b>Penjagaan akses.</b> Seluruh penjagaan di kelas ini bersifat tampilan: privilese
+ * {@link #add}/{@link #delete} dan pengecekan peran {@link #tbmuser} (bukan mahasiswa, bukan
+ * siswa, bukan dosen) hanya menyembunyikan atau menonaktifkan komponen ZK. Method statis
+ * {@link #simpan(Perkuliahan, KurikulumPunyaMatakuliah, java.util.List, Date, boolean)} dan
+ * kedua {@link #copyLampiran} tidak memeriksa peran maupun privilese sama sekali &mdash;
+ * keduanya memang dipanggil dari alur penjadwalan ({@code PenjadwalanHelper},
+ * {@code PenjadwalanUtil}) yang menegakkan penjagaannya sendiri.
+ * </p>
  */
 public class MatakuliahKurikulumDetailHelper implements DataLoader {
 
+	/**
+	 * Grid baris RPS (satu baris per {@link KurikulumPunyaMatakuliahDetail} / per pertemuan).
+	 * Dibuat di {@link #display} HANYA pada cabang non-OBE &mdash; bila kurikulum memakai skema OBE,
+	 * grid digantikan iframe {@code rps_obe.zul} dan field ini tetap {@code null}, sehingga
+	 * {@link #loadData(Object)} tidak boleh dipanggil pada mode itu.
+	 */
 	private MyGrid grid;
+	/**
+	 * Matakuliah-dalam-kurikulum yang RPS-nya sedang dikelola &mdash; induk dari seluruh baris
+	 * {@link KurikulumPunyaMatakuliahDetail} di grid. Ditetapkan sekali di {@link #display} dan
+	 * menjadi penyaring wajib pada {@link #loadData(Object)}, tombol pembuatan massal, ekspor,
+	 * impor, serta penghitungan jumlah item pada label tiap tab.
+	 */
 	private KurikulumPunyaMatakuliah kurikulumPunyaMatakuliah;
+	/**
+	 * Daftar baris RPS hasil {@link #loadData(Object)} terakhir. Selain menjadi model grid, daftar
+	 * ini juga menjadi CAKUPAN KERJA dua operasi lain: tombol "Hapus Semua Rencana Pembelajaran"
+	 * (menghapus persis isi daftar ini) dan {@link #simpan(Perkuliahan)} (menyalin persis isi
+	 * daftar ini menjadi baris {@link Pertemuan}). Karena {@link #loadData(Object)} memuat seluruh
+	 * detail milik {@link #kurikulumPunyaMatakuliah} tanpa paging basis data, isinya memang seluruh
+	 * RPS matakuliah tersebut. Tetap {@code null} bila {@link #loadData(Object)} belum pernah
+	 * dipanggil &mdash; termasuk pada mode OBE.
+	 */
 	private List<KurikulumPunyaMatakuliahDetail> kurikulumPunyaMatakuliahDetails = null;
 
+	/**
+	 * Sub-helper tab "Video", dibuat di konstruktor dengan mode (tambah=true, hapus=false).
+	 * Isinya baru dirender saat tab Video diklik pertama kali (lazy-load) di {@link #display}.
+	 */
 	private VideoPertemuanHelper videoPertemuanHelper;
+	/**
+	 * Sub-helper tab "Audio", dibuat di konstruktor dengan mode (tambah=true, hapus=false).
+	 * Isinya baru dirender saat tab Audio diklik pertama kali (lazy-load) di {@link #display}.
+	 */
 	private AudioPertemuanHelper audioPertemuanHelper;
+	/**
+	 * Sub-helper tab "File", dibuat di konstruktor tanpa konteks perkuliahan/pertemuan
+	 * ({@code new FilePerkuliahanHelper(null, null)}); konteks kurikulum baru diberikan saat tab
+	 * File diklik pertama kali (lazy-load) di {@link #display}.
+	 */
 	private FilePerkuliahanHelper filePerkuliahanHelper;
 
+	/**
+	 * Hak tambah pengguna ({@link CommonPrivilages#CREATE}), dibaca sekali di konstruktor. Dipakai
+	 * bersama pengecekan peran ({@link #tbmuser} bukan mahasiswa/siswa/dosen) untuk menentukan
+	 * tampil-tidaknya tombol "Buat Rencana Pembelajaran".
+	 */
 	private Boolean add = false;
+	/**
+	 * Hak hapus pengguna ({@link CommonPrivilages#DELETE}), dibaca sekali di konstruktor; mengatur
+	 * tampil-tidaknya tombol hapus per baris dan tombol "Hapus Semua Rencana Pembelajaran".
+	 */
 	private Boolean delete = false;
 
+	/**
+	 * Pengguna yang sedang login, dibaca sekali saat instance dibuat (inisialisasi field, jadi
+	 * sebelum badan konstruktor berjalan). Menjadi dasar penjagaan peran di seluruh kelas ini:
+	 * hanya pengguna yang BUKAN mahasiswa, BUKAN siswa, dan BUKAN dosen yang mendapat field RPS
+	 * yang bisa disunting inline, toolbar, dan tombol unggah lampiran &mdash; pengguna lain melihat
+	 * versi label baca saja.
+	 *
+	 * <p>Penjagaan ini bersifat tampilan (menyembunyikan/menonaktifkan komponen ZK), sehingga
+	 * jalur simpan yang dipanggilnya tidak memeriksa ulang peran.</p>
+	 */
 	private Tbmuser tbmuser = Common.getCurrentUser();
+	/**
+	 * Wilayah atas borderlayout tab RPS, berisi panel ringkasan (deskripsi pembelajaran,
+	 * capaian/kompetensi, lampiran silabus, dan &mdash; bila {@link #perkuliahan} ada &mdash;
+	 * tanggal mulai perkuliahan serta opsi lewati tanggal merah). Panel ini DIBANGUN ULANG dari nol
+	 * setiap kali {@link #loadData(Object)} dipanggil, bukan hanya diperbarui isinya.
+	 */
 	private North north;
+	/**
+	 * Kelas/jadwal nyata yang menjadi konteks tampilan, boleh {@code null}. Bila {@code null},
+	 * layar bersifat murni master data kurikulum: baris "Tgl. Mulai" dan checkbox lewati tanggal
+	 * merah tidak dimunculkan, {@link #tanggalMulaiPerkuliahan} tetap {@code null}, dan
+	 * {@link #simpan(Perkuliahan)} tidak punya tanggal awal untuk dipakai.
+	 */
 	private Perkuliahan perkuliahan;
+	/**
+	 * Datebox tanggal pertemuan pertama, dibuat di {@link #loadData(Object)} HANYA bila
+	 * {@link #perkuliahan} tidak {@code null}. Sengaja {@code public} karena diisi dari luar oleh
+	 * layar penjadwalan lewat {@link #setHariMulai(String)} agar tanggal default mengikuti hari
+	 * jadwal kelas yang dipilih. Bersifat {@code readonly} bagi pengguna (dipilih lewat kalender),
+	 * dan nilainya menjadi titik awal perhitungan tanggal mingguan pada
+	 * {@link #simpan(Perkuliahan)}.
+	 */
 	public MyDatebox tanggalMulaiPerkuliahan;
+	/**
+	 * Checkbox "Lewati tanggal merah / hari libur", dibuat di {@link #loadData(Object)} hanya bila
+	 * {@link #perkuliahan} tidak {@code null} dan nilainya diambil dari
+	 * {@code perkuliahan.getLewatiTanggalMerahNasional()}. Selama masih {@code null} &mdash; yaitu
+	 * pada konteks tanpa perkuliahan &mdash; {@link #simpan(Perkuliahan)} memperlakukannya sebagai
+	 * TERCENTANG ({@code true}), bukan sebagai tidak tercentang.
+	 */
 	private MyCheckboxConfig lewatiTanggalMerahNasional = null;
 
 	/** Menginisialisasi sub-helper (file/audio/video pertemuan) dan flag privilese tambah/hapus untuk pengguna saat ini. */
@@ -669,6 +806,36 @@ public class MatakuliahKurikulumDetailHelper implements DataLoader {
 	class DetailMatakuliahRenderer extends ais.ui.util.MyRowRenderer {
 
 		@Override
+		/**
+		 * Merender satu baris RPS. Kolom pertama berupa {@link ais.ui.util.MyDetail} yang selalu
+		 * terbuka ({@code setOpen(true)}) dan berisi ringkasan jumlah lampiran File/Audio/Video hasil
+		 * {@link MatakuliahKurikulumDetailHelper#createKeterangan}. Kolom berikutnya bergantung peran
+		 * pengguna:
+		 *
+		 * <ul>
+		 * <li>Pengguna yang BUKAN mahasiswa, BUKAN siswa, dan BUKAN dosen mendapat sembilan kontrol
+		 * yang dapat disunting langsung: topik, indikator, waktu pembelajaran, pengalaman belajar,
+		 * tugas &amp; penilaian, buku rujukan 1, buku rujukan 2, metode pembelajaran, dan combobox
+		 * {@link StatusPertemuan}. Masing-masing punya listener {@code onChange} sendiri yang
+		 * menyimpan HANYA field itu lewat {@link Common#refreshUpdate} &mdash; jadi simpan per-field,
+		 * bukan simpan gabungan.</li>
+		 * <li>Pengguna lain mendapat delapan {@link org.zkoss.zul.Label} baca saja.</li>
+		 * </ul>
+		 *
+		 * <p><b>Asimetri jumlah kolom.</b> Cabang yang dapat disunting menghasilkan SEMBILAN komponen
+		 * (buku rujukan 2 termasuk), sedangkan cabang baca saja hanya DELAPAN &mdash; buku rujukan 2
+		 * tidak pernah ditampilkan kepada mahasiswa/siswa/dosen. Karena definisi kolom grid di
+		 * {@link MatakuliahKurikulumDetailHelper#display} bersifat tetap, isi kolom pada kedua cabang
+		 * tidak sejajar satu sama lain.</p>
+		 *
+		 * <p>Tombol hapus baris hanya tampil bila {@link MatakuliahKurikulumDetailHelper#delete}
+		 * bernilai {@code true} DAN pengguna bukan mahasiswa/siswa/dosen, dan meminta konfirmasi lebih
+		 * dulu. Kegagalan hapus karena relasi ditampilkan lewat
+		 * {@link ais.common.PesanFormalHelper#tampilkanGagalException}.</p>
+		 *
+		 * @param row  baris grid ZK tujuan render
+		 * @param data instance {@link KurikulumPunyaMatakuliahDetail} untuk baris ini
+		 */
 		public void render(final Row row, Object data) throws Exception {
 			row.setValign("top");
 

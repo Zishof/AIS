@@ -101,42 +101,90 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 	private static final long serialVersionUID = 1L;
 
 	// ============================================================ FIELDS (autowire dari zul)
+	/**
+	 * Window utama, diisi ZK secara otomatis dari {@code id="window"} pada
+	 * {@code pembayaran_online_mahasiswa.zul} ketika komposer ini dipakai lewat entry point
+	 * {@code doAfterCompose}, atau dibuat manual oleh {@link #onViewExternal} ketika dipakai
+	 * sebagai window modal berdiri sendiri.
+	 */
 	private MyWindow window;
 
 	// ============================================================ FIELDS (dibangun manual)
+	/** Bandbox pemilih Mahasiswa pada North; disembunyikan bila {@link #calonMahasiswa} terisi (lihat {@link #updateVisibilitasPemilihStudent()}). */
 	private AmbilDataMahasiswaBanbox mahasiswaBanbox;
+	/** Bandbox pemilih Calon Mahasiswa (daftar ulang baru) pada North; disembunyikan bila {@link #mahasiswa} terisi. */
 	private AmbilDataCalonMahasiswaDaftarUlangBaruBanbox calonBanbox;
+	/** Grup label+bandbox "Mahasiswa" pada North; visibilitasnya diatur oleh {@link #updateVisibilitasPemilihStudent()}. */
 	private Hbox groupMahasiswa;
+	/** Grup label+bandbox "Calon Mahasiswa" pada North; visibilitasnya diatur oleh {@link #updateVisibilitasPemilihStudent()}. */
 	private Hbox groupCalon;
+	/** Kombo jenis pembayaran ({@link JenisKegiatan}), diisi oleh {@code Common#initJenisPembayaranMahasiswaDanBiodataCalonMahasiswa}; perubahan memicu {@link #reload(boolean)}. */
 	private Combobox jenisKegiatanCombo;
+	/** Input semester, diisi awal oleh {@link #isiSemesterDefault()}; perubahan memicu {@link #reload(boolean)}. */
 	private Intbox semesterBox;
 
+	/** Mahasiswa yang sedang ditampilkan/dikelola tagihannya; saling eksklusif dengan {@link #calonMahasiswa}. */
 	private Mahasiswa mahasiswa;
+	/** Calon mahasiswa (daftar ulang) yang sedang ditampilkan/dikelola tagihannya; saling eksklusif dengan {@link #mahasiswa}. */
 	private BiodataCalonMahasiswa calonMahasiswa;
+	/** {@link Kegiatan} (header transaksi pembayaran) aktif untuk kombinasi mahasiswa/calon+jenis+semester saat ini, dimuat/dibuat oleh {@link #reload(boolean)}/{@link #simpanPembayaranTunai}. */
 	private Kegiatan kegiatanAktif;
 
+	/** Kolom kiri portal (60%): daftar tagihan checkable, dirender oleh {@link #renderGridTagihan()}. */
 	private Component colKiri;
+	/** Kolom kanan portal (40%): riwayat cicilan, dirender oleh {@link #renderRiwayat(boolean)}. */
 	private Component colKanan;
+	/** Label total nominal yang akan dibayar (jumlah baris terpilih), diperbarui oleh {@link #renderTotal()}. */
 	private MyLabelBold totalLabel;
+	/** Label terbilang (dalam kata) dari {@link #totalLabel}, diperbarui oleh {@link #renderTotal()}. */
 	private MyLabelBoldAja terbilangLabel;
 
+	/** Daftar baris tagihan checkable yang sedang ditampilkan di grid; dibangun ulang oleh {@link #susunBarisDariTemplate}. */
 	private List<BarisTagihan> barisList = new ArrayList<BarisTagihan>();
 
 	/** Baris tagihan checkable di grid — satu per DetailBiaya/PengaturanPembayaranBulanan. */
 	private static final class BarisTagihan {
+		/** Template rincian biaya (item + bayarKe) sumber baris ini; {@code null} bila baris berasal murni dari {@link #ppb}. */
 		DetailBiaya detailBiaya;
+		/** Pengaturan pembayaran bulanan sumber baris ini (mode cicilan bulanan); {@code null} bila baris berasal dari {@link #detailBiaya} biasa. */
 		PengaturanPembayaranBulanan ppb;
+		/** Nama item biaya untuk ditampilkan (dari {@link #detailBiaya}'s {@link ItemBiaya}). */
 		String namaItem;
+		/** Label bulan (mis. "Bulan 3") untuk baris bermode {@link #ppb}; {@code null} untuk baris biaya biasa. */
 		String namaBulan;
+		/** Nominal tagihan penuh baris ini (hasil {@code Kegiatan#ambilJumlahTagihan}). */
 		double nominal;
+		/** Total yang sudah dibayar untuk baris ini, dihitung langsung dari {@link CicilanPembayaran} tersimpan (bukan cache Kegiatan). */
 		double sudahDibayar;
+		/** Sisa kekurangan ({@code max(0, nominal - sudahDibayar)}); dipakai sebagai batas atas nominal yang boleh dibayar. */
 		double kekurangan;
+		/** Status centang awal baris (default tercentang bila masih ada kekurangan &gt; 0.1). */
 		boolean dipilih;
+		/** Komponen input nominal yang akan dibayar untuk baris ini pada grid; nilainya dibaca saat {@link #bayarTunaiManual()}/{@link #simpanPembayaranTunai}. */
 		MyDoublebox nominalBayarBox;
+		/** Komponen checkbox "Pilih" baris ini pada grid. */
 		MyCheckboxConfig checkboxConfig;
 	}
 
 	// ============================================================ ENTRY POINT (URL lama, opsional)
+	/**
+	 * Entry point ZK otomatis saat {@code pembayaran_online_mahasiswa.zul} (
+	 * {@code apply="ais.action.master.helper.PembayaranOnlineMahasiswa"}) dimuat. Membaca
+	 * parameter URL {@code mahasiswa}/{@code calon_mahasiswa} (id numerik) dan memuat
+	 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa} yang bersangkutan langsung dari database
+	 * berdasarkan id tersebut; bila kedua parameter tidak ada, jatuh ke mahasiswa/calon
+	 * mahasiswa milik {@link Tbmuser} yang sedang login (self-service).
+	 *
+	 * <p><b>PERHATIAN KEAMANAN:</b> berbeda dari {@link #onViewExternal}, method ini TIDAK
+	 * memanggil {@link Common#doCheckSecurity()} maupun memverifikasi bahwa id pada parameter
+	 * URL memang milik/berhak diakses oleh pengguna yang sedang login — id dari URL dipakai
+	 * apa adanya untuk memuat data dan (lewat {@link #bayarTunaiManual()}) untuk menyimpan
+	 * transaksi pembayaran. Halaman {@code pembayaran_online_mahasiswa.zul} juga tidak
+	 * terdaftar pada {@code CommonPrivilages#MUST_CHECKED}, sehingga jalur pemeriksaan
+	 * privilege berbasis path tersebut tidak berlaku untuknya. Temuan ini sudah dilaporkan
+	 * terpisah untuk ditambal (lihat task perbaikan terkait); Javadoc ini mencatat FAKTA
+	 * perilaku saat ini, bukan rekomendasi penggunaan.</p>
+	 */
 	@Override
 	public void doAfterCompose(Component comp) throws Exception {
 		super.doAfterCompose(comp);
@@ -200,6 +248,13 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 	}
 
 	// ============================================================ BANGUN UI
+	/**
+	 * Membangun seluruh UI layar: North berisi baris pemilih (bandbox Mahasiswa/Calon Mahasiswa,
+	 * kombo jenis pembayaran, input semester) dan toolbar aksi (Refresh, Cetak Bukti Pembayaran,
+	 * Surat Tagihan, Wizard Pembayaran — khusus Mahasiswa, History, Restore); Center berisi
+	 * portal layout dua kolom ({@link #colKiri}/{@link #colKanan}) untuk grid tagihan dan
+	 * riwayat. Diakhiri memuat data awal lewat {@link #reload(boolean)}.
+	 */
 	private void buildUI() throws Exception {
 		Common.clear(window);
 
@@ -434,6 +489,12 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Mengisi {@link #semesterBox} dengan nilai default: semester berjalan hasil hitung
+	 * {@code Common#getSemester} untuk {@link #mahasiswa} (berdasar tahun angkatan/status
+	 * ganjil-genap saat ini), atau {@code 1} untuk {@link #calonMahasiswa}/bila terjadi
+	 * kegagalan penghitungan.
+	 */
 	private void isiSemesterDefault() {
 		try {
 			if (mahasiswa != null) {
@@ -451,6 +512,7 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		}
 	}
 
+	/** @return {@link JenisKegiatan} yang sedang terpilih pada {@link #jenisKegiatanCombo}, atau {@code null} bila belum ada yang dipilih */
 	private JenisKegiatan jenisKegiatanTerpilih() {
 		return jenisKegiatanCombo.getSelectedItem() == null ? null
 				: (JenisKegiatan) jenisKegiatanCombo.getSelectedItem().getValue();
@@ -472,12 +534,19 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		}
 	}
 
+	/** Menampilkan pesan peringatan generik "belum ada data tagihan" (dipakai beberapa tombol toolbar saat {@link #kegiatanAktif}/jenis pembayaran belum siap). */
 	private void peringatanBelumAdaData() throws Exception {
 		MyMessageboxConfig.show(
 				"Mohon maaf, belum ada data tagihan untuk kombinasi mahasiswa/jenis pembayaran/semester ini. Langkah yang dapat dilakukan: (1) pilih mahasiswa atau calon mahasiswa terlebih dahulu; (2) pastikan jenis pembayaran dan semester sudah sesuai; (3) tekan Refresh.",
 				"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
 	}
 
+	/**
+	 * Membuka {@link RevisiCicilanPembayaranHelper} (riwayat revisi/audit trail) untuk
+	 * {@link #kegiatanAktif}; menampilkan peringatan bila belum ada {@link #kegiatanAktif}.
+	 *
+	 * @param fokusRestore bila {@code true}, langsung buka tab "seluruh data" (mode restore, dipakai tombol Restore); {@code false} untuk tombol History biasa
+	 */
 	private void bukaRevisi(final boolean fokusRestore) {
 		try {
 			if (kegiatanAktif == null || kegiatanAktif.getId() == null) {
@@ -503,6 +572,20 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 	}
 
 	// ============================================================ MUAT DATA
+	/**
+	 * Memuat ulang seluruh data tagihan+riwayat untuk kombinasi {@link #mahasiswa}/
+	 * {@link #calonMahasiswa} + jenis pembayaran + semester saat ini: mengambil/membuat
+	 * {@link #kegiatanAktif} (via {@code KegiatanHelper#checkKegiatanMahasiswa}/
+	 * {@code checkKegiatanCalonMahasiswa}), template rincian biaya (via
+	 * {@code PembayaranUtilHelper#getDetailBiayaMahasiswa}/{@code getDetailBiayaCalonMahasiswa} —
+	 * dengan permintaan ulang mode {@code "-1"} bila template mengandung
+	 * {@link PengaturanPembayaranBulanan} agar seluruh bulan ikut termuat), lalu membangun
+	 * {@link #barisList} ({@link #susunBarisDariTemplate}) dan merender ulang grid tagihan
+	 * ({@link #renderGridTagihan()}) serta riwayat ({@link #renderRiwayat(boolean)}). Bila
+	 * mahasiswa/calon/jenis/semester belum lengkap, cukup menampilkan pesan kosong.
+	 *
+	 * @param refresh bila {@code true}, paksa segarkan cache (Kegiatan, template biaya, riwayat cicilan) alih-alih memakai cache
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void reload(boolean refresh) {
 		try {
@@ -661,6 +744,7 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		}
 	}
 
+	/** Membersihkan {@code parent} lalu menampilkan satu label pesan (dipakai untuk kondisi "belum ada data"). */
 	private void tampilKosong(Component parent, String pesan) {
 		Common.clear(parent);
 		new ais.ui.util.MyLabelConfig(pesan).setParent(parent);
@@ -679,6 +763,13 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		new ais.ui.util.MyLabelConfig(teks).setParent(judul);
 	}
 
+	/**
+	 * Merender grid tagihan di {@link #colKiri} dari {@link #barisList}: satu baris per
+	 * {@link BarisTagihan} dengan checkbox pilih, label item/tagihan/sudah dibayar/kekurangan,
+	 * dan input nominal yang akan dibayar (di-clamp ke rentang {@code [0, kekurangan]} pada
+	 * {@code onChange}). Diakhiri tombol "Bayar Tunai / Manual" ({@link #bayarTunaiManual()})
+	 * dan pembaruan {@link #renderTotal()}. Menampilkan pesan kosong bila {@link #barisList} kosong.
+	 */
 	private void renderGridTagihan() {
 		Common.clear(colKiri);
 		judulSeksi(colKiri, "Daftar Tagihan");
@@ -766,6 +857,13 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		});
 	}
 
+	/**
+	 * Menghitung ulang total nominal dari seluruh baris {@link #barisList} yang tercentang
+	 * (menjumlahkan nilai {@link BarisTagihan#nominalBayarBox} masing-masing), lalu memperbarui
+	 * {@link #totalLabel} dan {@link #terbilangLabel} (terbilang dalam kata via
+	 * {@link IndonesianNumberToWords}); membuat kedua label bila belum ada/sudah terlepas dari
+	 * {@link #colKiri}.
+	 */
 	private void renderTotal() {
 		double total = 0.0;
 		for (BarisTagihan baris : barisList) {
@@ -791,6 +889,14 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 		}
 	}
 
+	/**
+	 * Merender grid riwayat pembayaran ({@link CicilanPembayaran}) di {@link #colKanan} untuk
+	 * {@link #kegiatanAktif} (via {@code KegiatanPersistenceHelper#ambilCicilan}): waktu, item
+	 * biaya, nilai, dan validator per baris cicilan. Menampilkan pesan kosong bila
+	 * {@link #kegiatanAktif} belum ada atau belum punya cicilan.
+	 *
+	 * @param refresh bila {@code true}, paksa segarkan cache daftar cicilan
+	 */
 	private void renderRiwayat(boolean refresh) {
 		Common.clear(colKanan);
 		judulSeksi(colKanan, "Riwayat Pembayaran");
@@ -872,6 +978,26 @@ public class PembayaranOnlineMahasiswa extends GenericAutowireComposer {
 				});
 	}
 
+	/**
+	 * Menyimpan transaksi pembayaran tunai/manual dalam satu sesi+transaksi Hibernate baru:
+	 * mengambil-atau-membuat satu {@link Kegiatan} (get-or-create via
+	 * {@code Mahasiswa#ambilKegiatansRefresh}/{@code BiodataCalonMahasiswa#ambilKegiatansRefresh}),
+	 * menambah {@code amount}-nya, dan menyimpan satu {@link CicilanPembayaran} bertipe
+	 * {@link ConstantValues#TUNAI} per baris terpilih dengan nominal dari
+	 * {@link BarisTagihan#nominalBayarBox} saat ini. Validator dicatat dari nama pengguna login
+	 * saat ini. Menjalankan ulang {@code PembayaranUtil#updateTunggakan} setelahnya (kegagalan
+	 * di sini diaudit tapi tidak membatalkan transaksi utama). Rollback otomatis dan pesan
+	 * kegagalan ditampilkan bila terjadi exception; sukses memicu {@link #reload(boolean)}.
+	 *
+	 * <p><b>Catatan integritas:</b> nominal yang dipersist di sini diambil langsung dari nilai
+	 * komponen {@link BarisTagihan#nominalBayarBox} TANPA re-validasi terhadap
+	 * {@link BarisTagihan#kekurangan} riil di titik simpan ini — pembatasan nilai ke rentang
+	 * {@code [0, kekurangan]} hanya diterapkan pada listener {@code onChange} komponen tersebut
+	 * (lihat {@link #renderGridTagihan()}), bukan di sini.</p>
+	 *
+	 * @param dipilih baris tagihan terpilih dengan nominal &gt; 0 yang akan disimpan sebagai cicilan
+	 * @param total   jumlah seluruh nominal {@code dipilih}, ditambahkan ke {@code amount} {@link Kegiatan}
+	 */
 	private void simpanPembayaranTunai(List<BarisTagihan> dipilih, double total) throws Exception {
 		boolean sukses = false;
 		Session session = null;
