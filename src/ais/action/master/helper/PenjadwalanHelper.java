@@ -3092,6 +3092,66 @@ public class PenjadwalanHelper {
 	 * 20-08-2026 atas permintaan pemilik produk — hak akses sekarang murni ditentukan kondisi pada
 	 * pemanggil {@code display(...)}.</p>
 	 *
+	  * <p><b>Bukan {@code krsMahasiswa}.</b> Berbeda dari method statis lain di kelas ini, tanda tangan
+	  * method ini hanya menerima TUJUH tipe pemilik — bimbingan KRS tidak termasuk, dan variabel
+	  * {@code krsMahasiswa} yang diteruskan ke {@link #prosesTampilTombolAturUlangWaktu} di akhir proses
+	  * sengaja dideklarasikan {@code null}. Itu konsisten dengan {@code PenjadwalanKrsMahasiswaHelper},
+	  * satu-satunya helper {@code Penjadwalan*} yang memang tidak memakai tombol ini.</p>
+	  *
+	  * <p><b>Idempoten lewat kolom {@code copyDariPertemuan}.</b> Setiap pertemuan hasil salin menyimpan
+	  * id pertemuan sumbernya, dan sebelum membuat, method ini memeriksa apakah pertemuan dengan
+	  * {@code copyDariPertemuan} tersebut sudah ada pada pemilik TUJUAN. Karena itu tombol ini aman
+	  * diklik berkali-kali: yang sudah pernah disalin dilaporkan sebagai "DILEWATI", bukan digandakan.
+	  * Perhatikan bahwa penjagaan ini bekerja per-pasangan sumber-tujuan; menyalin dari dua agenda sumber
+	  * berbeda yang isinya mirip TETAP menghasilkan dua set pertemuan.</p>
+	  *
+	  * <p><b>Format penilaian OBE ditimpa, bukan digabung.</b> Bila sumber dan tujuan sama-sama
+	  * {@link Perkuliahan} dan keduanya punya {@link KurikulumPunyaMatakuliah}, sekitar dua puluh field
+	  * pada KPM tujuan — minimal ketercapaian, bobot CPL, pemetaan soal UTS/UAS, komponen penilaian,
+	  * teknik per-CPMK, rubrik, pustaka, koordinator, pengembang RPS, tanggal penyusunan, dan seterusnya —
+	  * DITIMPA nilai dari sumber tanpa konfirmasi terpisah dan tanpa cara membatalkan. Hal yang sama
+	  * berlaku untuk {@link Matakuliah} tujuan (capaian lulusan, profil lulusan, capaian pembelajaran
+	  * lulusan, bahan kajian): perubahannya menempel pada MATAKULIAH, bukan pada satu kelas perkuliahan,
+	  * sehingga ikut terlihat oleh semua kelas lain yang memakai matakuliah itu. Method ini tidak
+	  * memeriksa apakah KPM tujuan sedang {@code dikunci}.</p>
+	  *
+	  * <p><b>Tidak ada gerbang hak akses maupun pembatasan lingkup sumber di dalam method ini.</b>
+	  * Agenda mana saja yang boleh dijadikan sumber sepenuhnya ditentukan daftar yang ditampilkan
+	  * {@code AmbilDataTemplatePembelajaran}; kelas ini menerima apa pun yang dikembalikan jendela
+	  * tersebut. Lihat pula catatan riwayat di bawah mengenai gerbang ADMINISTRATOR yang sempat dipasang
+	  * lalu di-revert.</p>
+	  *
+	  * <p><b>Seluruh proses berjalan sinkron pada event thread ZK</b> dan menyentuh banyak tabel
+	  * (pertemuan, lampiran streaming, ujian, tugas kelompok, tugas mandiri, item pendukung) tanpa satu
+	  * transaksi pembungkus. Kegagalan per-pertemuan maupun per-item ditangkap dan hanya masuk ke laporan
+	  * .txt sebagai baris "[KENDALA]", sehingga salin bisa berakhir separuh jadi sementara ringkasan di
+	  * layar tetap menyatakan "selesai". Laporan .txt itulah satu-satunya rincian yang diterima pengguna —
+	  * bila unduhannya gagal, kendalanya hanya tersisa di error audit.</p>
+	  *
+	  * <p><b>Catatan pemeliharaan (perilaku terdokumentasi apa adanya, tidak diubah di sini).</b> Dua
+	  * kekeliruan salin-tempel pada badan listener perlu diketahui pemelihara berikutnya:</p>
+	  * <ul>
+	  *   <li>Pada query yang memuat daftar pertemuan SUMBER, tujuh klausanya memakai variabel sumber
+	  *   ({@code copyPerkuliahan}, {@code copyKelompokKkn}, dan seterusnya) kecuali satu: klausa bimbingan
+	  *   tugas akhir memakai {@code mahasiswaRequestTugasAkhir} — pemilik TUJUAN — bukan
+	  *   {@code copyMahasiswaRequestTugasAkhir}. Akibatnya penyalinan agenda bimbingan tugas akhir
+	  *   menyaring pertemuan sumber ke bimbingan tujuan itu sendiri.</li>
+	  *   <li>Pada cabang penyalinan {@link DataPunyaItem}, kondisinya ditulis
+	  *   {@code copyMahasiswaRequestTugasAkhir != null || copyKelompokKkn != null && copyKelompokPkl != null
+	  *   || copySkripsi != null}. Karena {@code &&} mengikat lebih kuat daripada {@code ||}, bagian
+	  *   KKN/PKL menuntut KEDUANYA terisi sekaligus — padahal hanya satu tipe pemilik yang pernah tidak
+	  *   {@code null}, sehingga item pendukung KKN dan PKL tidak pernah ikut tersalin (untuk tugas akhir
+	  *   dan skripsi berjalan normal).</li>
+	  * </ul>
+	  *
+	  * @param toolbar                   komponen ZK induk tempat tombol dipasang
+	  * @param perkuliahan               pemilik agenda TUJUAN berupa perkuliahan, atau {@code null}
+	  * @param kelompokKkn               pemilik agenda TUJUAN berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda TUJUAN berupa kelompok PKL, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda TUJUAN berupa bimbingan tugas akhir, atau {@code null}
+	  * @param skripsi                   pemilik agenda TUJUAN berupa skripsi, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda TUJUAN berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda TUJUAN berupa wisuda, atau {@code null}
 	 * @param dataLoader dipanggil setelah proses salin (dan pengaturan ulang tanggal) selesai, agar
 	 *                   pemanggil memuat ulang tampilan
 	 */

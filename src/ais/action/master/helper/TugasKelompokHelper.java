@@ -483,11 +483,71 @@ public class TugasKelompokHelper implements DataLoader {
 	 */
 	private Component component = null;
 
+	/**
+	 * <h3>Konstruktor jalur PERGURUAN TINGGI (perkuliahan / KKN / PKL)</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membuat layar Tugas Kelompok dan sekaligus memberi tahu
+	 * layar itu "siapa yang sedang melihat". Bila salah satu argumen diisi, layar dibuka <i>atas nama
+	 * seorang pelajar</i> sehingga hanya menampilkan hal yang boleh dilihat dan dikerjakan peserta:
+	 * membaca instruksi, melihat kelompoknya, bergabung ke kelompok, dan mengunggah berkas. Bila KEDUA
+	 * argumen dibiarkan {@code null}, layar dibuka atas nama pengelola (dosen/admin) sehingga tombol
+	 * kelola, penilaian, dan dashboard analitik ikut dibangun.</p>
+	 *
+	 * <p><b>Kedua argumen saling melengkapi, bukan saling menggantikan.</b> Satu orang hanya mengisi
+	 * salah satu: mahasiswa aktif memakai {@code mahasiswa}, sedangkan calon mahasiswa yang datanya
+	 * masih berupa biodata pendaftaran (PMB) memakai {@code biodataCalonMahasiswa}. Keduanya
+	 * diperlakukan setara sebagai pelajar oleh {@link #konteksPelajar()}.</p>
+	 *
+	 * <h4>Pola pemakaian yang berlaku di seluruh kode</h4>
+	 * <p>Semua pemanggil meneruskan identitas pengguna yang sedang login apa adanya, dengan bentuk
+	 * {@code new TugasKelompokHelper(tbmuser.getMahasiswa(), tbmuser.getBiodataCalonMahasiswa())}.
+	 * Konsekuensinya, kombinasi {@code (null, null)} berarti dua hal sekaligus: pengguna yang login
+	 * bukan mahasiswa/calon mahasiswa, DAN layar dibuka dalam mode pengelola. Itulah sebabnya
+	 * {@link #bolehKelola(Tbmuser)} tidak cukup memeriksa field ini saja &mdash; ia juga memeriksa
+	 * objek pengguna yang login lewat {@link #loginPelajar(Tbmuser)}, agar peran pelajar yang tidak
+	 * tercakup konstruktor ini (siswa, calon siswa, peserta kursus) tetap tidak dianggap pengelola.</p>
+	 *
+	 * <p><b>Tidak ada konstruktor tanpa argumen.</b> Ini disengaja: setiap pembuatan layar dipaksa
+	 * menyatakan konteks penggunanya secara eksplisit, sehingga mustahil membuat helper "tanpa
+	 * identitas" secara tidak sengaja. Kelas ini juga tidak menyalin data dari kedua objek yang
+	 * diterima; keduanya disimpan sebagai rujukan dan diteruskan ke {@code NamaTugasKelompokHelper}.</p>
+	 *
+	 * @param mahasiswa             mahasiswa aktif pemilik layar, atau {@code null} bila bukan mahasiswa
+	 * @param biodataCalonMahasiswa calon mahasiswa (biodata PMB) pemilik layar, atau {@code null}
+	 * @see #TugasKelompokHelper(Siswa, CalonSiswa)
+	 * @see #bolehKelola(Tbmuser)
+	 */
 	public TugasKelompokHelper(Mahasiswa mahasiswa, BiodataCalonMahasiswa biodataCalonMahasiswa) {
 		this.mahasiswa = mahasiswa;
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * <h3>Konstruktor jalur SEKOLAH (jadwal pelajaran)</h3>
+	 *
+	 * <p>Kembaran dari {@link #TugasKelompokHelper(Mahasiswa, BiodataCalonMahasiswa)} untuk modul
+	 * sekolah: {@code siswa} untuk siswa terdaftar dan {@code calonSiswa} untuk calon siswa (PSB).
+	 * Aturannya sama persis &mdash; salah satu argumen terisi berarti layar dibuka atas nama pelajar,
+	 * keduanya {@code null} berarti mode pengelola (guru/admin).</p>
+	 *
+	 * <p><b>Catatan penting: kedua field jalur perguruan tinggi tetap kosong.</b> Helper yang dibuat
+	 * lewat konstruktor ini selalu memiliki {@code mahasiswa} dan {@code biodataCalonMahasiswa}
+	 * bernilai {@code null}. Sejumlah pemeriksaan lama di dalam kelas ini hanya menguji kedua field
+	 * tersebut untuk menentukan "apakah pengelola"; pemeriksaan semacam itu akan salah menilai
+	 * pemakaian jalur sekolah. Pemeriksaan yang benar adalah {@link #bolehKelola(Tbmuser)}, yang
+	 * menggabungkan {@link #konteksPelajar()} (mencakup {@code siswa}/{@code calonSiswa}) dengan
+	 * {@link #loginPelajar(Tbmuser)} (memeriksa objek pengguna yang login).</p>
+	 *
+	 * <p>Selain memengaruhi hak akses, jalur sekolah juga mengubah seluruh blok penilaian: nilai tugas
+	 * kelompok dipetakan ke rantai penilaian sekolah ({@code JenisItemPenilaianSiswa} beserta grup dan
+	 * kategorinya) alih-alih ke {@code FormatNilai} milik perkuliahan &mdash; lihat cabang
+	 * {@code jadwalPelajaran != null} pada {@link DetailPerkuliahanRenderer#render}.</p>
+	 *
+	 * @param siswa      siswa pemilik layar, atau {@code null} bila bukan siswa
+	 * @param calonSiswa calon siswa (PSB) pemilik layar, atau {@code null}
+	 * @see #TugasKelompokHelper(Mahasiswa, BiodataCalonMahasiswa)
+	 * @see #bolehKelola(Tbmuser)
+	 */
 	public TugasKelompokHelper(Siswa siswa, CalonSiswa calonSiswa) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;

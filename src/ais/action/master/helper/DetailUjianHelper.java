@@ -2726,17 +2726,19 @@ public class DetailUjianHelper implements DataLoader {
 					 * diketahui BankSoal di sini berasal dari bank soal BERSAMA, sehingga penulisan ini menyentuh
 					 * record yang mungkin dibuat pengguna lain.
 					 *
-					 * <p><b>Tiga kuirk pada blok pelengkapan atribusi.</b> (1) Penentuan variabel {@code guru}
-					 * menguji {@code tbmuser.getDosen() != null} padahal yang diambil {@code tbmuser.getGuru()} —
-					 * salin-tempel dari baris {@code dosen} di atasnya; akibatnya identitas guru yang sedang login
-					 * tidak pernah terpakai dan nilainya jatuh ke guru pada jadwal pelajaran. Bandingkan dengan
-					 * tombol "Soal Baru" di toolbar yang sama, yang menguji {@code getGuru()} dengan benar. (2)
-					 * Syarat penulisan guru berbunyi {@code getGuru() == null || guru != null}, bukan {@code &&}
-					 * seperti tiga kolom lainnya — sehingga guru yang SUDAH terisi ikut ditimpa, dan blok tetap
-					 * berjalan (menandai {@code ada = true}) walaupun tidak ada perubahan nyata sehingga memicu
-					 * update database sia-sia. (3) Kegagalan pelengkapan atribusi ditelan per soal, jadi tautan
-					 * {@link UjianPunyaSoal} tetap dibuat meski atribusinya gagal disimpan. Penambalan (1) dan (2)
-					 * dilacak terpisah dan sengaja tidak dilakukan dalam perubahan dokumentasi ini.
+					 * <p><b>Dua kuirk salin-tempel pada blok pelengkapan atribusi, SUDAH DITAMBAL.</b> (1)
+					 * Penentuan variabel {@code guru} sebelumnya menguji {@code tbmuser.getDosen() != null}
+					 * padahal yang diambil {@code tbmuser.getGuru()} — salin-tempel dari baris {@code dosen}
+					 * di atasnya; akibatnya identitas guru yang sedang login tidak pernah terpakai dan
+					 * nilainya jatuh ke guru pada jadwal pelajaran. Sekarang diuji
+					 * {@code tbmuser.getGuru() != null}, konsisten dengan tombol "Soal Baru" di toolbar yang
+					 * sama. (2) Syarat penulisan guru sebelumnya berbunyi
+					 * {@code getGuru() == null || guru != null}, bukan {@code &&} seperti tiga kolom
+					 * lainnya — sehingga guru yang SUDAH terisi ikut ditimpa, dan blok tetap berjalan
+					 * (menandai {@code ada = true}) walaupun tidak ada perubahan nyata sehingga memicu
+					 * update database sia-sia. Sekarang konsisten memakai {@code &&}. Kuirk lain yang TIDAK
+					 * ditambal di sini: kegagalan pelengkapan atribusi ditelan per soal, jadi tautan
+					 * {@link UjianPunyaSoal} tetap dibuat meski atribusinya gagal disimpan.
 					 *
 					 * <p>Setelah seluruh soal diproses, grid dimuat ulang lewat timer default agar penyegaran
 					 * terjadi pada permintaan berikutnya, bukan di tengah pemrosesan event ini.

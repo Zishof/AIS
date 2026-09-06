@@ -468,23 +468,130 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 	 * sumber eksternal.
 	 */
 	private Combobox tahapanPenyusunanArtikel;
+	/**
+	 * Isian "Link / URL Publikasi", dipetakan ke {@code Artikel.path}. Perhatikan bahwa kolom ini
+	 * berbeda peran dari {@code Artikel.pathUrl} yang ditulis otomatis oleh
+	 * {@link #onSave(Event)} sebagai URL servlet berkas unggahan: {@code path} adalah tautan
+	 * eksternal yang diketik pengguna, {@code pathUrl} adalah tautan internal ke
+	 * {@link FileArtikel}.
+	 */
 	private Textbox path;
+	/** Isian nomor ISSN terbitan cetak, dipetakan ke {@code Artikel.issn}. Disimpan sebagai teks bebas tanpa validasi format ISSN. */
 	private Textbox issn;
+	/** Isian nomor E-ISSN terbitan elektronik, dipetakan ke {@code Artikel.eIssn} lewat {@code seteIssn(...)}. Tanpa validasi format. */
 	private Textbox eIssn;
+	/** Isian nomor volume terbitan, dipetakan ke {@code Artikel.vol}. */
 	private Intbox vol;
+	/**
+	 * Isian nomor/edisi terbitan, dipetakan ke {@code Artikel.nomor}.
+	 *
+	 * <p><b>Perhatikan:</b> pada mode {@link #persetujuan}, baris "Nomor" merender
+	 * {@code new Label(artikelData.getVol() + "")} — yakni nilai {@link #vol}, bukan
+	 * {@code getNomor()}. Akibatnya penelaah melihat angka volume di kolom nomor. Cacat ini
+	 * hanya memengaruhi tampilan baca-saja; nilai yang tersimpan tetap berasal dari komponen
+	 * {@code nomor} pada jalur penyuntingan.</p>
+	 */
 	private Textbox nomor;
+	/** Isian bahasa publikasi, dipetakan ke {@code Artikel.bahasa}. Teks bebas, bukan kode ISO, dan tidak dipakai sebagai metadata bahasa saat ekspor DSpace. */
 	private Textbox bahasa;
+	/**
+	 * Isian "Lama Pengerjaan" (wajib), dipetakan ke {@code Artikel.masaPenugasan}. Berupa teks
+	 * bebas berdurasi manusiawi — baris keterangan di bawahnya mencontohkan
+	 * "1 tahun, 6 bulan, 2 minggu, 5 hari, 8 jam, 1 semester". {@link #onSave(Event)} hanya
+	 * memeriksa bahwa isinya tidak kosong, tidak mengurai satuan waktunya.
+	 */
 	private Textbox masaPenugasan;
+	/**
+	 * Isian tanggal submit/publikasi (wajib), dipetakan ke {@code Artikel.tanggalPublikasi}.
+	 * Merupakan satu-satunya field formulir yang memicu penurunan otomatis: listener
+	 * {@code onChange}-nya menyetel ulang {@link #tahunAkademik} lewat
+	 * {@code Common.getCurrentTahunAkademik(...)} dan {@link #semester} lewat
+	 * {@code Common.isNowSemensterGanjil(...)}.
+	 *
+	 * <p>Penurunan itu hanya berjalan saat pengguna mengubah tanggal di layar; membuka kembali
+	 * Artikel lama tidak menyelaraskan ulang tahun akademik/semester dengan tanggal yang
+	 * tersimpan, sehingga ketiganya dapat berbeda pada data historis.</p>
+	 */
 	private MyDatebox tanggalPublikasi;
+	/**
+	 * Isian nama editor dan kontributor (2 baris), dipetakan ke
+	 * {@code Artikel.editorDanKontributor}. Nilai ini dipakai ulang sebagai metadata Dublin Core
+	 * penyunting pada saat ekspor item ke DSpace, lihat
+	 * {@link #getDspace(String, Artikel, boolean)}.
+	 */
 	private Textbox editorDanKontributor;
+	/**
+	 * Isian "Publikasi ini di review oleh" (wajib), dipetakan ke {@code Artikel.previewJurnal}.
+	 * Satu-satunya field yang, saat validasinya gagal, memasang {@link EventListener} tambahan
+	 * untuk mengembalikan fokus ke kotak isian setelah pesan peringatan ditutup.
+	 */
 	private Textbox previewJurnal;
+	/**
+	 * Isian "Publikasi telah di cek plagiat oleh", dipetakan ke {@code Artikel.plagiatChecker}.
+	 * Bersifat keterangan tekstual dan berdiri sendiri dari lampiran berkasnya
+	 * ({@link #plagiatCheckerApp}) — mengisi salah satu tidak mewajibkan yang lain.
+	 */
 	private Textbox plagiatChecker;
+	/**
+	 * Isian "Peer Review / Penelaahan sejawat", dipetakan ke {@code Artikel.peerReview}.
+	 *
+	 * <p><b>Perhatikan:</b> berbeda dari hampir semua baris formulir lain, baris ini tidak
+	 * memiliki cabang {@code if (persetujuan)} — komponen {@link Textbox} langsung dipasang ke
+	 * baris sehingga tetap dapat disunting walau formulir sedang ditampilkan dalam mode
+	 * persetujuan/baca-saja.</p>
+	 */
 	private Textbox peerReview;
+	/**
+	 * Centang "Telah tercatat dalam indeks sitasi internasional", dipetakan ke
+	 * {@code Artikel.telahTerindeksSitasi}. Berdiri sendiri dari daftar {@link #terindeks}:
+	 * pengguna dapat mencentang klaim ini tanpa memilih satu pun {@link ArtikelTerindeks}, dan
+	 * sebaliknya — tidak ada validasi silang di antara keduanya.
+	 */
 	private MyCheckboxConfig telahTerindeksSitasi;
+	/**
+	 * Isian daftar penulis luar institusi (3 baris), dipetakan ke
+	 * {@code Artikel.anggotaEksternal} setelah di-{@code trim()}. Berupa nama lengkap yang
+	 * dipisah koma dan disimpan apa adanya sebagai teks — tidak diurai menjadi record
+	 * {@link AnggotaArtikel} seperti {@link #anggota}, karena penulis eksternal tidak punya akun.
+	 */
 	private Textbox anggotaEksternal;
+	/**
+	 * Isian daftar penulis internal (3 baris) berupa <i>username</i> {@link Tbmuser} atau NIM
+	 * {@link Mahasiswa} yang dipisah koma; dapat diisi manual atau lewat tombol "Ambil Author
+	 * Baru"/"Ambil Author Mahasiswa" yang membuka dialog
+	 * {@link AmbilDataTbmuserBanyak}/{@link AmbilDataMahasiswaBanyak}.
+	 *
+	 * <p>Pada {@link #onSave(Event)} teks ini diurai menjadi record {@link AnggotaArtikel}: tiap
+	 * potongan dicari dulu sebagai {@link Tbmuser} aktif, lalu sebagai {@link Mahasiswa} aktif.
+	 * Seluruh baris {@code anggota_artikel} milik Artikel ini dihapus dengan SQL langsung
+	 * sebelum daftar baru disimpan, sehingga penulis yang dicabut benar-benar hilang. Nama-nama
+	 * yang berhasil dikenali juga digabung menjadi {@code Artikel.copyrightHolder}.</p>
+	 *
+	 * <p><b>Perhatikan:</b> potongan yang tidak cocok dengan pengguna maupun mahasiswa mana pun
+	 * diabaikan tanpa pesan apa pun — blok peringatan "username tidak ditemukan" masih ada di
+	 * berkas namun dinonaktifkan sebagai komentar. Akibatnya salah ketik username membuat
+	 * penulis hilang dari daftar secara diam-diam. Selain itu {@code copyrightHolder} hanya
+	 * ditulis ulang bila hasil gabungannya tidak kosong, sehingga menghapus seluruh penulis
+	 * internal menyisakan nilai lama.</p>
+	 */
 	private Textbox anggota;
+	/**
+	 * Pilihan tahun akademik (wajib), dipetakan ke {@code Artikel.tahunAkademik}. Diisi lewat
+	 * {@code Common.generateTahunAjaranDanSemua(...)} dan dibuat {@code setReadonly(true)}.
+	 * Nilainya diselaraskan otomatis dari {@link #tanggalPublikasi} lewat listener
+	 * {@code onChange}. {@link #onSave(Event)} membacanya lewat
+	 * {@code getSelectedItem().getValue()} tanpa penjagaan {@code null} lebih dulu.
+	 */
 	private Combobox tahunAkademik;
+	/**
+	 * Pilihan semester (wajib) berisi {@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP},
+	 * dipetakan ke {@code Artikel.semester} dan dibuat {@code setReadonly(true)}. Sama seperti
+	 * {@link #tahunAkademik}, nilainya diturunkan otomatis dari {@link #tanggalPublikasi} dan
+	 * dibaca {@code onSave} lewat {@code getSelectedItem().getValue()} tanpa penjagaan
+	 * {@code null}. Entri "Semua" tidak disediakan sehingga selalu ada satu pilihan terpasang.
+	 */
 	private Combobox semester;
+	/** Isian catatan sitasi publikasi (2 baris), dipetakan ke {@code Artikel.sitasi}. Teks bebas; tidak dipakai sebagai pencacah jumlah sitasi. */
 	private Textbox sitasi;
 
 	/**
@@ -1869,9 +1976,38 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 		return true;
 	}
 
+	/**
+	 * Mode asesmen BKD, disetel dari argumen pertama
+	 * {@link #displayPengajuan(Boolean, String, String, JurnalPenelitian, Component, MyWindow, String)}.
+	 * Bila {@code true} (dipakai layar {@code AsesementAction}), tombol Tambah, sinkronisasi
+	 * SINTA/Scholar, impor OJS, serta ikon sunting dan hapus pada setiap baris disembunyikan,
+	 * dan lebar kolom grid diatur ulang agar kolom penilaian tampil. Nilainya juga diteruskan
+	 * ke {@link #displayRow(Row, Artikel, Pegawai, Boolean)} agar aksi baris menyesuaikan.
+	 *
+	 * <p>Sifatnya gerbang tampilan, bukan gerbang wewenang: penyembunyian dilakukan dengan
+	 * {@code setVisible(false)} sedangkan {@link #onSave(Event)} maupun jalur hapus tidak
+	 * memeriksa flag ini.</p>
+	 */
 	private Boolean ases = false;
+	/**
+	 * Filter status pengajuan pada toolbar, berisi {@link Artikel#BELUM_DIPROSES},
+	 * {@link Artikel#SEDANG_DIPROSES}, {@link Artikel#DISETUJUI}, {@link Artikel#DITOLAK}, dan
+	 * entri "Semua Status" bernilai {@code null} yang dipasang sebagai pilihan awal. Dibaca
+	 * {@link #initCriteria(boolean)}; nilai {@code null} berarti pembatasan status dilewati.
+	 *
+	 * <p>Karena {@link #initCriteria(boolean)} yang sama dipakai ulang oleh tombol massal
+	 * ("Ekspor", "Batalkan Ekspor", "Setujui Semua"), pilihan pada combobox ini ikut menentukan
+	 * himpunan baris yang diproses tombol-tombol tersebut.</p>
+	 */
 	private Combobox status;
+	/** Kata kunci pencarian judul pada toolbar; dicocokkan {@code ilike ANYWHERE} ke kolom {@code judul} oleh {@link #initCriteria(boolean)}. Dikosongkan berarti filter judul dilewati. */
 	private Textbox searchJudul;
+	/**
+	 * Isi halaman aktif grid daftar, hasil {@link #loadDataPengajuan()}. Dibatasi
+	 * {@code Common.ROWS_COUNT_ON_PAGE} baris per halaman dan dibungkus
+	 * {@link SimpleListModel} untuk {@link #gridPengajuan}. Diganti seluruhnya (bukan
+	 * ditambahkan) pada setiap pemuatan ulang.
+	 */
 	private List<Artikel> artikels = null;
 
 	@SuppressWarnings("unused")

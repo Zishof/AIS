@@ -1043,8 +1043,35 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		final Footer footerTotal = new Footer(Common.numberFormat.get().format(nilaiPembimbing) + " ("
 				+ (nilaiHurufpembimbing == null ? "" : nilaiHurufpembimbing.getNilaiHuruf()) + ")");
 
+		// Listener kalkulasi bersama window ini: dipasang ke SETIAP kotak nilai, ke kotak catatan
+		// dosen, dan dipanggil langsung oleh tombol "Hitung Ulang".
 		final EventListener hitungUlang = new EventListener() {
 
+			/**
+			 * Inti kalkulasi window entri nilai, dipanggil setiap kali satu kotak nilai atau kotak
+			 * catatan berubah, dan oleh tombol "Hitung Ulang".
+			 *
+			 * <p>Urutan kerjanya: hitung ulang nilai peran ini lewat
+			 * {@link Skripsi#cariNilaiDariDosen(Dosen, String, Boolean)} (argumen ketiga
+			 * {@code true} hanya bila event bernama {@code "Hitung Ulang"}, yaitu memaksa baca ulang
+			 * detail dari basis data alih-alih memakai yang sudah ada di memori), ambil total
+			 * skripsi, tentukan nilai huruf/IP/status lulus, simpan catatan dosen ke JSON
+			 * {@link Skripsi#getCatatanDosen()} pada kunci peran, simpan skripsi, lalu — bila
+			 * skripsi tertaut KRS — salin total/IP/nilai huruf/lulus beserta kembaran
+			 * "sementara"-nya ke {@link Detailperkuliahan} dan simpan. Terakhir memicu
+			 * {@link #eventListener} dan memperbarui label footer total peran ini.
+			 *
+			 * <p><b>Auto-save tanpa tombol Simpan:</b> perubahan satu kotak nilai langsung menembus
+			 * sampai ke baris KRS/transkrip mahasiswa. Tidak ada langkah verifikasi atau persetujuan
+			 * di antaranya, dan tidak ada transaksi tunggal yang membungkus rangkaian ini.</p>
+			 *
+			 * <p><b>Efek samping tak kentara:</b> karena catatan dosen selalu ditulis ulang dari isi
+			 * kotak {@code catatanDosen}, listener ini ikut menyimpan catatan setiap kali sebuah
+			 * <i>nilai</i> berubah, bukan hanya saat catatannya sendiri diubah.</p>
+			 *
+			 * @param arg0 event pemicu; hanya namanya yang dipakai, untuk membedakan "Hitung Ulang"
+			 *             (paksa baca ulang) dari perubahan biasa
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Detailperkuliahan detailperkuliahan = skripsi.getDetailperkuliahan();
@@ -1143,6 +1170,28 @@ public class PenilaianSkripsiHelper implements DataLoader {
 					row.setAttribute("dosen", dosen);
 					nilai.addEventListener("onChange", new EventListener() {
 
+						/**
+						 * Menyimpan nilai komponen tunggal (komponen tanpa anak) untuk
+						 * {@code dosen} pada peran {@code jenis}, lalu memicu hitung ulang total.
+						 *
+						 * <p>Sebelum {@code refresh(skripsi)} dipastikan ada transaksi aktif —
+						 * tanpa itu Hibernate melempar "refresh is not valid without active
+						 * transaction". {@code refresh} dipakai agar entri dosen lain yang masuk
+						 * bersamaan (window ini dibuka per dosen, bisa paralel) tidak tertimpa oleh
+						 * salinan lama di memori. Perhatikan bahwa transaksi yang dibuka di sini
+						 * tidak pernah di-commit secara eksplisit oleh listener ini; penyimpanan
+						 * bersandar pada {@code Common.refreshUpdate} di dalam {@code hitungUlang}
+						 * dan pada pengelolaan sesi ZK/Hibernate di lapisan luar.</p>
+						 *
+						 * <p>Kotak nilai ini hanya dibuat bila pengguna login berhak mengubahnya
+						 * (bukan mahasiswa, dan bukan dosen selain pemilik baris); bagi yang lain
+						 * yang ditampilkan hanyalah label, sehingga listener ini tidak pernah ada.
+						 * Nilai yang diketik TIDAK divalidasi terhadap bobot maupun batas
+						 * 0-100.</p>
+						 *
+						 * @param arg0 event {@code onChange} kotak nilai, diteruskan apa adanya ke
+						 *             {@code hitungUlang}
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							// KE-FIX (HibernateException "refresh is not valid without active
@@ -1198,6 +1247,18 @@ public class PenilaianSkripsiHelper implements DataLoader {
 						row.setAttribute("dosen", dosen);
 						nilai.addEventListener("onChange", new EventListener() {
 
+							/**
+							 * Kembaran listener nilai komponen tunggal, untuk komponen ANAK
+							 * (sub-komponen di bawah satu komponen induk). Perilaku, penjagaan
+							 * transaksi sebelum {@code refresh}, dan catatan hak akses persis sama;
+							 * satu-satunya beda adalah komponen yang disimpan
+							 * ({@code komponenPenilaianSkripsi}, bukan {@code parent}). Komponen
+							 * induk yang punya anak sendiri tidak menerima nilai langsung — barisnya
+							 * hanya judul.
+							 *
+							 * @param arg0 event {@code onChange} kotak nilai, diteruskan apa adanya
+							 *             ke {@code hitungUlang}
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								// KE-FIX (HibernateException "refresh is not valid without active
@@ -1240,6 +1301,16 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		LampiranLain.createDownloadUploadFileLain(hbox, skripsi.getId(), Skripsi.class.getName() + "_" + jenis,
 				"Catatan", false, new EventListener() {
 
+					/**
+					 * Callback pasca-unggah yang sengaja kosong — sama seperti kembarannya di
+					 * {@link DetailKelompokKknRenderer}: lampiran catatan per peran sudah ditautkan
+					 * sendiri oleh {@link LampiranLain#createDownloadUploadFileLain} dengan kunci
+					 * {@code Skripsi#id} + nama peran, tidak ada state skripsi yang perlu diperbarui.
+					 * Hak unggah/hapus dikendalikan oleh argumen terakhir pemanggilan ini, bukan
+					 * oleh listener.
+					 *
+					 * @param arg0 event unggah/hapus lampiran; tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -1275,11 +1346,27 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Selesai", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup window entri nilai lalu menjadwalkan pemuatan ulang grid dosen penilai.
+			 * Tidak ada penyimpanan di sini: seluruh perubahan sudah tersimpan seketika oleh
+			 * {@code hitungUlang} pada tiap perubahan field, jadi label "Selesai" berarti "tutup",
+			 * bukan "simpan".
+			 *
+			 * @param event event {@code onClick} tombol "Selesai"; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				addWindow.detach();
 				Common.createDefaultTimer(new EventListener() {
 
+					/**
+					 * Dijalankan pada siklus event ZK berikutnya (lewat
+					 * {@link Common#createDefaultTimer(EventListener)}) supaya {@link #loadData(Object)}
+					 * membaca state skripsi SETELAH window terlepas dan penyimpanan terakhir
+					 * selesai, bukan di tengah pelepasan komponen.
+					 *
+					 * @param arg0 event timer; tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						loadData(null);
@@ -1292,6 +1379,19 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		cancel = new MyToolbarbuttonConfig("Hitung Ulang", "/img/Configure.gif");
 		cancel.setTooltiptext("Hitung Ulang");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menyimpan ulang SELURUH kotak nilai yang sedang tampil di window ini — dibaca dari
+			 * atribut {@code "nilai"}/{@code "komponen"} yang dititipkan ke tiap baris saat
+			 * dibangun — lalu memanggil {@code hitungUlang} dengan event bernama
+			 * {@code "Hitung Ulang"} sehingga total dihitung ulang dari basis data, bukan dari
+			 * hasil di memori.
+			 *
+			 * <p>Berguna untuk memulihkan total yang melenceng akibat entri bersamaan atau data
+			 * detail nilai yang tidak sinkron. Baris read-only tidak punya atribut {@code "nilai"},
+			 * sehingga aman dilewati.</p>
+			 *
+			 * @param event event {@code onClick} tombol "Hitung Ulang"; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				List<Row> rows = subRows.getChildren();
@@ -1344,6 +1444,19 @@ public class PenilaianSkripsiHelper implements DataLoader {
 			footer.appendChild(myCheckboxConfig);
 			myCheckboxConfig.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menyimpan seketika bendera {@link Skripsi#getSembunyikanNilaiKemahasiswa()}.
+				 * Didahului {@code refresh(skripsi)} agar perubahan lain yang masuk sementara layar
+				 * terbuka tidak tertimpa oleh salinan lama di memori, lalu {@code refreshUpdate} +
+				 * {@code flush} sehingga efeknya langsung terasa pada sesi mahasiswa.
+				 *
+				 * <p>Checkbox-nya hanya dibuat untuk pengguna non-mahasiswa dan non-siswa, jadi
+				 * gerbang hak akses ada di sisi pembuatan komponen. Bendera ini bersifat dua arah —
+				 * bisa dinyalakan dan dimatikan kembali oleh siapa pun yang berhak — dan tidak
+				 * meninggalkan jejak audit siapa yang mengubahnya.</p>
+				 *
+				 * @param arg0 event {@code onClick}; targetnya dipakai untuk membaca keadaan centang
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					MyCheckboxConfig c = (MyCheckboxConfig) arg0.getTarget();

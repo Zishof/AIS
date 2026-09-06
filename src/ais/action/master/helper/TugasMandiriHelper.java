@@ -286,6 +286,56 @@ public class TugasMandiriHelper {
 		}
 	}
 
+	/**
+	 * Mengubah sebuah objek {@link FormatNilai} yang berasal dari komponen UI menjadi instance yang
+	 * benar-benar masih ada di basis data pada sesi Hibernate yang sedang berjalan.
+	 *
+	 * <p><strong>Masalah yang diselesaikan.</strong> Daftar pilihan format nilai dibangun sekali saat
+	 * dialog {@link #onUbahPerintahTugas(EventListener)} dibuka, lalu objek {@link FormatNilai} hasil
+	 * query itu ditempelkan sebagai {@code value} pada masing-masing {@code Comboitem}. Objek tersebut
+	 * bertahan di memori selama dialog terbuka — bisa berjam-jam. Dalam rentang itu master format nilai
+	 * dapat dihapus atau diganti oleh pengguna lain, atau sesi Hibernate yang melahirkan objek itu
+	 * sudah ditutup sehingga objeknya menjadi <em>detached</em>. Bila objek usang semacam itu langsung
+	 * dipasang lewat {@code tugas.setFormatNilai(...)} lalu di-flush, Hibernate akan mencoba menulis
+	 * foreign key ke baris yang tidak ada dan melemparkan {@code ConstraintViolationException} mentah,
+	 * atau melemparkan {@code NonUniqueObjectException} karena ada dua instance dengan identitas sama
+	 * di dalam satu persistence context.</p>
+	 *
+	 * <p><strong>Cara kerja.</strong> Metode ini memakai tiga cabang sederhana:</p>
+	 * <ol>
+	 *   <li>Argumen {@code null} dikembalikan sebagai {@code null} — pengguna memang memilih
+	 *       "Tidak Ada", dan itu keadaan yang sah.</li>
+	 *   <li>Argumen dengan {@code getId() == null} dikembalikan apa adanya — objek belum pernah
+	 *       tersimpan sehingga tidak ada baris yang perlu diverifikasi.</li>
+	 *   <li>Selain itu, dilakukan {@code session.get(FormatNilai.class, id)}. Pemakaian {@code get}
+	 *       (bukan {@code load}) disengaja: {@code get} mengembalikan {@code null} bila baris tidak
+	 *       ada, sedangkan {@code load} akan memberi proxy yang baru meledak belakangan saat
+	 *       diakses.</li>
+	 * </ol>
+	 *
+	 * <p><strong>Kontrak nilai balik.</strong> Nilai balik {@code null} untuk argumen non-{@code null}
+	 * adalah sinyal bermakna: "format nilai yang dipilih sudah tidak ada". Setiap pemanggil wajib
+	 * membedakan kedua kasus itu. Pola yang dipakai di seluruh berkas ini adalah membandingkan argumen
+	 * dengan hasil: bila {@code pilihan != null && hasil == null}, maka pilihan dikosongkan
+	 * ({@code setFormatNilai(null)}) dan {@link #tampilkanPeringatanFormatNilaiTidakValid(FormatNilai)}
+	 * dipanggil agar pengguna tahu apa yang terjadi dan tidak menyangka nilainya tersimpan.</p>
+	 *
+	 * <p><strong>Pemanggil.</strong> Tiga titik: listener {@code onChange} pada kotak bobot persen,
+	 * listener {@code onChange} pada combobox format nilai, dan tombol "Simpan Tugas". Ketiganya
+	 * didahului {@link #bersihkanFormatNilaiYatim(Tugas)} yang membereskan foreign key yatim pada
+	 * baris tugas itu sendiri; metode ini melengkapinya dengan memvalidasi objek yang datang dari
+	 * sisi UI. Keduanya diperlukan — yang pertama membersihkan data lama di basis data, yang kedua
+	 * mencegah data usang dari layar masuk kembali.</p>
+	 *
+	 * <p>Metode ini tidak mengubah state apa pun dan tidak membuka sesi baru; ia hanya membaca dari
+	 * sesi yang diberikan pemanggil.</p>
+	 *
+	 * @param session     sesi Hibernate aktif milik request yang sedang berjalan.
+	 * @param formatNilai kandidat format nilai dari komponen UI, boleh {@code null}.
+	 * @return instance {@link FormatNilai} yang terikat pada {@code session} bila barisnya masih ada;
+	 *         {@code null} bila argumen {@code null} atau bila barisnya sudah tidak ada di basis data;
+	 *         objek argumen apa adanya bila belum pernah tersimpan ({@code id} masih {@code null}).
+	 */
 	private static FormatNilai ambilFormatNilaiValid(Session session, FormatNilai formatNilai) {
 		if (formatNilai == null) {
 			return null;
@@ -296,6 +346,38 @@ public class TugasMandiriHelper {
 		return (FormatNilai) session.get(FormatNilai.class, formatNilai.getId());
 	}
 
+	/**
+	 * Memberi tahu pengguna bahwa format nilai yang dipilihnya sudah tidak ada di basis data dan
+	 * karenanya dikosongkan oleh sistem.
+	 *
+	 * <p>Dipanggil pada tiga titik yang sama dengan {@link #ambilFormatNilaiValid(Session, FormatNilai)},
+	 * yaitu tepat setelah pemeriksaan {@code pilihan != null && hasil == null} bernilai benar. Pesan
+	 * yang ditampilkan menyebutkan nama format nilai yang dipilih di dalam tanda kurung — diambil dari
+	 * objek usang itu sendiri, yang masih menyimpan nama terakhir yang diketahui walaupun barisnya
+	 * sudah lenyap — lalu menjelaskan bahwa pilihan dikosongkan agar Tugas/UTS/UAS tetap dapat
+	 * disimpan, dan meminta pengguna memilih ulang format nilai yang masih aktif.</p>
+	 *
+	 * <p><strong>Mengapa memberi tahu, bukan diam-diam mengoreksi.</strong> Mengosongkan format nilai
+	 * berarti nilai tugas ini tidak akan pernah masuk ke komponen nilai akhir mana pun. Bila koreksi
+	 * dilakukan tanpa pemberitahuan, pengelola akan mengira penilaiannya sudah terhubung padahal
+	 * tidak, dan kesalahannya baru ketahuan pada saat rekap nilai akhir. Karena itu pesan ini bersifat
+	 * wajib, bukan opsional.</p>
+	 *
+	 * <p><strong>Penanganan interupsi.</strong> {@code MyMessageboxConfig.show} bersifat modal dan
+	 * memblokir event thread ZK, sehingga dapat melemparkan {@link InterruptedException} bila desktop
+	 * ditutup atau sesi berakhir saat kotak pesan masih terbuka. Pengecualian itu ditangkap dan
+	 * ditindaklanjuti dengan {@code Thread.currentThread().interrupt()} — status interupsi
+	 * dipasang kembali agar lapisan di atasnya tetap dapat mengenali bahwa thread ini pernah
+	 * diinterupsi. Pengecualian sengaja tidak diteruskan ke atas karena kegagalan menampilkan pesan
+	 * tidak boleh menggagalkan alur penyimpanan tugas yang sedang berjalan.</p>
+	 *
+	 * <p>Metode ini murni bersifat presentasi: ia tidak membaca maupun menulis basis data, dan tidak
+	 * mengubah state objek apa pun. Argumen {@code null} ditangani dengan aman — label nama cukup
+	 * dikosongkan.</p>
+	 *
+	 * @param formatNilai objek format nilai usang yang gagal divalidasi, dipakai hanya untuk mengambil
+	 *                    namanya pada pesan; boleh {@code null}.
+	 */
 	private static void tampilkanPeringatanFormatNilaiTidakValid(FormatNilai formatNilai) {
 		String label = formatNilai == null ? "" : (" (" + formatNilai.getNama() + ")");
 		try {
@@ -460,18 +542,315 @@ public class TugasMandiriHelper {
 		this.biodataCalonMahasiswa = biodataCalonMahasiswa;
 	}
 
+	/**
+	 * Tombol toolbar "Masukkan Nilai ke ..." yang menyalin nilai tugas ke komponen nilai akhir.
+	 *
+	 * <p>Tombol ini tidak selalu ada, dan bila ada, labelnya berbeda-beda tergantung mode penilaian
+	 * yang berlaku pada tugas. {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} membangun
+	 * salah satu dari tiga varian berikut, dan hanya untuk pengguna non-pelajar:</p>
+	 * <ol>
+	 *   <li><em>OBE</em> — bila {@code tugas.getFormatNilais()} terisi dan kurikulum perkuliahan
+	 *       berstatus OBE. Label: "Masukkan nilai ke nilai akhir". Aksinya memanggil
+	 *       {@code GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe(perkuliahan, tugas.getFormatNilais())},
+	 *       yang membaca seluruh Sub-CPMK terpilih dari peta JSON pada kolom {@code formatNilais}.</li>
+	 *   <li><em>Non-OBE perguruan tinggi</em> — bila {@code tugas.getFormatNilai()} terisi. Label
+	 *       memuat nama {@link FormatNilai} tujuan. Aksinya memanggil
+	 *       {@code GradingHelper.hitungNilaiBerdasarkanFormatNilai(perkuliahan, tugas.getFormatNilai())}.</li>
+	 *   <li><em>Jenjang sekolah</em> — bila {@code tugas.getJenisItemPenilaianSiswa()} terisi. Label
+	 *       memuat nama {@link JenisItemPenilaianSiswa} tujuan. Aksinya memanggil
+	 *       {@code GradingHelper.hitungNilaiBerdasarkanJenisItemPenilaianSiswa(...)} dengan trio
+	 *       jenis/kategori/grup penilaian.</li>
+	 * </ol>
+	 *
+	 * <p><strong>Auto-simpan sebelum menghitung.</strong> Varian (2) dan (3) melakukan penyimpanan
+	 * paksa lebih dahulu: {@code session.refresh(tugas)}, invalidasi cache
+	 * {@code tugas.belum("tugas_file_content_" + ...)}, lalu menulis {@link #jsonObjectTugas} ke kolom
+	 * {@code keteranganNilai} dan {@code Common.refreshUpdate}. Langkah ini diperlukan karena nilai yang
+	 * diketik pengelola pada popup "Edit Nilai" hanya dipegang di memori {@link #jsonObjectTugas};
+	 * tanpa auto-simpan, {@code GradingHelper} akan membaca kolom {@code keteranganNilai} versi lama
+	 * dan menghasilkan nilai akhir yang tertinggal satu langkah.</p>
+	 *
+	 * <p><strong>Alasan field ini disimpan sebagai state.</strong> Karena tiga varian di atas ditulis
+	 * sebagai rangkaian {@code if}/{@code else if} yang tidak saling eksklusif secara sempurna (varian
+	 * jenjang sekolah diuji lewat {@code if} terpisah), sebuah tugas dapat memenuhi lebih dari satu
+	 * syarat. Field ini menyimpan tombol yang sudah terlanjur dibuat sehingga varian berikutnya dapat
+	 * memanggil {@code setVisible(false)} dan {@code detach()} lebih dahulu — mencegah dua tombol
+	 * "Masukkan Nilai" muncul berdampingan pada toolbar yang sama.</p>
+	 */
 	private MyToolbarbutton buttonMasukkanNilai;
+	/**
+	 * Tombol "Upload Tugas" milik peserta.
+	 *
+	 * <p>Dibuat di awal {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)}, dipasang ke
+	 * toolbar utama, lalu <em>dipindahkan</em> ke dalam kartu status peserta oleh
+	 * {@link #tempelTombolUploadUtama(Groupbox)} agar mudah ditemukan dan tidak tertutup tombol lain
+	 * di layar sempit. Karena tombol yang sama dipakai ulang (bukan dibuat baru), seluruh aturan
+	 * visibilitas dan listener yang sudah terpasang tetap berlaku setelah pemindahan.</p>
+	 *
+	 * <p><strong>Aturan visibilitas.</strong> Nilai dasarnya adalah "tugas berjudul DAN sekarang berada
+	 * di dalam jendela waktu tugas":</p>
+	 * <ul>
+	 *   <li>{@code judultugas} tidak boleh kosong — judul kosong berarti pertemuan ini memang belum
+	 *       memiliki tugas sama sekali;</li>
+	 *   <li>{@code selesai} harus {@code null} atau masih di masa depan;</li>
+	 *   <li>{@code mulai} harus {@code null} atau sudah lewat.</li>
+	 * </ul>
+	 * <p>Setelah aturan dasar itu, ada satu jalur pengecualian: bila id {@link #mahasiswa} atau
+	 * {@link #biodataCalonMahasiswa} tercantum pada {@code tugas.getMhsBolehUploadUlang()}, tombol
+	 * dipaksa tampil kembali meskipun jendela waktu sudah tertutup. Inilah mekanisme "izin upload
+	 * ulang" yang diberikan pengelola dari tab "Peserta yg tdk perlu ikt".</p>
+	 *
+	 * <p><strong>Perilaku klik.</strong> Listener {@code ON_CLICK} lebih dahulu memeriksa
+	 * {@link #syaratAlert}; bila himpunan itu tidak kosong, seluruh pesan syarat ditampilkan dan proses
+	 * upload dibatalkan. Bila lolos, ia bercabang berdasarkan konteks: jalur sekolah memanggil
+	 * {@code Common.uploadTugas(tugas, tbmuser.getSiswa(), tbmuser.getCalonSiswa(), listener)},
+	 * sedangkan jalur perguruan tinggi memanggil
+	 * {@code Common.uploadTugas(tugas, mahasiswa, biodataCalonMahasiswa, listener)}. Kedua jalur
+	 * menutup dengan invalidasi cache dan {@link #reloadTugasFileContent()}.</p>
+	 */
 	private MyToolbarbutton upload;
+	/**
+	 * Combobox pemilih {@link SyaratUjian} — prasyarat yang harus dipenuhi peserta sebelum boleh
+	 * mengumpulkan tugas ini.
+	 *
+	 * <p>Hanya dibuat di dalam dialog {@link #onUbahPerintahTugas(EventListener)}, bukan di layar
+	 * utama. Isinya diisi oleh {@code Common.insertComboDanSemua(...)} dengan seluruh {@link SyaratUjian}
+	 * yang aktif ditambah satu item khusus "== Tanpa Syarat Mengikuti Ujian ==" sebagai pilihan kosong.
+	 * Nilai terpilih disalin ke {@code tugas.setSyaratMengumpulkanTugas(...)} ketika tombol
+	 * "Simpan Tugas" ditekan.</p>
+	 *
+	 * <p><strong>Penguncian oleh admin.</strong> Sebuah {@link SyaratUjian} dapat ditandai
+	 * {@code hanyaBolehDiubahOlehAdmin}. Listener {@code listenerSyarat} — yang juga dijalankan sekali
+	 * secara manual saat dialog dibuka — akan me-{@code setDisabled(true)} combobox ini bila syarat
+	 * terpilih memiliki flag tersebut DAN pengguna yang login adalah dosen atau mahasiswa (atau
+	 * {@link Tbmuser} tidak dapat dibaca sama sekali). Sebuah baris keterangan
+	 * "Persyaratan ini hanya boleh diubah oleh admin" ikut ditampilkan/disembunyikan mengikuti kondisi
+	 * yang sama.</p>
+	 *
+	 * <p><strong>Hubungan dengan {@link #syaratAlert}.</strong> Syarat yang dipilih di sini
+	 * dievaluasi di dua tempat berbeda. Pada layar utama, {@code Tugas.tampilanSyarat(...)} /
+	 * {@code Tugas.tampilanSyaratReadonly(...)} mengisi {@link #syaratAlert} dengan pesan pelanggaran.
+	 * Pada panel instruksi, {@code SyaratUjianAction.checkSyaratSyaratUjian(...)} dipanggil untuk
+	 * mahasiswa yang login guna menentukan apakah isi tugas boleh ditampilkan sama sekali.</p>
+	 */
 	private Combobox syaratMengumpulkanTugas;
+	/**
+	 * Tombol "Hapus Tugas" — mengosongkan perintah tugas pada pertemuan, bukan menghapus baris entity.
+	 *
+	 * <p><strong>Semantik penghapusan.</strong> Karena {@link Tugas} pada varian {@link Pertemuan}
+	 * adalah pertemuan itu sendiri, baris entity tidak boleh dihapus. Yang dilakukan listener tombol
+	 * ini setelah konfirmasi adalah <em>mengosongkan</em> seluruh atribut tugas pada baris tersebut:
+	 * {@code judultugas} dan {@code isitugas} dijadikan string kosong, sedangkan {@code formatNilai},
+	 * {@code syaratMengumpulkanTugas}, {@code mulai}, dan {@code selesai} dijadikan {@code null}.
+	 * Karena hampir semua gerbang tampilan di helper ini bertumpu pada "judultugas kosong berarti tidak
+	 * ada tugas", pengosongan judul sudah cukup untuk membuat tugas lenyap dari tampilan.</p>
+	 *
+	 * <p><strong>Lampiran ikut diputus.</strong> Setelah entity disimpan, listener membuka sesi
+	 * streaming dan menjalankan {@code update lampiran_lain set ref = -111111111111 where ref = ...
+	 * and jenis = 'TUGAS_MANDIRI_PERKULIAHAN'}. Nilai {@code -111111111111} adalah penanda "yatim"
+	 * yang membuat lampiran tidak lagi terhubung ke tugas mana pun tanpa benar-benar menghapus berkas
+	 * fisiknya.</p>
+	 *
+	 * <p><strong>Yang TIDAK ikut dihapus.</strong> Baris {@link TugasFileContent} milik peserta —
+	 * yaitu berkas yang sudah terlanjur dikumpulkan — tidak disentuh sama sekali, demikian pula
+	 * {@code keteranganNilai}, {@code mhsYgTidakIkut}, dan {@code mhsBolehUploadUlang}. Bila kemudian
+	 * pertemuan yang sama diberi judul tugas lagi, pengumpulan dan nilai lama akan muncul kembali.</p>
+	 *
+	 * <p><strong>Visibilitas.</strong> Tombol disembunyikan untuk seluruh peran pelajar. Perhatikan
+	 * bahwa gerbangnya dievaluasi dua kali dengan hasil berbeda: saat pertama dipasang ke toolbar,
+	 * syarat "{@code judultugas} tidak kosong" sengaja dilepas agar pengelola tetap dapat mengelola
+	 * pertemuan yang belum bertugas; sesudah dialog "Ubah Instruksi Tugas" disimpan, gerbang
+	 * dievaluasi ulang lengkap dengan syarat judul tidak kosong.</p>
+	 */
 	private MyToolbarbutton hapus;
 
+	/**
+	 * Perkuliahan (kelas perguruan tinggi) tempat tugas ini bernaung, atau {@code null} bila tugas
+	 * berasal dari jenjang sekolah.
+	 *
+	 * <p>Diturunkan di awal {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} dari entity
+	 * {@link Tugas} yang diterima: untuk {@link Pertemuan} diambil langsung lewat
+	 * {@code getPerkuliahan()}, sedangkan untuk {@link TugasPertemuan} diambil dari pertemuan induknya
+	 * ({@code ambilPertemuan().getPerkuliahan()}). Bila entity bukan salah satu dari keduanya, field
+	 * ini dikosongkan.</p>
+	 *
+	 * <p><strong>Field ini menentukan cabang penilaian.</strong> Bersama {@link #jadwalPelajaran} ia
+	 * memilih model penilaian mana yang dipakai di seluruh helper:</p>
+	 * <ul>
+	 *   <li>{@code perkuliahan != null} dan kurikulumnya OBE — penilaian per Sub-CPMK. Daftar
+	 *       {@link FormatNilai} yang dipilih disimpan sebagai peta JSON pada
+	 *       {@code tugas.getFormatNilais()}, dan nilai per peserta disimpan dengan kunci
+	 *       {@code <idPeserta>_<jenis>_nilai_<idFormatNilai>} pada {@code keteranganNilai}.</li>
+	 *   <li>{@code perkuliahan != null} dan kurikulumnya non-OBE — penilaian tunggal: satu
+	 *       {@link FormatNilai} pada {@code tugas.getFormatNilai()} plus bobot persen pada
+	 *       {@code tugas.getProsentase()}.</li>
+	 *   <li>{@code jadwalPelajaran != null} — penilaian jenjang sekolah lewat
+	 *       {@link JenisItemPenilaianSiswa}.</li>
+	 * </ul>
+	 *
+	 * <p><strong>Efek "dikunci".</strong> Bila {@code perkuliahan.getDikunci()} tidak {@code null},
+	 * seluruh kontrol pemilihan format nilai pada dialog ubah instruksi di-{@code setDisabled(true)}
+	 * dan label "Penilaian sudah dikunci" ditampilkan. Penguncian ini murni pada lapisan UI dialog;
+	 * ia tidak menutup jalur penyimpanan lain.</p>
+	 *
+	 * <p>Field ini juga menjadi sumber jumlah peserta pada panel ringkasan
+	 * ({@code perkuliahan.ambilMahasiswa()}) serta konteks bagi
+	 * {@code Common.getFormatNilais(session, perkuliahan)} dan seluruh pemanggilan
+	 * {@code GradingHelper}.</p>
+	 */
 	private Perkuliahan perkuliahan = null;
+	/**
+	 * Jadwal pelajaran (kelas jenjang sekolah) tempat tugas ini bernaung, atau {@code null} bila tugas
+	 * berasal dari perguruan tinggi.
+	 *
+	 * <p>Pasangan {@link #perkuliahan} untuk jenjang sekolah, diturunkan dengan cara yang sama di awal
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)}. Kedua field tidak pernah terisi
+	 * bersamaan pada praktiknya, karena sebuah {@link Pertemuan} hanya menunjuk salah satu induk.</p>
+	 *
+	 * <p><strong>Model penilaian sekolah.</strong> Bila field ini terisi, dialog ubah instruksi
+	 * membangun combobox {@link JenisItemPenilaianSiswa} alih-alih combobox {@link FormatNilai}.
+	 * Daftar isinya dirakit berjenjang dari basis data:
+	 * {@link JenisPenilaian} (diambil dari mata pelajaran, dan ditimpa oleh kurikulum sekolah bila
+	 * kurikulum menentukan jenis penilaian sendiri) &rarr; {@link GrupPenilaian} lewat
+	 * {@link DetailJenisPenilaian} &rarr; {@link GrupKategoriItemPenilaianSiswa} lewat
+	 * {@link DetailGrupPenilaian} &rarr; {@link KategoriItemPenilaianSiswa} lewat
+	 * {@link DetailGrupKategoriItemPenilaianSiswa} &rarr; {@link JenisItemPenilaianSiswa}. Hanya jenis
+	 * item bertipe input {@code ANGKA} atau {@code TEXT_ANGKA} yang ditawarkan, karena nilai tugas
+	 * selalu numerik.</p>
+	 *
+	 * <p><strong>Penyaringan tingkat kelas.</strong> Baik {@link GrupPenilaian} maupun
+	 * {@link GrupKategoriItemPenilaianSiswa} dapat memiliki atribut {@code khususTingkat}. Bila
+	 * atribut itu terisi dan berbeda dari tingkat {@link KelasSiswa} pada jadwal pelajaran ini, grup
+	 * yang bersangkutan dilewati sehingga tidak muncul sebagai pilihan.</p>
+	 *
+	 * <p>Selain menentukan combobox, field ini juga menjadi argumen pertama
+	 * {@code GradingHelper.hitungNilaiBerdasarkanJenisItemPenilaianSiswa(...)} — baik dari tombol
+	 * "Sinkronkan Nilai" di dalam dialog maupun dari tombol "Masukkan Nilai ke ..." di toolbar
+	 * utama.</p>
+	 */
 	private JadwalPelajaran jadwalPelajaran = null;
+	/**
+	 * Pertemuan yang menjadi konteks absensi dan daftar peserta untuk tugas ini.
+	 *
+	 * <p>Untuk {@link Tugas} berupa {@link Pertemuan}, field ini adalah entity yang sama dengan
+	 * {@link #tugas}. Untuk {@link TugasPertemuan}, field ini adalah pertemuan induk hasil
+	 * {@code ambilPertemuan()}. Dengan begitu seluruh operasi yang bersifat "per pertemuan" —
+	 * daftar peserta, absensi, rekap pembelajaran — selalu punya titik jangkar yang benar walaupun
+	 * tugasnya berupa sub-tugas.</p>
+	 *
+	 * <p><strong>Dipakai untuk apa saja.</strong></p>
+	 * <ul>
+	 *   <li><em>Daftar peserta</em> — {@code pa.ambilMahasiswa()} dan {@code pa.ambilSiswa()} menjadi
+	 *       model grid pada tab "Belum upload" dan tab "Peserta yg tdk perlu ikt", sumber angka pada
+	 *       tab "Statistik", serta basis iterasi seluruh aksi kehadiran massal.</li>
+	 *   <li><em>Absensi</em> — {@code pa.populate(idMahasiswa, statusabsensi, keterangan, ..., mulai,
+	 *       sampai, "Mahasiswa")} adalah satu-satunya jalur penulisan kehadiran yang dipakai helper
+	 *       ini, dengan jam mulai/selesai diambil dari {@code retreiveAbsensiMulai/Sampai} dan jatuh
+	 *       kembali ke {@code getWaktuMulai()}/{@code getWaktuSelesai()} bila kosong.</li>
+	 *   <li><em>Rekap lintas pertemuan</em> — {@code pa.ambilVOPembelajaran()} menjadi argumen
+	 *       {@link RekapHasilTugasPerVoPertemuan} (tab "Rekap Tugas") dan
+	 *       {@link RekapHasilTugasMahasiswa} (tombol "Rekap Semua Tugas" milik peserta).</li>
+	 *   <li><em>Gerbang konteks ujian</em> — {@code pa.getJadwalUjianPMB()} dan
+	 *       {@code pa.getJadwalUjianPSB()} harus keduanya {@code null} agar tombol Download Nilai,
+	 *       Upload Nilai, dan tombol-tombol kehadiran ditampilkan. Pada konteks ujian penerimaan,
+	 *       nilai dan absensi dikelola modul lain sehingga tombol-tombol itu tidak relevan.</li>
+	 *   <li><em>Nama berkas ZIP</em> — {@code pa.getPertemuanKe()} dipakai menyusun nama file unduhan
+	 *       massal {@code Tugas_untuk_pertemuan_ke_N.zip}.</li>
+	 * </ul>
+	 */
 	private Pertemuan pa = null;
+	/**
+	 * Komponen paging ZK untuk grid daftar pengumpulan {@link #uploadTugasGrid}.
+	 *
+	 * <p>Dipasang di region South milik borderlayout kolom kanan, berbagi wadah {@code Hbox} dengan
+	 * toolbar Simpan/Batal. Pembagian wadah ini disengaja: sebuah {@code South} pada ZK hanya boleh
+	 * memiliki satu anak langsung, sehingga paging tidak dapat di-{@code setParent} langsung ke
+	 * {@code South} bila toolbar sudah lebih dahulu menempati posisi itu.</p>
+	 *
+	 * <p>Field ini diteruskan sebagai argumen ke
+	 * {@code tugas.ambilTugasFileContentTotal(treemap, cari, paging, 500, refresh)} sehingga entity
+	 * {@link Tugas} sendiri yang mengatur offset dan jumlah total halaman. Listener {@code onPaging}
+	 * cukup memanggil {@link #reloadTugasFileContent()}, yang akan membaca ulang halaman aktif.</p>
+	 *
+	 * <p>Perhatikan bahwa batas 500 baris per pengambilan bersifat tetap dan berlaku juga pada jalur
+	 * Download Nilai serta Upload Nilai — keduanya memanggil
+	 * {@code ambilTugasFileContentTotal} dengan angka yang sama. Untuk kelas berukuran sangat besar,
+	 * berkas Excel nilai yang diunduh maupun diunggah hanya mencakup halaman yang termuat.</p>
+	 */
 	private Paging paging;
+	/**
+	 * Pengguna yang sedang login, sebagaimana dibaca dari {@code Common.getCurrentUser()}.
+	 *
+	 * <p>Berbeda dengan {@link #mahasiswa} dan {@link #biodataCalonMahasiswa} yang berasal dari
+	 * argumen konstruktor, field ini benar-benar mencerminkan sesi yang aktif. Ia diisi di awal
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} dan diisi ulang setiap kali
+	 * {@link #reloadTugasFileContent(boolean)} dijalankan, sehingga tetap segar sepanjang umur
+	 * tampilan.</p>
+	 *
+	 * <p><strong>Bentuk pemeriksaan peran.</strong> {@link Tbmuser} menyimpan tautan opsional ke lima
+	 * jenis pelajar sekaligus — {@code getMahasiswa()}, {@code getSiswa()},
+	 * {@code getBiodataCalonMahasiswa()}, {@code getCalonSiswa()}, dan {@code getPesertaKursus()} —
+	 * dan seorang pengelola adalah pengguna yang kelimanya {@code null}. Karena itu hampir setiap
+	 * gerbang di helper ini berbentuk rantai panjang perbandingan {@code == null}. Bentuk ringkas dan
+	 * konsisten dari rantai tersebut tersedia lewat {@link #bolehKelolaTugas(Tbmuser)} dan
+	 * {@link #bolehUpload(Tbmuser)}, sedangkan {@link #peserta} menyimpan hasil evaluasinya untuk
+	 * dipakai berulang.</p>
+	 *
+	 * <p><strong>Pemakaian di luar gerbang.</strong> Field ini juga dipakai sebagai identitas penulis
+	 * pada jejak audit: {@code Common.generateOlehId(tbmuser)} dan nama pengguna disalin ke kolom
+	 * {@code olehId}/{@code oleh} saat menyalin lampiran ("Ambil Tugas") maupun saat membuat baris
+	 * {@link TugasFileContent} kosong lewat {@link #anggapSemuaSudahUpload(Tugas, Pertemuan, EventListener)}.
+	 * Selain itu ia menjadi pemilik kredensial pada integrasi Google Drive
+	 * ({@code new GDriveUtilPerPengguna(tbmuser)} dan {@code fileFoto.setGdriveUsername(tbmuser.getUserId())}).</p>
+	 */
 	private Tbmuser tbmuser;
+	/**
+	 * Borderlayout dalam yang membungkus grid pengumpulan beserta region North dan South-nya.
+	 *
+	 * <p>Layout ini berada di dalam Center milik borderlayout kolom kanan. Isinya berbeda menurut
+	 * peran:</p>
+	 * <ul>
+	 *   <li><em>Peserta</em> — layout dipasang langsung ke Center; hanya berisi Center (grid) dan,
+	 *       setelah {@link #reloadTugasFileContent(boolean)} berjalan, sebuah North berisi kartu
+	 *       "Tugas yang Anda Upload".</li>
+	 *   <li><em>Pengelola</em> — layout dipasang ke dalam panel tab pertama ("Telah upload") dari
+	 *       {@code MyButtonTabbox}, dan memperoleh South berisi toolbar Simpan/Batal.</li>
+	 * </ul>
+	 *
+	 * <p><strong>Alasan field ini disimpan.</strong> {@link #reloadTugasFileContent(boolean)}
+	 * dijalankan berkali-kali sepanjang umur layar dan perlu membuat atau memakai ulang region North
+	 * pada layout yang sama. Karena {@code Borderlayout} hanya menerima satu North dan satu South,
+	 * kode selalu menulis {@code myborderlayoutlagi.getNorth() == null ? new North() :
+	 * myborderlayoutlagi.getNorth()} — pola "pakai yang sudah ada, buat hanya bila belum ada" yang
+	 * mencegah kesalahan runtime "Only one north child is allowed". Pola identik dipakai untuk South
+	 * saat paging ditambahkan.</p>
+	 *
+	 * <p>Nama field yang berakhiran "lagi" berarti "yang satu lagi": ia membedakan layout dalam ini
+	 * dari borderlayout luar yang dibangun sebagai variabel lokal pada {@code createTugas}.</p>
+	 */
 	private Borderlayout myborderlayoutlagi;
 
+	/**
+	 * Kumpulan pesan pelanggaran prasyarat yang menghalangi peserta mengumpulkan tugas.
+	 *
+	 * <p>Himpunan ini diisi oleh {@code Tugas.tampilanSyarat(...)} (jalur pengelola) atau
+	 * {@code Tugas.tampilanSyaratReadonly(...)} (jalur peserta) yang dipanggil di ujung
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)}. Kedua metode itu mengevaluasi
+	 * {@link SyaratUjian} yang terpasang pada tugas terhadap keadaan peserta yang sedang login —
+	 * misalnya tunggakan pembayaran, kehadiran minimum, atau kelengkapan berkas — dan menuliskan satu
+	 * kalimat penjelasan untuk setiap syarat yang tidak terpenuhi.</p>
+	 *
+	 * <p><strong>Cara pesan dipakai.</strong> Listener klik tombol {@link #upload} memeriksa himpunan
+	 * ini lebih dahulu. Bila tidak kosong, seluruh pesan digabung dengan pemisah baris ganda,
+	 * ditampilkan sebagai {@code MyMessageboxConfig} bertipe peringatan, lalu proses upload dibatalkan
+	 * dengan {@code return}. Dengan demikian himpunan ini berfungsi sebagai gerbang terakhir sebelum
+	 * berkas benar-benar diterima.</p>
+	 *
+	 * <p><strong>Mengapa {@link Set} dan bukan {@link List}.</strong> Evaluasi syarat dapat dipicu
+	 * berulang kali oleh tombol "Refresh Syarat" tanpa membersihkan himpunan lebih dahulu. Pemakaian
+	 * {@link HashSet} membuat pesan yang sama tidak menumpuk menjadi duplikat pada kotak peringatan.
+	 * Konsekuensinya, urutan pesan tidak dijamin stabil antar-pemanggilan.</p>
+	 */
 	private Set<String> syaratAlert = new HashSet<String>();
 
 	/**
@@ -1400,7 +1779,64 @@ public class TugasMandiriHelper {
 		addWindow.onModal();
 	}
 
+	/**
+	 * Penanda bahwa tampilan sedang dibuka dari perangkat bergerak (ponsel/tablet).
+	 *
+	 * <p>Diisi sekali di awal {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} dari
+	 * {@code Common.isMobile()}, yang menyimpulkan jenis perangkat dari permintaan HTTP yang sedang
+	 * berjalan. Karena diisi pada saat pembangunan UI, nilainya mencerminkan perangkat pada saat tab
+	 * tugas pertama kali dibuka dan tidak berubah walaupun jendela peramban diperbesar.</p>
+	 *
+	 * <p><strong>Pengaruhnya terbatas pada lebar kolom grid.</strong> Pada mode bergerak, kolom
+	 * "Tgl dan waktu" diberi lebar {@code 0%} — praktis disembunyikan agar layar sempit tidak penuh
+	 * oleh kolom yang jarang dibaca — sementara kolom "Nilai &amp; Keterangan" dilebarkan dari
+	 * {@code 30%} menjadi {@code 40%}. Di luar itu, penyesuaian tampilan untuk layar sempit ditangani
+	 * oleh CSS: portal dua kolom {@code ais-tugas-equal-height-portal} menumpuk sendiri secara
+	 * vertikal, dan toolbar memakai {@code flex-wrap:wrap} sehingga tombol melipat ke baris
+	 * berikutnya.</p>
+	 *
+	 * <p>Field ini tidak dipakai sebagai gerbang otorisasi apa pun; jenis perangkat tidak pernah
+	 * menambah atau mengurangi kewenangan.</p>
+	 */
 	private boolean mobile = false;
+	/**
+	 * Penanda peran: pengguna yang sedang login adalah pelajar, bukan pengelola.
+	 *
+	 * <p>Dihitung di awal {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} sebagai
+	 * "{@link #tbmuser} tidak {@code null} DAN salah satu dari {@code getMahasiswa()},
+	 * {@code getBiodataCalonMahasiswa()}, {@code getSiswa()}, atau {@code getCalonSiswa()} terisi".
+	 * Inilah penanda peran yang benar di dalam kelas ini, karena ia dibaca dari sesi yang sedang
+	 * berjalan — berbeda dengan {@link #mahasiswa} dan {@link #biodataCalonMahasiswa} yang hanya
+	 * menyalin argumen konstruktor.</p>
+	 *
+	 * <p><strong>Cakupan yang dipakai sebagai gerbang.</strong></p>
+	 * <ul>
+	 *   <li><em>Panel ringkasan pengumpulan</em> pada kolom instruksi (status waktu tugas, jumlah
+	 *       peserta, jumlah sudah/belum upload, jumlah sudah/belum dinilai, nilai rata-rata,
+	 *       tertinggi, dan terendah) hanya dibangun bila {@code !peserta}. Angka-angka itu adalah
+	 *       ringkasan seluruh kelas sehingga tidak layak ditampilkan kepada sesama peserta.</li>
+	 *   <li><em>Toolbar Simpan/Batal</em> di bawah grid "Telah upload" hanya dipasang bila
+	 *       {@code !peserta}.</li>
+	 *   <li><em>Tombol "Recovery"</em> (riwayat Envers seluruh tugas pada pembelajaran ini) hanya
+	 *       tampil bila {@code !peserta}.</li>
+	 *   <li><em>Indikator warna baris</em> pada {@link DetailTugasFileContentRenderer} — garis kiri
+	 *       hijau untuk yang sudah dinilai dan merah untuk yang belum — hanya dipasang bila
+	 *       {@code !peserta}.</li>
+	 *   <li><em>Sel nilai</em> pada {@link #displayRow(TugasFileContent, List, Component)}: cabang
+	 *       {@code !peserta} membangun ringkasan nilai plus tombol "Edit Nilai" yang membuka popup
+	 *       entri nilai; cabang peserta hanya menampilkan nilai milik dirinya sendiri sebagai teks
+	 *       read-only.</li>
+	 *   <li><em>Label kolom pencarian</em> berbunyi "Peserta Lain" bagi peserta dan "Peserta" bagi
+	 *       pengelola.</li>
+	 * </ul>
+	 *
+	 * <p><strong>Perhatian: cakupan tidak mencakup peserta kursus.</strong> Perhitungan field ini
+	 * tidak menguji {@code tbmuser.getPesertaKursus()}, sedangkan sejumlah gerbang lain di berkas ini
+	 * mengujinya. Selain itu {@code peserta} tidak dipakai sebagai gerbang pembangunan {@code
+	 * MyButtonTabbox} berisi tab pengelolaan — gerbang itu memakai {@link #mahasiswa} dan
+	 * {@link #biodataCalonMahasiswa}. Perbedaan dasar pemeriksaan antara kedua tempat itu perlu
+	 * diperhatikan setiap kali gerbang di kelas ini diubah.</p>
+	 */
 	private boolean peserta = false;
 	private Tabpanel tabpanelFileTugasPertemuan;
 	private TreeMap<Long, TugasFileContent> treemapData = null;
