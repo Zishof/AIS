@@ -601,6 +601,179 @@ public abstract class ParameterTambahanAstract extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membangun SATU baris form lengkap untuk sebuah parameter tambahan: komponen isian, baris keterangan
+	 * opsional, baris unggah lampiran opsional, penjagaan tampil khusus admin, dan pendaftaran skip-logic.
+	 * Ini adalah implementasi PENUH yang menjadi muara seluruh kelebihan-beban {@code initComponent}.
+	 *
+	 * <h3>Kunci namespace {@code jenis} — REFERENSI DEFINITIF, akar {@code task_484d4bd0}</h3>
+	 *
+	 * <p>Method ini adalah tempat kunci namespace lampiran benar-benar DIPAKAI, dan karena itu tempat
+	 * paling tepat untuk menjelaskan mekanismenya sekali untuk selamanya. Sesi/berkas lain yang menyinggung
+	 * {@code task_484d4bd0} sebaiknya merujuk balik ke sini.</p>
+	 *
+	 * <p><b>Pertama, yang sering disalahpahami: method ini TIDAK MEMBANGUN kunci itu.</b> {@code jenis}
+	 * datang sebagai ARGUMEN. Pembangunnya adalah para pemanggil, dan bentuk bakunya adalah rangkaian
+	 * mentah dua id:</p>
+	 * <pre>
+	 *   String jenis = kelompokX.getId() + "-&gt;" + parameterTambahan.getId();
+	 * </pre>
+	 * <p>dengan {@code kelompokX} berupa baris "kelompok" perantara milik modul pemakai — mis.
+	 * {@code KelompokParameterTambahanAlumni}, {@code KelompokParameterTambahanCalonPegawai},
+	 * {@code KelompokParameterTambahanAlurSop} — dan {@code parameterTambahan} adalah definisi parameter
+	 * pada baris ini. Bentuk yang sama persis juga dipakai sebagai kunci NILAI di dalam kolom
+	 * {@code parameterTambahanInds} milik entity pemakai, sehingga satu rangkaian teks memikul dua peran
+	 * sekaligus: kunci nilai sekaligus kunci lampiran.</p>
+	 *
+	 * <p><b>Kedua, bagaimana kunci itu dipakai.</b> Di dalam method ini {@code jenis} menyentuh penyimpanan
+	 * lampiran di TIGA titik, dan ketiganya selalu berpasangan dengan {@code ref}:</p>
+	 * <ol>
+	 * <li>{@code LampiranLain.ambil(ref, jenis)} — memeriksa apakah sudah ada berkas terunggah, untuk
+	 * memutuskan menampilkan tombol unduh/unggah atau sekadar tulisan "Tidak/belum diupload".</li>
+	 * <li>{@code LampiranLain.createDownloadUploadFileLain(hbox, ref, jenis, ...)} — membangun widget
+	 * unggah yang kelak MENULIS berkas dengan identitas {@code (ref, jenis)} itu.</li>
+	 * <li>{@code lampiranLains.put(jenis, lainAlumni)} — menitipkan hasil unggah ke peta keluaran milik
+	 * pemanggil, dengan {@code jenis} sebagai kuncinya.</li>
+	 * </ol>
+	 *
+	 * <p><b>Ketiga, inilah cacatnya.</b> Identitas sebuah lampiran seluruhnya adalah pasangan
+	 * {@code (ref, jenis)}. {@code ref} berisi {@link ParameterTambahan#getId()} milik ENTITY PEMILIK —
+	 * mis. id sebuah {@code CatatanSiswa}, atau id sebuah {@code PerbaikanAsset}. Persoalannya, setiap
+	 * entity punya urutan id-nya SENDIRI: {@code CatatanSiswa} nomor 5 dan {@code PerbaikanAsset} nomor 5
+	 * sama-sama ada. Sementara itu {@code jenis} hanya memuat id kelompok dan id parameter, dan
+	 * <b>TIDAK MEMUAT SATU PUN DISKRIMINATOR KELAS PEMILIK</b>. Akibatnya dua entity dari kelas yang
+	 * BERBEDA dapat menghasilkan pasangan {@code (ref, jenis)} yang identik, lalu saling melihat — bahkan
+	 * saling menimpa — lampiran satu sama lain. Inilah {@code task_484d4bd0}, dan ia bukan cacat teoretis:
+	 * mekanisme parameter tambahan ini terkonfirmasi dipakai lebih dari dua puluh entity independen lintas
+	 * modul (akademik, kepegawaian, sekolah, aset, SOP, pengaduan whistleblower), yang seluruhnya berbagi
+	 * satu ruang nama lampiran yang sama.</p>
+	 *
+	 * <p>Perlu ditegaskan bahwa kelas ini SUDAH memuat contoh pola yang benar, hanya beberapa baris di
+	 * bawah. Untuk lampiran tingkat-master — berkas yang melekat pada DEFINISI parameter, bukan pada
+	 * jawaban seseorang — method ini memakai:</p>
+	 * <pre>
+	 *   LampiranLain.ambil(parameterTambahan.getId(), ParameterTambahanAstract.class.getName());
+	 * </pre>
+	 * <p>di sini {@code jenis} justru berupa NAMA KELAS berkualifikasi penuh, sehingga aman dari tabrakan
+	 * sejak awal. Perbedaan perlakuan antara dua pemakaian dalam satu method yang sama inilah yang membuat
+	 * cacat tersebut lolos sekian lama.</p>
+	 *
+	 * <p><b>Keempat, penambalannya.</b> Pola aman yang kini dipakai adalah menormalkan {@code jenis}
+	 * SEBELUM diserahkan ke method ini, lewat {@code LampiranLain.resolveJenisParameterTambahan(Class<?>
+	 * ownerClass, Long ref, String jenisMentah)}. Helper itu menyisipkan diskriminator kelas pemilik di
+	 * depan kunci mentah:</p>
+	 * <pre>
+	 *   ais.database.model.sekolah.CatatanSiswa#12-&gt;34
+	 * </pre>
+	 * <p>Ia sengaja dirancang TANPA migrasi basis data. Urutannya: coba bentuk ber-namespace lebih dulu;
+	 * bila tidak ada barisnya, coba bentuk mentah dan pakai itu bila ketemu (baris warisan tetap terbaca);
+	 * bila keduanya nihil, kembalikan bentuk ber-namespace sehingga unggahan BARU aman sejak awal.
+	 * Pasangannya, {@code LampiranLain.kunciNilaiParameterTambahan(String)}, memangkas kembali segalanya
+	 * sampai tanda {@code '#'} TERAKHIR — diperlukan karena kunci NILAI di dalam
+	 * {@code parameterTambahanInds} sengaja tetap mentah, sehingga kode yang mencocokkan keduanya harus
+	 * menormalkannya lebih dulu atau pencocokannya gagal dalam senyap.</p>
+	 *
+	 * <p>Perlu dicatat satu celah yang tersisa pada helper itu sendiri: bila {@code ref} bernilai
+	 * {@code null} ia mengembalikan {@code jenisMentah} apa adanya. Di dalam method ini {@code ref} yang
+	 * {@code null} memang diganti {@code Common.refSementara()}, tetapi penggantian itu terjadi SETELAH
+	 * pemanggil memanggil helper — jadi unggahan pada entity yang BELUM tersimpan tetap memakai kunci
+	 * mentah.</p>
+	 *
+	 * <p><b>Kelima, peta pemanggil per 6 September 2026.</b> Penambalan berjalan lewat r83920-83971 dan
+	 * seterusnya, tetapi BELUM tuntas:</p>
+	 * <ul>
+	 * <li><b>SUDAH AMAN</b> — 22 pemanggil {@code initComponent} menormalkan {@code jenis} lewat
+	 * {@code resolveJenisParameterTambahan}, meliputi berkas berpola
+	 * {@code ParameterTambahan*Listener} (catatan pegawai/mahasiswa/administrasi/siswa/kelas siswa/guru,
+	 * mahasiswa, alumni, pengaduan, pengajuan, pengajuan pegawai, perbaikan aset, pertemuan, cuti dan izin,
+	 * gaji pegawai, pengajuan transaksi pegawai, kegiatan LKP, kegiatan siswa, PMB, PSB, disposisi alur
+	 * SOP) serta {@code TampilanPengumumanAkademisAction} pada jalur {@code CalonSiswa}. Sisi model dan
+	 * laporannya juga sudah ikut, sehingga totalnya sekitar 84 berkas.</li>
+	 * <li><b>BELUM AMAN — jalur {@code initComponent}</b>: {@code TampilanPengumumanAkademisAction} pada
+	 * jalur {@code BiodataCalonMahasiswa} masih merangkai kunci secara mentah; ini kemunculan yang
+	 * terlewat, karena berkas yang sama sudah ditambal pada jalur lainnya. Berikutnya
+	 * {@code IsiAngketParameterUmumListener} yang bersifat CAMPURAN: hanya cabang UMUM yang dinormalkan,
+	 * sedangkan cabang DOSEN dan GURU masih mentah.</li>
+	 * <li><b>BELUM AMAN — jalur lain menuju {@code LampiranLain}</b> (tidak melewati method ini):
+	 * {@code BroadcastHelper} pada dua tempat (catatan administrasi dan perbaikan aset),
+	 * {@code IsiAngketParameterUmum} pada sisi model — yang kini justru TIDAK SEJALAN dengan sisi
+	 * listener-nya sehingga URL hasil unggah gagal tersimpan, {@code SopService} pada jalur REST yang
+	 * bahkan menerbitkan kunci mentah itu ke klien seluler padahal jalur ZK untuk pemilik yang sama sudah
+	 * ber-namespace, serta rutin salin/cetak {@code CetakRegistrasiAction}, {@code CalonSiswaAction}, dan
+	 * {@code MahasiswaAction} yang mengambil {@code jenis} langsung dari kolom nilai (yang memang tetap
+	 * mentah) sehingga melewatkan baris yang sudah ber-namespace.</li>
+	 * </ul>
+	 *
+	 * <p>Dari 24 entity pemilik yang punya kolom {@code parameterTambahanInds}, hanya
+	 * {@code IsiAngketParameterUmum} yang jalur populate-nya belum memakai helper sama sekali
+	 * ({@code KelompokCalonMahasiswa} tidak memakai lampiran, jadi tidak terdampak).</p>
+	 *
+	 * <h3>Yang dikerjakan method ini selain lampiran</h3>
+	 *
+	 * <p><b>Nilai awal.</b> Bila {@code val} {@code null} atau kosong, {@link ParameterTambahan#getNilaiDefault()}
+	 * dipakai sebagai gantinya — jadi nilai default adalah default TAMPILAN yang baru tersimpan bila
+	 * pengguna menyimpan formnya.</p>
+	 *
+	 * <p><b>Skip-logic.</b> Komponen didaftarkan pada atribut {@code stParamId}/{@code stComponent} milik
+	 * baris, dan bila parameter punya {@link ParameterTambahan#getSyaratTampil()} juga pada
+	 * {@code stSyaratParam}. Pendengar {@code onChange}/{@code onSelect} dipasang agar
+	 * {@link #reevaluasiSkipLogic(java.util.List)} berjalan setiap kali nilai acuan berubah, dan sekali
+	 * lagi di akhir method untuk keadaan awal. Baris turunan (keterangan/lampiran) ditandai
+	 * {@code stChildOf} agar ikut tersembunyi bersama induknya. Seluruh bagian ini dibungkus
+	 * {@code try/catch} yang mencatat ke {@code ErrorAuditUtil} lalu melanjutkan — skip-logic yang gagal
+	 * tidak boleh memutus render form, dengan konsekuensi barisnya menjadi SELALU TAMPIL.</p>
+	 *
+	 * <p><b>Korelasi vendor.</b> Untuk tipe {@link #PILIHAN_PENYEDIA}, pendengar milik banbox dibungkus
+	 * agar {@link #isiOtomatisParameterTerkaitPenyedia(ParameterTambahan, org.zkoss.zk.ui.Component,
+	 * java.util.List)} berjalan lebih dulu, lalu pendengar lama tetap dipanggil supaya rantai yang sudah
+	 * ada tidak putus. Hanya aktif bila {@code readonly} bernilai {@code false}.</p>
+	 *
+	 * <p><b>Penjagaan admin.</b> Bila {@link ParameterTambahan#getHanyaTampilDiAdmin()} bernilai
+	 * {@code true}, baris disembunyikan dan dibekukan ({@code Common.freeze}) bagi yang bukan admin
+	 * berwenang. Ini kendali TAMPILAN: barisnya tetap ada dalam struktur form dan nilainya tetap dibaca
+	 * kembali oleh {@link #ambilVal(Row, ParameterTambahan)}, jadi jangan menjadikannya satu-satunya
+	 * penjaga untuk data rahasia.</p>
+	 *
+	 * <p><b>Pendaftaran baris TANPA SYARAT.</b> {@code parameterRows.add(row)} dijalankan di luar blok
+	 * {@code if (component != null)}, sehingga baris tanpa komponen isian sama sekali — mis. tipe
+	 * {@link #TIDAK_ADA} — tetap terdaftar. {@link #ambilVal(Row, ParameterTambahan)} sengaja bertoleransi
+	 * terhadap keadaan ini dan memperlakukannya sebagai nilai kosong yang WAJAR, bukan sebagai galat.</p>
+	 *
+	 * <p><b>Prasyarat.</b> {@code parameterTambahan} tidak boleh {@code null}: ia di-dereferensi tanpa
+	 * penjagaan pada blok penjagaan admin yang berada di luar cabang {@code component != null}.</p>
+	 *
+	 * @param row               baris tujuan komponen isian; komponennya dititipkan sebagai atribut
+	 *                          bernama {@code componenName}.
+	 * @param rows              wadah baris; tempat baris keterangan, lampiran, dan lampiran master
+	 *                          ditambahkan.
+	 * @param jenis             KUNCI NAMESPACE LAMPIRAN. Harap dinormalkan pemanggil lewat
+	 *                          {@code LampiranLain.resolveJenisParameterTambahan(...)}; bentuk mentah
+	 *                          {@code "<kelId>-><ptId>"} rentan tabrakan lintas kelas pemilik — lihat
+	 *                          uraian {@code task_484d4bd0} di atas.
+	 * @param parameterRows     daftar seluruh baris parameter dalam form, dipakai skip-logic dan korelasi
+	 *                          vendor. Boleh {@code null}, dan bila {@code null} kedua fitur itu mati.
+	 * @param lampiranLains     peta keluaran tempat hasil unggah dititipkan dengan kunci {@code jenis}.
+	 *                          Bila {@code null}, lampiran dirender sebagai tampilan mati saja.
+	 * @param ref               id ENTITY PEMILIK, pasangan dari {@code jenis}. Bila {@code null} diganti
+	 *                          {@code Common.refSementara()} untuk menampung unggahan pra-simpan.
+	 * @param val               nilai tersimpan; {@code null}/kosong digantikan
+	 *                          {@link ParameterTambahan#getNilaiDefault()}.
+	 * @param ket               keterangan tersimpan, hanya dipakai bila
+	 *                          {@link ParameterTambahan#getTampilkanIsianKeterangan()} bernilai {@code true}.
+	 * @param parameterTambahan definisi parameter; TIDAK BOLEH {@code null}.
+	 * @param eventListener     pendengar perubahan tambahan milik pemanggil; boleh {@code null}.
+	 * @param readonly          {@code true} untuk merender baris sebagai teks mati dan mematikan korelasi
+	 *                          vendor.
+	 * @param componenName      nama atribut tempat komponen dititipkan pada {@code row}; harus sama dengan
+	 *                          yang dipakai {@link #ambilVal(Row, ParameterTambahan, String)} saat membaca
+	 *                          nilai kembali.
+	 * @return {@code true} bila baris ini terlihat oleh pengguna saat ini; {@code false} bila seluruhnya
+	 *         tersembunyi karena penjagaan admin. Dipakai pemanggil untuk memutuskan apakah judul bagian
+	 *         yang menaunginya masih perlu ditampilkan.
+	 * @see ParameterTambahan#masukkanSemuaParameterKeMap(String, java.util.Map)
+	 * @see #ambilVal(Row, ParameterTambahan, String)
+	 * @see #reevaluasiSkipLogic(java.util.List)
+	 */
 	public static boolean initComponent(Row row, Rows rows, final String jenis, List<Row> parameterRows,
 			final Map<String, LampiranLain> lampiranLains, Long ref, String val, String ket,
 			ParameterTambahan parameterTambahan, EventListener eventListener, boolean readonly, String componenName) {
