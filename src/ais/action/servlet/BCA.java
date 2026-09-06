@@ -52,13 +52,129 @@ import ais.database.model.PengaturanPembayaranBulanan;
 import ais.database.model.VirtualAccountBank;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <b>Host-to-Host (H2H) Bank BCA</b> dengan protokol <b>SNAP</b> (Standar Nasional
+ * Open API Pembayaran) untuk kanal <i>Virtual Account</i> (VA).
+ *
+ * <p>Servlet ini adalah sisi <b>penerima</b>: BCA yang memanggil AIS, bukan sebaliknya. BCA
+ * memberitahukan bahwa seorang mahasiswa/siswa membayar tagihan lewat teller/ATM/mobile banking,
+ * dan AIS wajib membalas dengan kode respons SNAP serta memposting pembayaran itu ke tabel
+ * {@code Kegiatan}/{@code CicilanPembayaran}. Karena balasan servlet inilah yang menentukan apakah
+ * tagihan dianggap lunas, <b>seluruh permukaan kelas ini bernilai finansial</b>.</p>
+ *
+ * <h3>Peta endpoint (lihat {@code web.xml})</h3>
+ * <table border="1" summary="Peta url-pattern ke cabang logika">
+ *   <tr><th>url-pattern</th><th>Cabang di {@link #process(HttpServletRequest, HttpServletResponse)}</th><th>Arti</th></tr>
+ *   <tr><td>{@code /v1.0/access-token/b2b}</td><td>{@code grantType != null}</td>
+ *       <td>Penerbitan <i>access token</i> B2B; body memuat {@code grantType=client_credentials}.</td></tr>
+ *   <tr><td>{@code /v1.0/transfer-va/inquiry}</td><td>{@code grantType == null}, {@code inquery=true}</td>
+ *       <td>Penanyaan tagihan (body tanpa {@code paidAmount}).</td></tr>
+ *   <tr><td>{@code /v1.0/transfer-va/payment}</td><td>{@code grantType == null}, {@code inquery=false}</td>
+ *       <td>Notifikasi pembayaran (body memuat {@code paidAmount}).</td></tr>
+ *   <tr><td>{@code /v1.0/transfer-va/status}</td><td>{@code grantType == null}, {@code status=true}</td>
+ *       <td>Penanyaan status transaksi; hanya membaca, tidak memposting.</td></tr>
+ * </table>
+ *
+ * <h3>Rantai otentikasi — lengkap di SEMUA cabang</h3>
+ * <p><b>Fakta hasil audit (verifikasi presisi, bukan pembacaan sepintas):</b> berbeda dengan
+ * gateway {@code OcbcNisp} dan {@link Briva}, kelas ini <b>benar-benar memverifikasi tanda tangan
+ * pada cabang transaksi</b>, bukan hanya pada cabang penerbitan token. Urutannya:</p>
+ * <ol>
+ *   <li><b>Format {@code X-TIMESTAMP}</b> — {@link #process} baris ~1278; gagal parse membalas
+ *       {@code 4007301}. (Catatan: hanya <i>format</i>, bukan kesegaran/skew — lihat batasan.)</li>
+ *   <li><b>Cabang token</b>: {@code grantType} harus {@code client_credentials}, {@code X-CLIENT-KEY}
+ *       harus sama dengan konfigurasi {@code strClientId_bca}, lalu {@link #sign(String, String)}
+ *       memverifikasi tanda tangan <b>RSA SHA256withRSA</b> atas {@code clientId|timestamp}. Baru
+ *       setelah itu token diterbitkan dan disimpan ke {@link #accessTokens}.</li>
+ *   <li><b>Cabang transaksi</b> (inquiry/payment/status): {@code CHANNEL-ID} dicocokkan ke
+ *       {@code channel_id_bca}, {@code X-PARTNER-ID} ke {@code partner_id_bca}, lalu bearer token
+ *       dari header {@code Authorization} <b>dibaca kembali dari {@link #accessTokens}</b> (token
+ *       tak dikenal = {@code 401 Invalid Token (B2B)}), dan terakhir tanda tangan
+ *       <b>HMAC-SHA512</b> atas {@code METHOD:path:token:sha256(body):timestamp} dihitung ulang
+ *       lalu dibandingkan dengan {@code X-SIGNATURE}. Tidak cocok = {@code 401 Unauthorized
+ *       [Signature]}.</li>
+ * </ol>
+ * <p>Dengan kata lain {@link #accessTokens} di kelas ini <b>bukan field write-only</b>: ia ditulis di
+ * cabang penerbitan dan <b>dibaca sebagai gerbang</b> di cabang transaksi. Inilah pembeda utama
+ * terhadap {@link Briva}, yang pada endpoint pembayarannya sama sekali tidak membaca token maupun
+ * memverifikasi tanda tangan.</p>
+ *
+ * <h3>Batasan yang tetap perlu diketahui</h3>
+ * <ul>
+ *   <li><b>Kesegaran timestamp tidak diperiksa.</b> {@code X-TIMESTAMP} hanya divalidasi formatnya;
+ *       tidak ada jendela toleransi. Perlindungan ulang-kirim bertumpu pada {@link #unikId}
+ *       (dedupe {@code X-EXTERNAL-ID}) yang hanya di memori dan hilang saat restart.</li>
+ *   <li><b>Rahasia HMAC punya nilai bawaan di kode.</b> {@code strClientScret_bca} dibaca lewat
+ *       {@code Common.getKonfigurasi} dengan literal bawaan; karena helper itu menuliskan nilai
+ *       bawaan ke basis data saat kunci belum ada, instalasi yang tak pernah menggantinya memakai
+ *       rahasia yang diketahui publik dari kode sumber.</li>
+ *   <li><b>Penyaringan IP bersifat pencatatan, bukan gerbang.</b> {@link BankHost} dicari dari
+ *       {@code request.getRemoteAddr()} (bukan header {@code X-Forwarded-For}/{@code CF-Connecting-IP}
+ *       yang bisa dipalsukan — ini pilihan yang benar), tetapi {@code bankHost == null} <b>tidak</b>
+ *       menghentikan pemrosesan; ia hanya membuat jenis pembayaran jatuh ke {@code TUNAI}.</li>
+ *   <li><b>Perbandingan tanda tangan tidak <i>constant-time</i></b> ({@code equalsIgnoreCase}).</li>
+ * </ul>
+ *
+ * <h3>Kontrak balasan</h3>
+ * <p>Setiap jalur menghasilkan {@code responseCode} SNAP 7 digit dan {@code responseMessage}. Kode
+ * berakhiran {@code 2400}/{@code 2401} dipakai untuk inquiry, {@code 2500}/{@code 2501} untuk
+ * payment; pemilihannya dilakukan lewat ternary atas flag {@code inquery} di sepanjang
+ * {@link #doProcess doProcess}.</p>
+ *
+ * @see Briva
+ * @see PembayaranUtil
+ * @see VirtualAccountBank
+ * @see LogHostToHost
  */
 public class BCA extends HttpServlet {
+	/**
+	 * Versi serialisasi {@link java.io.Serializable} yang diwarisi dari {@link HttpServlet}.
+	 *
+	 * <p>Bernilai tetap {@code 1L}: servlet ini tidak pernah diserialisasi antarnode, sehingga nilai
+	 * ini semata memenuhi kontrak {@code Serializable} dan meredam peringatan kompilator.</p>
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai untuk memetakan alamat IP pemanggil ke
+	 * {@link BankHost} lewat {@code getBankHost(String, String)} dan untuk menjumlahkan
+	 * cicilan lewat {@code getTotalDanDendaFromCicilan}.
+	 *
+	 * <p><b>Perhatikan:</b> {@link BankHost} yang dihasilkan bersifat <i>informasional</i> — nilai
+	 * {@code null} tidak memblokir transaksi, hanya membuat jenis pembayaran jatuh ke
+	 * {@code ConstantValues.TUNAI}. Gerbang keamanan yang sesungguhnya adalah verifikasi tanda
+	 * tangan di {@link #process(HttpServletRequest, HttpServletResponse)}.</p>
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
+
+	/**
+	 * Kumpulan <i>access token</i> B2B yang sedang berlaku, dipetakan dari nilai token ke
+	 * {@link Remover} yang mengatur masa hidupnya.
+	 *
+	 * <p><b>Berbeda dengan gateway sejenis, field ini dibaca sebagai gerbang otorisasi.</b> Alur
+	 * pemakaiannya:</p>
+	 * <ul>
+	 *   <li><b>Tulis</b> — {@link #process} menyimpan token baru setelah verifikasi RSA berhasil.</li>
+	 *   <li><b>Baca</b> — {@link #process} mengambil kembali token dari header {@code Authorization}
+	 *       pada setiap permintaan inquiry/payment/status; bila tidak ditemukan, permintaan ditolak
+	 *       dengan {@code 401 Invalid Token (B2B)}.</li>
+	 *   <li><b>Hapus</b> — {@link Remover#run()} membuang token setelah masa berlakunya lewat.</li>
+	 * </ul>
+	 * <p>Karena bersifat {@code static} dan disimpan di memori proses, seluruh token <b>hangus saat
+	 * aplikasi di-restart</b> dan tidak dibagikan antarnode pada penggelaran berklaster; BCA harus
+	 * meminta token baru. {@link HashMap} yang dipakai <b>tidak sinkron</b>, sementara penulisan
+	 * terjadi dari thread permintaan dan penghapusan dari thread {@link Remover} — sebuah balapan
+	 * yang secara teori dapat merusak struktur peta di bawah beban tinggi.</p>
+	 */
 	private static Map<String, Remover> accessTokens = new HashMap<String, Remover>();
+
+	/**
+	 * Pemformat tanggal per-thread untuk pola ISO tanpa zona waktu ({@code yyyy-MM-dd'T'HH:mm:ss}).
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} tidak aman-thread, sedangkan
+	 * servlet melayani banyak permintaan secara paralel. Dipakai untuk dua hal: memvalidasi format
+	 * header {@code X-TIMESTAMP} dan mengurai {@code trxDateTime} menjadi tanggal pembukuan. Karena
+	 * polanya tidak memuat offset zona, pemanggil lebih dulu membuang sufiks {@code +07:00}.</p>
+	 */
 	public static final ThreadLocal<DateFormat> dateFormat1 = new ThreadLocal<DateFormat>() {
 		@Override
 		protected DateFormat initialValue() {

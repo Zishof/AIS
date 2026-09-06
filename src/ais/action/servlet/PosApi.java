@@ -107,6 +107,11 @@ import org.hibernate.criterion.Disjunction;
  * jadi tidak kena batasan "wildcard ACAO tidak kompatibel dengan kredensial".</p>
  */
 public class PosApi extends HttpServlet {
+	/**
+	 * Versi serialisasi warisan {@link javax.servlet.http.HttpServlet}. Tidak pernah
+	 * dipakai secara nyata -- instans servlet ini tidak pernah diserialkan -- hanya
+	 * memenuhi kontrak {@link java.io.Serializable} agar kompilator tidak mengeluh.
+	 */
 	private static final long serialVersionUID = 1L;
 
 	/**
@@ -122,6 +127,16 @@ public class PosApi extends HttpServlet {
 	private static final Map<String, ais.action.servlet.api.ApiRoute> RUTE_SOP =
 		ais.action.servlet.api.ApiRouteRegistry.createDefaultRoutes();
 
+	/**
+	 * Menjawab preflight CORS. Permintaan dari halaman {@code file://} milik aplikasi
+	 * Electron memakai header kustom {@code Authorization}, sehingga Chromium SELALU
+	 * mengirim {@code OPTIONS} lebih dulu; tanpa balasan berheader CORS yang benar
+	 * seluruh aksi POS gagal sebelum sempat sampai ke {@link #proses}.
+	 *
+	 * <p>Sengaja TIDAK memanggil {@link #proses}: preflight tidak membawa body dan
+	 * tidak boleh menuntut token. Balasannya {@code 204 No Content} berisi header
+	 * saja (lihat {@link #terapkanHeaderCors}).</p>
+	 */
 	@Override
 	protected void doOptions(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -129,18 +144,46 @@ public class PosApi extends HttpServlet {
 		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
 	}
 
+	/**
+	 * GET diperlakukan SAMA PERSIS dengan POST -- keduanya diteruskan ke
+	 * {@link #proses}, yang membaca aksi dari body JSON ({@link #bacaJsonBody}).
+	 *
+	 * <p>Jalur GET praktis hanya dipakai untuk pemeriksaan konektivitas manual
+	 * (membuka URL servlet di peramban); klien Desktop/Android selalu POST. Karena
+	 * body GET kosong, {@code action} ikut kosong dan permintaannya berakhir sebagai
+	 * "Sesi tidak valid" atau "Aksi tidak dikenal" -- bukan pintu belakang.</p>
+	 */
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		proses(request, response);
 	}
 
+	/**
+	 * Jalur normal seluruh klien POS (Desktop Electron, Android/Flutter, dan partial
+	 * JSP workspace). Semua aksi dikirim sebagai satu objek JSON di body, bukan
+	 * sebagai parameter form -- lihat {@link #proses} untuk daftar aksinya.
+	 */
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		proses(request, response);
 	}
 
+	/**
+	 * Memasang header CORS pada SETIAP balasan (preflight maupun balasan nyata).
+	 *
+	 * <p>{@code Access-Control-Allow-Origin: *} AMAN di sini dan berbeda dari jalur
+	 * cookie ({@code Data.java}/{@code FilterJSP}): klien POS TIDAK memakai
+	 * {@code credentials:'include'}, identitasnya dibawa header {@code Authorization}
+	 * yang harus disebut klien secara eksplisit. Karena itu wildcard tidak melanggar
+	 * larangan "wildcard tidak kompatibel dengan kredensial", dan situs pihak ketiga
+	 * pun tidak bisa membonceng sesi peramban korban -- tanpa token, permintaannya
+	 * berhenti di gerbang {@link PosDeviceAuthApi#resolveDariRequest}.</p>
+	 *
+	 * <p>{@code Access-Control-Max-Age: 600} menahan hasil preflight 10 menit supaya
+	 * kasir tidak membayar satu putaran OPTIONS tambahan untuk tiap penekanan tombol.</p>
+	 */
 	private static void terapkanHeaderCors(HttpServletResponse response) {
 		response.setHeader("Access-Control-Allow-Origin", "*");
 		response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -2783,20 +2826,6 @@ public class PosApi extends HttpServlet {
 		}
 	}
 
-	/**
-	 * Pencarian anggota koperasi (member) aktif berdasar nama/kode identitas -- dipakai kasir memilih
-	 * pembeli SEBELUM checkout pakai metode pembayaran "saldo" ({@code CaraPembayaranKoperasi.manual
-	 * == false} berarti dipotong dari saldo terhitung member, BUKAN dibayar tunai/manual -- makna ini
-	 * dikonfirmasi dari kode {@code _pos.jsp}, bukan tebakan). Versi web memuat SELURUH member sekaligus
-	 * ke datalist browser
-	 * (dataset kecil, terjamin sama-origin); versi lokal (token, jaringan lebih mahal) sengaja
-	 * pencarian-per-kueri dgn {@code LIMIT 20} drpd meniru pendekatan itu.
-	 *
-	 * <p>{@code wajibPin}/biometrik dihitung sebagai OR aturan Jenis dan Tipe Member, sedangkan
-	 * {@code minSaldo} tetap berasal dari Jenis Member. Relasi dibaca lewat getter entitas (BUKAN join
-	 * Criteria) agar fallback saat FK null tetap konsisten.
-	 * N+1 query per member dibiarkan (bukan masalah performa nyata -- hasil dibatasi 20 baris).</p>
-	 */
 	/** Bentuk JSON member yg SAMA dipakai {@code cari_member} (baik jalur keyword maupun jalur exact-id di bawah) -- satu-satunya tempat field {id,nama,kodeIdentitas,wajibPin,minSaldo} dirakit, supaya kedua jalur selalu sinkron. */
 	private JSONObject jsonMember(AnggotaKoperasi a, Long tokoId) throws Exception {
 		JenisAnggotaKoperasi jenis = a.getJenisAnggotaKoperasi();
@@ -2831,11 +2860,24 @@ public class PosApi extends HttpServlet {
 	}
 
 	/**
-	 * Cari member -- dua jalur: {@code keyword} (nama/kode identitas, MAKS 20 baris, dipakai picker
+	 * Pencarian anggota koperasi (member) aktif berdasar nama/kode identitas -- dipakai kasir memilih
+	 * pembeli SEBELUM checkout pakai metode pembayaran "saldo" ({@code CaraPembayaranKoperasi.manual
+	 * == false} berarti dipotong dari saldo terhitung member, BUKAN dibayar tunai/manual -- makna ini
+	 * dikonfirmasi dari kode {@code _pos.jsp}, bukan tebakan). Versi web memuat SELURUH member sekaligus
+	 * ke datalist browser
+	 * (dataset kecil, terjamin sama-origin); versi lokal (token, jaringan lebih mahal) sengaja
+	 * pencarian-per-kueri dgn {@code LIMIT 20} drpd meniru pendekatan itu.
+	 *
+	 * <p>{@code wajibPin}/biometrik dihitung sebagai OR aturan Jenis dan Tipe Member, sedangkan
+	 * {@code minSaldo} tetap berasal dari Jenis Member. Relasi dibaca lewat getter entitas (BUKAN join
+	 * Criteria) agar fallback saat FK null tetap konsisten.
+	 * N+1 query per member dibiarkan (bukan masalah performa nyata -- hasil dibatasi 20 baris).</p>
+	 *
+	 * <p>Cari member -- dua jalur: {@code keyword} (nama/kode identitas, MAKS 20 baris, dipakai picker
 	 * member) ATAU {@code id} (exact lookup SATU baris, dipakai memulihkan member terpilih saat
 	 * "Muat" Keranjang Tertahan -- Fase 5, lihat JavaDoc {@code prosesPesananList} soal {@code
 	 * anggotaId} yg dikembalikan di sana). Kedua jalur berbagi bentuk JSON yg SAMA lewat {@link
-	 * #jsonMember}.
+	 * #jsonMember}.</p>
 	 */
 	private void prosesCariMember(JSONObject payload, JSONObject hasil) throws Exception {
 		String keyword = payload.optString("keyword", "").trim();

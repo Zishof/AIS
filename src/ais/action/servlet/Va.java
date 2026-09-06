@@ -296,21 +296,31 @@ public class Va extends HttpServlet {
 	 * bank itu.</p>
 	 *
 	 * <h4>Catatan keamanan</h4>
-	 * <p>Method ini tidak melakukan otentikasi apa pun; lihat dokumentasi kelas. Selain itu perlu
-	 * disadari bahwa {@code bank} berasal dari payload yang dikirim pemanggil, sedangkan
-	 * {@code tetapberhasil} di {@link #process} diturunkan dari nilai {@code bank} tersebut.
-	 * Artinya jalur yang melewati pencocokan nominal (lihat parameter {@code tetapberhasil})
-	 * dipilih oleh data pemanggil, bukan oleh identitas pemanggil yang terverifikasi.</p>
+	 * <p>Method ini tidak melakukan otentikasi apa pun; lihat dokumentasi kelas. {@code bank}
+	 * sendiri tetap berasal dari payload yang dikirim pemanggil dan dipakai apa adanya untuk
+	 * memilih format balasan khas bank (BTN/BJBS) dan untuk label pencatatan &mdash; itu tidak
+	 * berbahaya karena hanya memengaruhi <i>bentuk</i> balasan, bukan apakah pembayaran diposting.
+	 * {@code tetapberhasil}, sebaliknya, <b>tidak lagi</b> diturunkan dari {@code bank}: sejak
+	 * perbaikan integritas nominal, {@link #process} menurunkannya dari identitas {@code bankHost}
+	 * hasil pencocokan IP yang terverifikasi (baris {@code bank_host} bernama persis
+	 * {@code "Bank BTN"}, yang hanya bisa ada lewat konfigurasi admin), dan method ini menegakkan
+	 * fail-closed tambahan: bila {@code bankHost} {@code null}, {@code tetapberhasil} yang diterima
+	 * <b>diabaikan</b> dan diperlakukan sebagai {@code false} (lihat variabel lokal
+	 * {@code tetapberhasilAman}). Jadi jalur yang melewati pencocokan nominal kini bergantung pada
+	 * identitas pemanggil yang terverifikasi, bukan lagi pada isi payload semata.</p>
 	 *
 	 * @param data          badan permintaan mentah berformat JSON; boleh {@code null}/kosong
 	 * @param request       permintaan HTTP asal; boleh {@code null} bila seluruh parameter ada di
 	 *                      dalam {@code data}
-	 * @param bankHost      host bank pemanggil hasil pencocokan IP; boleh {@code null}, dan nilai
-	 *                      {@code null} <b>tidak</b> menghentikan pemrosesan
-	 * @param tetapberhasil bila {@code true}, pemeriksaan "nominal setoran harus sama dengan total
-	 *                      tagihan VA" pada {@code action=payment} <b>dilewati</b> sehingga
-	 *                      pembayaran tetap diposting; dipakai untuk protokol Bank BTN yang
-	 *                      mengirim konfirmasi tanpa nominal yang sepadan
+	 * @param bankHost      host bank pemanggil hasil pencocokan IP; boleh {@code null}. Nilai
+	 *                      {@code null} <b>tidak</b> menghentikan pemrosesan, tetapi memaksa
+	 *                      {@code tetapberhasil} efektif menjadi {@code false} (fail-closed)
+	 * @param tetapberhasil bila {@code true} <b>dan</b> {@code bankHost} tidak {@code null},
+	 *                      pemeriksaan "nominal setoran harus sama dengan total tagihan VA" pada
+	 *                      {@code action=payment} <b>dilewati</b> sehingga pembayaran tetap
+	 *                      diposting; dipakai untuk protokol Bank BTN yang mengirim konfirmasi
+	 *                      tanpa nominal yang sepadan. Diabaikan (diperlakukan {@code false}) bila
+	 *                      {@code bankHost} {@code null}
 	 * @return badan balasan JSON siap kirim; tidak pernah {@code null}
 	 * @throws Exception bila terjadi kegagalan yang tidak tertangani di luar blok yang dilindungi
 	 * @see #prosesH2HInquiry
@@ -665,6 +675,12 @@ public class Va extends HttpServlet {
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/Va.java:442");
 				}
 
+				// FIX (integritas nominal): tetapberhasil HANYA boleh melewati pemeriksaan nominal
+				// bila bankHost terverifikasi lewat pencocokan IP benar-benar ada. bankHost == null
+				// berarti IP pemanggil tidak dikenal sama sekali, sehingga tidak ada dasar untuk
+				// mempercayai pemanggil sebagai gateway bank yang berwenang -> fail-closed.
+				boolean tetapberhasilAman = tetapberhasil && bankHost != null;
+
 				virtualAccountBankNtt = VirtualAccountBank.ambilVa(va, nominal, bankHost);
 
 				if (virtualAccountBankNtt != null
@@ -716,7 +732,7 @@ public class Va extends HttpServlet {
 									if (isExpired(virtualAccountBankNtt)) {
 										jsonObject = generateExpiredResponse();
 										body = jsonObject.toString();
-									} else if (!tetapberhasil
+									} else if (!tetapberhasilAman
 											&& (nominal.intValue() != virtualAccountBankNtt.totalBiaya())) {
 										jsonObject = new JSONObject();
 										jsonObject.put("status", "04");
@@ -724,7 +740,7 @@ public class Va extends HttpServlet {
 										body = jsonObject.toString();
 									} else {
 										body = prosesH2HPayment(virtualAccountBankNtt, session, bank, data, jsonObject,
-												rincian, nim, nama, tanggalP, bankHost, tetapberhasil, nominal);
+												rincian, nim, nama, tanggalP, bankHost, tetapberhasilAman, nominal);
 									}
 
 								} else if (action != null && action.equalsIgnoreCase("reversal")) {
@@ -835,12 +851,30 @@ public class Va extends HttpServlet {
 	 * <p>{@link BankHost} dicari lewat {@code PembayaranUtil.getBankHost} memakai
 	 * {@code request.getRemoteAddr()} &mdash; alamat soket sesungguhnya, bukan header
 	 * {@code X-Forwarded-For} yang bisa dipalsukan. Hasilnya boleh {@code null}; nilai
-	 * {@code null} diteruskan apa adanya ke {@link #doProses} dan tidak menolak permintaan.</p>
+	 * {@code null} diteruskan apa adanya ke {@link #doProses} dan tidak menolak permintaan. Label
+	 * yang diteruskan ke {@code getBankHost} untuk baris baru yang dibuat otomatis (bila IP belum
+	 * dikenal) adalah literal tetap {@code "Default Bank"} &mdash; <b>bukan</b> {@code bank} milik
+	 * payload &mdash; supaya pemanggil tak dikenal tidak bisa membuat baris {@code bank_host} baru
+	 * bernama {@code "Bank BTN"} sekadar dengan mengirim {@code bank="Bank BTN"}.</p>
 	 *
-	 * <p>Bendera {@code tetapberhasil} yang diteruskan ke {@link #doProses} bernilai {@code true}
-	 * bila dan hanya bila nama bank hasil langkah di atas sama dengan {@code "Bank BTN"}. Karena
-	 * nama bank itu berasal dari payload pemanggil, pemilihan mode tersebut ditentukan oleh isi
-	 * permintaan, bukan oleh identitas pemanggil yang terverifikasi.</p>
+	 * <h4>FIX (integritas nominal) &mdash; {@code tetapberhasil} kini diikat ke identitas host,
+	 * bukan ke isi payload</h4>
+	 * <p><b>Sebelumnya</b> bendera {@code tetapberhasil} yang diteruskan ke {@link #doProses}
+	 * diturunkan langsung dari nilai {@code bank} milik payload pemanggil, sehingga siapa pun yang
+	 * bisa menjangkau endpoint ini &mdash; endpoint ini tidak punya gerbang otentikasi, lihat
+	 * dokumentasi kelas &mdash; dapat memaksa {@code tetapberhasil=true} (dan dengan itu melewati
+	 * pemeriksaan "nominal setoran harus sama dengan total tagihan VA" pada
+	 * {@code action=payment}) hanya dengan mengirim {@code bank="Bank BTN"}, atau menyisipkan
+	 * kunci {@code revflag}/{@code reserve} pada payload JSON. Akibatnya tagihan bisa ditandai
+	 * lunas dengan nominal berapa pun (termasuk {@code 0}) tanpa uang yang benar-benar masuk.</p>
+	 * <p><b>Sekarang</b> bendera itu diturunkan dari identitas {@link BankHost} hasil pencocokan
+	 * IP: bernilai {@code true} bila dan hanya bila {@code bankHost} tidak {@code null} dan
+	 * {@link BankHost#getNama()}-nya sama persis (case-insensitive) dengan {@code "Bank BTN"}.
+	 * Baris {@code bank_host} bernama demikian hanya dapat ada lewat konfigurasi yang disunting
+	 * admin di layar master data (lihat catatan di atas soal label {@code "Default Bank"}), bukan
+	 * dari isi permintaan ini. {@link #doProses} sendiri menegakkan lapis fail-closed kedua: bila
+	 * {@code bankHost} {@code null}, bendera yang diterimanya diperlakukan sebagai {@code false}
+	 * apa pun nilai yang dikirim di sini.</p>
 	 *
 	 * <p>Balasan dikirim dengan header {@code length} dan {@code Content-Type: application/json};
 	 * status HTTP dibiarkan pada nilai bawaan 200 apa pun kode status di dalam JSON.</p>
@@ -872,8 +906,26 @@ public class Va extends HttpServlet {
 				bank = "Bank BJBS";
 		}
 
-		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), bank);
-		boolean isBtn = bank != null && bank.equalsIgnoreCase("Bank BTN");
+		// FIX (integritas nominal): label "nama" di sini HANYA dipakai PembayaranUtil.getBankHost
+		// untuk mengisi kolom "nama" BankHost baru yang dibuat otomatis saat IP pemanggil belum
+		// dikenal. Sebelumnya literal "bank" (isi payload pemanggil) diteruskan apa adanya sebagai
+		// label itu, sehingga pemanggil tak dikenal bisa membuat baris BankHost baru bernama
+		// "Bank BTN" hanya dengan mengirim bank="Bank BTN" pada payload -- lalu baris hasil rekaan
+		// itu sendiri dipakai untuk membenarkan tetapberhasil=true di bawah. Label generik "Default
+		// Bank" (sama seperti overload PembayaranUtil.getBankHost(HttpServletRequest) yang lain)
+		// memutus jalur itu: baris yang benar-benar bernama "Bank BTN" hanya bisa berasal dari
+		// konfigurasi bank_host yang disunting admin, bukan dari payload permintaan ini.
+		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), "Default Bank");
+
+		// FIX (integritas nominal): isBtn/tetapberhasil TIDAK BOLEH lagi diturunkan dari string
+		// "bank" milik payload pemanggil (lihat dokumentasi kelas dan doProses) -- itulah yang
+		// sebelumnya membuat siapa pun bisa melewati pemeriksaan "nominal harus sama dengan total
+		// tagihan" cukup dengan mengirim bank="Bank BTN" atau menyisipkan kunci revflag/reserve.
+		// Sekarang diturunkan dari identitas BankHost hasil pencocokan IP yang terverifikasi:
+		// bankHost == null (IP tak dikenal) SELALU menghasilkan isBtn=false (fail-closed, lihat
+		// juga tetapberhasilAman di doProses), dan baris bank_host bernama persis "Bank BTN" hanya
+		// bisa ada karena disunting admin di layar master data, bukan dari payload permintaan ini.
+		boolean isBtn = bankHost != null && "Bank BTN".equalsIgnoreCase(bankHost.getNama());
 
 		String body = Va.doProses(data, request, bankHost, isBtn);
 
