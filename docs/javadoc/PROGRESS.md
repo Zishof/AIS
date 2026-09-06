@@ -1,5 +1,73 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 129 — 99 file lepas root (5 agent paralel), 3 task baru, total 199/485 root selesai (6 Sep 2026)
+
+Lanjutan backlog root: klaster kepegawaian/prestasi/orang-tua (20
+file, r85544-r85611), PMB/pendaftaran (20 file, r85548-r85629),
+kurikulum/skripsi+`Tugas.java` (20 file, r85547-r85644), angket/
+report/log (20 file, r85543-r85630), diskusi/relasi-data/misc (19
+file, r85550-r85623).
+
+**Klaster kepegawaian/prestasi**: 0 task baru. `StatusPegawai`
+(aktif/pensiun) vs `StatusKepegawaian` (jenis ikatan kerja) dikonfirmasi
+2 sumbu independen. `KategoriPenghargaan` dikonfirmasi master dipakai
+bersama `PenghargaanDosen`/`PenghargaanMahasiswa` (label layar beda,
+baris sama).
+
+**Klaster PMB/pendaftaran**: 0 task baru. `JenisPengajuan` vs
+`JenisPengajuanPegawai` dikonfirmasi tabel terpisah total.
+`KonfigurasiKalenderAkademik.getKonfigurasi()` dikonfirmasi TIDAK
+terpapar bug `getHari()` yang sudah tercatat di `KalenderAkademik`
+(tidak memanggil method itu).
+
+**Klaster kurikulum/skripsi + `Tugas.java`** (1290 baris, 4 commit
+bertahap). **Bug id-anak-vs-induk TERKONFIRMASI LAGI** di
+`reInitTugasFileContent` — penyaring timpang antar 3 tabel pemilik
+(`TugasPertemuan` ketat, `Pertemuan`/`TugasKelompok` longgar `class_from
+is null`), DIPERPARAH: `ambilTugasFileContentTotal` memanggil
+`setPertemuan(this.getId())` di setiap baris — **membuka halaman
+daftar saja bisa memindahkan kepemilikan pengumpulan tugas secara
+PERMANEN**. `VOSiswa` dikonfirmasi PUNYA 3 SUBCLASS (bukan 2 seperti
+dugaan): `sekolah.Siswa`/`sekolah.CalonSiswa`/DAN
+**`koperasi.AnggotaKoperasi`** (reuse lintas domain tak terduga) —
+`reInitHasilUjianMahasiswa` tidak mengenal cabang ketiga tapi
+terverifikasi KODE TIDUR (nol pemanggil hidup, bukan bug aktif).
+**Task baru `task_1b2c7ae6`**: `JamPerkuliahanSyncrhonizerProcessor
+.procesDosenPa()` — `mahasiswa.setDosen(dosenPembimbingAkademikTemporary
+.getId())` pakai ID BARIS ANTREAN bukan `getDosen().getId()` — setiap
+mahasiswa yang diproses dapat ID pembimbing akademik KELIRU, baris
+ditandai `udah=true` sehingga TAK PERNAH diulang/diperbaiki otomatis.
+Saudaranya `procesKelas()` bercacat setara (tercatat sesi lain, belum
+dieskalasi).
+
+**Klaster angket/report/log**. `DetailLogLogin`/`ErrorLog`/`MemoryInfo`
+SEMUA TERVERIFIKASI AMAN (tidak mewarisi kebocoran `LogLogin`/
+`task_78a5b1ab`). **Task baru `task_3a1e4204`** — ditemukan SAAT
+menelusuri pemakai `NotifikasiWa`: token Facebook Graph API (WhatsApp
+Business) DI-HARDCODE sebagai default `Common.getKonfigurasi("token_wa",
+"<token panjang>")` di `ais/action/servlet/Wa.java`, PLUS kredensial
+UltraMsg serupa di `WaApi.java` — kebocoran KREDENSIAL PRODUKSI
+langsung di source control (pola auto-seed `getKonfigurasi` ke DB
+memperparah).
+
+**Klaster diskusi/relasi-data/misc** (agent penutup). `GDriveCredential`
+dikonfirmasi simpan `refreshToken` mentah — perluasan `task_f597932c`
+(bukan task baru). `BankSoalDetail` dikonfirmasi eksplisit sebagai akar
+`task_bee6756e`. **`Statuskehadiran_old` (root) TERNYATA masih AKTIF
+dibaca** oleh `JamPerkuliahanSyncrhonizerProcessor.processMigrasiAbsensi()`
+sebagai sumber migrasi SATU-ARAH ke `Pertemuan.absensi` — bukan dorman
+total meski namanya `_old`. **Task baru `task_5d012d05`**:
+`DasbordPelanggaran.muatPelanggaranMahasiswa()` TIDAK menerima
+parameter `ortu` dan TIDAK menyaring kepemilikan untuk role personal
+non-mahasiswa (ortu/guru/dosen/pegawai) — beda dari
+`muatPelanggaranSiswa` yang fail-closed via `ambilAnakSiswa()`, akun
+personal non-mahasiswa lihat SEMUA pelanggaran mahasiswa SE-PT (akar
+beda dari `task_5e93a600`, bukan FK salah tapi filter tak pernah ditulis).
+
+**3 task baru batch ini**: `task_5d012d05`, `task_3a1e4204`,
+`task_1b2c7ae6`. Total akumulasi: **1756+ file** dari 7.401 — 199/485
+file root selesai, sisa **~272 file lepas root murni**.
+
 ## 🎉🚨 Batch 128 — mega-file PALING SERING DIRUJUK seluruh inisiatif akhirnya didokumentasikan sendiri (5 agent `opus`, ~30rb+ baris, 6 task baru, 6 Sep 2026)
 
 Selama inisiatif ini, puluhan agent menyinggung method-method di
