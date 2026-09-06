@@ -1122,9 +1122,76 @@ public class OcbcNisp extends HttpServlet {
 		return jsonObjectResponse;
 	}
 
+	/**
+	 * Daftar access token yang pernah diterbitkan kelas ini pada cabang penerbitan token.
+	 *
+	 * <p><b>Penting:</b> field ini hanya ditulis, tidak pernah dibaca. Tidak ada satu pun jalur di
+	 * kelas ini yang memvalidasi header {@code Authorization} terhadap isi daftar ini, sehingga
+	 * token yang diterbitkan tidak berfungsi sebagai gerbang akses. Karena daftar juga tidak
+	 * pernah dipangkas maupun dikaitkan dengan masa berlaku {@code expiresIn}, isinya bertambah
+	 * terus selama instance servlet hidup.</p>
+	 *
+	 * <p>Field bersifat per-instance servlet dan bukan struktur data aman-thread, padahal servlet
+	 * dilayani banyak worker thread sekaligus.</p>
+	 */
 	private List<String> accessTokens = new ArrayList<String>();
+
+	/**
+	 * Peta bantu {@code customerNo} ke {@code partnerReferenceNo} yang terakhir dikirim bank.
+	 *
+	 * <p>Dipakai agar permintaan lanjutan yang tidak menyertakan {@code partnerReferenceNo} tetap
+	 * dapat memantulkan nomor referensi yang sama seperti pada permintaan sebelumnya. Peta ini
+	 * disimpan di memori tanpa batas ukuran maupun kedaluwarsa, tidak aman-thread, dan hilang saat
+	 * aplikasi dimuat ulang; karena itu ia hanya bersifat penyempurna kenyamanan, bukan sumber
+	 * kebenaran.</p>
+	 */
 	private Map<String, String> customerNoAndPartner = new HashMap<String, String>();
 
+	/**
+	 * Pengurai permintaan HTTP: membaca body dan header, memilih antara cabang penerbitan token
+	 * dan cabang transaksi, lalu menuliskan respons JSON beserta status HTTP-nya.
+	 *
+	 * <h4>Penentuan mode dari URI</h4>
+	 * <p>Akhiran {@code notify-payment-intrabank} menyalakan {@code reversal} sekaligus
+	 * {@code intrabank}; akhiran {@code intrabank} saja menyalakan {@code intrabank}; akhiran
+	 * {@code inquiry-intrabank} memaksa {@code inquiryRequestId} menjadi {@code "123"} agar
+	 * permintaan diperlakukan sebagai inquiry.</p>
+	 *
+	 * <h4>Cabang penerbitan token</h4>
+	 * <p>Dipilih ketika body memuat {@code grantType} <b>atau</b> header memuat
+	 * {@code X-Client-Key}/{@code X-CLIENT-KEY}. Di sinilah satu-satunya verifikasi kriptografis
+	 * pada kelas ini berjalan: string {@code <X-Client-Key>|<X-Timestamp>} diverifikasi dengan
+	 * algoritma {@code SHA256withRSA} terhadap kunci publik dari konfigurasi
+	 * {@code strPublicKey_ocbc} (dengan kunci bawaan tertanam di kode sebagai cadangan), memakai
+	 * tanda tangan pada header {@code X-Signature}/{@code X-SIGNATURE}. Bila sahih, sebuah UUID
+	 * acak diterbitkan sebagai {@code accessToken} dengan {@code responseCode} dan
+	 * {@code responseMessage} yang keduanya dapat diatur lewat konfigurasi
+	 * {@code token_ocbc_response_code} serta {@code token_ocbc_response_message}. Bila tidak
+	 * sahih, dikembalikan {@code 4017300 Unathorized. [Signature]}.</p>
+	 *
+	 * <h4>Cabang transaksi — batas keamanan yang perlu dipahami</h4>
+	 * <p>Cabang {@code else} menangani inquiry, payment, dan reversal. Cabang ini <b>tidak
+	 * memeriksa tanda tangan maupun {@link #accessTokens}</b>; ia langsung mengurai
+	 * {@code virtualAccountNo}, {@code customerNo}, {@code paidAmount}/{@code payment_amount}/
+	 * {@code amount}, dan {@code paidStatus} dari body, memetakan alamat IP penelepon menjadi
+	 * {@link BankHost} lewat {@link PembayaranUtil#getBankHost(String, String)} — yang boleh
+	 * mengembalikan {@code null} tanpa menghentikan proses — lalu memanggil
+	 * {@link #doProcess}. Permintaan dengan {@code paidStatus} bernilai {@code "n"} diperlakukan
+	 * sebagai reversal. Pembatasan akses efektif karenanya berada pada lapisan jaringan di luar
+	 * aplikasi, bukan pada kode ini.</p>
+	 *
+	 * <h4>Penulisan respons</h4>
+	 * <p>Status HTTP diambil dari tiga digit pertama {@code responseCode}. Body JSON ditulis apa
+	 * adanya beserta header {@code Content-Type: application/json} dan header non-standar
+	 * {@code length}. Seluruh body dan header permintaan juga dicetak ke {@code System.out} untuk
+	 * penelusuran; keluaran itu memuat data transaksi nasabah sehingga berkas log server harus
+	 * diperlakukan sebagai data sensitif.</p>
+	 *
+	 * @param request  permintaan dari bank
+	 * @param response respons yang akan diisi JSON SNAP
+	 * @throws Exception bila pembacaan body, verifikasi tanda tangan, atau pemrosesan transaksi
+	 *                   gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
