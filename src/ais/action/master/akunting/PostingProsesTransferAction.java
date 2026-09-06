@@ -1339,10 +1339,13 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 		try {
 			List<DaftarPengajuanTransfer> daftar = kriteriaPostingStatic(session, mulai, sampai)
 					.add(Restrictions.isNotNull("postingHistory")).list();
+			final int ukuranBatch = 50;
+			int dipindaiDalamBatch = 0;
+			int dibatalkanDalamBatch = 0;
+			session = HibernateUtil.currentNativeSession();
+			session.getTransaction().begin();
 			for (DaftarPengajuanTransfer dpt : daftar) {
 				try {
-					session = HibernateUtil.currentNativeSession();
-					session.getTransaction().begin();
 					// Baris transaksi dihapus lebih dulu -- grup_transaksi adalah induknya.
 					session.createSQLQuery("delete from akunting.transaksi where grup_transaksi in"
 							+ " (select id from akunting.grup_transaksi where daftar_pengajuan_transfer="
@@ -1351,17 +1354,39 @@ public class PostingProsesTransferAction extends GenericAutowireComposer {
 							+ dpt.getId() + " and closing is null").executeUpdate();
 					dpt.setPostingHistory(null);
 					session.update(dpt);
-					session.getTransaction().commit();
-					n++;
+					dibatalkanDalamBatch++;
+					dipindaiDalamBatch++;
+					if (dipindaiDalamBatch >= ukuranBatch) {
+						session.getTransaction().commit();
+						n += dibatalkanDalamBatch;
+						dipindaiDalamBatch = 0;
+						dibatalkanDalamBatch = 0;
+						session = HibernateUtil.currentNativeSession();
+						session.getTransaction().begin();
+					}
 				} catch (Exception e) {
 					try {
 						session.getTransaction().rollback();
 					} catch (Exception ex) {
 						// rollback gagal: kegagalan aslinya yang dilaporkan
 					}
+					dipindaiDalamBatch = 0;
+					dibatalkanDalamBatch = 0;
 					ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction jalur API");
+					// Jangan lanjutkan session yang baru rollback: state entitas batch masih
+					// berada di first-level cache dan dapat ter-flush ulang secara tidak sengaja.
+					throw new RuntimeException(e);
 				}
 			}
+			session.getTransaction().commit();
+			n += dibatalkanDalamBatch;
+		} catch (Exception e) {
+			try {
+				session.getTransaction().rollback();
+			} catch (Exception rollbackGagal) {
+				// kegagalan asli tetap menjadi diagnosis utama
+			}
+			ais.common.ErrorAuditUtil.record(e, "PostingProsesTransferAction batal massal jalur API");
 		} finally {
 			try {
 				session.disconnect();
