@@ -528,6 +528,9 @@ public class KegiatanPersistenceHelper {
 			}
 			return Double.valueOf(total);
 		} catch (Exception e) {
+			if (e instanceof org.hibernate.HibernateException) {
+				throw (org.hibernate.HibernateException) e;
+			}
 			return null;
 		}
 	}

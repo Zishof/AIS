@@ -1172,7 +1172,7 @@ public class PembayaranUtilHelper {
 	 * Gunakan pilihan yang masih sah agar pencarian billing tidak terkunci pada data
 	 * lama yang sudah tidak konsisten.
 	 */
-	private static JenisSeleksi jenisSeleksiSesuaiGelombang(BiodataCalonMahasiswa calonMahasiswa) {
+	private static JenisSeleksi jenisSeleksiSesuaiGelombang(Session session, BiodataCalonMahasiswa calonMahasiswa) {
 		JenisSeleksi tersimpan = calonMahasiswa == null ? null : calonMahasiswa.getJenisSeleksi();
 		GelombangPendaftaran gelombang = calonMahasiswa == null ? null
 				: calonMahasiswa.getGelombangPendaftaran();
@@ -1180,7 +1180,7 @@ public class PembayaranUtilHelper {
 			return tersimpan;
 		}
 
-		List<JenisSeleksi> pilihan = gelombang.ambilJenisSeleksi();
+		List<JenisSeleksi> pilihan = gelombang.ambilJenisSeleksi(session);
 		if (pilihan == null || pilihan.isEmpty()) {
 			return tersimpan;
 		}
@@ -1299,7 +1299,6 @@ public class PembayaranUtilHelper {
 		}
 
 		Jenjang jenjang = jurusan != null ? jurusan.getJenjang() : biodataCalonMahasiswa.getJenjang();
-		JenisSeleksi jenisSeleksi = jenisSeleksiSesuaiGelombang(biodataCalonMahasiswa);
 		String program = biodataCalonMahasiswa.getProgram();
 		Integer angkatan = biodataCalonMahasiswa.getTahun();
 		Paket paket = biodataCalonMahasiswa.getPaket();
@@ -1330,6 +1329,7 @@ public class PembayaranUtilHelper {
 
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
+			JenisSeleksi jenisSeleksi = jenisSeleksiSesuaiGelombang(session, biodataCalonMahasiswa);
 
 			// Fresh reload untuk hindari stale cache dari combobox lama (calon mahasiswa path)
 			if (jenisKegiatan != null && jenisKegiatan.getId() != null) {
@@ -1515,6 +1515,9 @@ public class PembayaranUtilHelper {
 			
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/PembayaranUtilHelper.java:910");
+			if (e instanceof org.hibernate.HibernateException) {
+				throw (org.hibernate.HibernateException) e;
+			}
 			return new TreeSet<DetailBiaya>();
 		} finally {
 			closeOpenedSession(session);

@@ -1424,6 +1424,11 @@ public class GelombangPendaftaran extends GeneralValueObject {
 	 *         boleh kosong
 	 */
 	public List<JenisSeleksi> ambilJenisSeleksi() {
+		return ambilJenisSeleksi(HibernateUtil.currentSession());
+	}
+
+	/** Memakai session pemanggil; kegagalan query bukan berarti pilihan kosong. */
+	public List<JenisSeleksi> ambilJenisSeleksi(Session session) {
 
 		List<JenisSeleksi> jenisSeleksis = new ArrayList<JenisSeleksi>();
 
@@ -1433,17 +1438,14 @@ public class GelombangPendaftaran extends GeneralValueObject {
 
 		for (String kode : StringUtils.split(getJenisSeleksiLain(), ",")) {
 			if (!kode.trim().isEmpty()) {
-				JenisSeleksi jenisSeleksi = (JenisSeleksi) ConstantValues
-						.simpleObject(
-								HibernateUtil.currentSession().createCriteria(JenisSeleksi.class)
+				JenisSeleksi jenisSeleksi = (JenisSeleksi) session.createCriteria(JenisSeleksi.class)
 										.add(Restrictions.or(Restrictions.isNull("aktif"),
 												Restrictions.eq("aktif", true)))
 										.add(Restrictions.or(Restrictions.eq("kode", kode.trim()),
 												Restrictions.eq("id",
 														!Common.isNumber(kode.trim()) ? -1L
 																: Long.parseLong(kode.trim()))))
-										.setMaxResults(1),
-								JenisSeleksi.class);
+										.setMaxResults(1).uniqueResult();
 				if (jenisSeleksi != null && !jenisSeleksis.contains(jenisSeleksi)) {
 					jenisSeleksis.add(jenisSeleksi);
 				}

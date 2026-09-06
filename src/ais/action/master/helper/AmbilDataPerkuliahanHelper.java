@@ -1442,6 +1442,12 @@ public class AmbilDataPerkuliahanHelper {
 			}
 			semesterBox.addEventListener("onChange", new EventListener() {
 
+				/**
+				 * Menjalankan ulang pencarian saat semester matakuliah yang dicari diganti.
+				 *
+				 * @param arg0 event {@code onChange} dari combobox Semester
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					onSearchDefault(arg0);
@@ -1455,6 +1461,15 @@ public class AmbilDataPerkuliahanHelper {
 
 			semuaSemester.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani checkbox "Tampilkan semua smt" dalam dua langkah berurutan: membangun ulang isi
+				 * combobox semester lewat {@code eventListenerSemester} (melepas atau memasang kembali
+				 * penyaringan paritas ganjil/genap), lalu menjalankan ulang pencarian dengan daftar semester
+				 * yang baru. Urutan ini penting — mencari lebih dulu akan memakai isi combobox yang usang.
+				 *
+				 * @param arg0 event {@code onClick} dari checkbox "Tampilkan semua smt"
+				 * @throws Exception diteruskan dari pembangunan combobox atau {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					eventListenerSemester.onEvent(arg0);
@@ -1493,6 +1508,13 @@ public class AmbilDataPerkuliahanHelper {
 
 				tahapanBox.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Menjalankan ulang pencarian saat tahapan KRS diganti. Combobox ini hanya dibangun bila
+					 * {@link #tahapan} terisi dan bukan 0, yaitu ketika fitur tahapan pengambilan KRS aktif.
+					 *
+					 * @param arg0 event {@code onChange} dari combobox Tahapan
+					 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						onSearchDefault(arg0);
@@ -1514,6 +1536,13 @@ public class AmbilDataPerkuliahanHelper {
 
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Cari", "/img/svg/search.svg");
 			button.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menjalankan pencarian dengan seluruh filter yang sedang terpasang, kembali ke halaman
+				 * pertama.
+				 *
+				 * @param event event {@code onClick} dari tombol Cari
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					onSearchDefault(null);
@@ -1523,6 +1552,15 @@ public class AmbilDataPerkuliahanHelper {
 
 			button = new MyToolbarbuttonConfig("Refresh", "/img/Button-Refresh-icon.png");
 			button.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menjalankan pencarian ulang seperti tombol Cari, tetapi lebih dulu menyalakan penanda
+				 * {@link #reload} sehingga jumlah peserta dan kuota kelas dibaca ulang dari database alih-alih
+				 * memakai nilai yang sudah di-cache. Berguna ketika mahasiswa lain sedang mengisi KRS pada saat
+				 * yang sama sehingga angka "Tersedia/Penuh" di layar bisa sudah usang.
+				 *
+				 * @param event event {@code onClick} dari tombol Refresh
+				 * @throws Exception diteruskan dari {@link #onSearchDefault(Event)}
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					reload = true;
@@ -1614,6 +1652,14 @@ public class AmbilDataPerkuliahanHelper {
 			MyToolbarbuttonConfig buttonBatal = new MyToolbarbuttonConfig("Batal", "/img/cancel.gif");
 			buttonBatal.setTooltiptext("Tutup");
 			buttonBatal.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menutup jendela tanpa menyimpan. Karena {@link #save()} tidak pernah dipanggil, seluruh isi
+				 * {@link #hashMap} dibuang bersama helper ini dan tidak ada {@link Detailperkuliahan} yang
+				 * terbentuk; layar pemanggil juga tidak dimuat ulang.
+				 *
+				 * @param event event {@code onClick} dari tombol Batal
+				 * @throws Exception diteruskan dari akses komponen ZK
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					window.detach();
@@ -1624,6 +1670,15 @@ public class AmbilDataPerkuliahanHelper {
 			buttonSimpan = new MyToolbarbuttonConfig("Simpan", "/img/save.gif");
 			buttonSimpan.setTooltiptext("Simpan");
 			buttonSimpan.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menjalankan {@link #save()} lalu menunda pemeriksaan akhir batas SKS ke siklus event
+				 * berikutnya lewat {@link Common#createDefaultTimer(EventListener)} — penundaan diperlukan agar
+				 * baris {@link Detailperkuliahan} yang baru dibuat sudah ter-commit sebelum totalnya dihitung
+				 * ulang.
+				 *
+				 * @param event event {@code onClick} dari tombol Simpan
+				 * @throws Exception diteruskan dari {@link #save()}
+				 */
 				@Override
 				public void onEvent(Event event) throws Exception {
 
@@ -1631,6 +1686,23 @@ public class AmbilDataPerkuliahanHelper {
 
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Pemeriksaan akhir setelah penyimpanan: menghitung ulang total SKS yang benar-benar
+						 * tersimpan dan membandingkannya dengan batas maksimum {@code maxsks}.
+						 *
+						 * <p>Bila total melebihi batas DAN semester mahasiswa sudah mencapai
+						 * {@code minimal_smt_syarat_krs} (bawaan 2 — mahasiswa semester awal dikecualikan karena
+						 * belum punya IPK sebagai dasar pembatasan), ditampilkan dialog konfirmasi yang, bila
+						 * disetujui, memanggil {@code Common.hapusMatakuliahYangMelebihiKetentuan} untuk
+						 * MENGHAPUS matakuliah yang melebihi ketentuan. Bila total masih dalam batas, layar
+						 * pemanggil langsung dimuat ulang dan jendela ditutup.</p>
+						 *
+						 * <p>Kegagalan membaca konfigurasi {@code minimal_smt_syarat_krs} ditelan dan dicatat
+						 * sebagai audit, dengan nilai cadangan 2 tetap dipakai.</p>
+						 *
+						 * @param arg0 event timer penunda
+						 * @throws Exception diteruskan dari perhitungan SKS atau akses komponen ZK
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -1652,6 +1724,20 @@ public class AmbilDataPerkuliahanHelper {
 										"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION,
 										new EventListener() {
 
+											/**
+											 * Callback persetujuan dialog kelebihan SKS: MENGHAPUS baris KRS yang
+											 * melebihi ketentuan lewat
+											 * {@code Common.hapusMatakuliahYangMelebihiKetentuan}, lalu menutup
+											 * jendela dan memuat ulang layar pemanggil.
+											 *
+											 * <p>Perlu disadari bahwa pemilihan matakuliah mana yang dibuang
+											 * sepenuhnya ditentukan helper tersebut, bukan oleh pilihan mahasiswa
+											 * di layar ini — dialog hanya meminta persetujuan atas tindakan
+											 * penyesuaian, bukan atas daftar spesifik yang akan dihapus.</p>
+											 *
+											 * @param arg0 event persetujuan dari dialog peringatan
+											 * @throws Exception diteruskan dari proses penghapusan
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												Common.hapusMatakuliahYangMelebihiKetentuan(mahasiswa, semester,
@@ -1659,6 +1745,16 @@ public class AmbilDataPerkuliahanHelper {
 
 												Common.createDefaultTimer(new EventListener() {
 
+													/**
+													 * Menutup jendela dan memuat ulang layar pemanggil setelah
+													 * penyesuaian selesai. Ditunda satu siklus event agar
+													 * penghapusan sudah ter-commit sebelum layar pemanggil
+													 * membaca ulang daftar KRS.
+													 *
+													 * @param arg0 event timer penunda
+													 * @throws Exception diteruskan dari pemuatan ulang layar
+													 *                   pemanggil
+													 */
 													@Override
 													public void onEvent(Event arg0) throws Exception {
 														dataLoader.loadData(true);
@@ -1704,6 +1800,27 @@ public class AmbilDataPerkuliahanHelper {
 
 		Common.createDefaultTimer(new EventListener() {
 
+			/**
+			 * Menerapkan kebijakan tingkat institusi pada filter layar setelah seluruh UI selesai dibangun,
+			 * lalu menjalankan pencarian pertama.
+			 *
+			 * <p>Empat konfigurasi dibaca: {@code saat_ambil_krs_secara_default_hanya_pilih_smt_berjalan}
+			 * menyembunyikan checkbox "Tampilkan semua smt" sehingga mahasiswa terkunci pada semester
+			 * berjalan; {@code saat_ambil_krs_secara_default_pilih_semua_semester} mengosongkan pilihan
+			 * semester; {@code saat_ambil_krs_secara_default_pilih_semua_prodi} mengosongkan pilihan
+			 * fakultas/jurusan; dan {@code saat_ambil_krs_boleh_mengambil_dari_prodi_lain} — bila TIDAK aktif
+			 * — MENONAKTIFKAN combobox fakultas dan jurusan agar mahasiswa hanya melihat matakuliah prodinya
+			 * sendiri.</p>
+			 *
+			 * <p><b>Catatan pemeliharaan:</b> pembatasan lintas-prodi tersebut diterapkan dengan
+			 * menonaktifkan komponen di layar, sedangkan {@link #initCriteria(boolean)} tetap menyaring
+			 * berdasarkan nilai combobox apa adanya — jadi penegakannya bertumpu pada kontrol UI, bukan pada
+			 * kriteria query. Penundaan ke siklus event berikutnya dipakai agar seluruh komponen sudah
+			 * terpasang sebelum nilainya diubah.</p>
+			 *
+			 * @param arg0 event timer penunda
+			 * @throws Exception diteruskan dari pembacaan konfigurasi atau {@link #onSearchDefault(Event)}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -1846,6 +1963,22 @@ public class AmbilDataPerkuliahanHelper {
 
 		Common.createDefaultTimer(new EventListener() {
 
+			/**
+			 * Menyegarkan status seluruh baris SETELAH grid selesai dirender, lalu mematikan kembali penanda
+			 * {@link #reload}.
+			 *
+			 * <p>{@link #updateStatus(Checkbox)} dipanggil dengan {@code null} karena penyegaran ini bukan
+			 * akibat klik pemakai — mode itu melewati pelepasan paksa centang dan hanya menghitung ulang total
+			 * SKS serta status setiap checkbox. Penundaan lewat
+			 * {@link Common#createDefaultTimer(EventListener, String)} (beserta pesan tunggu) diperlukan
+			 * karena baris grid belum selesai terpasang saat method ini dijalankan.</p>
+			 *
+			 * <p>Pengembalian {@code reload} ke {@code false} memastikan pembacaan paksa jumlah peserta/kuota
+			 * yang dipicu tombol Refresh hanya berlaku untuk satu kali pencarian, bukan seterusnya.</p>
+			 *
+			 * @param arg0 event timer penunda
+			 * @throws Exception diteruskan dari penyegaran status grid
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				updateStatus(null);
