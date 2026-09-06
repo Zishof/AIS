@@ -5026,6 +5026,162 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	 */
 	public class DetailPertemuanPunyaUjianRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * <b>Tujuan:</b> Merender SATU baris grid rekap hasil ujian — sembilan sel yang memuat
+		 * kartu peserta, waktu pengerjaan, skor, nilai, keterangan, dan rekap pelanggaran —
+		 * sekaligus memasang seluruh <i>editor sebaris</i> (inline editor) yang memungkinkan
+		 * dosen mengubah data hasil ujian langsung dari grid tanpa membuka jendela lain.
+		 *
+		 * <p>Method ini adalah <b>bagian terpanjang dan paling padat efek samping</b> pada kelas
+		 * ini: ia bukan sekadar penggambar tampilan, melainkan tempat sepuluh listener penulis
+		 * database dipasang. Perubahan di sini berdampak langsung pada integritas nilai.</p>
+		 *
+		 * <h3>1. Resolusi objek baris</h3>
+		 * <p>{@code arg1} adalah salah satu dari empat implementasi {@code VOMahasiswa}
+		 * ({@link Mahasiswa}, {@link BiodataCalonMahasiswa}, {@link Siswa}, {@link CalonSiswa}).
+		 * Keempatnya diuji dengan {@code instanceof}, lalu id-nya dipakai mencari
+		 * {@code Object[]} pada {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas}. Bila
+		 * entri belum ada — lazim terjadi karena grid dipasang SEBELUM kolam thread latar selesai
+		 * mengisi map — method langsung {@code return} sehingga baris tampil kosong, bukan
+		 * melempar exception. Menekan Refresh setelah pemuatan selesai akan memunculkan isinya.</p>
+		 * <p>{@code s[0]} adalah entity hasil ujian dan {@code s[1]} himpunan id soal terjawab;
+		 * dari situ dihitung {@code terjawab}, {@code belum} (dijaga tidak negatif), serta
+		 * persentase terjawab/belum yang dijaga terhadap {@code totalSoal <= 0}.</p>
+		 *
+		 * <h3>2. Panel detail yang dimuat malas</h3>
+		 * <p>{@link MyDetail} dipasang sebagai sel pertama dengan listener {@code onOpen}. Isi
+		 * detail (rincian soal &amp; koreksi jawaban) baru dibangun saat panel DIBUKA, lewat
+		 * {@link HasilUjianMahasiswaHelper#tampilRow(MyDetail, HasilUjianMahasiswa)} yang
+		 * mendelegasikan ke {@code KoreksiHasilUjian}. Pemuatan malas ini penting karena satu
+		 * halaman grid memuat sampai 1000 peserta. Listener yang sama juga menangani sinyal
+		 * "data berubah": bila {@code event.getData()} berupa {@link HasilUjianMahasiswa},
+		 * baris dibersihkan lalu {@code render(...)} dipanggil ulang lewat timer ZK — pola
+		 * render-ulang mandiri yang membuat perubahan dari panel koreksi langsung terlihat.</p>
+		 *
+		 * <h3>3. Sel-sel tampilan</h3>
+		 * <ul>
+		 *   <li><b>Kartu peserta:</b> foto kecil ({@code CommonMedia.tampilkanGambarKecil}) plus
+		 *       nama, dibungkus {@code RevisiHelper.createNewRevisi} sehingga riwayat revisi
+		 *       entity dapat ditelusuri dari baris. Baris diberi {@code sclass}
+		 *       {@code "ais-peserta-row"} agar CSS meratakan latar kotak bersarang.</li>
+		 *   <li><b>Waktu:</b> tanggal ujian, waktu mulai, dan waktu selesai — masing-masing hanya
+		 *       dirender bila datanya ada.</li>
+		 *   <li><b>Lama Waktu:</b> diformat memakai {@code Common.timeFormat1} (HH:mm:ss) dan
+		 *       BUKAN format tanggal, karena {@code getLamaPengerjaan()} adalah DURASI yang dibuat
+		 *       dari {@code GregorianCalendar(0,0,0,jam,menit,detik)} sehingga bagian tanggalnya
+		 *       tidak bermakna ("31-12-0002").</li>
+		 *   <li><b>Statistik ringkas:</b> jumlah soal, soal terjawab, dan soal belum terjawab
+		 *       beserta persentasenya. Latar baris diwarnai merah muda bila pengerjaan sebagian
+		 *       (0&lt;persen&lt;100) dan hijau muda bila 100%.</li>
+		 *   <li><b>Pelanggaran:</b> jumlah pelanggaran (merah bila &gt;0, hijau "0 (bersih)" bila
+		 *       tidak ada) dan cuplikan {@code logPelanggaran} dipangkas 400 karakter dengan
+		 *       teks penuh pada tooltip.</li>
+		 * </ul>
+		 *
+		 * <h3>4. Sel Skor/Max dan Nilai — dua cabang besar</h3>
+		 * <p>Tampilan skor bercabang menurut apakah kurikulum perkuliahan ber-OBE
+		 * ({@code kurikulum.apakahObe(tahunAjaran, ganjilGenap)}):</p>
+		 * <ul>
+		 *   <li><b>Mode OBE:</b> satu baris per Sub-CPMK, dibaca dari JSON {@code nilaiObe}.
+		 *       Nilai tersebut sengaja diambil <b>LANGSUNG dari database</b> lewat
+		 *       {@code Projections.property("nilaiObe")} pada session terdedikasi, MENEMBUS cache
+		 *       MapDB {@code ambilByKey} yang bisa basi. Tanpa itu kolom Skor/Max tidak akan
+		 *       mencerminkan hasil "Hitung Ulang" terbaru. Pada varian pilihan ganda + OBE,
+		 *       label nilai per Sub-CPMK dibuat dapat diklik menuju
+		 *       {@link HasilUjianMahasiswaHelper#bukaPopupRincianSubCpmk(HasilUjianMahasiswa, FormatNilai)},
+		 *       tetapi hanya bila {@code nilaiMax != 0}.</li>
+		 *   <li><b>Mode non-OBE:</b> label "benar / maks", dan pada pilihan ganda label Nilai
+		 *       dapat diklik menuju
+		 *       {@link HasilUjianMahasiswaHelper#bukaPopupPerbandinganSkor(HasilUjianMahasiswa)}
+		 *       untuk menemukan soal berdata tak wajar (skor diperoleh melebihi skor maksimal).</li>
+		 * </ul>
+		 * <p>Pada keempat titik tersebut, bila skor 0 sementara maksimalnya &gt; 0, tombol bantuan
+		 * {@code tombolBantuanNilaiNol(...)} disisipkan.</p>
+		 *
+		 * <h3>5. Editor sebaris dan pola penyimpanannya</h3>
+		 * <p>Sepuluh listener penulis dipasang. Dua pola penyimpanan berbeda dipakai secara sadar:</p>
+		 * <ul>
+		 *   <li><b>Pola HQL bulk update</b> — dipakai {@code Sisa Waktu} dan checkbox
+		 *       {@code Lengkapi ulang jawaban}. Alasannya didokumentasikan pada komentar di kode:
+		 *       pola {@code session.get} + setter + {@code update} memicu Hibernate MEMANGGIL
+		 *       getter saat dirty-check (mapping berbasis PROPERTY access), dan getter
+		 *       {@code getSisaWaktuPengerjaan()} SENGAJA menimpa nilai in-memory dengan cache
+		 *       berkas "live" yang masih berisi nilai lama — sehingga masukan admin batal
+		 *       tersimpan. {@code update ... set ... where id = :id} tidak memuat entity dan tidak
+		 *       memanggil getter sama sekali, sehingga nilai yang tersimpan persis seperti yang
+		 *       diketik. Ini contoh konkret dampak pola arsitektur <i>getter yang memutasi
+		 *       field</i> yang tersebar di paket model.</li>
+		 *   <li><b>Pola muat-ubah-simpan</b> — dipakai {@code Ikut ujian} ({@code jumlahIkut}),
+		 *       {@code Nilai} (esai), tombol {@code Hitung Ulang} per baris, dan
+		 *       {@code Keterangan}. Aman karena kolom-kolom itu tidak punya getter bermutasi.</li>
+		 * </ul>
+		 * <p>Editor {@code Nilai} dan {@code Keterangan} memberi umpan balik simpan-otomatis
+		 * berupa tanda &#10003;/&#10007; yang memudar sendiri lewat {@code Clients.evalJavaScript}.
+		 * Field {@code Nomor Terakhir} tidak menulis ke database melainkan ke penyimpanan berkas
+		 * "live" entity ({@code put(nilai, "index")}) karena dipakai layar ujian yang sedang
+		 * berjalan.</p>
+		 * <p>Tombol <b>Hitung Ulang</b> per baris memakai rumus yang BERBEDA dari mesin penilaian
+		 * pusat: ia menjumlahkan {@code (nilaiDetail * 100 / skorSoal)} untuk setiap soal lalu
+		 * membaginya dengan jumlah soal, dan hanya mengambil SATU detail per soal
+		 * ({@code iterator().next()}). Untuk soal berjawaban ganda hasilnya karena itu dapat
+		 * berbeda dari {@code ProsesUjianHelper.hitungPilihanGanda}. Bila total &le; 0.1 nilai
+		 * tidak ditulis dan pengguna diberi pesan "belum dikoreksi".</p>
+		 *
+		 * <h3>6. Tombol Reset Ujian</h3>
+		 * <p>Menghapus jawaban peserta ({@code bankSoalDetail}, {@code jawaban},
+		 * {@code waktuJawab} di-null-kan — baris detail TIDAK dihapus), memanggil
+		 * {@code reset()} pada entity utama, lalu mengosongkan {@code sisaWaktuPengerjaan},
+		 * {@code jumlahPelanggaran}, dan {@code logPelanggaran}. Dilindungi dialog konfirmasi
+		 * dan dijalankan lewat timer ZK agar tidak memblokir antrean event. Setelah commit,
+		 * baris dirender ulang.</p>
+		 *
+		 * <h3>7. Otorisasi — perlu diperhatikan</h3>
+		 * <p>Satu-satunya pemeriksaan hak akses di dalam method ini adalah gerbang tombol
+		 * <b>Reset Ujian</b>: {@code Common.getCurrentUser()} harus bukan mahasiswa dan bukan
+		 * siswa. Perhatikan dua hal:</p>
+		 * <ul>
+		 *   <li>Gerbang itu <b>tidak mengecualikan</b> pengguna ber-{@code biodataCalonMahasiswa}
+		 *       atau ber-{@code calonSiswa}, berbeda dari gerbang tombol toolbar di
+		 *       {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)} yang
+		 *       memeriksa keempat peran peserta.</li>
+		 *   <li>Editor yang MENGUBAH NILAI ({@code Doublebox} nilai esai, tombol Hitung Ulang),
+		 *       waktu ({@code Sisa Waktu}), dan status pengerjaan ({@code Ikut ujian},
+		 *       {@code Lengkapi ulang jawaban}) sama sekali TIDAK bergerbang di dalam
+		 *       listener-nya. Perlindungannya sepenuhnya bersandar pada asumsi bahwa grid ini
+		 *       hanya dibuka dari tombol "Hasil Ujian" milik layar dosen/admin. Ini adalah pola
+		 *       <i>penjagaan hanya di lapisan UI</i>: begitu ada jalur baru yang membuka grid
+		 *       untuk peran peserta, seluruh editor tersebut ikut terbuka tanpa perlawanan.
+		 *       Bila menambahkan pemanggil baru {@code display(...)}, WAJIB memverifikasi
+		 *       perannya, atau lebih baik menambahkan pemeriksaan peran di dalam listener
+		 *       penulis di sini.</li>
+		 * </ul>
+		 * <p>Tidak ada pula penyaringan kepemilikan per baris: renderer mempercayai sepenuhnya
+		 * isi {@link HasilUjianMahasiswaHelper#hasilUjianMahasiswas} yang disusun
+		 * {@link HasilUjianMahasiswaHelper#loadData(Object)}.</p>
+		 *
+		 * <h3>8. Session dan ketahanan</h3>
+		 * <p>Setiap listener membuka session Hibernate SENDIRI dari {@code SessionFactory} dan
+		 * menutupnya di {@code finally}; tidak ada session yang dibagi antar listener. Beberapa
+		 * blok {@code catch} pada editor {@code Ikut ujian} hanya me-rollback tanpa memberi tahu
+		 * pengguna — kegagalan simpan di sana berlangsung senyap. Sebaliknya editor Nilai dan
+		 * Keterangan menampilkan tanda &#10007; beserta pesan kegagalan.</p>
+		 *
+		 * <h3>9. Pemeliharaan</h3>
+		 * <p>Jumlah sel yang ditambahkan ke {@code arg0} HARUS sama dengan jumlah
+		 * {@code MyColumnConfig} yang dideklarasikan di
+		 * {@link HasilUjianMahasiswaHelper#display(PertemuanPunyaUjian, Component)}
+		 * (sembilan kolom). Menambah satu {@code Vbox}/{@code Hbox} tanpa menambah kolom akan
+		 * menggeser seluruh sel ke kanan. Perhatikan bahwa beberapa cabang OBE/non-OBE
+		 * menambahkan sel pada posisi berbeda — telusuri kedua cabang saat mengubah tata letak.</p>
+		 *
+		 * @param arg0 baris {@link Row} yang akan diisi; sudah terpasang pada {@code Rows} grid
+		 * @param arg1 objek peserta dari model grid — {@link Mahasiswa},
+		 *             {@link BiodataCalonMahasiswa}, {@link Siswa}, atau {@link CalonSiswa}.
+		 *             Tipe lain menghasilkan baris kosong
+		 * @throws Exception diteruskan dari pembuatan komponen ZK maupun akses data
+		 * @see HasilUjianMahasiswaHelper#loadData(Object)
+		 * @see HasilUjianMahasiswaHelper#tampilRow(MyDetail, HasilUjianMahasiswa)
+		 */
 		@SuppressWarnings("unchecked")
 		@Override
 		public void render(final Row arg0, final Object arg1) throws Exception {

@@ -96,6 +96,34 @@ import ais.database.model.StatusMahasiswa;
  * lengkap dengan logikanya tapi <b>tidak pernah dipanggil</b> di mana pun dalam class ini (dead code
  * peninggalan refactor) — jangan berasumsi ia aktif menyaring apa pun.</p>
  *
+ * <p><b>Peta peringatan integritas (baca sebelum mengubah apa pun di kelas ini).</b> Beberapa
+ * perilaku di bawah ini adalah fakta arsitektur yang sudah lama ada, bukan kerusakan baru, tetapi
+ * semuanya berada persis di jalur uang sehingga mudah salah ditafsirkan sebagai jaminan yang
+ * sebenarnya tidak diberikan. Rinciannya ada pada javadoc masing-masing method:</p>
+ * <ul>
+ * <li><b>Cache tagihan sudah tidak dibaca lagi.</b> Parameter internal
+ * {@code hanyaItemDariSettingBiaya} selalu bernilai {@code true} pada seluruh pemanggil, sehingga
+ * blok pembacaan cache di {@link #getDetailBiayaMahasiswadariDatabase} maupun di
+ * {@link #getDetailBiayaCalonMahasiswa(BiodataCalonMahasiswa, JenisKegiatan, Jurusan, Integer, boolean, boolean)}
+ * tidak pernah tereksekusi, sementara penulisannya tetap berjalan. Kuncinya tidak memuat flag
+ * tersebut, jadi menyalakan kembali pembacaan tanpa memperbaiki kunci akan memunculkan lagi
+ * regresi "item yang sudah dilepas dari Setting Biaya tetap tertagih".</li>
+ * <li><b>{@code DetailBiaya.aktif} tidak menghentikan tagihan bulanan.</b> Pada jalur angsuran,
+ * criteria berakar {@link PengaturanPembayaranBulanan} dan hanya memeriksa flag {@code aktif}
+ * milik baris bulanan; pembatas {@code aktif} milik {@link DetailBiaya} dibuang. Tidak ada
+ * mekanisme yang merambatkan penonaktifan induk ke baris bulanannya.</li>
+ * <li><b>Dedup akhir memakai {@link TreeSet} di atas {@code compareTo} yang hanya membandingkan
+ * kode item biaya.</b> Dua {@link ItemBiaya} yang kodenya sama-sama kosong akan saling menghapus,
+ * sehingga satu baris tagihan hilang diam-diam dari layar.</li>
+ * <li><b>Nol hasil hitungan diperlakukan sebagai "belum dihitung".</b>
+ * {@link #ambilNominalPengaturanBulananAman} membuang nominal modifikasi bernilai {@code 0} —
+ * yang menurut {@link PembayaranNominalModifikasiHelper} adalah nilai sah — lalu kembali ke
+ * nominal dasar.</li>
+ * <li><b>{@link #fallbackTagihanDariCicilan} menulis ke data master bersama dari jalur
+ * tampilan</b>, tanpa gerbang otorisasi dan tanpa {@code posting_history}, dan pada mode angsuran
+ * memakai dasar perhitungan yang berbeda dari mode non-angsuran.</li>
+ * </ul>
+ *
  * <p><b>Efek samping:</b> sebagian besar method di sini adalah pembacaan (query Hibernate lewat
  * {@link Session} baru yang selalu ditutup lewat {@link #closeOpenedSession}), namun beberapa method
  * (mis. {@link #fallbackTagihanDariCicilan}) melakukan <i>write</i> nyata ke DB — memperbaiki
@@ -2166,6 +2194,36 @@ public class PembayaranUtilHelper {
 	 * @param biodataCalonMahasiswa calon mahasiswa subjek, saling eksklusif dengan {@code mahasiswa}
 	 * @param jenisKegiatan jenis kegiatan/tagihan yang dihitung jumlah baris bulanannya
 	 * @param semester semester akademik yang dihitung
+	 * <p><b>Ambang nominal di sini tidak sama dengan ambang di gerbang tampil.</b> Kedua query
+	 * penghitung — baik fallback PPB per jenjang maupun {@code rowCount()} berbasis
+	 * {@code detailBiayas} — memakai
+	 * {@code Restrictions.or(eq("itemBiaya.penghitungan", DIKALI_NILAI_MINUS), gt("nominal", 0.01))}.
+	 * Perhatikan bahwa {@code gt} menolak nilai <i>negatif</i>, sedangkan
+	 * {@link #isPengaturanBulananLayakDitampilkan} memakai {@code Math.abs(nominal) > 0.01} yang
+	 * menerimanya. Baris potongan bernominal negatif yang <b>tidak</b> ditandai
+	 * {@link ItemBiaya#DIKALI_NILAI_MINUS} karena itu akan tampil di layar tetapi tidak ikut
+	 * terhitung di sini, sehingga jumlah angsuran yang diumumkan bisa lebih kecil daripada jumlah
+	 * baris yang benar-benar dirender. Bila salah satu ambang diselaraskan, keduanya harus diubah
+	 * bersama.</p>
+	 *
+	 * <p><b>Ambang ini juga membaca {@code nominal} mentah, bukan nominal efektif.</b> Query di
+	 * atas berjalan di sisi basis data, sehingga modifikasi nominal per-mahasiswa yang dihitung di
+	 * sisi Java oleh {@link PembayaranNominalModifikasiHelper} tidak ikut diperhitungkan. Untuk
+	 * item berbasis SKS, jumlah baris yang dihitung di sini mencerminkan konfigurasi template, bukan
+	 * hasil akhir untuk mahasiswa yang bersangkutan.</p>
+	 *
+	 * <p><b>Nilai balik {@code 1} pada cabang {@code modeAngsuran == TRUE} adalah tebakan
+	 * konservatif, bukan hitungan.</b> Ia hanya dipakai ketika
+	 * {@code PembayaranUtil.hitungBarisBulananSemester(...)} mengembalikan {@code -1} (pengecekan
+	 * gagal); nilai itu mempertahankan perilaku lama agar layar tidak mendadak menampilkan nol
+	 * angsuran saat query gagal. Jangan menafsirkannya sebagai "ada tepat satu baris bulanan".</p>
+	 *
+	 * <p><b>Cache {@code Common.getJSONTemporary}/{@code setJSONTemporary} hanya melindungi jalur
+	 * hitung DB di bagian bawah.</b> Ketiga cabang berbasis {@code modeAngsuranUntukJenjang}
+	 * ({@code TRUE}, {@code FALSE}, dan fallback PPB) keluar lebih dulu tanpa membaca maupun
+	 * menulis cache, sehingga {@code reload} tidak berpengaruh apa pun pada cabang-cabang
+	 * tersebut.</p>
+	 *
 	 * @param detailBiayas koleksi {@link DetailBiaya} acuan (hasil query billing reguler sebelumnya)
 	 * @param reload {@code true} untuk memaksa hitung ulang melewati cache JSON temporary
 	 * @param comitManual bila {@code true} dan transaksi lokal dibuka oleh method ini, transaksi tersebut di-commit di sini (bukan diserahkan ke pemanggil)

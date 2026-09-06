@@ -1182,72 +1182,144 @@ public class DetailUjianHelper implements DataLoader {
 		acCheckbox(box, "Aktifkan fitur anti-curang saat ujian ini berlangsung "
 				+ "(jika non-aktif, semua sub-fitur di bawah tidak berjalan).", ppu.getAntiCurangAktif(),
 				new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai checkbox ke {@code ppu.setAntiCurangAktif(v)} — saklar induk seluruh fitur
+					 * anti-curang ujian ini; bila mati, semua sub-fitur di bawahnya tidak dijalankan.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangAktif(v);
 					}
 				}, ppu);
 		acIntbox(box, "Batas pelanggaran sebelum ujian dianggap selesai otomatis (0 = tanpa batas, hanya dicatat):",
 				ppu.getAntiCurangBatasPelanggaran(), new AcIntSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangBatasPelanggaran(v)} — jumlah pelanggaran sebelum
+					 * ujian diselesaikan otomatis; 0 berarti pelanggaran hanya dicatat tanpa batas.
+					 *
+					 * @param v nilai baru dari intbox
+					 */
 					public void set(Integer v) {
 						ppu.setAntiCurangBatasPelanggaran(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Masuk mode layar penuh (fullscreen) otomatis saat ujian dimulai.",
 				ppu.getAntiCurangAktifkanFullscreen(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangAktifkanFullscreen(v)} — apakah peserta dipaksa
+					 * masuk mode layar penuh saat ujian dimulai.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangAktifkanFullscreen(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Deteksi peserta berpindah tab/aplikasi (setiap tab disembunyikan = 1 pelanggaran).",
 				ppu.getAntiCurangDeteksiPindahTab(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangDeteksiPindahTab(v)} — apakah setiap kali tab
+					 * ujian disembunyikan dihitung sebagai satu pelanggaran.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangDeteksiPindahTab(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Deteksi peserta beralih ke jendela lain (Alt+Tab, klik di luar, Ctrl+Alt+Del).",
 				ppu.getAntiCurangDeteksiBlurJendela(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangDeteksiBlurJendela(v)} — apakah peralihan ke
+					 * jendela lain (Alt+Tab, klik di luar, Ctrl+Alt+Del) dihitung sebagai pelanggaran.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangDeteksiBlurJendela(v);
 					}
 				}, ppu);
 		acIntbox(box, "Jeda deteksi blur (milidetik) agar satu Alt+Tab tak terhitung ganda (default 5000):",
 				ppu.getAntiCurangCooldownBlurMs(), new AcIntSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangCooldownBlurMs(v)} — jeda dalam milidetik agar
+					 * satu Alt+Tab tidak terhitung sebagai beberapa pelanggaran (default 5000).
+					 *
+					 * @param v nilai baru dari intbox
+					 */
 					public void set(Integer v) {
 						ppu.setAntiCurangCooldownBlurMs(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Deteksi peserta keluar dari mode layar penuh selama ujian.",
 				ppu.getAntiCurangDeteksiKeluarFullscreen(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangDeteksiKeluarFullscreen(v)} — apakah keluar dari
+					 * mode layar penuh selama ujian dihitung sebagai pelanggaran.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangDeteksiKeluarFullscreen(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Nonaktifkan klik kanan (context menu) agar soal tak mudah disalin.",
 				ppu.getAntiCurangBlokirKlikKanan(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangBlokirKlikKanan(v)} — menonaktifkan menu konteks
+					 * agar soal tidak mudah disalin.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangBlokirKlikKanan(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Blokir shortcut berbahaya (Ctrl+W/T/N/R, F5, F12, Alt+F4).",
 				ppu.getAntiCurangBlokirShortcut(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangBlokirShortcut(v)} — memblokir pintasan papan
+					 * tik berisiko (Ctrl+W/T/N/R, F5, F12, Alt+F4).
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangBlokirShortcut(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Tampilkan konfirmasi saat mencoba menutup/meninggalkan halaman ujian (beforeunload).",
 				ppu.getAntiCurangPeringatanKeluarHalaman(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangPeringatanKeluarHalaman(v)} — menampilkan
+					 * konfirmasi {@code beforeunload} saat peserta mencoba meninggalkan halaman ujian.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangPeringatanKeluarHalaman(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Blokir tombol tangkap layar (PrintScreen) selama ujian berlangsung.",
 				ppu.getAntiCurangBlokirTangkapLayar(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangBlokirTangkapLayar(v)} — memblokir tombol
+					 * PrintScreen selama ujian berlangsung.
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangBlokirTangkapLayar(v);
 					}
 				}, ppu);
 		acCheckbox(box, "Jangan izinkan ujian ini dikerjakan di lebih dari satu perangkat secara bersamaan (default aktif).",
 				ppu.getAntiCurangLarangMultiDevice(), new AcBoolSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangLarangMultiDevice(v)} — melarang ujian ini
+					 * dikerjakan dari lebih dari satu perangkat secara bersamaan (default aktif).
+					 *
+					 * @param v nilai baru dari checkbox
+					 */
 					public void set(Boolean v) {
 						ppu.setAntiCurangLarangMultiDevice(v);
 					}
@@ -1255,9 +1327,21 @@ public class DetailUjianHelper implements DataLoader {
 		new ais.ui.util.MyHtml("<div style='padding:6px 2px 4px;font-weight:700;color:#334155;font-size:13px;'>Restriksi Lokasi Ujian</div>").setParent(box);
 		new ais.ui.util.MyHtml("<div style='font-size:12px;color:#64748b;padding-bottom:8px;'>Kosongkan Latitude/Longitude atau set Radius=0 untuk menonaktifkan. Peserta hanya boleh mengerjakan ujian dalam radius yang ditentukan dari titik pusat.</div>").setParent(box);
 		acDoublebox(box, "Latitude pusat lokasi ujian (contoh: -6.200000):", ppu.getAntiCurangLokasiLatitude(), new AcDblSetter() {
+			/**
+			 * Meneruskan nilai ke {@code ppu.setAntiCurangLokasiLatitude(v)} — lintang titik pusat area
+			 * yang diizinkan. Dikosongkan berarti restriksi lokasi tidak aktif.
+			 *
+			 * @param v nilai baru dari doublebox; boleh {@code null}
+			 */
 			public void set(Double v) { ppu.setAntiCurangLokasiLatitude(v); }
 		}, ppu);
 		acDoublebox(box, "Longitude pusat lokasi ujian (contoh: 106.800000):", ppu.getAntiCurangLokasiLongitude(), new AcDblSetter() {
+			/**
+			 * Meneruskan nilai ke {@code ppu.setAntiCurangLokasiLongitude(v)} — bujur titik pusat area
+			 * yang diizinkan. Dikosongkan berarti restriksi lokasi tidak aktif.
+			 *
+			 * @param v nilai baru dari doublebox; boleh {@code null}
+			 */
 			public void set(Double v) { ppu.setAntiCurangLokasiLongitude(v); }
 		}, ppu);
 
@@ -1269,6 +1353,24 @@ public class DetailUjianHelper implements DataLoader {
 				+ "Gunakan tombol di bawah untuk melihat lokasi di peta (OpenStreetMap) dan mengisi koordinat secara visual.</div>").setParent(mapBtnDiv);
 		final Toolbarbutton btnPilihPeta = new MyToolbarbuttonConfig("Pilih di Peta", "/img/Configure.gif");
 		btnPilihPeta.addEventListener("onClick", new EventListener() {
+			/**
+			 * Membuka jendela modal "Pilih Lokasi di Peta" berisi peta OpenStreetMap tersemat dan dua kotak
+			 * koordinat, sebagai cara visual mengisi titik pusat restriksi lokasi ujian.
+			 *
+			 * <p>Koordinat awal diambil dari {@code ppu}; bila belum pernah diisi dipakai default
+			 * {@code -6.2 / 106.8} (kawasan Jakarta) semata-mata agar peta punya titik tumpu yang masuk akal
+			 * — nilai itu TIDAK ditulis ke entity, hanya dipakai untuk tampilan.
+			 *
+			 * <p>Peta ditampilkan lewat {@code &lt;iframe&gt;} ke {@code openstreetmap.org/export/embed.html}
+			 * dengan kotak batas dibentuk dari koordinat saat ini &plusmn;0,05 derajat dan sebuah penanda di
+			 * titik tersebut. Karena embed OSM tidak mengirimkan balik hasil klik ke aplikasi, peta di sini
+			 * bersifat RUJUKAN SATU ARAH: petunjuk di bawahnya meminta pengguna membaca koordinat dari peta
+			 * (klik kanan) lalu mengetikkannya sendiri ke kotak Latitude/Longitude. Pemakaian iframe ini juga
+			 * berarti tab hanya berfungsi penuh bila peramban pengguna dapat menjangkau openstreetmap.org.
+			 *
+			 * @param e event {@code onClick} tombol "Pilih di Peta"; tidak dibaca
+			 * @throws Exception diteruskan dari perakitan komponen ZK atau {@code onModal()}
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				final double latDbl = ppu.getAntiCurangLokasiLatitude() != null
@@ -1314,6 +1416,24 @@ public class DetailUjianHelper implements DataLoader {
 
 				final MyToolbarbuttonConfig btnSimpan = new MyToolbarbuttonConfig("Simpan Lokasi", "/img/save.gif");
 				btnSimpan.addEventListener("onClick", new EventListener() {
+					/**
+					 * Memvalidasi dan menyimpan koordinat yang diketik pengguna di jendela peta, lalu menutup
+					 * jendela tersebut.
+					 *
+					 * <p>Kedua kotak diurai dengan {@link Double#parseDouble}; bila salah satu tidak berbentuk angka,
+					 * {@link NumberFormatException} ditangkap dan pengguna diberi pesan contoh format yang benar
+					 * tanpa ada perubahan tersimpan. Bila keduanya valid, nilai ditulis ke {@code ppu}, disimpan
+					 * seketika lewat {@link #simpanAntiCurang}, jendela peta di-{@code detach()}, dan konfirmasi
+					 * berisi koordinat yang tersimpan ditampilkan.
+					 *
+					 * <p>Perhatikan validasinya sebatas "dapat diurai sebagai angka" — rentang lintang
+					 * ({@code -90..90}) dan bujur ({@code -180..180}) tidak diperiksa, dan kotak Latitude/Longitude
+					 * pada tab utama tidak ikut disegarkan sehingga masih menampilkan nilai lama sampai tab dirakit
+					 * ulang.
+					 *
+					 * @param ev event {@code onClick} tombol "Simpan Lokasi"; tidak dibaca
+					 * @throws Exception diteruskan dari penyimpanan atau penutupan jendela
+					 */
 					@Override
 					public void onEvent(Event ev) throws Exception {
 						try {
@@ -1341,27 +1461,57 @@ public class DetailUjianHelper implements DataLoader {
 		btnPilihPeta.setParent(mapBtnDiv);
 
 		acIntbox(box, "Radius lokasi (meter, 0 = nonaktif):", ppu.getAntiCurangLokasiRadius(), new AcIntSetter() {
+			/**
+			 * Meneruskan nilai ke {@code ppu.setAntiCurangLokasiRadius(v)} — radius area yang diizinkan
+			 * dalam meter dari titik pusat; 0 menonaktifkan restriksi lokasi.
+			 *
+			 * @param v nilai baru dari intbox
+			 */
 			public void set(Integer v) { ppu.setAntiCurangLokasiRadius(v); }
 		}, ppu);
 		acTextarea(box, "Teks peringatan: pindah tab/aplikasi", ppu.getAntiCurangPesanPindahTab(), new AcStrSetter() {
+			/**
+			 * Meneruskan nilai ke {@code ppu.setAntiCurangPesanPindahTab(v)} — teks peringatan yang
+			 * ditampilkan kepada peserta saat terdeteksi berpindah tab/aplikasi.
+			 *
+			 * @param v teks baru dari textarea
+			 */
 			public void set(String v) {
 				ppu.setAntiCurangPesanPindahTab(v);
 			}
 		}, ppu);
 		acTextarea(box, "Teks peringatan: beralih jendela (Alt+Tab)", ppu.getAntiCurangPesanBlurJendela(),
 				new AcStrSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangPesanBlurJendela(v)} — teks peringatan saat
+					 * peserta terdeteksi beralih ke jendela lain (Alt+Tab).
+					 *
+					 * @param v teks baru dari textarea
+					 */
 					public void set(String v) {
 						ppu.setAntiCurangPesanBlurJendela(v);
 					}
 				}, ppu);
 		acTextarea(box, "Teks peringatan: keluar fullscreen", ppu.getAntiCurangPesanKeluarFullscreen(),
 				new AcStrSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangPesanKeluarFullscreen(v)} — teks peringatan saat
+					 * peserta keluar dari mode layar penuh.
+					 *
+					 * @param v teks baru dari textarea
+					 */
 					public void set(String v) {
 						ppu.setAntiCurangPesanKeluarFullscreen(v);
 					}
 				}, ppu);
 		acTextarea(box, "Teks peringatan: sebelum meninggalkan halaman ujian", ppu.getAntiCurangPesanKeluarHalaman(),
 				new AcStrSetter() {
+					/**
+					 * Meneruskan nilai ke {@code ppu.setAntiCurangPesanKeluarHalaman(v)} — teks konfirmasi yang
+					 * muncul sebelum peserta meninggalkan halaman ujian.
+					 *
+					 * @param v teks baru dari textarea
+					 */
 					public void set(String v) {
 						ppu.setAntiCurangPesanKeluarHalaman(v);
 					}
@@ -1375,6 +1525,19 @@ public class DetailUjianHelper implements DataLoader {
 		cb.setChecked(nilai == null || nilai.booleanValue());
 		cb.setStyle("display:block;margin:5px 0;");
 		cb.addEventListener("onCheck", new EventListener() {
+			/**
+			 * Menyimpan status checkbox anti-curang ke kolomnya lewat {@link AcBoolSetter} yang dioper, lalu
+			 * menulis entity ke database seketika ({@link #simpanAntiCurang}).
+			 *
+			 * <p>Inilah yang membuat tab "Anti Curang" tidak membutuhkan tombol simpan tersendiri: setiap
+			 * centang langsung tersimpan. Perhatikan nilai awal checkbox di {@link #acCheckbox} memakai
+			 * {@code nilai == null || nilai.booleanValue()}, artinya kolom yang belum pernah diisi
+			 * ditampilkan TERCENTANG — default aman bagi ujian lama yang dibuat sebelum kolom anti-curang
+			 * ada, sehingga pengabaian bukan berarti pelonggaran.
+			 *
+			 * @param e event {@code onCheck}; tidak dibaca
+			 * @throws Exception dipersyaratkan {@link EventListener}; kegagalan penyimpanan ditangani di dalam {@link #simpanAntiCurang}
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				setter.set(Boolean.valueOf(cb.isChecked()));
@@ -1397,6 +1560,17 @@ public class DetailUjianHelper implements DataLoader {
 		final org.zkoss.zul.Intbox ib = new org.zkoss.zul.Intbox(nilai == null ? Integer.valueOf(0) : nilai);
 		ib.setWidth("110px");
 		ib.addEventListener("onChange", new EventListener() {
+			/**
+			 * Menyimpan nilai {@link org.zkoss.zul.Intbox} anti-curang ke kolomnya lewat {@link AcIntSetter}
+			 * yang dioper, lalu menulis entity ke database seketika.
+			 *
+			 * <p>Nilai dibaca apa adanya dari kotak; bila pengguna mengosongkannya ZK mengembalikan
+			 * {@code null} dan {@code null} itulah yang tersimpan — berbeda dengan nilai awal yang
+			 * dinormalisasi menjadi 0 saat kontrol dibangun (lihat catatan NPE pada {@link #acIntbox}).
+			 *
+			 * @param e event {@code onChange}; tidak dibaca
+			 * @throws Exception dipersyaratkan {@link EventListener}; kegagalan penyimpanan ditangani di dalam {@link #simpanAntiCurang}
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				setter.set(ib.getValue());
@@ -1417,6 +1591,16 @@ public class DetailUjianHelper implements DataLoader {
 		db.setValue(initialVal);
 		db.setParent(row);
 		db.addEventListener("onChange", new org.zkoss.zk.ui.event.EventListener() {
+			/**
+			 * Menyimpan nilai {@link org.zkoss.zul.Doublebox} koordinat ke kolomnya lewat
+			 * {@link AcDblSetter} yang dioper, lalu menulis entity ke database seketika.
+			 *
+			 * <p>Nilai {@code null} (kotak dikosongkan) ikut tersimpan sebagaimana adanya — itulah cara
+			 * menonaktifkan restriksi lokasi tanpa mengubah radius.
+			 *
+			 * @param e event {@code onChange}; tidak dibaca
+			 * @throws Exception dipersyaratkan {@link EventListener}; kegagalan penyimpanan ditangani di dalam {@link #simpanAntiCurang}
+			 */
 			@Override
 			public void onEvent(org.zkoss.zk.ui.event.Event e) throws Exception {
 				setter.set(db.getValue());
@@ -1439,6 +1623,17 @@ public class DetailUjianHelper implements DataLoader {
 		tb.setRows(2);
 		tb.setWidth("95%");
 		tb.addEventListener("onChange", new EventListener() {
+			/**
+			 * Menyimpan teks {@link org.zkoss.zul.Textbox} peringatan ke kolomnya lewat
+			 * {@link AcStrSetter} yang dioper, lalu menulis entity ke database seketika.
+			 *
+			 * <p>Teks disimpan apa adanya tanpa {@code trim} maupun penyaringan, sehingga pesan kosong
+			 * tersimpan sebagai string kosong — bukan {@code null} — dan pemanggil di sisi peserta yang
+			 * memakai getter default entity perlu memperhitungkannya.
+			 *
+			 * @param e event {@code onChange}; tidak dibaca
+			 * @throws Exception dipersyaratkan {@link EventListener}; kegagalan penyimpanan ditangani di dalam {@link #simpanAntiCurang}
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				setter.set(tb.getValue());
@@ -1546,6 +1741,26 @@ public class DetailUjianHelper implements DataLoader {
 				new org.zkoss.zul.Label("%").setParent(hbox);
 
 				bobotBox.addEventListener("onChange", new EventListener() {
+					/**
+					 * Menyimpan bobot satu Sub-CPMK untuk ujian ini ke JSON {@code ppu.getFormatNilais()} dengan
+					 * kunci {@code "&lt;idFormatNilai&gt;_bobot"} setiap kali kotak persen diubah.
+					 *
+					 * <p>Entity di-{@code refresh()} lebih dulu (bila sudah punya id) dan JSON dibaca ulang dari
+					 * database, sehingga bobot Sub-CPMK LAIN pada ujian yang sama — juga daftar Sub-CPMK terpilih
+					 * yang disimpan di JSON yang sama — tidak tertimpa oleh salinan basi. Nilai kosong menghapus
+					 * kuncinya alih-alih menulis nol; pembacaan memperlakukan kunci yang hilang sebagai 100 (lihat
+					 * {@code jsonPpu.isNull(bobotKey) ? 100.0 : ...}), sehingga "belum diatur" berarti bobot penuh.
+					 *
+					 * <p><b>Ringkasan total tidak ikut disegarkan.</b> Baris teks "Bobot saat ini X% + Dari
+					 * Ujian/Tugas lain: Y% = Total Z%" beserta pewarnaannya (merah bila melewati 100,5%, hijau bila
+					 * mendekati 100%) dihitung sekali saat tab dirakit. Mengubah kotak ini menyimpan nilai baru
+					 * tetapi ringkasannya baru mengikuti setelah tab dibangun ulang. Perhatikan juga tidak ada
+					 * validasi yang mencegah total melampaui 100% — kelebihan bobot hanya ditandai warna, bukan
+					 * ditolak.
+					 *
+					 * @param e event {@code onChange}; tidak dibaca
+					 * @throws Exception diteruskan dari operasi Hibernate atau parsing JSON
+					 */
 					@Override
 					public void onEvent(Event e) throws Exception {
 						Session s = HibernateUtil.currentSession();
@@ -1712,6 +1927,30 @@ public class DetailUjianHelper implements DataLoader {
 			cbSubCpmk.setParent(hb);
 
 			cbSubCpmk.addEventListener("onSelect", new EventListener() {
+				/**
+				 * Memindahkan satu nomor soal ke Sub-CPMK yang dipilih pada dropdown, dengan menulis ulang
+				 * pemetaan nomor-soal per Sub-CPMK di JSON {@code ppu.getFormatNilais()}.
+				 *
+				 * <p><b>Bentuk data.</b> JSON yang sama menyimpan dua jenis kunci: {@code "&lt;fnId&gt;_bobot"}
+				 * untuk bobot (lihat {@link #isiTabPengaturanOBE}) dan {@code "&lt;fnId&gt;"} polos yang berisi
+				 * daftar nomor soal berpemisah koma. Listener ini hanya menyentuh kunci polos.
+				 *
+				 * <p><b>Hapus-lalu-tambah.</b> Karena satu nomor soal hanya boleh menempel pada satu Sub-CPMK,
+				 * langkah pertama menyapu SELURUH Sub-CPMK aktif dan membuang {@code thisNomor} dari daftar
+				 * masing-masing; baru kemudian nomor itu ditambahkan ke Sub-CPMK yang baru dipilih. Memilih
+				 * "— Tidak ada —" menjalankan langkah pembuangan saja, sehingga soal menjadi tidak terpetakan.
+				 *
+				 * <p>Perbandingan dilakukan secara numerik ({@link Integer#parseInt}) supaya {@code "7"} dan
+				 * {@code "07"} dianggap sama; token yang tidak berbentuk angka DIPERTAHANKAN apa adanya melalui
+				 * blok {@code catch} agar data tak dikenal tidak ikut terhapus diam-diam. Token kosong dibuang
+				 * sehingga daftar tidak menumpuk koma ganda.
+				 *
+				 * <p>Seperti listener OBE lainnya, entity di-{@code refresh()} dan JSON dibaca ulang dari
+				 * database sebelum ditulis, lalu disimpan seketika lewat {@code Common.refreshUpdate}.
+				 *
+				 * @param e event {@code onSelect} dropdown Sub-CPMK; tidak dibaca
+				 * @throws Exception diteruskan dari operasi Hibernate atau parsing JSON
+				 */
 				@Override
 				public void onEvent(Event e) throws Exception {
 					Session s = HibernateUtil.currentSession();
@@ -1858,6 +2097,30 @@ public class DetailUjianHelper implements DataLoader {
 				+ "cursor:pointer;margin-right:6px;");
 		btnGen.setParent(bb);
 		btnGen.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menormalkan parameter yang diisi pengguna, menyusun prompt, lalu menjalankan pembuatan soal
+			 * lewat AI secara streaming.
+			 *
+			 * <p><b>Pembatasan nilai.</b> Jumlah soal dijepit ke rentang 1..30 dan jumlah opsi (khusus
+			 * pilihan ganda) ke 2..8; kotak yang dikosongkan memakai default 1 dan 5. Penjepitan dilakukan
+			 * diam-diam — pengguna yang mengetik 100 soal tetap menerima 30 tanpa pemberitahuan. Batas atas
+			 * ini juga yang menjaga panjang prompt tetap wajar.
+			 *
+			 * <p><b>Popup ditutup sebelum generate.</b> {@code win.detach()} dipanggil SEBELUM prompt
+			 * disusun, sehingga jendela parameter tidak menggantung selama pemanggilan AI yang berlangsung
+			 * lama; umpan balik selanjutnya menjadi tanggung jawab jendela streaming
+			 * {@code GenerateAiHelper}. Konsekuensinya parameter tidak dapat diperbaiki tanpa membuka ulang
+			 * popup.
+			 *
+			 * <p><b>Konteks prompt.</b> Prompt dirakit {@link #bangunPromptSoalAi} dari nama matakuliah,
+			 * pembahasan pertemuan, topik yang diminta, konteks matakuliah/OBE
+			 * ({@link #bangunKonteksMkSoal}), dan daftar soal yang SUDAH ada ({@link #daftarSoalExisting})
+			 * — yang terakhir dikirim agar AI tidak menghasilkan soal duplikat atau terlalu mirip. Angka
+			 * {@code 3072} pada pemanggilan adalah batas token keluaran yang diberikan ke helper AI.
+			 *
+			 * @param e event {@code onClick} tombol "Generate"; tidak dibaca
+			 * @throws Exception diteruskan dari penyusunan konteks/prompt atau dari pemanggilan AI
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				int jml = (tJumlah.getValue() == null) ? 1 : tJumlah.getValue().intValue();
@@ -1884,6 +2147,21 @@ public class DetailUjianHelper implements DataLoader {
 						soalAda);
 				GenerateAiHelper.jalankanAiStreaming(Common.getBahasaConfig("Buat Soal Via AI"), prompt,
 						new GenerateAiHelper.HasilAi() {
+							/**
+							 * Menerima teks jawaban AI setelah streaming selesai, menyisipkan soal hasilnya ke database,
+							 * lalu memberi tahu pengguna dan menyegarkan grid soal.
+							 *
+							 * <p>Seluruh parsing dan penyimpanan didelegasikan ke {@link #insertSoalAiDariJson}, yang
+							 * mengembalikan JUMLAH soal yang benar-benar tersimpan — bukan jumlah yang diminta. Angka itulah
+							 * yang ditampilkan, sehingga jawaban AI yang sebagian rusak akan terlihat sebagai selisih dengan
+							 * permintaan pengguna, meski tanpa rincian soal mana yang gagal.
+							 *
+							 * <p>Pemanggilan {@code loadData(true)} di akhir memaksa grid soal dimuat ulang sehingga soal
+							 * baru langsung tampak tanpa pengguna perlu menutup dan membuka layar.
+							 *
+							 * @param resp teks mentah jawaban AI (diharapkan berisi JSON array soal)
+							 * @throws Exception diteruskan dari penyisipan soal atau pemuatan ulang grid
+							 */
 							@Override
 							public void selesai(String resp) throws Exception {
 								int n = insertSoalAiDariJson(resp, isPg, pertemuan);
@@ -1902,6 +2180,12 @@ public class DetailUjianHelper implements DataLoader {
 				+ "cursor:pointer;");
 		btnCancel.setParent(bb);
 		btnCancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup popup "Buat Soal Via AI" tanpa membuat soal apa pun ({@code win.detach()}).
+			 *
+			 * @param e event {@code onClick} tombol "Batal"; tidak dibaca
+			 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+			 */
 			@Override
 			public void onEvent(Event e) throws Exception {
 				win.detach();

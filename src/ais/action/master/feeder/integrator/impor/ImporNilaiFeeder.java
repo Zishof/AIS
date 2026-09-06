@@ -270,7 +270,11 @@ public final class ImporNilaiFeeder {
 							if (nilaiHuruf == null) {
 								for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
 									if (huruf != null && huruf.getNilaiHuruf() != null
-											&& huruf.getNilaiHuruf().equalsIgnoreCase(hurufdata.trim())) {
+											&& huruf.getNilaiHuruf().equalsIgnoreCase(hurufdata.trim())
+											// hanya aturan GLOBAL MURNI (tanpa jurusan/fakultas) boleh jadi fallback
+											// terakhir -- selaras CommonAcademicKrsNilaiHelper.getNilaiHuruf() &
+											// ConstantValues.nilaiHurufTerkait().
+											&& huruf.getJurusan() == null && huruf.getFakultas() == null) {
 										nilaiHuruf = huruf;
 										break;
 									}

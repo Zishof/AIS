@@ -35,6 +35,7 @@ import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.hibernate.StreamingHibernateUtil;
 import ais.database.model.Pegawai;
+import ais.database.model.Tbmuser;
 import ais.database.model.file.LampiranLain;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
@@ -57,20 +58,38 @@ import ais.ui.util.MyWindow;
  * simpan/hapus menulis ulang SELURUH array ke kolom {@code sangsi} lewat sesi Hibernate baru yang
  * dibuka/ditutup manual ({@link #saveToDatabase}) — bukan operasi granular per baris.
  * </p>
+ *
+ * <p><b>Gerbang kepemilikan:</b> helper ini disematkan {@code BiodataPegawaiAction} baik dalam mode
+ * swalayan (pegawai diresolusi dari akun login sendiri) maupun mode admin (HR membuka biodata pegawai
+ * lain lewat {@code PegawaiAction}/{@code GuruAction}). Sebelumnya tombol Tambah/Ubah/Hapus dirender
+ * TANPA gerbang apa pun, sehingga pegawai bisa menambah/mengubah/menghapus riwayat sanksinya sendiri
+ * lewat layar swalayan. Konstruktor sekarang memaksa mode baca-saja bila {@link #pegawai} yang
+ * ditampilkan adalah pengguna yang sedang login sendiri; lihat {@link #bolehUbah}.</p>
  */
 public class SangsiPegawaiHelper {
 
     private MyGrid grid = new MyGrid();
     private Borderlayout borderlayout = new ais.ui.util.MyBorderlayout();
-    
+
     private Pegawai pegawai;
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-    
+
     protected LampiranLain lampiranSangsi;
+
+    /**
+     * Menandai apakah tombol Tambah/Ubah/Hapus dirender dan diizinkan menulis. {@code false} bila
+     * {@link #pegawai} yang ditampilkan adalah pengguna yang sedang login sendiri (gerbang kepemilikan
+     * fail-closed) -- jangan hapus pemeriksaan ini, lihat catatan javadoc kelas.
+     */
+    private final boolean bolehUbah;
 
     /** Membuat helper terikat satu {@code pegawai} yang riwayat sanksinya akan dikelola. */
     public SangsiPegawaiHelper(Pegawai pegawai) {
         this.pegawai = pegawai;
+        Tbmuser tbmuserPembuat = Common.getCurrentUser();
+        boolean pemilikSendiri = tbmuserPembuat != null && tbmuserPembuat.getPegawai() != null && pegawai != null
+                && tbmuserPembuat.getPegawai().getId().equals(pegawai.getId());
+        this.bolehUbah = !pemilikSendiri;
     }
 
     /** Mem-parse kolom {@code sangsi} milik {@link #pegawai} menjadi {@link JSONArray}; mengembalikan array kosong bila kolom kosong/null atau gagal di-parse. */
@@ -117,6 +136,7 @@ public class SangsiPegawaiHelper {
             // Tombol Edit
             MyToolbarbuttonConfig btnEdit = new MyToolbarbuttonConfig("", "/img/svg/edit-box-line.svg");
             btnEdit.setTooltiptext("Ubah Data");
+            btnEdit.setVisible(bolehUbah);
             btnEdit.addEventListener("onClick", new EventListener() {
                 @Override
                 public void onEvent(Event event) throws Exception {
@@ -128,6 +148,7 @@ public class SangsiPegawaiHelper {
             // Tombol Hapus
             MyToolbarbuttonConfig btnDelete = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
             btnDelete.setTooltiptext("Hapus Data");
+            btnDelete.setVisible(bolehUbah);
             btnDelete.addEventListener("onClick", new EventListener() {
                 @Override
                 public void onEvent(Event event) throws Exception {
@@ -174,6 +195,7 @@ public class SangsiPegawaiHelper {
         toolbar.setParent(div);
 
         MyToolbarbuttonConfig btnTambah = new MyToolbarbuttonConfig("Tambah Data", "/img/new.gif");
+        btnTambah.setVisible(bolehUbah);
         toolbar.appendChild(btnTambah);
         btnTambah.addEventListener("onClick", new EventListener() {
             @Override
@@ -239,6 +261,14 @@ public class SangsiPegawaiHelper {
      * @param dataEdit entri sanksi yang diedit, atau {@code null} untuk entri baru
      */
     public void init(final JSONObject dataEdit) throws Exception {
+        // Gerbang sisi server -- jangan hanya mengandalkan setVisible(bolehUbah) di atas: tombol
+        // tersembunyi tetap melekat pada halaman ZK dan permintaan AU yang dipalsukan tetap dapat
+        // memicu listener ini.
+        if (!bolehUbah) {
+            MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk mengubah data ini.", "Peringatan",
+                    MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            return;
+        }
         final boolean isEdit = (dataEdit != null);
         final String currentId = isEdit ? dataEdit.optString("id") : UUID.randomUUID().toString();
 
@@ -461,6 +491,12 @@ public class SangsiPegawaiHelper {
     /** Menghapus entri ber-{@code idToDelete} dari array sanksi (menulis ulang seluruh array tanpa entri tersebut) dan memuat ulang grid. */
     private void deleteData(String idToDelete) {
         try {
+            // Gerbang sisi server -- lihat catatan pada init() di atas; jangan hapus.
+            if (!bolehUbah) {
+                MyMessageboxConfig.show("Mohon maaf, Anda tidak memiliki hak untuk menghapus data ini.",
+                        "Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+                return;
+            }
             JSONArray arr = getSangsiArray();
             JSONArray newArr = new JSONArray();
 
