@@ -1810,10 +1810,62 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 				&& tbmuser.getPesertaKursus() == null && tbmuser.getSiswa() == null);
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Memicu aksi <b>"Download Lampiran"</b>: mengumpulkan seluruh berkas lampiran
+			 * jawaban peserta menjadi satu arsip ZIP lalu mengunduhkannya.
+			 *
+			 * <p>Listener ini tidak melakukan pekerjaan apa pun sendiri. Ia hanya membungkus
+			 * proses berat ke dalam {@code Common.createDefaultTimer(...)} disertai pesan
+			 * "Harap tunggu.. sedang melakukan proses download lampiran..". Pembungkusan timer
+			 * ini penting: mengunduh dan menyalin ratusan berkas dapat memakan waktu lama, dan
+			 * menjalankannya langsung pada thread event akan membekukan antarmuka tanpa indikator
+			 * apa pun.</p>
+			 *
+			 * @param arg0 event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pembuatan timer
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Common.createDefaultTimer(new EventListener() {
 
+					/**
+					 * Mengumpulkan berkas lampiran jawaban SELURUH peserta ke satu folder kerja,
+					 * mengarsipkannya menjadi ZIP, lalu mengirimkannya sebagai unduhan.
+					 *
+					 * <p><b>Struktur folder hasil.</b> Folder kerja diberi nama
+					 * {@code /opt/ecampus/lampiran_hasil_ujian_<epochMillis>} sehingga dua proses
+					 * yang berjalan bersamaan tidak bertabrakan. Di dalamnya dibuat satu subfolder
+					 * PER SOAL, dinamai dari 55 karakter pertama teks soal yang telah
+					 * di-{@code URLEncoder}-kan (pengkodean wajib karena teks soal boleh
+					 * mengandung karakter yang tidak sah sebagai nama berkas). Setiap berkas
+					 * dinamai {@code <nim>_<nama>_<idLampiran>_<namaAsli>}.</p>
+					 *
+					 * <p><b>Tiga jenis lampiran ditangani berbeda:</b> lampiran yang sudah
+					 * dipindahkan ke Google Drive ditulis sebagai berkas {@code .txt} berisi URL
+					 * penerusannya; lampiran berupa pranala eksternal ditulis sebagai {@code .txt}
+					 * berisi pranala tersebut; lampiran berkas nyata disalin dengan
+					 * {@code IOUtils.copyLarge} (aliran, bukan muat-ke-memori — penting karena
+					 * lampiran jawaban bisa berupa video atau gambar besar).</p>
+					 *
+					 * <p><b>Efek samping penulisan data.</b> Bila sebuah lampiran ditemukan
+					 * sementara kolom {@code jawaban} peserta masih kosong, teks jawaban DIISI
+					 * "Jawaban terdapat di file terlampir" dan disimpan dalam transaksi kecil
+					 * tersendiri. Ini membuat aksi yang tampak read-only ternyata dapat MENGUBAH
+					 * data jawaban. Tujuannya agar rekap dan koreksi tidak menampilkan jawaban
+					 * kosong padahal peserta mengunggah berkas.</p>
+					 *
+					 * <p><b>Pengarsipan.</b> {@code Common.zipDir(...)} dibungkus {@code try/catch}
+					 * karena folder kerja {@code /opt/ecampus} dapat hilang, tidak dapat ditulis,
+					 * atau diskusnya penuh. Kegagalan ditampilkan sebagai pesan yang menyebut
+					 * ketiga kemungkinan itu, bukan {@code FileNotFoundException} mentah.</p>
+					 *
+					 * <p><b>Kebersihan.</b> Folder kerja maupun berkas ZIP TIDAK dihapus setelah
+					 * unduhan; pembersihannya diserahkan ke perawatan sistem. Session Hibernate
+					 * ditutup di {@code finally}.</p>
+					 *
+					 * @param arg0 event timer; tidak dipakai
+					 * @throws Exception diteruskan dari operasi berkas dan pengkodean nama
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -1945,6 +1997,38 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		drive.setParent(toolbar);
 		drive.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Memicu aksi <b>"Lampiran ke Drive"</b>: memindahkan seluruh berkas lampiran jawaban
+			 * peserta dari penyimpanan basis data ke Google Drive milik pengguna yang sedang
+			 * masuk, lalu MENGHAPUS salinan aslinya dari basis data.
+			 *
+			 * <p><b>Sifatnya destruktif dan tidak dapat dibatalkan.</b> Setelah proses selesai,
+			 * kolom {@code foto} pada {@link LampiranLain} di-null-kan dan
+			 * {@code FileFoto.hapusTotal(...)} menghapus data biner aslinya; yang tersisa hanya
+			 * id berkas Drive. Bila berkas di Drive kemudian dihapus atau akses akunnya dicabut,
+			 * lampiran jawaban peserta hilang permanen. Tidak ada dialog konfirmasi.</p>
+			 *
+			 * <p><b>Kepemilikan berkas.</b> {@code GDriveUtilPerPengguna(tbmuser)} memakai
+			 * kredensial Drive milik pengguna aktif, dan {@code gdriveUsername} pada tiap lampiran
+			 * diisi {@code tbmuser.getUserId()}. Artinya berkas jawaban seluruh peserta berpindah
+			 * ke akun pribadi dosen/admin yang menekan tombol ini — pertimbangkan kebijakan
+			 * institusi mengenai penyimpanan data akademik di akun perorangan sebelum memakainya.</p>
+			 *
+			 * <p><b>Alur.</b> (1) Menelusuri seluruh peserta di grid, mengumpulkan id
+			 * {@link LampiranLain} untuk setiap "Jawaban ke-N" sebanyak
+			 * {@code bankSoal.getJumlahLampiran()}. (2) Bila kosong, pengguna diberi tahu dan
+			 * proses berhenti. (3) Bila ada, sebuah bilah pemuatan "jangan berhenti" ditampilkan
+			 * dan satu berkas uji ({@code /opt/ecampus/test.txt}) dikirim lebih dulu untuk
+			 * memastikan kredensial Drive sah — pengiriman sesungguhnya baru berjalan di dalam
+			 * callback keberhasilan berkas uji tersebut.</p>
+			 *
+			 * <p><b>Otorisasi.</b> Tombol ini TIDAK diberi {@code setVisible(...)} bersyarat sama
+			 * sekali, berbeda dari tombol "Download Lampiran" di sebelahnya yang menyaring peran
+			 * peserta. Setiap pengguna yang dapat membuka layar rekap dapat memicunya.</p>
+			 *
+			 * @param event event {@code onClick}; tidak dipakai
+			 * @throws Exception diteruskan dari pengumpulan lampiran dan inisialisasi Drive
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 
@@ -1989,6 +2073,21 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 					final PerguruanTinggi perguruanTinggi = PerguruanTinggiUtil.getPerguruanTinggi();
 					final Label label = Common.displayLoadBarjanganBerhenti(new EventListener() {
 
+						/**
+						 * Callback bilah pemuatan yang <b>sengaja kosong</b>.
+						 *
+						 * <p>{@code displayLoadBarjanganBerhenti} mewajibkan sebuah listener
+						 * penyelesaian, tetapi pada alur unggah Drive tidak ada yang perlu
+						 * dilakukan saat selesai: grid tidak berubah tampilannya (yang berpindah
+						 * hanya lokasi penyimpanan berkas), dan status akhir sudah disampaikan
+						 * lewat label yang diisi "Selesai" oleh thread pengunggah.</p>
+						 *
+						 * <p>Varian "jangan berhenti" dipilih agar bilah pemuatan tidak menghilang
+						 * sendiri di tengah proses unggah yang bisa berlangsung sangat lama.</p>
+						 *
+						 * @param arg0 event penanda selesai; tidak dipakai
+						 * @throws Exception tidak pernah dilempar
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -2002,6 +2101,23 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 							new EventListener() {
 
+								/**
+								 * Callback keberhasilan <b>berkas uji</b>. Dipanggil
+								 * {@code prosesBackup} setelah {@code /opt/ecampus/test.txt}
+								 * berhasil diunggah ke folder {@code test_files} di Drive.
+								 *
+								 * <p>Berkas uji berfungsi sebagai <b>pemeriksaan kredensial</b>:
+								 * bila token Drive pengguna kedaluwarsa atau izinnya dicabut,
+								 * kegagalan terjadi pada satu berkas kecil dan callback ini tidak
+								 * pernah dipanggil — jauh lebih baik daripada baru ketahuan
+								 * setelah separuh lampiran terunggah dan aslinya terlanjur
+								 * dihapus. Karena itu pengiriman sesungguhnya hanya dimulai bila
+								 * {@code fileUpload} dan id-nya tidak null.</p>
+								 *
+								 * @param arg0 event pembawa {@code com.google.api.services.drive.model.File}
+								 *             hasil unggah berkas uji
+								 * @throws Exception diteruskan dari pelepasan thread pengunggah
+								 */
 								@Override
 								public void onEvent(Event arg0) throws Exception {
 									com.google.api.services.drive.model.File fileUpload = (com.google.api.services.drive.model.File) arg0
@@ -2011,6 +2127,41 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 
 										new Thread(new Runnable() {
 
+											/**
+											 * Thread pengunggah lampiran ke Google Drive.
+											 *
+											 * <p><b>Mengapa memakai SQL mentah.</b> Daftar berkas
+											 * yang akan diunggah diambil lewat
+											 * {@code createSQLQuery("select id, foto from lampiran_lain where foto is not null and id in (...)")}
+											 * pada {@code StreamingHibernateUtil} — bukan Criteria
+											 * biasa. Alasannya, memuat entity {@link LampiranLain}
+											 * lengkap berarti ikut memuat kolom biner {@code foto}
+											 * untuk seluruh lampiran sekaligus ke memori. Query ini
+											 * hanya mengambil id dan REFERENSI biner (large object
+											 * id), sehingga isi berkas dibaca satu per satu.</p>
+											 *
+											 * <p><b>Alur per berkas.</b> Memuat {@link FileFoto}
+											 * berdasarkan id, mengambil berkasnya, memperbarui
+											 * label progres, lalu {@code kirimBackupLangsung(...)}
+											 * mengunggahnya. Bila pengiriman mengembalikan
+											 * {@code null} perulangan DIHENTIKAN
+											 * ({@code break}) — pilihan yang disengaja: kegagalan
+											 * unggah biasanya berarti kuota habis atau koneksi
+											 * putus, sehingga meneruskan hanya akan menghasilkan
+											 * rentetan kegagalan. Exception per berkas juga
+											 * memicu {@code break} setelah ditampilkan ke
+											 * administrator.</p>
+											 *
+											 * <p><b>Konsekuensi penghentian di tengah jalan.</b>
+											 * Lampiran yang sudah terunggah SUDAH dihapus data
+											 * binernya, sedangkan sisanya belum tersentuh. Keadaan
+											 * campuran ini sah dan tidak merusak — menekan tombol
+											 * kembali akan melanjutkan sisanya karena query hanya
+											 * mengambil baris yang {@code foto}-nya masih ada.</p>
+											 *
+											 * <p><b>Sumber daya.</b> Session ditutup di
+											 * {@code finally}; label diisi "Selesai" setelahnya.</p>
+											 */
 											@SuppressWarnings("unchecked")
 											@Override
 											public void run() {
@@ -2063,6 +2214,39 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 																					fileFoto.getClass().getSimpleName(),
 																					new EventListener() {
 
+																						/**
+																						 * Callback keberhasilan unggah SATU
+																						 * lampiran: menukar penyimpanan berkas
+																						 * dari basis data ke Google Drive.
+																						 *
+																						 * <p>Dalam satu transaksi pada session
+																						 * terpisah: memuat ulang
+																						 * {@link LampiranLain} terkelola,
+																						 * meng-{@code null}-kan kolom
+																						 * {@code foto}, mengisi {@code gdrive}
+																						 * dengan id berkas Drive dan
+																						 * {@code gdriveUsername} dengan
+																						 * pemilik kredensial, lalu commit.</p>
+																						 *
+																						 * <p><b>Urutan yang menentukan.</b>
+																						 * {@code FileFoto.hapusTotal(...)} yang
+																						 * benar-benar membuang data biner
+																						 * dipanggil SETELAH commit. Bila
+																						 * dipanggil sebelum commit dan
+																						 * transaksi gagal, berkas sudah hilang
+																						 * sementara kolom {@code gdrive} belum
+																						 * tersimpan — lampiran menjadi tidak
+																						 * dapat dijangkau dari kedua sisi.</p>
+																						 *
+																						 * <p>Kegagalan di-rollback dan dicatat
+																						 * ke {@code ErrorAuditUtil}; session
+																						 * ditutup di {@code finally}.</p>
+																						 *
+																						 * @param arg0 event pembawa berkas Drive
+																						 *             hasil unggah
+																						 * @throws Exception diteruskan dari
+																						 *         operasi basis data
+																						 */
 																						@Override
 																						public void onEvent(Event arg0)
 																								throws Exception {
