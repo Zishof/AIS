@@ -865,6 +865,16 @@ public class Login extends HttpServlet {
 		return text;
 	}
 
+	/**
+	 * Memeriksa keberadaan sebuah berkas di cakram tanpa pernah melempar exception.
+	 *
+	 * <p>Dipakai rantai cadangan pemilihan halaman login pada
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}. Jalur yang diperiksa berasal dari
+	 * {@code getRealPath} atas konstanta di dalam kode, bukan dari masukan pengguna.</p>
+	 *
+	 * @param filePath jalur absolut berkas; boleh {@code null}
+	 * @return {@code true} bila berkas benar-benar ada
+	 */
 	private static boolean fileExists(String filePath) {
 		if (filePath == null || filePath.trim().length() == 0) {
 			return false;
@@ -876,10 +886,30 @@ public class Login extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menafsirkan sebuah baris {@link Konfigurasi} sebagai bendera aktif.
+	 *
+	 * <p>Bernilai {@code true} hanya bila konfigurasi ada, nilainya tidak {@code null}, dan setelah
+	 * dipangkas sama dengan {@link Konfigurasi#AKTIF} tanpa memperhatikan besar kecil huruf.
+	 * Dengan begitu konfigurasi yang belum pernah diisi otomatis dianggap tidak aktif.</p>
+	 *
+	 * @param config baris konfigurasi; boleh {@code null}
+	 * @return {@code true} bila konfigurasi menyatakan aktif
+	 */
 	private static boolean isAktif(Konfigurasi config) {
 		return config != null && config.getNilai() != null && Konfigurasi.AKTIF.equalsIgnoreCase(config.getNilai().trim());
 	}
 
+	/**
+	 * Menerjemahkan pesan lewat {@code Common.getBahasaConfig} dengan jaring pengaman.
+	 *
+	 * <p>Bila penerjemahan gagal atau menghasilkan teks kosong, pesan asli dikembalikan apa
+	 * adanya. Dengan begitu kegagalan modul bahasa tidak pernah membuat pengguna menerima pesan
+	 * kosong pada layar login.</p>
+	 *
+	 * @param pesanDefault pesan bawaan dalam Bahasa Indonesia; boleh {@code null}
+	 * @return pesan hasil terjemahan, pesan asli, atau teks kosong bila masukan {@code null}
+	 */
 	private static String bahasaAman(String pesanDefault) {
 		if (pesanDefault == null) {
 			return "";
@@ -912,15 +942,38 @@ public class Login extends HttpServlet {
 	 * @see Login
 	 */
 	private static class AjaxLoginPrecheck {
+		/**
+		 * {@code true} bila pemeriksaan status akun tidak menemukan alasan untuk menolak lebih
+		 * awal. Perlu diingat bahwa nilai {@code true} <b>bukan</b> berarti login diterima —
+		 * verifikasi kata sandi baru dilakukan sesudahnya oleh
+		 * {@code SecurityFilter.doAutoLogin}.
+		 */
 		boolean valid;
+
+		/**
+		 * Alasan penolakan yang siap ditampilkan ke pengguna; hanya terisi ketika
+		 * {@link #valid} bernilai {@code false}.
+		 */
 		String message;
 
+		/**
+		 * Membentuk hasil "tidak ada alasan menolak lebih awal", dengan {@link #message} dibiarkan
+		 * {@code null}.
+		 *
+		 * @return hasil pemeriksaan yang meloloskan
+		 */
 		static AjaxLoginPrecheck ok() {
 			AjaxLoginPrecheck r = new AjaxLoginPrecheck();
 			r.valid = true;
 			return r;
 		}
 
+		/**
+		 * Membentuk hasil penolakan beserta alasannya.
+		 *
+		 * @param message alasan penolakan yang akan ditampilkan ke pengguna
+		 * @return hasil pemeriksaan yang menolak
+		 */
 		static AjaxLoginPrecheck error(String message) {
 			AjaxLoginPrecheck r = new AjaxLoginPrecheck();
 			r.valid = false;
@@ -948,46 +1001,111 @@ public class Login extends HttpServlet {
 	 * @see Login
 	 */
 	private static class AjaxLoginResponseWrapper extends HttpServletResponseWrapper {
+		/** Penampung seluruh teks yang ditulis alur otentikasi lama, menggantikan respons nyata. */
 		private final StringWriter capture = new StringWriter();
+
+		/** Penulis yang diserahkan ke pemanggil; seluruh keluarannya bermuara ke {@link #capture}. */
 		private final PrintWriter writer = new PrintWriter(capture);
+
+		/** URL yang hendak dituju alur lama lewat {@code sendRedirect}, ditahan di sini. */
 		private String redirectLocation;
+
+		/** Kode status yang hendak dikirim alur lama lewat {@code sendError}, ditahan di sini. */
 		private int errorCode;
+
+		/** Pesan galat yang menyertai {@code sendError}, ditahan di sini. */
 		private String errorMessage;
 
+		/**
+		 * Membungkus respons nyata agar seluruh keluaran alur otentikasi lama dapat ditahan.
+		 *
+		 * @param response respons nyata yang dibungkus
+		 */
 		AjaxLoginResponseWrapper(HttpServletResponse response) {
 			super(response);
 		}
 
+		/**
+		 * Mengembalikan penulis penampung, <b>bukan</b> penulis respons nyata, sehingga HTML
+		 * halaman login lama tidak pernah terkirim ke klien yang sebenarnya menunggu JSON.
+		 *
+		 * @return penulis yang menulis ke penampung
+		 * @throws IOException tidak pernah dilempar oleh implementasi ini
+		 */
 		public PrintWriter getWriter() throws IOException {
 			return writer;
 		}
 
+		/**
+		 * Menahan permintaan pengalihan alih-alih menjalankannya.
+		 *
+		 * <p>Inilah yang mencegah alur lama mengalihkan peramban ke halaman login, sekaligus
+		 * membuat URL tujuan tersedia untuk digali alasannya oleh
+		 * {@link Login#ambilPesanErrorLoginAjax}.</p>
+		 *
+		 * @param location URL tujuan pengalihan
+		 * @throws IOException tidak pernah dilempar oleh implementasi ini
+		 */
 		public void sendRedirect(String location) throws IOException {
 			this.redirectLocation = location;
 		}
 
+		/**
+		 * Menahan kode galat alih-alih mengirimkannya sebagai respons galat.
+		 *
+		 * @param sc kode status HTTP
+		 * @throws IOException tidak pernah dilempar oleh implementasi ini
+		 */
 		public void sendError(int sc) throws IOException {
 			this.errorCode = sc;
 		}
 
+		/**
+		 * Menahan kode galat beserta pesannya alih-alih mengirimkannya sebagai respons galat.
+		 *
+		 * @param sc  kode status HTTP
+		 * @param msg pesan galat
+		 * @throws IOException tidak pernah dilempar oleh implementasi ini
+		 */
 		public void sendError(int sc, String msg) throws IOException {
 			this.errorCode = sc;
 			this.errorMessage = msg;
 		}
 
+		/**
+		 * @return URL pengalihan yang tertahan, atau {@code null} bila alur lama tidak mengalihkan
+		 */
 		String getRedirectLocation() {
 			return redirectLocation;
 		}
 
+		/**
+		 * @return pesan galat yang tertahan, atau {@code null} bila tidak ada
+		 */
 		String getErrorMessage() {
 			return errorMessage;
 		}
 
+		/**
+		 * Mengembalikan kode status yang tertahan.
+		 *
+		 * <p><b>Tidak dipakai</b> — ditandai {@code @SuppressWarnings("unused")}; keputusan
+		 * berhasil atau gagalnya login diambil dari nilai kembalian
+		 * {@code SecurityFilter.doAutoLogin}, bukan dari kode status ini.</p>
+		 *
+		 * @return kode status yang tertahan, atau {@code 0} bila tidak ada
+		 */
 		@SuppressWarnings("unused")
 		int getErrorCode() {
 			return errorCode;
 		}
 
+		/**
+		 * Mengembalikan seluruh teks yang tertahan, setelah lebih dulu melakukan {@code flush}
+		 * agar tulisan yang masih tertinggal di penyangga ikut terbaca.
+		 *
+		 * @return isi yang tertangkap; dapat berupa JSON, HTML, atau teks kosong
+		 */
 		String getCapturedContent() {
 			try {
 				writer.flush();

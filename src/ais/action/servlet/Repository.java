@@ -779,6 +779,31 @@ public class Repository extends HttpServlet {
      */
     private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message,String requestId)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",requestId);request.setAttribute("repoPublicUser",Common.getCurrentUser(request));forwardRepositoryJsp(request,response);}
 
+    /**
+     * Menjawab {@code action=citation}: mengunduh sitasi satu butir dalam salah satu dari sebelas
+     * format.
+     *
+     * <p>Butir dicari lewat {@code service.findPublicCitationItem(id)} — bukan pembacaan langsung
+     * — sehingga hanya butir yang memang boleh disitasi publik yang dapat dijangkau; selain itu
+     * dijawab {@code 404}. Nilai {@code id} dilewatkan {@link #parseLong}, yang menolak nilai
+     * bukan angka dan nilai nol atau negatif.</p>
+     *
+     * <p>Parameter {@code format} disaring dengan <i>daftar putih</i>: {@code ris},
+     * {@code bibtex}, {@code endnote}, {@code csl}, {@code dcxml}, {@code apa}, {@code ieee},
+     * {@code harvard}, {@code vancouver}, {@code chicago}, {@code text}. Nilai lain <b>tidak</b>
+     * ditolak melainkan diturunkan menjadi {@code text}. Karena ekstensi berkas dan tipe konten
+     * diturunkan dari nilai yang sudah tersaring itu — bukan dari masukan mentah — nama berkas
+     * pada {@code Content-Disposition} tidak dapat disetir pengunjung; bagian yang berubah-ubah
+     * hanya {@code item.id} yang bertipe angka.</p>
+     *
+     * <p>Tipe konten mengikuti format: {@code application/vnd.citationstyles.csl+json} untuk
+     * {@code csl}, {@code application/xml} untuk {@code dcxml}, dan {@code text/plain} untuk
+     * selebihnya.</p>
+     *
+     * @param request  permintaan servlet; membawa {@code id} dan {@code format}
+     * @param response tanggapan servlet
+     * @throws Exception bila penyusunan sitasi atau penulisan tanggapan gagal
+     */
     private void citation(HttpServletRequest request, HttpServletResponse response) throws Exception {
         ItemDetail item = service.findPublicCitationItem(parseLong(request.getParameter("id")));
         if (item == null) {
@@ -799,6 +824,21 @@ public class Repository extends HttpServlet {
         response.getWriter().write(body);
     }
 
+    /**
+     * Menuliskan pesan galat sebagai teks biasa setelah membuang apa pun yang sudah tertulis di
+     * buffer.
+     *
+     * <p>Dipakai khusus untuk kegagalan {@code action=citation}: klien di situ mengunduh berkas
+     * teks, sehingga halaman HTML galat akan tersimpan sebagai berkas sitasi yang rusak.
+     * {@code resetBuffer()} dipanggil lebih dulu agar potongan sitasi yang sempat ditulis tidak
+     * tercampur dengan pesan galat, dan {@code Cache-Control: no-store} mencegah galat sesaat
+     * ikut tersimpan di cache.</p>
+     *
+     * @param response tanggapan servlet
+     * @param status   kode status HTTP
+     * @param message  pesan untuk pengguna, sudah termasuk pengenal permintaan
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     private void writePlainError(HttpServletResponse response, int status, String message) throws IOException {
         response.resetBuffer();
         response.setStatus(status);
@@ -807,6 +847,41 @@ public class Repository extends HttpServlet {
         response.getWriter().write(message);
     }
 
+    /**
+     * Menjawab {@code action=download}: mengalirkan satu berkas naskah ke pengunjung.
+     *
+     * <p><b>Gerbang, berurutan.</b> Pertama, bila {@code service.anonymousFullTextAllowed()}
+     * bernilai {@code false} dan pengunjung belum masuk, permintaan ditolak {@code 401} dengan
+     * ajakan masuk memakai akun eCampus. Kedua, berkas dicari lewat
+     * {@code service.findDownloadableBitstream(id)} — nama methodnya menegaskan bahwa kebijakan
+     * akses per berkas ditegakkan di layanan, bukan di sini; hasil {@code null} dijawab
+     * {@code 404} dengan pesan yang sengaja tidak membedakan "tidak ada" dari "tidak boleh".
+     * Ketiga, berkas fisiknya diminta ke {@code service.resolveBitstreamFile(...)}; bila tidak
+     * ada di cakram, dijawab {@code 404} terpisah. Sebelum itu, {@link #process} sudah menerapkan
+     * pembatas laju 120 unduhan per jam per alamat IP.</p>
+     *
+     * <p><b>Jalur berkas.</b> Satu-satunya masukan pengunjung adalah {@code id} numerik yang
+     * dilewatkan {@link #parseLong}. Nama dan lokasi berkas seluruhnya berasal dari basis data
+     * dan pemetaan layanan, jadi tidak ada jalan bagi pengunjung menyusun jalur berkas —
+     * {@code ../} sekalipun tidak pernah sampai ke sistem berkas.</p>
+     *
+     * <p><b>Tanggapan.</b> Pemakaian dicatat {@code recordUsage} sebelum pengaliran dimulai.
+     * Tanggapan direset, lalu dipasang {@code X-Content-Type-Options: nosniff}, tipe konten dari
+     * basis data (atau tebakan container, atau {@code application/octet-stream}), panjang isi,
+     * dan {@code Content-Disposition}. Nama berkas dibersihkan {@link #safeFileName} lalu dikirim
+     * dua kali — bentuk ASCII yang tanda kutipnya dibuang, dan bentuk {@code filename*=UTF-8''}
+     * yang di-<i>percent-encode</i> — sehingga nama berhuruf non-Latin tetap benar tanpa
+     * membuka celah penyuntikan header. Berkas dibuka {@code inline} hanya bila diminta parameter
+     * {@code inline=true} <i>dan</i> tipenya benar-benar {@code application/pdf}; selain itu
+     * selalu {@code attachment}, sehingga berkas HTML atau SVG tidak dapat dieksekusi sebagai
+     * halaman pada asal aplikasi.</p>
+     *
+     * <p>Aliran masuk ditutup di blok {@code finally}.</p>
+     *
+     * @param request  permintaan servlet; membawa {@code id} dan opsional {@code inline}
+     * @param response tanggapan servlet yang akan menerima byte berkas
+     * @throws Exception bila pembacaan berkas atau penulisan tanggapan gagal
+     */
     private void download(HttpServletRequest request, HttpServletResponse response) throws Exception {
         if(!service.anonymousFullTextAllowed()&&Common.getCurrentUser(request)==null){response.sendError(HttpServletResponse.SC_UNAUTHORIZED,"Silakan login menggunakan akun eCampus untuk membaca atau mengunduh naskah lengkap.");return;}
         RepoBitstream bitstream = service.findDownloadableBitstream(parseLong(request.getParameter("id")));
@@ -845,6 +920,45 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Melayani antarmuka panen metadata OAI-PMH 2.0 untuk aksi {@code action=oai}.
+     *
+     * <p><b>Kerangka tanggapan.</b> Selalu XML {@code text/xml;charset=UTF-8} dengan
+     * {@code Cache-Control: no-store}, dibuka elemen {@code OAI-PMH}, {@code responseDate}, dan
+     * blok {@code request} hasil {@link #writeOaiRequest}. Setiap cabang menutup dokumen dengan
+     * benar, termasuk cabang galat yang keluar lebih awal.</p>
+     *
+     * <p><b>Base URL.</b> Diambil dari properti sistem {@code ais.repository.oaiBaseUrl} bila
+     * disetel; jika tidak, disusun dari URL permintaan — dengan penambahan {@code ?action=oai}
+     * ketika servlet tidak dipanggil pada jalur {@code /oai}.</p>
+     *
+     * <p><b>Validasi argumen.</b> Seluruh pemeriksaan kesesuaian protokol dipusatkan di
+     * {@link #oaiArgumentError} dan dijalankan sebelum verb apa pun dikerjakan; kegagalannya
+     * dipetakan menjadi {@code badVerb} atau {@code badArgument}.</p>
+     *
+     * <p><b>Verb yang didukung.</b> {@code Identify} (nama repositori dan surel admin dapat
+     * disetel lewat properti sistem, dengan nilai bawaan "Repository AIS" dan
+     * {@code repository@localhost}); {@code ListMetadataFormats} yang hanya mengumumkan
+     * {@code oai_dc}; {@code ListSets} yang memetakan koleksi menjadi {@code collection:{id}}
+     * dengan batas 500 himpunan; {@code GetRecord}; serta {@code ListIdentifiers} dan
+     * {@code ListRecords} yang mengalir 50 rekaman per halaman.</p>
+     *
+     * <p><b>Penomoran halaman yang tidak dapat dipalsukan.</b> Halaman lanjutan tidak
+     * mengandalkan angka mentah dari klien: {@code resumptionToken} ditandatangani HMAC dan
+     * memuat nomor halaman, himpunan, rentang tanggal, serta verb asalnya. Token yang gagal
+     * diverifikasi, kedaluwarsa, atau berasal dari verb lain dijawab {@code badResumptionToken};
+     * begitu pula token yang menunjuk melewati halaman terakhir. Ini mencegah pemanen menyusuri
+     * ruang kueri sembarangan lewat token yang dikarang sendiri.</p>
+     *
+     * <p><b>Cakupan data.</b> Hanya {@code service.searchOaiRecords}/{@code findOaiItem} yang
+     * dipakai, sehingga rekaman yang bukan publik tidak pernah ikut. Butir yang ditarik tetap
+     * diumumkan sebagai {@code header} berstatus {@code deleted} tanpa metadata — perilaku yang
+     * memang diwajibkan protokol agar pemanen dapat menyinkronkan penghapusan.</p>
+     *
+     * @param request  permintaan servlet; membawa {@code verb} dan argumen OAI-PMH
+     * @param response tanggapan servlet
+     * @throws Exception bila pembacaan data atau penulisan XML gagal
+     */
     private void oai(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String verb = clean(request.getParameter("verb"));
         String token = clean(request.getParameter("resumptionToken"));
