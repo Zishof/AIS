@@ -962,20 +962,43 @@ public final class ApotikDemoProvisionHelper {
 	}
 
 	/**
-	 * Isi ulang stok bahan formula SAMPLE/UAT bila sisa ledger atau batch demo
-	 * turun di bawah ambang aman. Provisioning lama hanya membuat stok satu kali;
+	 * Isi ulang stok komponen SAMPLE/UAT bila sisa ledger atau batch layak turun
+	 * di bawah ambang aman. Provisioning lama hanya membuat stok satu kali;
 	 * setelah beberapa regression run, formula tetap ada tetapi tidak lagi dapat
-	 * dijual. Penambahan ini dibatasi ketat ke kode {@code DEMO-BHN-*} dan menjaga
-	 * ledger item serta kuantitas batch tetap bertambah dengan nilai yang sama.
+	 * dijual. Selain bahan {@code DEMO-BHN-*}, versi lama pernah menautkan obat
+	 * bootstrap ke resep demo sebelum katalog bahan tersedia. Karena itu cakupan
+	 * diambil dari relasi yang benar-benar dipakai formula/resep SAMPLE/UAT, bukan
+	 * hanya dari prefix kode bahan. Ledger item dan kuantitas batch selalu ditambah
+	 * dengan nilai yang sama.
 	 */
 	@SuppressWarnings("unchecked")
 	private static JSONObject ensureStokBahanFormulaUat(Session session) throws Exception {
-		List<ItemMedis> items = session.createQuery(
+		List<ItemMedis> bahanDemo = session.createQuery(
 				"from ItemMedis i where i.kode like :kode order by i.kode")
 				.setString("kode", "DEMO-BHN-%")
 				.setMaxResults(JUMLAH_BAHAN_RACIKAN_DEMO).list();
+		List<ItemMedis> komponenRacikan = session.createQuery(
+				"select distinct d.item from RacikanDetail d where d.item is not null "
+				+ "and d.racikan.kode like :kode")
+				.setString("kode", "RAC-UAT-%").list();
+		List<ItemMedis> komponenProduksi = session.createQuery(
+				"select distinct b.item from BahanBakuItem b where b.item is not null "
+				+ "and b.itemInduk.kode like :kode")
+				.setString("kode", "DEMO-OBT-%").list();
+		List<ItemMedis> itemResepMenunggu = session.createQuery(
+				"select distinct d.item from ResepDetail d where d.item is not null "
+				+ "and d.resep.kode like :kode and not exists "
+				+ "(select tm.id from TransaksiMedis tm where tm.resep = d.resep)")
+				.setString("kode", "RSP-DEMO-%").list();
+		java.util.Map<Long, ItemMedis> unik = new java.util.LinkedHashMap<Long, ItemMedis>();
+		tambahItemFormulaUat(unik, bahanDemo);
+		tambahItemFormulaUat(unik, komponenRacikan);
+		tambahItemFormulaUat(unik, komponenProduksi);
+		tambahItemFormulaUat(unik, itemResepMenunggu);
+		List<ItemMedis> items = new java.util.ArrayList<ItemMedis>(unik.values());
 		JSONObject hasil = new JSONObject();
 		hasil.put("targetPerBahan", STOK_MINIMAL_BAHAN_FORMULA_UAT);
+		hasil.put("jumlahBahanDiperiksa", items.size());
 		if (items.isEmpty()) {
 			hasil.put("jumlahBahanDitopUp", 0);
 			hasil.put("totalQtyDitopUp", 0);
@@ -987,35 +1010,65 @@ public final class ApotikDemoProvisionHelper {
 		Map<Long, Double> stokItem = ApotikApiHelper.stokPerItem(session, itemIds, null);
 
 		List<Kadaluarsa> batches = session.createQuery(
-				"from Kadaluarsa k where k.item.id in (:ids) and k.keterangan like :penanda")
-				.setParameterList("ids", itemIds)
-				.setString("penanda", "BATCH-DEMO-DEMO-BHN-%").list();
-		Map<Long, Kadaluarsa> batchPerItem = new java.util.HashMap<Long, Kadaluarsa>();
+				"from Kadaluarsa k where k.item.id in (:ids)")
+				.setParameterList("ids", itemIds).list();
+		Map<Long, Kadaluarsa> batchTopUpPerItem = new java.util.HashMap<Long, Kadaluarsa>();
 		List<Long> batchIds = new java.util.ArrayList<Long>();
 		for (Kadaluarsa batch : batches) {
 			if (batch.getItem() == null || batch.getItem().getId() == null) continue;
-			if (!batchPerItem.containsKey(batch.getItem().getId())) {
-				batchPerItem.put(batch.getItem().getId(), batch);
-			}
+			String penanda = "BATCH-TOPUP-UAT-" + batch.getItem().getId();
+			if (penanda.equals(batch.getKeterangan()))
+				batchTopUpPerItem.put(batch.getItem().getId(), batch);
 			batchIds.add(batch.getId());
 		}
 		Map<Long, Double> konsumsiBatch = ApotikApiHelper.konsumsiPerBatch(session, batchIds);
+		Map<Long, Double> sisaBatchPerItem = new java.util.HashMap<Long, Double>();
+		Calendar hariIni = Calendar.getInstance();
+		hariIni.set(Calendar.HOUR_OF_DAY, 0);
+		hariIni.set(Calendar.MINUTE, 0);
+		hariIni.set(Calendar.SECOND, 0);
+		hariIni.set(Calendar.MILLISECOND, 0);
+		for (Kadaluarsa batch : batches) {
+			if (batch.getItem() == null || batch.getItem().getId() == null) continue;
+			if (!Kadaluarsa.lotLayak(batch.getStatusLot())) continue;
+			if (batch.getTanggalKadaluarsa() != null
+					&& batch.getTanggalKadaluarsa().before(hariIni.getTime())) continue;
+			double terpakai = konsumsiBatch.containsKey(batch.getId())
+					? konsumsiBatch.get(batch.getId()).doubleValue() : 0;
+			double sisa = Math.max(0, (batch.getQty() == null ? 0
+					: batch.getQty().doubleValue()) - terpakai);
+			Double lama = sisaBatchPerItem.get(batch.getItem().getId());
+			sisaBatchPerItem.put(batch.getItem().getId(), Double.valueOf(
+					(lama == null ? 0 : lama.doubleValue()) + sisa));
+		}
 
 		int jumlahDitopUp = 0;
 		double totalDitopUp = 0;
 		long penandaWaktu = System.currentTimeMillis();
 		for (ItemMedis item : items) {
-			Kadaluarsa batch = batchPerItem.get(item.getId());
-			if (batch == null) continue;
 			double stok = stokItem.containsKey(item.getId())
 					? stokItem.get(item.getId()).doubleValue() : 0;
-			double terpakai = konsumsiBatch.containsKey(batch.getId())
-					? konsumsiBatch.get(batch.getId()).doubleValue() : 0;
-			double sisaBatch = (batch.getQty() == null ? 0 : batch.getQty().doubleValue()) - terpakai;
+			double sisaBatch = sisaBatchPerItem.containsKey(item.getId())
+					? sisaBatchPerItem.get(item.getId()).doubleValue() : 0;
 			double tambahan = Math.ceil(Math.max(
 					STOK_MINIMAL_BAHAN_FORMULA_UAT - stok,
 					STOK_MINIMAL_BAHAN_FORMULA_UAT - sisaBatch));
 			if (tambahan <= 0) continue;
+
+			Kadaluarsa batch = batchTopUpPerItem.get(item.getId());
+			if (batch == null) {
+				batch = new Kadaluarsa();
+				batch.setItem(item);
+				batch.setQty(Double.valueOf(0));
+				batch.setKeterangan("BATCH-TOPUP-UAT-" + item.getId());
+				batch.setOlehId("seed_demo");
+				batch.setOleh("Provisioning data sample eBisnis");
+				batchTopUpPerItem.put(item.getId(), batch);
+			}
+			Calendar kedaluwarsa = Calendar.getInstance();
+			kedaluwarsa.add(Calendar.DAY_OF_YEAR, 3650);
+			batch.setTanggalKadaluarsa(kedaluwarsa.getTime());
+			batch.setStatusLot(Kadaluarsa.LOT_ELIGIBLE);
 
 			DetailTransaksiPasien ledger = new DetailTransaksiPasien();
 			ledger.setKodeTransaksi(ConstantValues.beliMasuk);
@@ -1034,13 +1087,21 @@ public final class ApotikDemoProvisionHelper {
 
 			batch.setQty(Double.valueOf((batch.getQty() == null ? 0 : batch.getQty().doubleValue())
 					+ tambahan));
-			session.update(batch);
+			session.saveOrUpdate(batch);
 			jumlahDitopUp++;
 			totalDitopUp += tambahan;
 		}
 		hasil.put("jumlahBahanDitopUp", jumlahDitopUp);
 		hasil.put("totalQtyDitopUp", totalDitopUp);
 		return hasil;
+	}
+
+	private static void tambahItemFormulaUat(Map<Long, ItemMedis> tujuan,
+			List<ItemMedis> sumber) {
+		for (ItemMedis item : sumber) {
+			if (item == null || item.getId() == null) continue;
+			tujuan.put(item.getId(), item);
+		}
 	}
 
 	@SuppressWarnings("unchecked")
