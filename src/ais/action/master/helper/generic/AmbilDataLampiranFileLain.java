@@ -731,7 +731,7 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 	    FileFotoLain result = null;
 
 	    try {
-	        session = StreamingHibernateUtil.getInstance().currentSession();
+	        session = StreamingHibernateUtil.getInstance().openSession();
 
 	        // 2. Susun HQL Query (ORDER BY id DESC memastikan kita mengambil lampiran/foto terbaru jika ada duplikat)
 	        String hql = "FROM " + clazz.getName() + " f WHERE f." + propertyName + " = :refVal ORDER BY f.id DESC";
@@ -751,14 +751,7 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 	    } catch (Exception e) {
 	        e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:662");
 	    } finally {
-	        // 4. Tutup session di blok finally untuk menghindari memory / connection leak
-	        if (session != null && session.isOpen()) {
-	            try {
-	                session.close();
-	            } catch (Exception ex) {
-	                ex.printStackTrace(); ais.common.ErrorAuditUtil.record(ex, "auto-audit src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:669");
-	            }
-	        }
+	        ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
 	    }
 
 	    return result;
@@ -767,6 +760,9 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 	public static void mappingInstanceData(FileFotoLain a, Serializable ref, Jurusan selectedJurusan, String jenis,
 			String link, String namaFile, String keteranganFile, String olehId, String namaOleh) {
 
+		if (namaFile == null || namaFile.trim().length() == 0) {
+			namaFile = "lampiran_" + System.currentTimeMillis();
+		}
 		// Amankan parameter opsional
 		String suffixJenis = jenis + (selectedJurusan == null ? "" : selectedJurusan.getId());
 		Long idRef = ref instanceof Long ? (Long) ref : null;

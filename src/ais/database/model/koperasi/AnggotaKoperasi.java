@@ -29,6 +29,7 @@ import ais.common.BarcodeCommon;
 import ais.common.Common;
 import ais.common.ConstantValues;
 import ais.common.security.PasswordHashService;
+import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Dosen;
 import ais.database.model.Mahasiswa;
 import ais.database.model.Pegawai;
@@ -1019,18 +1020,16 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * lapis pertahanan kedua (pemeriksaan duplikat + percobaan ulang) di sekitar penyimpanan baris
 	 * anggota.</p>
 	 *
-	 * <p>Method sengaja menerima {@link Session} sebagai argumen alih-alih membuka sesi sendiri untuk
-	 * langkah cari-atau-buat baris pencacah, supaya langkah tersebut ikut melihat perubahan yang
-	 * belum ter-commit pada transaksi pemanggil; kenaikan nomor urut yang sesungguhnya tetap berjalan
-	 * di sesi terpisah milik {@code KunciEntityHelper} agar penguncian sungguhan lintas node.</p>
+	 * <p>Session pemanggil dipertahankan untuk kompatibilitas API. Pembuatan dan kenaikan pencacah
+	 * memakai satu transaksi tersendiri dengan advisory lock lintas node. Nomor yang telah
+	 * diterbitkan tidak dipakai ulang bila transaksi pendaftaran anggota dibatalkan.</p>
 	 *
 	 * <p>Keterangan asli yang dipertahankan:</p>
 	 *
 	 * Method untuk menghasilkan Kode Member Koperasi berdasarkan rumus standar.
 	 * Menjalankan kueri langsung ke database menggunakan parameter Session.
 	 *
-	 * @param session       Sesi Hibernate yang sedang aktif, dipakai untuk mencari/membuat baris
-	 *                      pencacah (lihat catatan di atas).
+	 * @param session       sesi pemanggil; tidak di-commit atau ditutup oleh generator.
 	 * @param tanggalDaftar Waktu pendaftaran (jika null, sistem menggunakan waktu
 	 *                      saat ini).
 	 * @return String Kode Member Koperasi yang sudah diformat; tidak pernah {@code null} -- kegagalan
@@ -1114,13 +1113,9 @@ public class AnggotaKoperasi extends VOSiswa {
 
 	/**
 	 * Mencari-atau-membuat baris {@link AnggotaKoperasiKodeCounter} untuk kunci (koperasi, jenis)
-	 * yang diberikan, lalu MENAIKKANNYA ATOMIK satu langkah dan mengembalikan nilai barunya -- pola
-	 * yang sama persis dengan {@code ais.common.CommonPSB#ambilNomorUrutOtomatis(FormatNis,
-	 * CalonSiswa)}.
+	 * yang diberikan, lalu menaikkannya atomik dalam satu transaksi milik generator.
 	 *
-	 * @param session    sesi Hibernate pemanggil, dipakai untuk cari/buat baris (bukan untuk
-	 *                   kenaikan atomiknya -- lihat javadoc {@link #generateKodeMember(Session,
-	 *                   Date)})
+	 * @param session    sesi Hibernate pemanggil; tidak digunakan untuk transaksi pencacah.
 	 * @param koperasiId id koperasi, atau {@link AnggotaKoperasiKodeCounter#KOPERASI_TANPA_TENANT}
 	 * @param jenisId    id jenis anggota, atau {@link AnggotaKoperasiKodeCounter#JENIS_GLOBAL}
 	 * @return nomor urut berikutnya (mulai dari 1 untuk pencacah baru)
@@ -1130,7 +1125,7 @@ public class AnggotaKoperasi extends VOSiswa {
 			throws Exception {
 		Session counterSession = null;
 		try {
-			counterSession = HibernateUtil.openSession();
+			counterSession = ais.database.hibernate.HibernateUtil.openSession();
 			counterSession.beginTransaction();
 			// Kunci juga melindungi pencacah yang belum memiliki baris. Satu transaksi
 			// memiliki CREATE dan increment; transaksi anggota tidak ikut di-commit.
@@ -1146,7 +1141,7 @@ public class AnggotaKoperasi extends VOSiswa {
 			counterSession.getTransaction().commit();
 			return nilai.longValue();
 		} finally {
-			HibernateUtil.closeSessionQuietly(counterSession);
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(counterSession);
 		}
 	}
 
@@ -1154,13 +1149,8 @@ public class AnggotaKoperasi extends VOSiswa {
 	 * Mencari id baris {@link AnggotaKoperasiKodeCounter} untuk kunci (koperasi, jenis) yang
 	 * diberikan, membuatnya bila belum ada.
 	 *
-	 * <p>Pencarian &amp; penyisipan di sini TIDAK dikunci -- penguncian sungguhan baru terjadi
-	 * belakangan lewat {@link #ambilNomorUrutKodeMember(Session, long, long)} pada id yang
-	 * dikembalikan. Race saat penyisipan (dua pemanggil sama-sama tidak menemukan baris, sama-sama
-	 * mencoba INSERT) ditangani lewat unique constraint
-	 * {@code uq_anggota_koperasi_kode_counter_koperasi_jenis}: yang kalah menerima pelanggaran
-	 * constraint (ditangkap &amp; diabaikan di sini), lalu SELECT ulang menemukan baris milik
-	 * pemenang.</p>
+	 * Pemanggil wajib memegang advisory lock untuk pasangan koperasi/jenis dalam transaksi
+	 * yang sama. Kegagalan INSERT diteruskan, bukan dianggap sebagai benturan nomor biasa.
 	 */
 	private static Long cariAtauBuatKodeCounterId(Session session, long koperasiId, long jenisId) {
 		Number id = (Number) session
@@ -1170,9 +1160,9 @@ public class AnggotaKoperasi extends VOSiswa {
 		if (id != null) {
 			return id.longValue();
 		}
-			session.createSQLQuery("INSERT INTO koperasi.anggota_koperasi_kode_counter (koperasi_id, jenis_id, nilai)"
-					+ " VALUES (:koperasiId, :jenisId, 0)").setParameter("koperasiId", koperasiId)
-					.setParameter("jenisId", jenisId).executeUpdate();
+		session.createSQLQuery("INSERT INTO koperasi.anggota_koperasi_kode_counter (koperasi_id, jenis_id, nilai)"
+				+ " VALUES (:koperasiId, :jenisId, 0)").setParameter("koperasiId", koperasiId)
+				.setParameter("jenisId", jenisId).executeUpdate();
 		Number idBaru = (Number) session
 				.createSQLQuery("SELECT id FROM koperasi.anggota_koperasi_kode_counter"
 						+ " WHERE koperasi_id=:koperasiId AND jenis_id=:jenisId")

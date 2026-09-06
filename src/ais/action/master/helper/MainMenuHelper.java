@@ -222,7 +222,11 @@ public class MainMenuHelper {
 								try {
 									session = HibernateUtil.openSession();
 									session.getTransaction().begin();
-									LogLogin persistedLogin = login == null ? null : (LogLogin) session.merge(login);
+									LogLogin persistedLogin = login == null || login.getId() == null ? null
+											: (LogLogin) session.get(LogLogin.class, login.getId());
+									if (login != null && persistedLogin == null) {
+										persistedLogin = (LogLogin) session.merge(login);
+									}
 									detailLogLogin.setLogLogin(persistedLogin);
 									session.save(detailLogLogin);
 									session.getTransaction().commit();
