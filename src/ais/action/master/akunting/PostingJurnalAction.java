@@ -122,6 +122,12 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 			{ "posting_bayar_hutang", "Posting Bayar Hutang", "/WEB-INF/z/x/y/pages/master/koperasi/posting_bayar_hutang_toko.zul" },
 			{ "posting_terima_piutang", "Posting Terima Piutang", "/WEB-INF/z/x/y/pages/master/koperasi/posting_terima_piutang_toko.zul" },
 			{ "posting_penyesuaian", "Posting Penyesuaian", "/WEB-INF/z/x/y/pages/master/koperasi/posting_penyesuaian_toko.zul" },
+			// Empat tab khusus Apotik. Jangan diarahkan ke halaman Kantin: sumber transaksi,
+			// penanda idempotensi, dan pemetaan akunnya terpisah.
+			{ "apotik_posting_penjualan", "Apotik - Posting Penjualan", "/WEB-INF/z/x/y/pages/master/sirs/posting_penjualan_apotik.zul" },
+			{ "apotik_posting_hpp", "Apotik - Posting HPP", "/WEB-INF/z/x/y/pages/master/sirs/posting_hpp_apotik.zul" },
+			{ "apotik_posting_pbf", "Apotik - Posting Penerimaan PBF", "/WEB-INF/z/x/y/pages/master/sirs/posting_pbf_apotik.zul" },
+			{ "apotik_posting_bayar_hutang_pbf", "Apotik - Posting Bayar Utang PBF", "/WEB-INF/z/x/y/pages/master/sirs/posting_bayar_hutang_pbf_apotik.zul" },
 			// Siklus akuntansi: saldo awal, penyesuaian berkala, dan tutup buku (2026-08-20).
 			{ "saldo_awal", "Saldo Awal", "/WEB-INF/z/x/y/pages/master/koperasi/siklus_saldo_awal.zul" },
 			{ "jurnal_penyesuaian", "Jurnal Penyesuaian", "/WEB-INF/z/x/y/pages/master/koperasi/siklus_penyesuaian.zul" },
@@ -177,13 +183,28 @@ public class PostingJurnalAction extends GenericAutowireComposer {
 
 		final String P = Konfigurasi.POSTING_JURNAL_TAB_PREFIX;
 		for (int i = 0; i < TABS.length; i++) {
-			if (Common.bolehKonfigurasi(P + TABS[i][0])) {
+			if (Common.bolehKonfigurasi(P + TABS[i][0]) && bolehMelihatTab(TABS[i][0])) {
 				btabs.tambahTabZul(idx++, TABS[i][1], TABS[i][2]);
 			}
 		}
 
 		super.doAfterCompose(comp);
 		btabs.pulihkanSeleksi(idx);
+	}
+
+	/** Tab Apotik mengikuti hak view role eBisnis; tab lain mempertahankan perilaku lama. */
+	private boolean bolehMelihatTab(String slug) {
+		if (slug == null || !slug.startsWith("apotik_posting_")) return true;
+		ais.database.model.Tbmuser pengguna = Common.getCurrentUser();
+		if (Common.getApakahAdminLain(pengguna)) return true;
+		ais.database.model.Tbmrole role = pengguna == null ? null : pengguna.hakAkses();
+		if (role == null) return true;
+		String kunci = "posting_penjualan";
+		if ("apotik_posting_hpp".equals(slug)) kunci = "posting_hpp";
+		else if ("apotik_posting_pbf".equals(slug)) kunci = "posting_kulakan";
+		else if ("apotik_posting_bayar_hutang_pbf".equals(slug)) kunci = "posting_bayar_hutang";
+		return ais.common.EbisnisMenuKatalog.bolehAksiAkuntansi(
+				role.getEbisnisMenu(), role.getRoleId(), kunci, "view");
 	}
 
 	/**

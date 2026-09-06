@@ -150,10 +150,11 @@ public final class TenantSchemaMigrations {
 			new Migrasi("v18-termin-hutang-erp", TARGET_ERP, TenantSchemaMigrationsV18.ERP),
 			new Migrasi("v19-satuan-jual-erp", TARGET_ERP, TenantSchemaMigrationsV19.ERP),
 			new Migrasi("v20-harga-jual-tunai-erp", TARGET_ERP, TenantSchemaMigrationsV20.ERP),
+			new Migrasi("v21-wilayah-mitra-erp", TARGET_ERP, TenantSchemaMigrationsV21.ERP),
 	};
 
 	/** Versi schema efektif setelah seluruh migrasi terpasang (dicatat ke registry.schemaVersion). */
-	public static final String VERSI_TERKINI = "v20-harga-jual-tunai";
+	public static final String VERSI_TERKINI = "v21-wilayah-mitra";
 
 	/** Tabel yang WAJIB ada pasca-migrasi (dipakai VERIFY_SCHEMA). */
 	public static final String[] TABEL_WAJIB_ERP = {

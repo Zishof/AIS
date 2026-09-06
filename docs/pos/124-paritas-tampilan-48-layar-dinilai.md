@@ -172,13 +172,13 @@ menyimpulkan layar ini kosong.
 
 1. ~~Celah harga kredit/tunai~~ — **ditutup** oleh migrasi v20 (§1).
 2. ~~Layar 6 (kode ganda)~~ — **diputuskan: digabung** (§2). Sisa satu: layar 20 (§2).
-3. **BARU — kode wilayah pelanggan tidak terimpor (§5).**
+3. ~~Kode wilayah mitra~~ — **diputuskan: diimpor** (§5), migrasi v21.
 4. Data uji untuk sesi sales (SPJ, Nota, Biaya, Rekonsiliasi) bila alur itu ingin ikut diuji.
 5. Sesudah semuanya: varian `sales-inventory` → `https://ebisnis.id/ebisnis`.
 
 ---
 
-## 5. TEMUAN BARU: kode wilayah pelanggan tidak terimpor sama sekali
+## 5. Kode wilayah mitra — ditemukan, lalu ditutup (v21)
 
 Ditemukan justru saat mengerjakan penggabungan `00375` — medan yang membuat kedua baris itu
 berbeda ternyata **tidak pernah dibaca importir**, untuk pelanggan mana pun.
@@ -203,9 +203,31 @@ kekeliruan yang saling menutupi.
 punya padanan, dan `SalesInventoryMasterTenant.dukungWilayahMitra()` mengembalikan `false` —
 benar untuk model tenant hari ini, tetapi datanya **ada** dan sedang dibuang.
 
-**Perlu keputusan, sama bentuknya dengan harga kredit/tunai:** tambahkan kolom wilayah pada
-`customer_profile` (migrasi v21) lalu impor `ALAMAT`, atau nyatakan pembagian wilayah pelanggan
-tidak dipakai lagi. Selama belum diputuskan, layar 4–6 sepadan pada seluruh medan lain.
+**✅ DIPUTUSKAN (2026-09-07): tambahkan kolom wilayah, lalu impor.** Terlaksana sebagai migrasi
+**v21** (r86603) — dan lingkupnya melebar dari yang diminta, sebab supplier ternyata punya celah
+yang sama dengan sumber yang berbeda:
+
+| berkas | alamat jalan | wilayah |
+|---|---|---|
+| `SUPPLIER.DBF` | `ALAMAT` (97) | **`WILAYAH`** (72) — "CIREBON", "CRB" |
+| `CUSTOMER.DBF` | `ALAMAT1` (334) | **`ALAMAT`** (334) — C1..C7; kolom bernama `WILAYAH` **kosong 0/334** |
+
+Menyeragamkan keduanya "supaya rapi" akan menaruh kode wilayah pelanggan di medan alamat.
+
+**Tidak dijadikan tabel referensi ber-FK, dan datanya membuktikan itu benar:** supplier memakai
+`CRB` (35), `CIREBON` (22), `CREBON` (1), dan `CBR` untuk tempat yang tampaknya sama. FK menuntut
+penyeragaman lebih dulu — keputusan bisnis tentang wilayah mana sama dengan mana, bukan keputusan
+migrasi. Teks disimpan apa adanya; penyeragaman tetap dapat diambil kapan saja.
+
+**Satu cacat saya sendiri, diperbaiki di tengah jalan:** impor pertama menuliskan `''` untuk 29
+supplier yang memang tidak berwilayah. Bukan sekadar kerapian — penjaga `NULLIF(TRIM(...),'')`
+pada UPDATE memperlakukan `''` sebagai kosong, jadi baris ber-`''` akan **ditimpa ulang setiap
+impor**, termasuk wilayah yang sudah diketik pengguna. Kosong kini diteruskan sebagai NULL.
+
+**Verifikasi:** supplier 72 berwilayah / 29 NULL / 0 string kosong (cocok DBF); customer 333
+berwilayah, sebaran C1=53 C2=56 C3=52 C4=34 C5=57 C6=16 C7=65 — C2 turun 57→56 karena baris ganda
+`00375` digabung, sisanya identik. API menampilkan wilayah, mencarinya (cari "C6" → 16, cocok
+DBF), dan mengurutkannya. Keempat master **SETARA termasuk wilayah**.
 
 ### Audit seluruh medan `CUSTOMER.DBF` — supaya tidak ada temuan ketiga
 

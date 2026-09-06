@@ -771,26 +771,38 @@ public final class SalesInventoryDbfImportHelper {
 		}
 		Double termin = d(r, "termin");
 		Integer terminHari = termin == null ? null : Integer.valueOf(termin.intValue());
-		lewati(peringatan, r, "wilayah");
+		// "wilayah" TIDAK lagi dilaporkan sebagai medan yang dilewati: sejak migrasi v21
+		// ia punya kolom pada kedua profil, dan diteruskan di bawah. Membiarkan barisnya
+		// akan melaporkan kehilangan yang tidak terjadi -- peringatan palsu melatih
+		// pembacanya mengabaikan seluruh daftar peringatan.
+		// KOSONG DITERUSKAN SEBAGAI null, BUKAN "". 29 dari 101 supplier legacy memang
+		// tidak punya wilayah, dan '' menghapus perbedaan antara "tidak pernah dicatat"
+		// dan "sengaja dikosongkan". Lebih dari kerapian: penjaga NULLIF(TRIM(...),'')
+		// pada UPDATE memperlakukan '' sebagai kosong, sehingga baris ber-'' akan
+		// ditimpa ulang setiap impor -- termasuk wilayah yang sudah diketik pengguna.
+		String wil = s(r, "wilayah");
+		Object wilayahParam = wil == null || wil.trim().isEmpty() ? null : wil.trim();
 		lewati(peringatan, r, "rekening");
 		lewati(peringatan, r, "bank");
 		if (supplierMode) {
 			lewati(peringatan, r, "atas_nama");
 			lewati(peringatan, r, "alamat_bank");
 			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.sisipProfilSupplier(sk),
-					new Object[] { id, s(r, "alamat"), null, s(r, "telp"), terminHari, oleh, id });
+					new Object[] { id, s(r, "alamat"), null, s(r, "telp"), wilayahParam,
+							terminHari, oleh, id });
 			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiProfilSupplier(sk),
-					new Object[] { s(r, "alamat"), null, s(r, "telp"), terminHari, id });
+					new Object[] { s(r, "alamat"), null, s(r, "telp"), wilayahParam,
+							terminHari, id });
 		} else {
 			Double diskon = d(r, "diskon");
 			java.math.BigDecimal diskonBd = diskon == null ? null
 					: new java.math.BigDecimal(String.valueOf(diskon));
 			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.sisipProfilCustomer(sk),
-					new Object[] { id, s(r, "alamat"), null, s(r, "telp"), s(r, "atas_nama"),
-							terminHari, diskonBd, oleh, id });
+					new Object[] { id, s(r, "alamat"), null, s(r, "telp"), wilayahParam,
+							s(r, "atas_nama"), terminHari, diskonBd, oleh, id });
 			tersentuh += jalankan(session, SalesInventoryDbfImportTenant.isiProfilCustomer(sk),
-					new Object[] { s(r, "alamat"), null, s(r, "telp"), s(r, "atas_nama"),
-							terminHari, diskonBd, id });
+					new Object[] { s(r, "alamat"), null, s(r, "telp"), wilayahParam,
+							s(r, "atas_nama"), terminHari, diskonBd, id });
 		}
 		return baru ? 1 : (tersentuh > 0 ? 2 : 0);
 	}

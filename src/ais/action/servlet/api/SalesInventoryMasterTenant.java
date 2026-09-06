@@ -89,7 +89,7 @@ final class SalesInventoryMasterTenant {
 		// bukan dihilangkan -- menggeser satu kolom akan menaruh nomor rekening di kolom nama.
 		return "SELECT p.id, p.kode, p.nama, COALESCE(sp.alamat1,''), COALESCE(sp.telp,''), "
 				+ "COALESCE(sp.kontak,''), COALESCE(sp.email,''), '', "
-				+ "sp.id, COALESCE(sp.syarat_bayar_hari,0), '', "
+				+ "sp.id, COALESCE(sp.syarat_bayar_hari,0), COALESCE(sp.wilayah,''), "
 				+ "COALESCE(" + bankUtama(skema, "nomor_rekening") + ",''), "
 				+ "COALESCE(" + bankUtama(skema, "atas_nama") + ",''), "
 				+ "COALESCE(" + bankUtama(skema, "nama_bank") + ",''), '', "
@@ -102,21 +102,32 @@ final class SalesInventoryMasterTenant {
 			return "p.nama ASC";
 		}
 		if ("wilayah".equals(sort)) {
-			// Wilayah tidak ada pada model tenant; mengurutkan berdasarkan kolom kosong hanya
-			// akan mengacak. Jatuh ke urutan nama supaya hasilnya tetap bermakna.
-			return "p.nama ASC";
+			// Sejak v21 wilayah ada, jadi ia benar-benar diurutkan. Yang tanpa wilayah
+			// ditaruh di BELAKANG (NULLS LAST) -- bukan di depan, sebab daftar yang dibuka
+			// untuk melihat pembagian wilayah tidak seharusnya dimulai oleh yang tak berwilayah.
+			return "COALESCE(NULLIF(TRIM(sp.wilayah),''), CHR(255)) ASC, p.nama ASC";
 		}
 		return "p.kode ASC";
 	}
 
-	/** Benar bila pengurutan/penyaringan wilayah punya arti pada model tenant. */
+	/**
+	 * Benar bila pengurutan/penyaringan wilayah punya arti pada model tenant.
+	 *
+	 * <p>Sejak migrasi v21 kolomnya ada pada kedua profil, jadi jawabannya {@code true}.
+	 * Sebelum itu ia {@code false} bukan karena wilayah tidak penting, melainkan karena
+	 * mengurutkan berdasarkan kolom yang tidak ada hanya akan mengacak hasilnya.</p>
+	 */
 	static boolean dukungWilayahMitra() {
-		return false;
+		return true;
 	}
 
-	/** Saringan kata kunci pemasok, tanpa wilayah yang tidak ada padanannya. */
+	/**
+	 * Saringan kata kunci pemasok. EMPAT penampung sejak v21 — wilayah ikut dicari, sama
+	 * seperti jalur legacy. Pemanggil WAJIB menambah empat parameter, bukan tiga.
+	 */
 	static String kunciSupplier() {
-		return " AND (p.kode ILIKE ? OR p.nama ILIKE ? OR COALESCE(sp.alamat1,'') ILIKE ?) ";
+		return " AND (p.kode ILIKE ? OR p.nama ILIKE ? OR COALESCE(sp.alamat1,'') ILIKE ?"
+				+ " OR COALESCE(sp.wilayah,'') ILIKE ?) ";
 	}
 
 	static String aktifSupplier(boolean aktif) {
@@ -146,12 +157,15 @@ final class SalesInventoryMasterTenant {
 	static String selectCustomer(String skema) {
 		return "SELECT a.id, a.kode, a.nama, COALESCE(cp.alamat, COALESCE(cp.alamat1,'')), "
 				+ "COALESCE(cp.telp,''), '', COALESCE(cp.plafon_piutang,0), cp.id, "
-				+ "COALESCE(cp.syarat_bayar_hari,0), COALESCE(cp.diskon,0), '', "
+				+ "COALESCE(cp.syarat_bayar_hari,0), COALESCE(cp.diskon,0), "
+				+ "COALESCE(cp.wilayah,''), "
 				+ "COALESCE(a.salesperson_id,0), COALESCE(s.nama,''), COALESCE(a.aktif,true)";
 	}
 
+	/** EMPAT penampung sejak v21 — wilayah ikut dicari. Lihat catatan pada kunciSupplier. */
 	static String kunciCustomer() {
-		return " AND (a.kode ILIKE ? OR a.nama ILIKE ? OR COALESCE(cp.alamat,'') ILIKE ?) ";
+		return " AND (a.kode ILIKE ? OR a.nama ILIKE ? OR COALESCE(cp.alamat,'') ILIKE ?"
+				+ " OR COALESCE(cp.wilayah,'') ILIKE ?) ";
 	}
 
 	static String aktifCustomer(boolean aktif) {

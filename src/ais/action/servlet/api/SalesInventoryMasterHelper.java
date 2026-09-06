@@ -119,10 +119,11 @@ public final class SalesInventoryMasterHelper {
 			if (keyword != null && !keyword.isEmpty()) {
 				String k = "%" + keyword + "%";
 				if (jalurTenant) {
-					// Tiga penampung: kode, nama, alamat. Model tenant tidak punya
-					// wilayah pemasok, jadi tidak ada penampung keempat.
+					// EMPAT penampung sejak v21: kode, nama, alamat, wilayah -- sama
+					// banyaknya dengan jalur legacy. Sebelum v21 hanya tiga, karena
+					// wilayah memang belum punya kolom.
 					where.append(SalesInventoryMasterTenant.kunciSupplier());
-					params.add(k); params.add(k); params.add(k);
+					params.add(k); params.add(k); params.add(k); params.add(k);
 				} else {
 					where.append(" AND (p.kode ILIKE ? OR p.nama ILIKE ? OR COALESCE(p.alamat,'') ILIKE ? OR COALESCE(sp.wilayah,'') ILIKE ?) ");
 					params.add(k); params.add(k); params.add(k); params.add(k);
@@ -136,7 +137,9 @@ public final class SalesInventoryMasterHelper {
 			}
 			String orderBy = "p.kode ASC";
 			if ("nama".equals(sort)) orderBy = "p.nama ASC";
-			else if ("wilayah".equals(sort) && !jalurTenant) {
+			else if ("wilayah".equals(sort)) {
+				// Berlaku pada KEDUA jalur sejak v21; urutan tenantnya disusun
+				// SalesInventoryMasterTenant.urutSupplier (dengan yang kosong di belakang).
 				orderBy = "COALESCE(sp.wilayah,'') ASC, p.nama ASC";
 			}
 			String dasar;
@@ -448,8 +451,9 @@ public final class SalesInventoryMasterHelper {
 			if (keyword != null && !keyword.isEmpty()) {
 				String k = "%" + keyword + "%";
 				if (jalurTenant) {
+					// EMPAT penampung sejak v21 -- lihat catatan pada supplier di atas.
 					where.append(SalesInventoryMasterTenant.kunciCustomer());
-					params.add(k); params.add(k); params.add(k);
+					params.add(k); params.add(k); params.add(k); params.add(k);
 				} else {
 					where.append(" AND (a.kode ILIKE ? OR a.nama ILIKE ? OR COALESCE(a.alamat,'') ILIKE ? "
 							+ "OR COALESCE(a.telp,'') ILIKE ? OR COALESCE(a.hp,'') ILIKE ? OR COALESCE(cp.wilayah,'') ILIKE ?) ");
@@ -475,7 +479,7 @@ public final class SalesInventoryMasterHelper {
 			}
 			String orderBy = "a.kode ASC";
 			if ("nama".equals(sort)) orderBy = "a.nama ASC";
-			else if ("wilayah".equals(sort) && !jalurTenant) {
+			else if ("wilayah".equals(sort)) {
 				orderBy = "COALESCE(cp.wilayah,'') ASC, a.nama ASC";
 			}
 

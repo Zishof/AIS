@@ -940,6 +940,14 @@ public class KonfigurasiNewAction extends GenericAutowireComposer {
 				P + "posting_hpp", Konfigurasi.AKTIF));
 		rows.appendChild(createRowActiveDefault("Tampilkan tab \"Posting Penjualan\"", P + "posting_penjualan",
 				Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan tab \"Apotik - Posting Penjualan\"",
+				P + "apotik_posting_penjualan", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan tab \"Apotik - Posting HPP\"",
+				P + "apotik_posting_hpp", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan tab \"Apotik - Posting Penerimaan PBF\"",
+				P + "apotik_posting_pbf", Konfigurasi.AKTIF));
+		rows.appendChild(createRowActiveDefault("Tampilkan tab \"Apotik - Posting Bayar Utang PBF\"",
+				P + "apotik_posting_bayar_hutang_pbf", Konfigurasi.AKTIF));
 	}
 
 	/**

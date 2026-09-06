@@ -149,17 +149,18 @@ final class SalesInventoryDbfImportTenant {
 	 */
 	static String sisipProfilSupplier(String skema) {
 		return "INSERT INTO " + skema + "supplier_profile (supplier_id, alamat1, kota, telp,"
-				+ " syarat_bayar_hari, dibuat_pada, oleh)"
-				+ " SELECT ?, ?, ?, ?, ?, now(), ? WHERE NOT EXISTS (SELECT 1 FROM " + skema
+				+ " wilayah, syarat_bayar_hari, dibuat_pada, oleh)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, now(), ? WHERE NOT EXISTS (SELECT 1 FROM " + skema
 				+ "supplier_profile p WHERE p.supplier_id = ?)";
 	}
 
-	/** LIMA parameter: alamat1, kota, telp, syaratBayarHari, supplierId. */
+	/** ENAM parameter: alamat1, kota, telp, wilayah, syaratBayarHari, supplierId. */
 	static String isiProfilSupplier(String skema) {
 		return "UPDATE " + skema + "supplier_profile SET"
 				+ " alamat1 = COALESCE(NULLIF(TRIM(alamat1),''), ?),"
 				+ " kota = COALESCE(NULLIF(TRIM(kota),''), ?),"
 				+ " telp = COALESCE(NULLIF(TRIM(telp),''), ?),"
+				+ " wilayah = COALESCE(NULLIF(TRIM(wilayah),''), ?),"
 				+ " syarat_bayar_hari = CASE WHEN COALESCE(syarat_bayar_hari,0) = 0"
 				+ " THEN ? ELSE syarat_bayar_hari END,"
 				+ " tanggal_dirubah = now() WHERE supplier_id = ?";
@@ -175,17 +176,26 @@ final class SalesInventoryDbfImportTenant {
 	 */
 	static String sisipProfilCustomer(String skema) {
 		return "INSERT INTO " + skema + "customer_profile (customer_id, alamat1, kota, telp,"
-				+ " atas_nama, syarat_bayar_hari, diskon, dibuat_pada, oleh)"
-				+ " SELECT ?, ?, ?, ?, ?, ?, ?, now(), ? WHERE NOT EXISTS (SELECT 1 FROM " + skema
-				+ "customer_profile p WHERE p.customer_id = ?)";
+				+ " wilayah, atas_nama, syarat_bayar_hari, diskon, dibuat_pada, oleh)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, ?, ?, now(), ? WHERE NOT EXISTS (SELECT 1 FROM "
+				+ skema + "customer_profile p WHERE p.customer_id = ?)";
 	}
 
-	/** TUJUH parameter: alamat1, kota, telp, atasNama, syaratBayarHari, diskon, customerId. */
+	/**
+	 * DELAPAN parameter: alamat1, kota, telp, wilayah, atasNama, syaratBayarHari, diskon,
+	 * customerId.
+	 *
+	 * <p>Wilayah pelanggan berasal dari {@code CUSTOMER.DBF.ALAMAT} (kode C1..C7), BUKAN dari
+	 * kolom yang bernama {@code WILAYAH} — yang justru kosong seluruhnya pada berkas itu.
+	 * Pemetaannya dilakukan ekstraktor; catatan ini ada di sini supaya urutan parameter tidak
+	 * "dirapikan" mengikuti nama kolom legacy.</p>
+	 */
 	static String isiProfilCustomer(String skema) {
 		return "UPDATE " + skema + "customer_profile SET"
 				+ " alamat1 = COALESCE(NULLIF(TRIM(alamat1),''), ?),"
 				+ " kota = COALESCE(NULLIF(TRIM(kota),''), ?),"
 				+ " telp = COALESCE(NULLIF(TRIM(telp),''), ?),"
+				+ " wilayah = COALESCE(NULLIF(TRIM(wilayah),''), ?),"
 				+ " atas_nama = COALESCE(NULLIF(TRIM(atas_nama),''), ?),"
 				+ " syarat_bayar_hari = CASE WHEN COALESCE(syarat_bayar_hari,0) = 0"
 				+ " THEN ? ELSE syarat_bayar_hari END,"
