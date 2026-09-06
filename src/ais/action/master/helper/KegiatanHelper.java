@@ -3628,6 +3628,29 @@ public class KegiatanHelper {
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
 		toolbarbutton.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menangani klik tombol: langsung menjalankan pembentukan berkas tagihan tanpa popup filter,
+			 * karena seluruh konteks sudah diterima dari layar pemanggil.
+			 *
+			 * <p><b>Beda dengan overload manual.</b> Tidak ada dialog yang dirakit di sini — nilai yang
+			 * pada {@link #prosesDownloadTagihan(String, String)} ditanyakan lewat popup, di sini diambil
+			 * dari parameter atau dipatok tetap: {@code j} dari {@code settingBiaya.getJenisKegiatan()},
+			 * Ganjil/Genap dari combobox {@code jenisSmt} pemanggil, sedangkan tagihan bulanan dimatikan
+			 * ({@code bul=false}, {@code bulMul=0}, {@code bulSam=12}), {@code ulang} dipatok
+			 * {@code true} (selalu hitung ulang) dan {@code rst} dipatok {@code false} (tidak pernah
+			 * reset ke billing). Satu combobox {@code tahunAkademik} dibaca DUA KALI menjadi {@code ta}
+			 * dan {@code taSampai}, sehingga rentangnya selalu satu tahun akademik — bukan rentang
+			 * multi-tahun seperti overload manual.
+			 *
+			 * <p>Satu-satunya validasi adalah {@code j != null} (pesannya memakai istilah lama "Jadwal
+			 * Pembayaran harus diisi"). Sesudah itu mekanisme selanjutnya identik dengan overload manual:
+			 * {@link Label} + dua {@link Intbox} sebagai kanal status lintas thread, berkas
+			 * {@code /tmp/cetak_data_&lt;timestamp&gt;.xlsx} dibuat kosong lebih dulu, {@link Timer} 200 ms
+			 * memantau, dan {@code new Thread(...)} mengerjakan query serta {@link #doDownloadTagihan}.
+			 *
+			 * @param arg0 event {@code onClick}; tidak dibaca
+			 * @throws Exception diteruskan dari pembuatan berkas sementara/{@code URLEncoder}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -3669,6 +3692,16 @@ public class KegiatanHelper {
 				timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 				timer.setRepeats(true);
 				timer.addEventListener("onTimer", new EventListener() {
+					/**
+					 * Denyut {@link Timer} 200 ms pemantau {@link Label} status thread latar — perilakunya sama
+					 * persis dengan padanannya di {@link #prosesDownloadTagihan(String, String)}: {@code "-"}
+					 * menutup indikator sibuk dan melepas timer, {@code ""} membuka jendela pratinjau "Cetak Data"
+					 * berisi {@link Spreadsheet} atas berkas hasil, nilai lain hanya menyegarkan indikator sibuk.
+					 * Kegagalan apa pun hanya memanggil {@code Clients.clearBusy()} tanpa melepas timer.
+					 *
+					 * @param arg0 event {@code onTimer}; tidak dibaca
+					 * @throws Exception dideklarasikan {@link EventListener}; secara praktis tertangkap di dalam
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						try {
@@ -3711,6 +3744,13 @@ public class KegiatanHelper {
 								MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 								cancel.setTooltiptext("Tutup");
 								cancel.addEventListener("onClick", new EventListener() {
+									/**
+									 * Menutup jendela pratinjau "Cetak Data" ({@code window.detach()}). Berkas hasil di
+									 * {@code /tmp} tidak ikut dihapus.
+									 *
+									 * @param event event {@code onClick} tombol "Tutup"; tidak dibaca
+									 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+									 */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										window.detach();
@@ -3721,6 +3761,14 @@ public class KegiatanHelper {
 								MyToolbarbuttonConfig print = new MyToolbarbuttonConfig("Download Data",
 										"/img/excel.png");
 								print.addEventListener("onClick", new EventListener() {
+									/**
+									 * Mengirim berkas .xlsx hasil ke browser lewat {@link Filedownload} dengan MIME type
+									 * spreadsheet OpenXML, dibaca ulang dari disk. Kegagalan pengiriman ditelan dan hanya dicatat
+									 * ke {@code ErrorAuditUtil} karena pratinjau di layar tetap utuh.
+									 *
+									 * @param event event {@code onClick} tombol "Download Data"; tidak dibaca
+									 * @throws Exception dideklarasikan {@link EventListener}; kegagalan nyata tertangkap di dalam
+									 */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										try {
@@ -3751,6 +3799,24 @@ public class KegiatanHelper {
 					Clients.showBusy(label.getValue());
 
 					new Thread(new Runnable() {
+						/**
+						 * Badan thread latar: menjalankan {@link DataCriteria} milik layar pemanggil, lalu menyerahkan
+						 * hasilnya ke {@link #doDownloadTagihan}.
+						 *
+						 * <p>Jauh lebih ringkas daripada padanannya di {@link #prosesDownloadTagihan(String, String)}
+						 * karena TIDAK menyusun kriteria sendiri: {@code criteria.initCriteria(true)} dipanggil apa
+						 * adanya, sehingga penyaringan (termasuk cakupan yang berlaku di layar) sepenuhnya mengikuti
+						 * apa yang sudah dipakai grid pemanggil. Hasilnya di-cast ke {@link BiodataCalonMahasiswa} bila
+						 * {@link JenisKegiatan} terpilih adalah {@code PENDAFTARAN_CALON_MAHASISWA} atau
+						 * {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}, selain itu ke {@link Mahasiswa} — pemanggil wajib
+						 * memastikan entity akar {@link DataCriteria}-nya cocok dengan jenis kegiatan yang dioper,
+						 * karena ketidakcocokan baru ketahuan sebagai kegagalan cast saat berjalan.
+						 *
+						 * <p>Karena {@code initCriteria(true)} dieksekusi di dalam thread ini (di luar ZK execution dan
+						 * di luar transaksi request), pemanggil harus memastikan {@link DataCriteria} yang dioper aman
+						 * dipakai dari thread lain. Sukses ditandai {@code label.setValue("")}; kegagalan dilaporkan
+						 * lewat {@code Common.tampilErrorJikaAdmin} dan ditandai {@code label.setValue("-")}.
+						 */
 						@SuppressWarnings({})
 						@Override
 						public void run() {
@@ -3818,6 +3884,22 @@ public class KegiatanHelper {
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
 		toolbarbutton.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menangani klik tombol: menjalankan pembentukan berkas tagihan untuk grid "khusus per
+			 * mahasiswa" tanpa popup filter.
+			 *
+			 * <p>Persiapannya identik dengan padanannya di
+			 * {@link #prosesDownloadTagihan(String, String, Combobox, Combobox, SettingBiaya, DataCriteria, ItemBiaya)}
+			 * — tagihan bulanan dimatikan, {@code ulang} dipatok {@code true}, {@code rst} dipatok
+			 * {@code false}, combobox {@code tahunAkademik} dibaca dua kali sehingga rentangnya selalu satu
+			 * tahun akademik, dan Ganjil/Genap diambil dari {@code jenisSmt}. Satu-satunya beda pada tahap
+			 * ini: {@link JenisKegiatan} datang sebagai parameter langsung, bukan diturunkan dari
+			 * {@link SettingBiaya}, karena layar khusus-per-mahasiswa tidak selalu punya {@code SettingBiaya}
+			 * tunggal untuk dijadikan acuan. Validasinya tetap {@code j != null}.
+			 *
+			 * @param arg0 event {@code onClick}; tidak dibaca
+			 * @throws Exception diteruskan dari pembuatan berkas sementara/{@code URLEncoder}
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -3857,6 +3939,13 @@ public class KegiatanHelper {
 				timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 				timer.setRepeats(true);
 				timer.addEventListener("onTimer", new EventListener() {
+					/**
+					 * Denyut {@link Timer} 200 ms pemantau {@link Label} status thread latar; perilakunya sama
+					 * persis dengan padanannya pada dua overload {@code prosesDownloadTagihan} lain.
+					 *
+					 * @param arg0 event {@code onTimer}; tidak dibaca
+					 * @throws Exception dideklarasikan {@link EventListener}; secara praktis tertangkap di dalam
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						try {
@@ -3899,6 +3988,13 @@ public class KegiatanHelper {
 								MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 								cancel.setTooltiptext("Tutup");
 								cancel.addEventListener("onClick", new EventListener() {
+									/**
+									 * Menutup jendela pratinjau "Cetak Data" ({@code window.detach()}). Berkas hasil di
+									 * {@code /tmp} tidak ikut dihapus.
+									 *
+									 * @param event event {@code onClick} tombol "Tutup"; tidak dibaca
+									 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+									 */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										window.detach();
@@ -3909,6 +4005,14 @@ public class KegiatanHelper {
 								MyToolbarbuttonConfig print = new MyToolbarbuttonConfig("Download Data",
 										"/img/excel.png");
 								print.addEventListener("onClick", new EventListener() {
+									/**
+									 * Mengirim berkas .xlsx hasil ke browser lewat {@link Filedownload} dengan MIME type
+									 * spreadsheet OpenXML, dibaca ulang dari disk. Kegagalan pengiriman ditelan dan hanya dicatat
+									 * ke {@code ErrorAuditUtil}.
+									 *
+									 * @param event event {@code onClick} tombol "Download Data"; tidak dibaca
+									 * @throws Exception dideklarasikan {@link EventListener}; kegagalan nyata tertangkap di dalam
+									 */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										try {
@@ -3938,6 +4042,32 @@ public class KegiatanHelper {
 					Clients.showBusy(label.getValue());
 
 					new Thread(new Runnable() {
+						/**
+						 * Badan thread latar: menerjemahkan baris {@link SettingBiayaDetail} menjadi daftar
+						 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa}, lalu menyerahkannya ke
+						 * {@link #doDownloadTagihan}.
+						 *
+						 * <p><b>Inilah alasan overload ini ada.</b> Pada grid khusus-per-mahasiswa
+						 * ({@code SettingBiaya.khususBuatMahasiswaTertentu=true}), {@code initCriteria()} layar
+						 * mengembalikan {@link Criteria} ber-entitas {@link SettingBiayaDetail} — bukan
+						 * Mahasiswa/BiodataCalonMahasiswa seperti mode reguler — sehingga hasilnya tidak bisa langsung
+						 * dioper ke {@link #doDownloadTagihan}. Thread ini menjalankan kriteria tersebut lebih dulu,
+						 * lalu memetakan tiap baris lewat {@code getMahasiswa()} atau {@code getBiodataCalonMahasiswa()}
+						 * sesuai {@link JenisKegiatan} yang dioper. Dengan begitu format Excel yang dihasilkan tetap
+						 * identik dan tetap berpasangan dengan {@link #prosesUploadTagihan} tanpa perubahan apa pun di
+						 * sana.
+						 *
+						 * <p><b>Baris tanpa pasangan dilewati diam-diam.</b> Penjagaan {@code != null} pada kedua
+						 * cabang berarti {@link SettingBiayaDetail} yang kolom mahasiswa/calon mahasiswanya kosong —
+						 * atau yang terisi pada kolom yang TIDAK sesuai jenis kegiatan terpilih (mis. baris berisi
+						 * {@code mahasiswa} padahal jenisnya "Pendaftaran Calon Mahasiswa") — tidak ikut terproses dan
+						 * tidak dilaporkan sebagai kesalahan. Berkas hasil akan lebih pendek daripada jumlah baris grid
+						 * tanpa penjelasan apa pun.
+						 *
+						 * <p>Sukses ditandai {@code label.setValue("")}; kegagalan dilaporkan lewat
+						 * {@code Common.tampilErrorJikaAdmin} dan ditandai {@code label.setValue("-")} supaya
+						 * {@link Timer} berhenti.
+						 */
 						@SuppressWarnings({})
 						@Override
 						public void run() {
