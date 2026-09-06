@@ -607,6 +607,21 @@ public class HistoryStatusMahasiswaUtil {
         final Timer timer = new Timer(1000);
         timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
         timer.addEventListener("onTimer", new EventListener() {
+            /**
+             * Badan timer sekali-tembak: menjalankan
+             * {@link #singkronisasiStatusMahasiswaNotTimer(Mahasiswa)} lalu MELEPAS timer dari pohon
+             * komponen ({@code timer.detach()}) sehingga tidak pernah berdetak kedua kalinya.
+             *
+             * <p>Urutannya penting: {@code detach()} dipanggil SESUDAH sinkronisasi selesai. Bila
+             * sinkronisasi melempar kesalahan, timer TIDAK ter-detach dan akan berdetak lagi satu detik
+             * kemudian — mengulang sinkronisasi yang gagal itu selama halaman masih terbuka.
+             * Sinkronisasi status bersifat idempoten (menulis status yang sama berulang tidak menambah
+             * riwayat baru), jadi pengulangan ini tidak merusak data, tetapi dapat membebani basis data
+             * bila penyebab kegagalannya menetap.</p>
+             *
+             * @param arg0 event {@code onTimer}; isinya tidak dipakai.
+             * @throws Exception diteruskan dari sinkronisasi status.
+             */
             @Override
             public void onEvent(Event arg0) throws Exception {
                 singkronisasiStatusMahasiswaNotTimer(mahasiswa);
@@ -1481,25 +1496,77 @@ public class HistoryStatusMahasiswaUtil {
         return hasil;
     }
 
+    /**
+     * Membandingkan dua {@link StatusMahasiswa} berdasarkan ID-nya saja.
+     *
+     * <p>Bersifat fail-closed terhadap ketidaktahuan: bila salah satu argumen {@code null} atau
+     * belum punya id, hasilnya {@code false} ("tidak sama") — bukan {@code true}. Konsekuensinya,
+     * dua status yang sama-sama belum tersimpan dianggap BERBEDA, sehingga pemanggil cenderung
+     * mencatat perubahan status daripada melewatkannya.</p>
+     *
+     * @param kiri  status pertama; boleh {@code null}.
+     * @param kanan status kedua; boleh {@code null}.
+     * @return {@code true} hanya bila keduanya ada, ber-id, dan id-nya sama.
+     */
     private static boolean statusSama(StatusMahasiswa kiri, StatusMahasiswa kanan) {
         return kiri != null && kanan != null && kiri.getId() != null && kiri.getId().equals(kanan.getId());
     }
 
+    /**
+     * Mengambil nama status yang siap ditampilkan, dengan {@code "Belum ditentukan"} sebagai
+     * pengganti bila status {@code null}, namanya {@code null}, atau hanya berisi spasi. Nama yang
+     * valid dikembalikan dalam bentuk sudah di-{@code trim}.
+     *
+     * @param status status yang dibaca; boleh {@code null}.
+     * @return nama status untuk ditampilkan; tidak pernah {@code null} atau kosong.
+     */
     private static String namaStatus(StatusMahasiswa status) {
         return status == null || status.getNama() == null || status.getNama().trim().isEmpty()
                 ? "Belum ditentukan" : status.getNama().trim();
     }
 
+    /**
+     * Mengubah sembarang nilai menjadi teks yang aman ditampilkan pada tabel fakta analisis:
+     * {@code null} dan teks kosong/spasi menjadi {@code "-"}, selain itu hasil {@code toString()}
+     * yang sudah di-{@code trim}.
+     *
+     * @param value nilai apa pun; boleh {@code null}.
+     * @return teks siap tampil; tidak pernah {@code null} atau kosong.
+     */
     private static String nilaiAman(Object value) {
         return value == null || value.toString().trim().isEmpty() ? "-" : value.toString().trim();
     }
 
+    /**
+     * Memformat persentase dengan paling banyak SATU angka desimal, dan tanpa desimal sama sekali
+     * bila nilainya bulat — sehingga {@code 30.0} tampil sebagai {@code "30"} sedangkan
+     * {@code 30.25} tampil sebagai {@code "30.3"}.
+     *
+     * <p>Pembulatan dilakukan lebih dulu ({@code Math.round(value * 10.0) / 10.0}), baru
+     * kebulatannya diperiksa; jadi {@code 29.96} tampil sebagai {@code "30"}, bukan
+     * {@code "29.96"}. Pemisah desimalnya adalah titik, mengikuti {@code String.valueOf}, bukan
+     * format lokal Indonesia.</p>
+     *
+     * @param value persentase yang diformat.
+     * @return teks persentase tanpa tanda persen.
+     */
     private static String formatPersen(double value) {
         double satuDesimal = Math.round(value * 10.0) / 10.0;
         return satuDesimal == Math.rint(satuDesimal) ? String.valueOf((long) satuDesimal)
                 : String.valueOf(satuDesimal);
     }
 
+    /**
+     * Menggabungkan daftar alasan menjadi satu kalimat berpemisah koma-spasi. Daftar kosong
+     * menghasilkan teks kosong.
+     *
+     * <p>Tidak menoleransi {@code values} bernilai {@code null} (akan melempar
+     * {@code NullPointerException}) dan tidak menyaring entri {@code null} — seluruh pemanggil di
+     * kelas ini selalu meneruskan daftar yang sudah terinisialisasi.</p>
+     *
+     * @param values alasan-alasan yang digabungkan; tidak boleh {@code null}.
+     * @return alasan tergabung; tidak pernah {@code null}.
+     */
     private static String gabungkanAlasan(List<String> values) {
         StringBuilder result = new StringBuilder();
         for (String value : values) {
