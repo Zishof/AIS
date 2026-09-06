@@ -2027,11 +2027,97 @@ public class TugasKelompokHelper implements DataLoader {
 	 */
 	class DetailPerkuliahanRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Helper daftar kelompok, dibuat sekali per renderer dengan meneruskan identitas pelajar milik kelas
+		 * induk agar hak akses di dalamnya ikut menyesuaikan.
+		 *
+		 * <p><b>Catatan pemeliharaan:</b> pada revisi ini field tersebut <b>tidak lagi dibaca</b> oleh kode
+		 * mana pun. {@link #bukaDaftarKelompok} sengaja membuat instance {@code NamaTugasKelompokHelper}
+		 * yang baru setiap kali jendela dibuka, karena helper daftar kelompok menyimpan komponen ZK miliknya
+		 * sendiri: memakai ulang satu instance untuk jendela yang berbeda akan membuat komponen jendela lama
+		 * yang sudah dilepas ikut terbawa. Field ini tetap dipertahankan sebagai jejak rancangan awal; ia
+		 * hanya menyisakan biaya satu objek per baris grid dan tidak memengaruhi perilaku apa pun.</p>
+		 */
 		private NamaTugasKelompokHelper namaTugasKelompokHelper = new NamaTugasKelompokHelper(mahasiswa,
 				biodataCalonMahasiswa);
 
+		/**
+		 * Penanda waktu acuan untuk menilai apakah sebuah tugas sudah dibuka atau sudah ditutup, diambil
+		 * lewat {@code WaktuUtil.getCalendar()} sehingga mengikuti zona waktu dan penyesuaian waktu server
+		 * yang dipakai seluruh aplikasi.
+		 *
+		 * <p><b>Namanya menyesatkan:</b> meskipun disebut "kemarin", isinya adalah waktu <b>saat ini</b>
+		 * ketika renderer dibuat, bukan hari sebelumnya. Di {@link #render(Row, Object)} nilai ini dibandingkan
+		 * dengan {@code tugasKelompok.getMulai()} dan {@code getSelesai()} untuk memilih salah satu dari tiga
+		 * keadaan: "belum mulai", "telah selesai", atau tampilan kontrol penuh.</p>
+		 *
+		 * <p>Karena diambil sekali saat renderer dibuat, seluruh baris pada satu kali penggambaran memakai
+		 * acuan waktu yang SAMA. Itu justru diinginkan: daftar menjadi konsisten, tidak ada baris yang
+		 * dinilai dengan waktu berbeda beberapa milidetik. Konsekuensinya, halaman yang dibiarkan terbuka
+		 * lama tidak akan otomatis berpindah dari "sedang berlangsung" ke "telah selesai" sampai daftar
+		 * dimuat ulang &mdash; perilaku yang wajar untuk tampilan berbasis muat-ulang seperti ini.</p>
+		 */
 		private Calendar kemarin = ais.ui.util.WaktuUtil.getCalendar();
 
+		/**
+		 * <h3>Jendela "Kelola Kelompok" &mdash; daftar kelompok beserta anggotanya</h3>
+		 *
+		 * <p><b>Untuk apa (bahasa sederhana):</b> membuka jendela terpisah berisi seluruh kelompok pada satu
+		 * tugas kelompok, lengkap dengan anggota tiap kelompok dan berkas yang mereka kumpulkan. Jendela ini
+		 * dipakai oleh DUA peran dengan tujuan berbeda: dosen/guru memakainya untuk membuat kelompok,
+		 * memindahkan anggota, dan memeriksa pengumpulan; sedangkan mahasiswa/siswa memakainya untuk melihat
+		 * kelompok yang ada, bergabung ke salah satunya, dan mengunggah berkas kelompoknya.</p>
+		 *
+		 * <p><b>Mengapa daftar kelompok dipindah ke jendela, bukan ditanam di kartu.</b> Sebelumnya daftar
+		 * kelompok digambar langsung di dalam baris grid, sehingga satu tugas dengan banyak kelompok membuat
+		 * baris menjadi sangat panjang dan daftar tugas sulit dibaca. Dengan memindahkannya ke jendela
+		 * modal, kartu ringkas tetap pendek dan seluruh ruang jendela dapat dipakai untuk tabel anggota.</p>
+		 *
+		 * <h4>Dua pintu masuk, satu badan</h4>
+		 * <p>Parameter {@code langsungTambah} membedakan dua tombol yang bermuara ke metode yang sama:</p>
+		 * <ul>
+		 *   <li>{@code false} &mdash; tombol "Kelola Kelompok &amp; Anggota": jendela dibuka apa adanya pada
+		 *   daftar kelompok.</li>
+		 *   <li>{@code true} &mdash; tombol "Tambah Kelompok": setelah jendela terpasang, formulir tambah
+		 *   kelompok langsung dibuka lewat {@code helper.onAdd(null, new NamaTugasKelompok())} sehingga
+		 *   pengguna tidak perlu menekan tombol tambah sekali lagi. Setelah formulir itu disimpan, pengguna
+		 *   kembali ke daftar kelompok untuk melanjutkan pengaturan anggota.</li>
+		 * </ul>
+		 * <p>Urutan pemanggilannya penting: {@code win.setVisible(true)} dijalankan LEBIH DULU, baru
+		 * {@code onAdd(...)}, dan {@code win.onModal()} paling akhir. Formulir tambah hanya dapat menempel
+		 * pada jendela yang sudah berada di pohon komponen, dan pemanggilan modal harus menjadi langkah
+		 * terakhir karena ia menahan alur sampai jendela ditutup.</p>
+		 *
+		 * <h4>Hak akses: sengaja tidak dijaga di sini</h4>
+		 * <p>Metode ini TIDAK memeriksa peran pengguna, dan itu disengaja karena jendelanya memang untuk
+		 * semua peran. Pembatasan dikerjakan pada dua lapis lain: (1) tombol pemanggilnya &mdash; varian
+		 * "Tambah Kelompok" hanya dipasang oleh {@link #pasangAksiPengaturan} yang sudah dijaga
+		 * {@link TugasKelompokHelper#bolehKelola(Tbmuser)}; dan (2) di dalam {@code NamaTugasKelompokHelper},
+		 * yang menyembunyikan sendiri kontrol tambah/unggah massal bagi pelajar. Identitas pelajar
+		 * ({@code mahasiswa}, {@code biodataCalonMahasiswa}) diteruskan ke helper tersebut justru agar
+		 * pembatasan lapis kedua itu dapat bekerja.</p>
+		 *
+		 * <p><b>Instance baru setiap kali dibuka.</b> Helper daftar kelompok dibuat baru di dalam metode ini,
+		 * bukan memakai field {@code namaTugasKelompokHelper} milik renderer, karena helper tersebut
+		 * menyimpan rujukan ke komponen ZK jendela; memakai ulang instance lama akan menautkan jendela baru
+		 * ke komponen jendela lama yang sudah dilepas.</p>
+		 *
+		 * <p><b>Tampilan responsif.</b> Di ponsel jendela dibuat memenuhi layar (100% &times; 100%), di
+		 * desktop 95% &times; 95% agar tetap menyisakan bingkai. Tata letak {@link Borderlayout} memisahkan
+		 * isi yang dapat digulir (tengah) dari tombol Tutup (bawah), sehingga daftar panjang tetap nyaman
+		 * dibaca. Tombol Tutup hanya melepas jendela ({@code detach}); tidak ada penyimpanan yang tertunda
+		 * karena seluruh perubahan di dalamnya sudah disimpan oleh {@code NamaTugasKelompokHelper} sendiri.</p>
+		 *
+		 * @param tugasKelompok  tugas kelompok yang daftar kelompoknya hendak dikelola
+		 * @param syaratAlert    kumpulan pesan syarat pengumpulan yang belum terpenuhi, dikumpulkan lebih dulu
+		 *                       oleh {@code Tugas.tampilanSyarat}/{@code tampilanSyaratReadonly} di
+		 *                       {@link #render(Row, Object)} dan diteruskan agar peringatan yang sama muncul
+		 *                       di dalam jendela &mdash; tidak dihitung ulang supaya konsisten dan hemat kueri
+		 * @param langsungTambah {@code true} untuk langsung membuka formulir tambah kelompok setelah jendela
+		 *                       tampil; {@code false} untuk berhenti pada daftar kelompok
+		 * @throws Exception bila jendela gagal dipasang atau formulir tambah gagal dibangun
+		 * @see ais.database.model.NamaTugasKelompok
+		 */
 		private void bukaDaftarKelompok(final TugasKelompok tugasKelompok, final Set<String> syaratAlert,
 				boolean langsungTambah) throws Exception {
 			final MyWindow win = new MyWindow();

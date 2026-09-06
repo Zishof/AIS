@@ -141,15 +141,16 @@ import ais.ui.util.WaktuUtil;
  * Kedua cabang tidak sepenuhnya setara. Perbedaan yang sudah terverifikasi:
  * </p>
  * <ol>
- * <li><b>Tanggal acuan denda.</b> Cabang bulanan menelusuri {@link CicilanPembayaran} yang cocok
- * (item biaya sama, {@code bayarKe} sama, kegiatan sama, dan bulan sama) lalu memakai
- * {@code cp.getTanggal()} — <b>tanggal pembayaran yang sebenarnya</b> — sebagai acuan denda.
- * Cabang reguler selalu memakai {@code WaktuUtil.getDate()}, yaitu <b>hari ini</b>, tanpa
- * menelusuri cicilan sama sekali. Karena {@link DetailBiaya#checkDenda} menghitung keterlambatan
- * sebagai {@code deadline.before(tanggalBayar)} dan dapat berlipat menurut jumlah hari terlambat,
- * konsekuensinya: untuk item reguler yang tenggatnya sudah lewat, denda tetap dihitung (dan terus
- * bertambah setiap hari) walaupun mahasiswa sudah melunasinya tepat waktu. Lihat bagian
- * "Catatan integritas finansial" di bawah.</li>
+ * <li><b>Tanggal acuan denda (SUDAH DISELARASKAN).</b> Kedua cabang kini menelusuri
+ * {@link CicilanPembayaran} yang cocok (item biaya sama, {@code bayarKe} sama, kegiatan sama —
+ * cabang bulanan menambahkan syarat bulan sama, cabang reguler mensyaratkan
+ * {@code cp.getPengaturanPembayaranBulanan() == null} agar tidak salah mengambil tanggal cicilan
+ * bulanan) lalu memakai {@code cp.getTanggal()} — <b>tanggal pembayaran yang sebenarnya</b> —
+ * sebagai acuan denda. Sebelum perbaikan ini, cabang reguler selalu memakai
+ * {@code WaktuUtil.getDate()} (hari ini) tanpa menelusuri cicilan sama sekali, sehingga item
+ * reguler yang tenggatnya lewat terus dikenakan denda walau sudah lunas tepat waktu. Lihat
+ * bagian "Catatan integritas finansial" di bawah untuk dampak historisnya dan penjaga
+ * tambahan yang disertakan.</li>
  * <li><b>Argumen konteks bulanan.</b> Cabang bulanan meneruskan objek
  * {@link PengaturanPembayaranBulanan} sehingga {@code checkDenda} dapat memakai
  * {@code pengaturanPembayaranBulanan.getDeadline()} sebagai tenggat; cabang reguler meneruskan
@@ -164,15 +165,20 @@ import ais.ui.util.WaktuUtil;
  *
  * <h3>Catatan integritas finansial (fakta terverifikasi, bukan perubahan)</h3>
  * <ol>
- * <li><b>Denda item reguler dihitung terhadap hari ini, bukan tanggal bayar.</b> Bila sebuah
- * {@link ItemBiaya}/{@link JenisKegiatan} mengaktifkan denda keterlambatan dan tenggatnya terisi,
- * maka setelah tenggat terlampaui nilai {@code jumlah} baris reguler dinaikkan menjadi hasil
- * denda ({@code jumlah = hasilDenda > jumlah ? hasilDenda : jumlah}) tanpa memperhatikan bahwa
- * pembayaran sudah masuk. Akibatnya {@code sisa = jumlah - telahDibayar} menjadi positif dan
- * membesar dari hari ke hari untuk tagihan yang sebenarnya sudah lunas. Penanda
- * {@code DetailKegiatan.batalkanDenda} yang dapat meredamnya <b>tidak</b> diisi otomatis saat
- * pembayaran — satu-satunya penulisnya adalah kotak centang manual pada
- * {@code DetailPembayaranMahasiswaRenderer}. Cabang bulanan tidak terdampak.</li>
+ * <li><b>Denda item reguler dihitung terhadap hari ini, bukan tanggal bayar (DIPERBAIKI).</b>
+ * Bila sebuah {@link ItemBiaya}/{@link JenisKegiatan} mengaktifkan denda keterlambatan dan
+ * tenggatnya terisi, cabang reguler kini menelusuri {@link CicilanPembayaran} yang cocok dan
+ * memakai tanggal pembayaran sebenarnya sebagai acuan {@code checkDenda} — persis pola cabang
+ * bulanan — sehingga item yang sudah dibayar sebelum tenggat tidak lagi terus dikenakan denda
+ * hanya karena laporan dibuka belakangan. Sebagai penjaga tambahan (independen dari pencocokan
+ * cicilan di atas), bila {@code telahDibayar} sudah mencapai atau melampaui {@code jumlah}
+ * sebelum denda, {@code hasilDenda} dipaksa kembali ke {@code jumlah} sehingga pelunasan penuh
+ * tidak pernah dinaikkan oleh denda apa pun. Penanda {@code DetailKegiatan.batalkanDenda} tetap
+ * tidak diisi otomatis saat pembayaran (satu-satunya penulisnya masih kotak centang manual pada
+ * {@code DetailPembayaranMahasiswaRenderer}), tetapi kini tidak lagi menjadi satu-satunya jalan
+ * meredam denda fiktif. <b>Data historis</b> yang sudah telanjur tertagih dengan cara lama
+ * (denda dihitung terhadap hari laporan dibuka, bukan tanggal bayar) belum diaudit ulang oleh
+ * perbaikan ini. Cabang bulanan tidak terdampak (sudah benar sejak awal).</li>
  * <li><b>Perbandingan finansial memakai {@code intValue()}.</b> Hampir seluruh keputusan angka di
  * berkas ini membandingkan lewat {@code Double.intValue()}:
  * {@code hasilDenda.intValue() > jumlah.intValue()}, {@code jumlah.intValue() == 0},
@@ -1196,15 +1202,14 @@ public class TagihanUIBuilder {
 												 * jumlah dibayar dijadikan <b>negatif</b> lewat {@code -Math.abs(...)}.</li>
 												 * </ol>
 												 * <p>
-												 * <b>Perbedaan penting antara kedua cabang</b> ada pada acuan tanggal
-												 * denda: cabang bulanan menelusuri cicilan yang cocok dan memakai tanggal
-												 * pembayaran sebenarnya, sedangkan cabang reguler selalu memakai hari ini.
-												 * Uraian lengkap beserta konsekuensinya ada pada Javadoc kelas, bagian
-												 * "Perbedaan nyata antara kedua cabang perakitan" dan "Catatan integritas
-												 * finansial". Pada penelusuran cicilan cabang bulanan, pencocokan
-												 * dilakukan berulang tanpa berhenti pada kecocokan pertama, sehingga bila
-												 * ada lebih dari satu cicilan yang cocok maka <b>yang terakhir</b> yang
-												 * menentukan tanggal acuan.
+												 * <b>Kedua cabang kini setara</b> pada acuan tanggal denda: baik cabang
+												 * bulanan maupun cabang reguler menelusuri cicilan yang cocok dan memakai
+												 * tanggal pembayaran sebenarnya, bukan hari ini. Uraian lengkap beserta
+												 * riwayat perbaikannya ada pada Javadoc kelas, bagian "Perbedaan nyata
+												 * antara kedua cabang perakitan" dan "Catatan integritas finansial". Pada
+												 * kedua cabang, penelusuran cicilan dilakukan berulang tanpa berhenti pada
+												 * kecocokan pertama, sehingga bila ada lebih dari satu cicilan yang cocok
+												 * maka <b>yang terakhir</b> yang menentukan tanggal acuan.
 												 * </p>
 												 *
 												 * <h4>Langkah 5 — akumulasi dan snapshot laporan</h4>
@@ -1666,6 +1671,34 @@ public class TagihanUIBuilder {
 																			if (jumlah == null)
 																				jumlah = 0.0;
 
+																			Date tanggalBayarItem = tanggalSekarang;
+																			if (cicilanPembayarans != null) {
+																				for (CicilanPembayaran cp : cicilanPembayarans) {
+																					try {
+																						if (tempdetailBiaya.getItemBiaya() != null
+																								&& cp.getItemBiaya() != null
+																								&& cp.getItemBiaya()
+																										.getId()
+																										.equals(tempdetailBiaya
+																												.getItemBiaya()
+																												.getId())
+																								&& tempdetailBiaya
+																										.getBayarKe()
+																										.equals(cp
+																												.getBayarKe())
+																								&& cp.getKegiatan()
+																										.getId()
+																										.equals(kegiatan
+																												.getId())
+																								&& cp.getPengaturanPembayaranBulanan() == null) {
+																							tanggalBayarItem = cp
+																									.getTanggal();
+																						}
+																					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/TagihanUIBuilder.java:tempdetailBiaya-cicilan-tanggal");
+																					}
+																				}
+																			}
+
 																			Double hasilDenda = dk != null && dk
 																					.getMenggunakanDendaCustom() != null
 																					&& dk.getMenggunakanDendaCustom()
@@ -1679,7 +1712,7 @@ public class TagihanUIBuilder {
 																													: tempdetailBiaya
 																															.checkDenda(
 																																	jumlah,
-																																	tanggalSekarang,
+																																	tanggalBayarItem,
 																																	jdw,
 																																	jadwal == null
 																																			? null
@@ -1710,6 +1743,9 @@ public class TagihanUIBuilder {
 																			if (jumlah.intValue() == 0
 																					&& telahDibayar.intValue() > 0)
 																				jumlah = telahDibayar;
+																			if (telahDibayar.intValue() >= jumlah.intValue()) {
+																				hasilDenda = jumlah;
+																			}
 																			jumlah = hasilDenda.intValue() > jumlah
 																					.intValue() ? hasilDenda : jumlah;
 

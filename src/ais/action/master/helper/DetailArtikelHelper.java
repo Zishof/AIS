@@ -2010,6 +2010,51 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 	 */
 	private List<Artikel> artikels = null;
 
+	/**
+	 * Membangun seluruh layar DAFTAR pengajuan Artikel (bukan formulir): toolbar aksi, filter
+	 * pencarian, grid berpaging, dan pemuatan data awal. Berbeda dengan
+	 * {@link #displayWindowPengajuan(Component, JurnalPenelitian, Artikel)} yang membangun
+	 * formulir satu Artikel, method ini merakit tampilan koleksi dan menempelkannya langsung ke
+	 * {@code component} lewat {@link org.zkoss.zul.Borderlayout}.
+	 *
+	 * <p><b>Cakupan data.</b> Dua argumennya disimpan ke {@link #usernamePengajuan} dan
+	 * {@link #diperuntukkanPengajuan}, dan {@link #usernamePengajuan} inilah satu-satunya
+	 * pembatas kepemilikan yang dipakai {@link #initCriteria(boolean)}. Memanggil method ini
+	 * dengan {@code usernamePengajuan == null} berarti menampilkan Artikel SELURUH pengaju —
+	 * pilihan yang memang disengaja pada layar administratif ({@code ArtikelAction},
+	 * {@code JurnalPenelitianAction}, {@code AsesementAction}) namun berarti pemanggil wajib
+	 * memastikan gerbang wewenangnya sendiri. Ketika {@link #usernamePengajuan} terisi, label
+	 * dan kotak "Diajukan oleh" disembunyikan karena pengaju sudah terkunci.</p>
+	 *
+	 * <p><b>Isi toolbar.</b> Tombol Tambah/Ajukan (membuka {@link #form}), "Singkronkan dg
+	 * SINTA" (hanya bila {@link #dosen} punya kode SINTA lebih dari 3 karakter; berjalan pada
+	 * {@link Thread} latar dengan sesi Hibernate sendiri), sinkronisasi Google Scholar yang
+	 * dimatikan permanen lewat {@code if (false && ...)}, Download data kustom
+	 * ({@code Common.cetakDataCustomButton} yang memakai {@code this} sebagai
+	 * {@link DataCriteria} sehingga cakupannya sama dengan grid), "Import dari OJS" (bila
+	 * konfigurasi {@code terhubung_ke_ojs} aktif), Cetak ({@link LaporanArtikel}, juga menerima
+	 * {@link #usernamePengajuan}), filter jurnal/pengaju/status/judul, serta tiga tombol massal
+	 * "Ekspor", "Batalkan Ekspor", dan "Setujui Semua".
+	 *
+	 * <p><b>Tombol massal.</b> Ketiganya bekerja pada himpunan {@link #initCriteria(boolean)}
+	 * saat itu, yakni ikut terpengaruh filter yang sedang aktif di toolbar. "Ekspor" dan
+	 * "Batalkan Ekspor" mempersempit diri ke status {@link Artikel#DISETUJUI} dan hanya tampil
+	 * bila konfigurasi {@code terhubung_ke_dspace} serta
+	 * {@code artikel_terhubung_ke_dspace} aktif. "Setujui Semua" menulis
+	 * {@link Artikel#DISETUJUI} ke setiap baris hasil criteria; gerbangnya hanya
+	 * {@code setVisible(Common.getApakahAdmin())} pada komponennya — listener {@code onClick}
+	 * tidak memeriksa ulang wewenang, tidak melewati alur {@link DisposisiSop}, dan tidak
+	 * membedakan status awal sehingga baris {@link Artikel#DITOLAK} pun ikut berubah menjadi
+	 * disetujui bila filter status sedang "Semua Status".</p>
+	 *
+	 * @param ases                  mode asesmen BKD; menyembunyikan aksi tambah/sunting/hapus, lihat {@link #ases}
+	 * @param usernamePengajuan     userId {@link Tbmuser} atau NIM {@link Mahasiswa} pemilik data; {@code null} berarti TANPA pembatasan kepemilikan
+	 * @param diperuntukkanPengajuan sasaran pengajuan menurut konstanta {@link PengumumanAkademis}
+	 * @param jurnalPenelitianData  jurnal konteks; bila terisi, filter jurnal dikunci ke nilai ini
+	 * @param component             komponen induk tempat layar ditempel ({@link Tabpanel} dibungkus scroll otomatis)
+	 * @param window                window pemanggil (diteruskan untuk keperluan tata letak)
+	 * @param tinggi                tinggi borderlayout dalam satuan CSS, mis. {@code "8500px"}
+	 */
 	@SuppressWarnings("unused")
 	public void displayPengajuan(Boolean ases, final String usernamePengajuan, final String diperuntukkanPengajuan,
 			final JurnalPenelitian jurnalPenelitianData, final Component component, final MyWindow window,
@@ -3090,6 +3135,27 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 	 */
 	class DetailArtikelRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Merender satu baris grid daftar Artikel: mendelegasikan kolom informasi ke
+		 * {@link DetailArtikelHelper#displayRow(Row, Artikel, Pegawai, Boolean)} lalu menambahkan
+		 * kolom aksi berisi ikon Sunting dan Hapus.
+		 *
+		 * <p>Ikon Sunting membuka kembali
+		 * {@link DetailArtikelHelper#form(GeneralValueObject, DisposisiSop, MyToolbarbuttonConfig, EventListener)}
+		 * dengan {@code disposisiSop} {@code null}, artinya di luar alur SOP. Ikon Hapus meminta
+		 * konfirmasi lalu memanggil {@code Common.refreshDelete(artikel)}; kegagalan karena
+		 * keterkaitan referensial ditangkap dan dijelaskan lewat
+		 * {@link PesanFormalHelper#tampilkanGagalException}.</p>
+		 *
+		 * <p><b>Catatan wewenang:</b> kedua ikon hanya dijaga oleh
+		 * {@code setVisible(!ases)} — tidak ada pemeriksaan kepemilikan per baris di dalam
+		 * listener, dan penghapusan tidak meninggalkan jejak audit. Pembatasan siapa boleh
+		 * menyunting/menghapus Artikel siapa karenanya bergantung sepenuhnya pada cakupan
+		 * {@link DetailArtikelHelper#usernamePengajuan} yang ditetapkan pemanggil layar.</p>
+		 *
+		 * @param arg0 baris grid tujuan
+		 * @param arg1 objek data baris, selalu berupa {@link Artikel}
+		 */
 		@Override
 		public void render(final Row arg0, Object arg1) throws Exception {
 			arg0.setValign("top");
@@ -3162,10 +3228,23 @@ public class DetailArtikelHelper implements DataLoader, DataCriteria, FormSop {
 
 	}
 
+	/**
+	 * Menyetel mode tampil-saja layar daftar. Harus dipanggil SEBELUM
+	 * {@link #displayPengajuan(Boolean, String, String, JurnalPenelitian, Component, MyWindow, String)}
+	 * karena nilainya hanya dibaca sekali, saat {@link Toolbar} dibangun. Lihat {@link #readonly}
+	 * untuk batasannya (kosmetik, bukan gerbang server).
+	 *
+	 * @param readonly {@code true} untuk menyembunyikan seluruh toolbar aksi
+	 */
 	public void setReadonly(Boolean readonly) {
 		this.readonly = readonly;
 	}
 
+	/**
+	 * Mengembalikan mode tampil-saja layar daftar.
+	 *
+	 * @return {@code true} bila toolbar aksi disembunyikan; baku {@code false}
+	 */
 	public Boolean getReadonly() {
 		return readonly;
 	}

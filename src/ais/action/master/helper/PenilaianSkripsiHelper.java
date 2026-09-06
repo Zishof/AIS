@@ -1650,6 +1650,18 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		LampiranLain.createDownloadUploadFileLain(hbox, skripsi.getId(), LampiranLain.SKRIPSI,
 				label_skripsi.replaceAll(";", " atau "), true, new EventListener() {
 
+					/**
+					 * Menautkan berkas PDF naskah skripsi yang baru diunggah ke id skripsi ini.
+					 *
+					 * <p>Berbeda dari callback lampiran catatan yang kosong, di sini {@code ref}
+					 * memang perlu ditulis ulang, dan penulisannya memakai
+					 * {@link StreamingHibernateUtil} — sesi/transaksi TERPISAH dari sesi ZK biasa —
+					 * karena unggahan berkas besar berjalan di luar siklus request normal. Sesi itu
+					 * ditutup di blok {@code finally}; kegagalan {@code commit} tidak ditangkap dan
+					 * akan naik ke pemanggil.</p>
+					 *
+					 * @param arg0 event unggah, datanya berupa {@link LampiranLain} yang baru dibuat
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						LampiranLain lainMahasiswa = (LampiranLain) arg0.getData();
@@ -1680,6 +1692,18 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		LampiranLain.createDownloadUploadFileLain(hbox, skripsi.getId() == null ? -Common.randLong() : skripsi.getId(),
 				Skripsi.class.getName() + "_Presentasi", "Presentasi (PPT)", false, new EventListener() {
 
+					/**
+					 * Kembaran callback unggah naskah PDF, untuk berkas presentasi sidang (PPT):
+					 * menautkan {@code ref} lampiran ke id skripsi lewat sesi
+					 * {@link StreamingHibernateUtil} yang terpisah.
+					 *
+					 * <p>Perhatikan bahwa saat komponen unggah dibangun, skripsi yang belum ber-id
+					 * diberi kunci sementara acak bernilai negatif ({@code -Common.randLong()});
+					 * callback inilah yang kemudian memperbaiki {@code ref}-nya menjadi id skripsi
+					 * yang sebenarnya.</p>
+					 *
+					 * @param arg0 event unggah, datanya berupa {@link LampiranLain} yang baru dibuat
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						LampiranLain lainMahasiswa = (LampiranLain) arg0.getData();
@@ -1734,8 +1758,31 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		}
 		tanpaPerbaikan.setChecked(skripsi.getTanpaPerbaikan());
 
+		// Satu listener dipakai bersama oleh SEMUA field administratif sidang di kolom kiri: setiap
+		// perubahan satu field menulis ulang seluruh field sekaligus.
 		EventListener ubah = new EventListener() {
 
+			/**
+			 * Menyalin isi seluruh kontrol administratif sidang (tanggal, waktu mulai/sampai, catatan
+			 * penting, tanpa-perbaikan, telah-sidang, lokasi) ke {@link #skripsi} lalu menyimpannya
+			 * seketika — sekali lagi pola auto-save tanpa tombol Simpan.
+			 *
+			 * <p><b>Cara kerja hak aksesnya perlu diperhatikan:</b> listener ini selalu didaftarkan
+			 * ke ketujuh kontrol, bahkan ketika pengguna adalah mahasiswa. Yang membedakan adalah
+			 * kontrol tersebut TIDAK dipasang ke halaman bagi mahasiswa (yang ditampilkan hanya
+			 * label), sehingga komponen tetap lepas dan ZK tidak pernah mengirimkan event
+			 * kepadanya. Jadi penjagaan bertumpu pada "komponen tidak terpasang", bukan pada
+			 * pemeriksaan hak di dalam listener — perlu kehati-hatian bila kelak salah satu kontrol
+			 * dipasang tanpa syarat.</p>
+			 *
+			 * <p>Syarat tampil kontrol juga tidak seragam: sebagian memakai "bukan mahasiswa DAN
+			 * bukan siswa", sebagian lagi hanya "bukan mahasiswa" (catatan penting, tanpa
+			 * perbaikan), sehingga pengguna yang tertaut data siswa dapat mengedit sebagian field
+			 * tetapi tidak yang lain. Dicatat apa adanya.</p>
+			 *
+			 * @param arg0 event {@code onChange}/{@code onClick} dari salah satu kontrol; isinya
+			 *             tidak dipakai karena seluruh field dibaca ulang
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				skripsi.setTanggalSidang(tanggalSidang.getValue());
@@ -1809,6 +1856,20 @@ public class PenilaianSkripsiHelper implements DataLoader {
 									: "");
 			ambilDataMatakuliahBanbox.setEventListener(new EventListener() {
 
+				/**
+				 * Menetapkan baris KRS ({@link Detailperkuliahan}) tujuan masuknya nilai skripsi,
+				 * menyimpannya seketika, lalu membangun ulang seluruh layar agar bagian yang
+				 * bergantung pada KRS (pilihan format nilai, tombol Format Nilai, sinkronisasi
+				 * nilai) ikut menyesuaikan.
+				 *
+				 * <p>Pemilih ini hanya dibuat untuk staf/admin (bukan mahasiswa, bukan siswa, bukan
+				 * dosen). Mengalihkan KRS di sini berarti mengalihkan tujuan nilai akhir skripsi ke
+				 * mata kuliah lain; nilai yang sudah tersalin ke KRS lama TIDAK dibersihkan oleh
+				 * aksi ini.</p>
+				 *
+				 * @param arg0 event pemilihan dari banbox; nilai terpilih dibaca dari atribut
+				 *             {@code "detailperkuliahan"} milik banbox
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					skripsi.setDetailperkuliahan(
@@ -1817,6 +1878,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 					Common.createDefaultTimer(new EventListener() {
 
+						/**
+						 * Membangun ulang layar pada siklus event berikutnya, supaya
+						 * {@link #display(Skripsi, Component, EventListener)} tidak mengganti pohon
+						 * komponen yang sedang menangani event ini.
+						 *
+						 * @param arg0 event timer; tidak dipakai
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							display(skripsi, component, eventListener);
@@ -1839,8 +1907,21 @@ public class PenilaianSkripsiHelper implements DataLoader {
 					}
 					buttonFormatNilai.addEventListener("onClick", new EventListener() {
 
+						/** Helper pengelola format penilaian perkuliahan; dibuat sekali per tombol, dipakai ulang tiap klik. */
 						FormatPenilaianHelper formatPenilaianHelper = new FormatPenilaianHelper();
 
+						/**
+						 * Membuka window pengaturan format penilaian milik {@link Perkuliahan} tujuan
+						 * nilai skripsi ini (bukan {@code FormatNilaiSkripsi} — ini format nilai mata
+						 * kuliah tempat nilai skripsi bermuara). Setelah nilai kelas dihitung ulang
+						 * dari sana, layar penilaian dibangun ulang lewat rantai callback
+						 * {@link TampilDetailNilaiInterface}.
+						 *
+						 * <p>Tombolnya hanya dibuat untuk staf/admin, dan hanya bila perkuliahan
+						 * belum dikunci serta kurikulumnya bukan OBE.</p>
+						 *
+						 * @param event event {@code onClick}; isinya tidak dipakai
+						 */
 						@Override
 						public void onEvent(Event event) throws Exception {
 
@@ -1851,6 +1932,20 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 							formatPenilaianHelper.display(perkuliahan, addWindow, new TampilDetailNilaiInterface() {
 
+								/**
+								 * Dipanggil balik oleh {@link FormatPenilaianHelper} setiap kali
+								 * format penilaian perkuliahan berubah: memicu perhitungan ulang
+								 * nilai seluruh peserta kelas lewat
+								 * {@link Common#realoadNilai}, lalu membangun ulang layar penilaian
+								 * skripsi ini agar nilai yang tampil ikut segar.
+								 *
+								 * <p>Cakupan efeknya jauh lebih luas dari satu skripsi: yang
+								 * dihitung ulang adalah nilai SATU KELAS penuh. Nama method
+								 * {@code realoadNilai} adalah salah ketik yang sudah menyebar ke
+								 * antarmuka bersama, jadi tidak diubah di sini.</p>
+								 *
+								 * @param perkuliahan kelas yang format penilaiannya baru diubah
+								 */
 								@Override
 								public void realoadNilai(final Perkuliahan perkuliahan) {
 
@@ -1858,10 +1953,23 @@ public class PenilaianSkripsiHelper implements DataLoader {
 											perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi(),
 											new EventListener() {
 
+												/**
+												 * Dipicu setelah perhitungan ulang nilai kelas
+												 * selesai; hanya menjadwalkan pembangunan ulang
+												 * layar.
+												 *
+												 * @param arg0 event penyelesaian; tidak dipakai
+												 */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 													Common.createDefaultTimer(new EventListener() {
 
+														/**
+														 * Membangun ulang layar penilaian pada
+														 * siklus event berikutnya.
+														 *
+														 * @param arg0 event timer; tidak dipakai
+														 */
 														@Override
 														public void onEvent(Event arg0) throws Exception {
 															display(skripsi, component, eventListener);
@@ -1914,6 +2022,19 @@ public class PenilaianSkripsiHelper implements DataLoader {
 				buttonSingkronkan.setParent(toolbar);
 				buttonSingkronkan.addEventListener("onClick", new EventListener() {
 
+					/**
+					 * Mendorong nilai skripsi masuk ke komponen nilai kelas: memanggil
+					 * {@link ais.common.GradingHelper#hitungNilaiBerdasarkanFormatNilaiSkripsi}
+					 * untuk perkuliahan tujuan, memakai slot {@link FormatNilai} yang dipilih di
+					 * combobox sebelahnya.
+					 *
+					 * <p>Aksinya berlaku untuk SELURUH peserta kelas tersebut, bukan hanya
+					 * mahasiswa ini. Tidak ada konfirmasi sebelum dijalankan, dan hasilnya tidak
+					 * dilaporkan kembali ke pengguna — layar tidak berubah setelah tombol
+					 * ditekan.</p>
+					 *
+					 * @param arg0 event {@code onClick}; isinya tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						ais.common.GradingHelper.hitungNilaiBerdasarkanFormatNilaiSkripsi(perkuliahan, skripsi.getFormatNilai());
@@ -1922,6 +2043,21 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 				formatNilai.addEventListener("onChange", new EventListener() {
 
+					/**
+					 * Menyimpan slot {@link FormatNilai} tujuan (komponen nilai mana pada mata
+					 * kuliah yang akan diisi nilai skripsi), atau {@code null} bila dipilih "Tidak
+					 * Ada".
+					 *
+					 * <p>Penyimpanan dibungkus {@code try/catch} karena format nilai yang dipilih
+					 * bisa saja sudah dihapus admin lain sesaat sebelum combobox ini disimpan (race
+					 * lintas sesi) — sebelumnya kondisi itu meledak sebagai
+					 * {@code ConstraintViolationException} mentah. Sekarang transaksi di-rollback,
+					 * kejadiannya dicatat ke audit, dan pengguna diberi pesan yang bisa dipahami.
+					 * Kegagalan {@code rollback} sendiri ikut ditangkap agar tidak menutupi galat
+					 * aslinya.</p>
+					 *
+					 * @param arg0 event {@code onChange} combobox; pilihan dibaca dari combobox
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 

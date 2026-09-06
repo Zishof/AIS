@@ -1838,8 +1838,90 @@ public class TugasMandiriHelper {
 	 * diperhatikan setiap kali gerbang di kelas ini diubah.</p>
 	 */
 	private boolean peserta = false;
+	/**
+	 * Panel ZK tempat seluruh antarmuka tugas ini dibangun.
+	 *
+	 * <p>Merupakan salinan argumen {@code tabpanelFileTugasPertemuan} milik
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)}, disimpan sebagai field agar
+	 * listener-listener yang dibuat di dalam metode tersebut — dan yang berumur jauh lebih panjang
+	 * daripada pemanggilannya — masih dapat menjangkaunya di kemudian hari.</p>
+	 *
+	 * <p><strong>Pemakaian utama: menyegarkan label tab.</strong> Judul tugas ikut menjadi label tab
+	 * yang menampung panel ini. Setiap kali judul berubah, kode memanggil
+	 * {@code tabpanelFileTugasPertemuan.getLinkedTab().setLabel(tugas.getJudultugas())} agar label
+	 * tab tidak tertinggal dari isinya. Titik pemanggilannya cukup banyak: setelah menyimpan dialog
+	 * ubah instruksi, setelah judul diisi otomatis ketika lampiran pertama diunggah, setelah tugas
+	 * "dihapus" (judul dikosongkan sehingga label tab ikut kosong), setelah menyalin tugas lewat
+	 * "Ambil Tugas", dan setelah setiap perubahan checkbox pada tab "Peserta yg tdk perlu ikt".</p>
+	 *
+	 * <p><strong>Pemakaian kedua: membangun ulang seluruh layar.</strong> Beberapa aksi memanggil
+	 * kembali {@code createTugas(tugas, tabpanelFileTugasPertemuan, hapusEvent, tampilInfo)} lewat
+	 * {@code Common.createDefaultTimer(...)}, yaitu setelah dialog ubah instruksi disimpan, setelah
+	 * "Ambil Tugas" menyalin instruksi dan lampiran, dan setelah dialog Format Nilai menghitung ulang
+	 * nilai. Pembangunan ulang itu diawali {@code Common.clear(tabpanelFileTugasPertemuan)} sehingga
+	 * seluruh komponen lama dilepas dan tidak menumpuk.</p>
+	 *
+	 * <p><strong>Catatan siklus hidup.</strong> Field ini menunjuk komponen milik satu desktop ZK.
+	 * Menyimpan instance helper melewati batas request atau membaginya antar-pengguna akan membuat
+	 * field ini menunjuk komponen yang sudah terlepas dari halaman, dan setiap
+	 * {@code getLinkedTab()} berikutnya berpotensi mengembalikan {@code null}.</p>
+	 */
 	private Tabpanel tabpanelFileTugasPertemuan;
+	/**
+	 * Peta bantu berisi berkas pengumpulan yang berhasil dimuat, dikunci berdasarkan id pemilik.
+	 *
+	 * <p>Peta ini dibuat kosong pada setiap {@link #reloadTugasFileContent(boolean)} lalu diteruskan
+	 * sebagai argumen pertama ke
+	 * {@code tugas.ambilTugasFileContentTotal(treemap, cari, paging, 500, refresh)}. Entity
+	 * {@link Tugas} mengisinya sambil berjalan, sehingga peta ini berfungsi sebagai <em>nilai balik
+	 * kedua</em> dari pemanggilan tersebut: kuncinya adalah id peserta pemilik berkas, bukan id baris
+	 * {@link TugasFileContent}.</p>
+	 *
+	 * <p><strong>Peran sebagai jaring pengaman.</strong> Bila pemanggilan
+	 * {@code ambilTugasFileContentTotal} melemparkan pengecualian di tengah jalan — misalnya karena
+	 * satu berkas fisiknya hilang sehingga {@code FileFoto.ambilFile()} gagal — blok {@code catch}
+	 * memakai {@code treemapData} sebagai hasil pengganti. Dengan begitu satu berkas bermasalah tidak
+	 * menggagalkan seluruh daftar; baris yang sempat termuat tetap ditampilkan.</p>
+	 *
+	 * <p><strong>Peran sebagai penanda "sudah mengumpulkan".</strong> Karena kuncinya adalah id
+	 * peserta, peta ini dipakai langsung untuk menjawab pertanyaan "siapa yang belum mengumpulkan":
+	 * tab "Belum upload" menyaring {@code pa.ambilMahasiswa()} dengan syarat
+	 * {@code treemapData == null || !treemapData.containsKey(id)}, sementara tab "Statistik" memakai
+	 * {@code treemapData.size()} sebagai jumlah pengumpul.</p>
+	 *
+	 * <p><strong>Peran ketiga: sumber data unduh dan unggah nilai.</strong> Tombol "Download Nilai"
+	 * dan "Upload Nilai" meneruskan peta ini kembali ke {@code ambilTugasFileContentTotal} agar
+	 * bekerja pada kumpulan baris yang sama dengan yang sedang tampil di layar, sehingga kolom ID
+	 * pada berkas Excel selalu cocok dengan baris yang ada.</p>
+	 *
+	 * <p><strong>Batasan.</strong> Peta ini hanya memuat hasil satu halaman dengan batas 500 baris
+	 * dan sudah tersaring oleh kata kunci pada kotak {@link #cari}. Ia bukan gambaran lengkap seluruh
+	 * pengumpulan; untuk itu tersedia {@code tugas.ambilTugasFileContentTotal()} tanpa argumen yang
+	 * dipakai pada unduhan ZIP, integrasi Drive, statistik distribusi nilai, dan seluruh aksi
+	 * kehadiran massal.</p>
+	 */
 	private TreeMap<Long, TugasFileContent> treemapData = null;
+	/**
+	 * Kotak isian kata kunci untuk menyaring daftar pengumpulan pada grid "Telah upload".
+	 *
+	 * <p>Ditempatkan di header kolom pertama grid, berdampingan dengan tombol "Cari". Baik penekanan
+	 * tombol maupun kejadian {@code onOK} (menekan Enter di dalam kotak) memanggil
+	 * {@link #reloadTugasFileContent()}, yang meneruskan {@code cari.getValue().trim()} sebagai
+	 * argumen pencarian ke {@code tugas.ambilTugasFileContentTotal(...)}. Penyaringan karena itu
+	 * dilakukan di sisi basis data, bukan di memori.</p>
+	 *
+	 * <p><strong>Perlakuan aman terhadap {@code null}.</strong> Field ini baru dibuat di dalam blok
+	 * pembangunan grid, yang seluruhnya dilewati bila tugas belum berjudul. Karena itu setiap
+	 * pembacaan ditulis sebagai {@code cari == null ? "" : cari.getValue().trim()} — pola yang muncul
+	 * pada {@link #reloadTugasFileContent(boolean)}, pada listener "Download Nilai", dan pada
+	 * {@code initSpreadsheet} milik "Upload Nilai". String kosong berarti "tanpa penyaringan".</p>
+	 *
+	 * <p><strong>Jangan dikelirukan dengan kotak cari lain.</strong> Tab "Belum upload" dan tab
+	 * "Peserta yg tdk perlu ikt" masing-masing memiliki kotak {@code Textbox} bernama {@code cari}
+	 * sendiri sebagai variabel lokal di dalam pemuat tab. Keduanya menyaring daftar peserta
+	 * ({@code pa.ambilMahasiswa()}) di memori dengan mencocokkan NIM/nomor registrasi dan nama, bukan
+	 * menyaring baris pengumpulan lewat basis data seperti field ini.</p>
+	 */
 	private Textbox cari;
 
 	/**
@@ -4829,7 +4911,91 @@ public class TugasMandiriHelper {
 		}
 	}
 
+	/**
+	 * Salinan di memori dari kolom {@code keteranganNilai} milik {@link #tugas} — tempat seluruh nilai
+	 * dan keterangan per peserta disimpan.
+	 *
+	 * <p>Diisi ulang pada setiap {@link #reloadTugasFileContent(boolean)} dengan
+	 * {@code new JSONObject(tugas.getKeteranganNilai())}. Objek ini adalah <em>satu-satunya</em>
+	 * tempat penilaian tugas mandiri disimpan pada jalur perguruan tinggi dan sekolah: nilai tidak
+	 * ditulis ke kolom {@code nilai} milik masing-masing {@link TugasFileContent}, melainkan ke satu
+	 * dokumen JSON pada baris tugas.</p>
+	 *
+	 * <p><strong>Bentuk kunci.</strong> Setiap peserta memperoleh sebuah kunci dasar yang menyatakan
+	 * id sekaligus jenisnya, karena {@link TugasFileContent} menyimpan pemilik pada empat kolom
+	 * terpisah:</p>
+	 * <ul>
+	 *   <li>{@code <id>_mhs} bila {@code getMahasiswa()} terisi;</li>
+	 *   <li>{@code <id>_siswa} bila {@code getSiswa()} terisi;</li>
+	 *   <li>{@code <id>_cal_mhs} bila {@code getBiodataCalonMahasiswa()} terisi;</li>
+	 *   <li>{@code <id>_cal_siswa} bila {@code getCalonSiswa()} terisi.</li>
+	 * </ul>
+	 * <p>Dari kunci dasar itu dibentuk tiga jenis entri: {@code <kunci>_ket} untuk keterangan teks,
+	 * {@code <kunci>_nilai} untuk nilai tunggal pada mode non-OBE, dan
+	 * {@code <kunci>_nilai_<idFormatNilai>} untuk nilai per Sub-CPMK pada mode OBE. Perhatikan bahwa
+	 * kunci dasar dibentuk dari cabang {@code if}/{@code else if} berurutan, sehingga kolom pertama
+	 * yang terisi menang — hal ini relevan karena
+	 * {@link #anggapSemuaSudahUpload(Tugas, Pertemuan, EventListener)} sengaja mengisi kolom pemilik
+	 * yang tidak dipakai dengan bilangan acak negatif agar tidak bentrok.</p>
+	 *
+	 * <p><strong>Alur baca-tulis.</strong> Nilai dibaca dari objek ini di tiga tempat: ringkasan
+	 * read-only pada sel "Nilai &amp; Keterangan", isian awal popup "Edit Nilai", dan berkas Excel
+	 * hasil "Download Nilai". Penulisan terjadi pada tombol Simpan di dalam popup "Edit Nilai" —
+	 * yang mengubah objek ini <em>dan</em> langsung menyimpannya ke basis data — serta pada tombol
+	 * "Simpan" di toolbar bawah dan pada langkah auto-simpan sebelum
+	 * {@link #buttonMasukkanNilai} menjalankan {@code GradingHelper}. Tombol "Batal" membuang
+	 * perubahan dengan membaca ulang kolom dari basis data dan membangun ulang objek ini.</p>
+	 *
+	 * <p><strong>Pembersihan karakter NUL.</strong> Saat tombol "Batal" membangun ulang objek ini,
+	 * isi kolom dilewatkan {@code replace('\0', ' ')} lebih dahulu. Data lama dapat mengandung byte
+	 * NUL yang membuat parser JSON gagal; penggantian dengan spasi membuat pembatalan tetap berhasil
+	 * alih-alih melemparkan pengecualian.</p>
+	 *
+	 * <p><strong>Konsekuensi desain.</strong> Karena seluruh nilai satu kelas berada pada satu kolom
+	 * teks di satu baris, penyimpanan bersifat baca-ubah-tulis penuh: dua pengelola yang menilai
+	 * peserta berbeda pada saat bersamaan dapat saling menimpa, dan yang menyimpan belakangan menang.
+	 * Setiap penulisan karena itu selalu didahului {@code session.refresh(tugas)} untuk memperkecil
+	 * jendela tersebut, tetapi tidak menghilangkannya.</p>
+	 */
 	private JSONObject jsonObjectTugas;
+	/**
+	 * Daftar Sub-CPMK ({@link FormatNilai}) yang benar-benar dinilai pada tugas ini; kosong bila tugas
+	 * tidak memakai penilaian OBE.
+	 *
+	 * <p>Dibangun ulang pada setiap {@link #reloadTugasFileContent(boolean)} dengan tiga syarat
+	 * berlapis:</p>
+	 * <ol>
+	 *   <li>{@link #perkuliahan} terisi dan kurikulumnya dinyatakan OBE lewat
+	 *       {@code getKurikulum().apakahObe(tahunAjaran, ganjilGenap)};</li>
+	 *   <li>{@link FormatNilai} yang bersangkutan memiliki {@code getStatusPertemuan()} tidak
+	 *       {@code null} — penanda bahwa komponen nilai itu memang diisi dari pertemuan/tugas, bukan
+	 *       dari sumber lain;</li>
+	 *   <li>id {@link FormatNilai} itu terdaftar sebagai kunci pada dokumen JSON
+	 *       {@code tugas.getFormatNilais()}, yaitu Sub-CPMK yang dicentang pengelola pada dialog ubah
+	 *       instruksi.</li>
+	 * </ol>
+	 *
+	 * <p><strong>Fungsi sebagai sakelar mode.</strong> Sepanjang berkas ini, pemeriksaan
+	 * {@code obeFormatNilais.isEmpty()} dipakai sebagai penentu mode penilaian, bukan pemeriksaan
+	 * kurikulum secara langsung. Bila kosong, tampilan memakai satu nilai tunggal dengan kunci
+	 * {@code <kunci>_nilai}; bila terisi, tampilan memakai satu nilai untuk setiap anggota daftar
+	 * dengan kunci {@code <kunci>_nilai_<idFormatNilai>}. Titik yang memakainya: ringkasan sel nilai,
+	 * popup "Edit Nilai", kolom-kolom berkas Excel pada "Download Nilai" dan "Upload Nilai", serta
+	 * tampilan read-only nilai milik peserta sendiri.</p>
+	 *
+	 * <p><strong>Urutan penting.</strong> Berkas Excel nilai memakai posisi kolom, bukan nama, untuk
+	 * memetakan nilai kembali ke Sub-CPMK: kolom {@code 2 + i} berpasangan dengan
+	 * {@code obeFormatNilais.get(i)}, dan kolom keterangan berada di
+	 * {@code 2 + obeFormatNilais.size()}. Karena itu urutan daftar ini harus tetap sama antara saat
+	 * berkas diunduh dan saat diunggah kembali. Bila pengelola mengubah pilihan Sub-CPMK di antara
+	 * kedua langkah tersebut, nilai akan tertulis ke Sub-CPMK yang salah — berkas hasil unduhan lama
+	 * tidak boleh dipakai setelah pilihan Sub-CPMK berubah.</p>
+	 *
+	 * <p><strong>Sub-CPMK per peserta.</strong> Daftar ini menyatakan Sub-CPMK pada tingkat tugas.
+	 * Untuk {@link TugasPertemuan}, tab "Peserta yg tdk perlu ikt" masih dapat mempersempitnya per
+	 * peserta lewat {@code subCpmkPerPeserta} dan memberi nilai manual lewat {@code nilaiManualJson}
+	 * — dua kolom yang berdiri sendiri dan tidak tercermin pada field ini.</p>
+	 */
 	private List<FormatNilai> obeFormatNilais = new ArrayList<FormatNilai>();
 
 	// Foto profil dikunci min-height:70px (inline, di ProfileImageUtil) sehingga baris kartu

@@ -3613,6 +3613,29 @@ public class PenjadwalanHelper {
 	 *
 	 * @param pertemuan    pertemuan sumber
 	 * @param pertemuanBaru pertemuan tujuan
+	  *
+	  * <p><b>Yang disalin adalah RUJUKAN, bukan isi berkas.</b> Baris {@link LampiranLain} baru hanya
+	  * mewarisi {@code jenis}, {@code ref} (id pertemuan tujuan), {@code gdrive}, dan penunjuk
+	  * {@code copyDari} ke baris lama — konten large-object-nya tidak diduplikasi. Menghapus lampiran
+	  * sumber karenanya berpotensi mempengaruhi salinannya; jangan asumsikan kedua baris berdiri
+	  * sendiri.</p>
+	  *
+	  * <p><b>Idempoten satu arah.</b> Penyalinan hanya dilakukan bila sumber punya lampiran jenis itu
+	  * DAN tujuan belum punya. Bila tujuan sudah punya lampiran jenis yang sama, method ini diam saja —
+	  * ia tidak pernah menimpa, dan pemanggil tidak diberi tahu bahwa tidak ada yang dikerjakan. Karena
+	  * itu {@link #copyLampiranPertemuan(Pertemuan, Pertemuan)} membandingkan keadaan sebelum dan sesudah
+	  * untuk tahu apakah benar-benar ada yang tersalin.</p>
+	  *
+	  * <p><b>Session streaming terpisah, dan penanganan kegagalannya perlu diperhatikan.</b> Operasi ini
+	  * memakai {@code StreamingHibernateUtil} karena lampiran tersimpan sebagai large object PostgreSQL
+	  * yang tidak boleh diakses dalam mode autocommit. Blok {@code try} hanya berpasangan dengan
+	  * {@code finally} yang menutup session — tidak ada {@code catch}, sehingga exception apa pun
+	  * DILEMPAR ke pemanggil (dan transaksinya berakhir tanpa commit). Itu disengaja: pemanggil
+	  * {@link #copyLampiranPertemuan(Pertemuan, Pertemuan)} yang menangkap dan mencatatnya sebagai
+	  * kendala pada laporan salin agenda.</p>
+	  *
+	  * <p>Bila sumber punya lebih dari satu lampiran berjenis sama, hanya yang ber-id TERBESAR (paling
+	  * baru) yang diambil.</p>
 	 * @param jenis        jenis lampiran yang disalin
 	 */
 	public static void copyLampiranPertemuan(Pertemuan pertemuan, Pertemuan pertemuanBaru, String jenis) {
@@ -3644,18 +3667,96 @@ public class PenjadwalanHelper {
 	 * Hasil salin lampiran/isi satu pertemuan: jumlah tiap jenis yang berhasil disalin + daftar
 	 * kendala rinci (jika ada). Dipakai untuk laporan hasil salin agenda.
 	 */
+	/*
+	 * Sengaja berupa struct dengan field publik tanpa getter/setter: object ini tidak pernah
+	 * dipersistensi, tidak melewati batas modul, dan hanya hidup selama satu putaran salin agenda
+	 * sebagai wadah penghitung yang langsung diakumulasi pemanggil.
+	 */
 	public static class HasilSalinPertemuan {
+		/**
+		 * Jumlah materi/catatan pembelajaran ({@code LampiranLain.CATATAN_PERKULIAHAN}) yang benar-benar
+		 * BARU tersalin. Karena {@link PenjadwalanHelper#copyLampiranPertemuan(Pertemuan, Pertemuan, String)}
+		 * tidak melaporkan apa pun, angka ini ditentukan dengan membandingkan hasil {@code LampiranLain.ambil}
+		 * sebelum dan sesudah pemanggilan — jadi nilainya hanya pernah 0 atau 1 per pertemuan, dan tetap 0
+		 * bila pertemuan tujuan sudah memiliki catatan sebelumnya.
+		 */
 		public int materi;
+		/**
+		 * Jumlah berkas materi ({@link PertemuanFileContent}) yang tersalin. Dihitung per item yang
+		 * commit-nya berhasil pada session streaming-nya sendiri, sehingga satu berkas yang gagal tidak
+		 * menggagalkan berkas lain — kegagalannya masuk ke {@link #kendala}. Tidak ada dedup: memanggil
+		 * ulang salin untuk pasangan pertemuan yang sama akan menambah berkas duplikat, berbeda dari
+		 * tugas kelompok dan tugas mandiri yang di-dedup berdasarkan nama/judul.
+		 */
 		public int file;
+		/**
+		 * Jumlah video materi ({@link VideoPertemuan}) yang tersalin, dengan aturan yang sama seperti
+		 * {@link #file}: satu transaksi streaming per item, kegagalan per item masuk {@link #kendala},
+		 * dan tanpa dedup sehingga pemanggilan ulang menghasilkan duplikat.
+		 */
 		public int video;
+		/**
+		 * Jumlah audio materi ({@link AudioPertemuan}) yang tersalin, dengan aturan yang sama seperti
+		 * {@link #file} dan {@link #video}.
+		 */
 		public int audio;
+		/**
+		 * Jumlah kaitan ujian ({@link PertemuanPunyaUjian}) yang tersalin. Yang diduplikasi hanyalah
+		 * BARIS KAITANNYA (jadwal, lama, format nilai, jumlah soal ditampilkan, dan seterusnya); entity
+		 * {@code Ujian} beserta bank soalnya dipakai bersama — {@code setUjian(punyaUjian.getUjian())}
+		 * menunjuk ke ujian yang SAMA, bukan salinannya. Menyunting soal pada ujian hasil salin karena itu
+		 * ikut mengubah ujian pada agenda sumber. Tidak ada dedup, sehingga pemanggilan ulang menambah
+		 * kaitan duplikat.
+		 */
 		public int ujian;
+		/**
+		 * Jumlah tugas kelompok ({@link TugasKelompok}) yang tersalin, di-dedup berdasarkan {@code nama}
+		 * pada pertemuan tujuan sehingga pemanggilan ulang tidak menggandakan. Yang tersalin hanya
+		 * kerangkanya (nama plus kaitan ke perkuliahan/kelompok KKN/kelompok PKL milik pertemuan tujuan);
+		 * anggota kelompok, pengumpulan, dan nilai per-peserta tidak ikut karena peserta memang tidak
+		 * disalin.
+		 */
 		public int tugasKelompok;
+		/**
+		 * Jumlah tugas mandiri/individu ({@code ais.database.model.TugasPertemuan}) yang tersalin,
+		 * di-dedup berdasarkan {@code judultugas} pada pertemuan tujuan. Tugas tanpa judul DILEWATI
+		 * seluruhnya karena judul adalah kunci dedup-nya. Field per-mahasiswa (nilai, keterangan,
+		 * status pengumpulan) sengaja tidak disalin; {@code aktif} yang {@code null} pada sumber
+		 * dinormalkan menjadi {@code TRUE} pada salinan.
+		 */
 		public int tugasMandiri;
+		/**
+		 * Daftar kendala per item dalam bahasa manusia (mis. {@code Video materi "...": <kelas exception>:
+		 * <pesan>}), dibangun dari {@link PenjadwalanHelper#pesanError(Throwable)}. Setiap entri di sini
+		 * berarti ada satu item yang TIDAK tersalin walaupun proses secara keseluruhan dilaporkan selesai;
+		 * daftar inilah yang dituangkan ke berkas laporan .txt yang diunduh di akhir
+		 * {@link PenjadwalanHelper#tampilTombolAmbil}, dan jumlahnya yang muncul pada ringkasan di layar.
+		 *
+		 * <p>Bersifat {@code final} dan sudah terinisialisasi, jadi pemanggil selalu boleh mengiterasinya
+		 * tanpa penjaga {@code null}. Daftar kosong berarti tidak ada kendala — bukan berarti tidak ada
+		 * pemeriksaan.</p>
+		 */
 		public final java.util.List<String> kendala = new java.util.ArrayList<String>();
 	}
 
-	/** Pesan error rinci (kelas + pesan + baris pertama stack) untuk laporan. */
+	/**
+	 * Merangkai satu baris ringkas yang menjelaskan sebuah kegagalan untuk laporan salin agenda:
+	 * nama sederhana kelas exception, pesannya bila ada, bingkai teratas stack trace, serta kelas dan
+	 * pesan penyebabnya bila ada. Dirancang agar bisa dibaca staf akademik pada berkas laporan .txt —
+	 * cukup spesifik untuk dilaporkan ke pengembang, tanpa menumpahkan seluruh stack trace.
+	 *
+	 * <p>Tidak pernah melempar dan tidak pernah mengembalikan {@code null}: argumen {@code null}
+	 * menghasilkan {@code "(tidak diketahui)"}, dan kegagalan saat membaca stack trace/penyebab
+	 * ditangkap sehingga bagian yang sudah terkumpul tetap dikembalikan.</p>
+	 *
+	 * <p>Hasilnya ikut ditampilkan ke pengguna (pada panel pratinjau tanggal dan pada berkas laporan
+	 * yang diunduh), jadi jangan menambahkan informasi internal yang tidak layak dilihat pengguna.
+	 * Pemakaiannya pada pratinjau sudah melewati {@code DashboardUiKit.esc} sebelum disisipkan ke HTML;
+	 * pemakaian baru pada konteks HTML lain wajib melakukan hal yang sama.</p>
+	 *
+	 * @param e exception yang akan dijelaskan; boleh {@code null}
+	 * @return satu baris penjelasan, tidak pernah {@code null}
+	 */
 	public static String pesanError(Throwable e) {
 		if (e == null) {
 			return "(tidak diketahui)";
@@ -3702,6 +3803,23 @@ public class PenjadwalanHelper {
 	 * </ol>
 	 *
 	 * @param pertemuan    pertemuan sumber
+	  * <p><b>Yang tersalin adalah RUJUKAN bersama, bukan duplikat mandiri.</b> Berkas, video, dan audio
+	  * mewarisi {@code gdrive}/{@code lokasiFisik} serta penunjuk {@code copyDari} ke baris sumber tanpa
+	  * menggandakan isinya; kaitan ujian menunjuk ke entity {@code Ujian} yang SAMA. Menyunting atau
+	  * menghapus materi/ujian pada salah satu agenda karena itu dapat terlihat pada agenda lainnya.</p>
+	  *
+	  * <p><b>Perilaku dedup berbeda antarkategori</b>, sehingga memanggil ulang tidak seragam amannya:
+	  * materi/catatan aman (tidak menimpa bila tujuan sudah punya), tugas kelompok dan tugas mandiri
+	  * di-dedup berdasarkan nama/judul, sedangkan berkas, video, audio, dan kaitan ujian TIDAK di-dedup
+	  * sehingga akan bertambah setiap kali dipanggil. Pada alur normal hal itu tidak terjadi karena
+	  * {@link #tampilTombolAmbil} sudah menyaring lewat {@code copyDariPertemuan} di level pertemuan.</p>
+	  *
+	  * <p><b>Tidak melempar apa pun.</b> Semua kegagalan menjadi entri {@link HasilSalinPertemuan#kendala}
+	  * dan catatan error audit; pemanggil selalu menerima objek hasil yang sah. Karena itu keberhasilan
+	  * harus dinilai dari isi {@code kendala}, bukan dari tidak adanya exception. Perhatikan pula bahwa
+	  * ketiga kategori streaming berbagi satu session pembungkus untuk QUERY-nya sementara setiap item
+	  * disimpan pada session dan transaksinya sendiri, sehingga kegagalan membuka session pembungkus
+	  * akan menghilangkan ketiga kategori itu sekaligus dengan satu entri kendala "(umum)".</p>
 	 * @param pertemuanBaru pertemuan tujuan yang isinya akan dilengkapi
 	 * @return ringkasan jumlah item per kategori yang berhasil disalin plus daftar kendala rinci
 	 */
