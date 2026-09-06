@@ -485,12 +485,30 @@ final class SalesInventoryDbfImportTenant {
 	 */
 	static String sisipPiutangLegacy(String skema) {
 		return "INSERT INTO " + skema + "piutang_customer"
-				+ " (customer_id, salesperson_id, nomor_faktur, nomor_retur, tanggal, jatuh_tempo,"
+				+ " (customer_id, salesperson_id, faktur_penjualan_id, nomor_faktur, nomor_retur,"
+				+ "  tanggal, jatuh_tempo,"
 				+ "  nilai, terbayar, sisa, status, dibuat_pada, oleh,"
 				+ "  legacy_source_file, legacy_source_record_no, legacy_tafsir)"
-				+ " SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), ?, 'Tran_Piut.DBF', ?, ?"
+				+ " SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), ?, 'Tran_Piut.DBF', ?, ?"
 				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "piutang_customer p"
 				+ " WHERE p.customer_id = ? AND p.nomor_faktur = ? AND p.tanggal = ?)";
+	}
+
+	/**
+	 * Mencari faktur penjualan yang bernomor dan bercustomer sama, untuk ditautkan pada piutang.
+	 *
+	 * <p><b>Mengapa penting.</b> {@code kolomTokoPiutang()} menyaring lewat
+	 * {@code faktur_penjualan.toko_id}. Piutang yang tidak tertaut faktur karena itu punya
+	 * {@code toko_id} bernilai NULL, dan saringan toko membuang seluruh barisnya — layar piutang
+	 * tampak kosong padahal datanya ada. Terukur pada UAT cmnmedika: 108 baris di basis data,
+	 * 0 baris di {@code si_receivable_list}.</p>
+	 *
+	 * <p>Penautan hanya mungkin sesudah dokumen penjualan terbentuk, jadi {@code piutang_legacy}
+	 * WAJIB diimpor setelah {@code penjualan_legacy}.</p>
+	 */
+	static String cariFakturUntukPiutang(String skema) {
+		return "SELECT id FROM " + skema + "faktur_penjualan"
+				+ " WHERE nomor_dokumen = ? AND customer_id = ? LIMIT 1";
 	}
 
 	static String sisipHutangLegacy(String skema) {

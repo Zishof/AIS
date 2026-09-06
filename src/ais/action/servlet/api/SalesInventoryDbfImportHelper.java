@@ -574,6 +574,22 @@ public final class SalesInventoryDbfImportHelper {
 	}
 
 	/** Menjalankan satu pernyataan dan mengembalikan jumlah baris tersentuh. */
+	/** Seperti {@link #satuId} tetapi berparameter dua — mis. (nomor faktur, id customer). */
+	private static Long satuIdDua(Session session, String sql, Object p1, Object p2)
+			throws Exception {
+		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
+		try {
+			ps.setObject(1, p1);
+			ps.setObject(2, p2);
+			java.sql.ResultSet rs = ps.executeQuery();
+			Long v = rs.next() ? Long.valueOf(rs.getLong(1)) : null;
+			rs.close();
+			return v;
+		} finally {
+			ps.close();
+		}
+	}
+
 	private static int jalankan(Session session, String sql, Object[] params) throws Exception {
 		java.sql.PreparedStatement ps = session.connection().prepareStatement(sql);
 		try {
@@ -628,7 +644,8 @@ public final class SalesInventoryDbfImportHelper {
 			return imporOpnameTenant(session, sk, r, tokoId, oleh);
 		}
 		if ("piutang_legacy".equals(jenis) || "hutang_legacy".equals(jenis)) {
-			return imporTagihanTenant(session, sk, r, "piutang_legacy".equals(jenis), oleh);
+			return imporTagihanTenant(session, sk, r, "piutang_legacy".equals(jenis), oleh,
+					peringatan);
 		}
 		if ("akun_legacy".equals(jenis)) {
 			return imporAkunTenant(session, sk, r, oleh);
@@ -1034,7 +1051,7 @@ public final class SalesInventoryDbfImportHelper {
 	 * kelak tahu angka itu bukan hasil penjumlahan alokasi pembayaran.</p>
 	 */
 	private static int imporTagihanTenant(Session session, String sk, JSONObject r,
-			boolean piutang, String oleh) throws Exception {
+			boolean piutang, String oleh, java.util.Set<String> peringatan) throws Exception {
 		String kodeMitra = s(r, piutang ? "kode_customer" : "kode_supplier");
 		String faktur = s(r, "nomor_faktur");
 		java.util.Date tanggal = tgl(r, "tanggal");
@@ -1057,12 +1074,28 @@ public final class SalesInventoryDbfImportHelper {
 		java.math.BigDecimal nilaiBd = new java.math.BigDecimal(String.valueOf(nilai));
 		java.math.BigDecimal terbayar = lunas ? nilaiBd : java.math.BigDecimal.ZERO;
 		java.math.BigDecimal sisa = lunas ? java.math.BigDecimal.ZERO : nilaiBd;
-		String status = lunas ? "LUNAS" : "BELUM";
-		// legacy_tafsir varchar(64): teks ini sengaja pendek, dan tetap dipotong sebagai
-		// penjaga -- perubahan kata di kemudian hari tidak boleh menggagalkan impor.
+
+		// status adalah DAUR HIDUP DOKUMEN, bukan keadaan pembayaran. Layar menyaring
+		// `WHERE d.status = 'AKTIF'`, dan lunas/belum dinyatakan lewat sisa -- yang model ini
+		// TURUNKAN dari alokasi_penerimaan_piutang, bukan baca dari kolom d.sisa
+		// ("Sisa piutang. Dihitung dari alokasi, bukan dibaca dari d.sisa").
+		//
+		// Mengisinya 'LUNAS'/'BELUM' membuat SELURUH baris lenyap dari layar: terukur pada UAT
+		// cmnmedika, 108 baris di basis data dan 0 di si_receivable_list.
+		String status = "AKTIF";
+
+		// legacy_tafsir varchar(64): teks sengaja pendek, tetap dipotong sebagai penjaga.
 		String tafsir = potong(lunas
-				? "LUNAS ditafsirkan dari TGLBAYAR terisi"
-				: "BELUM ditafsirkan dari TGLBAYAR kosong", 64);
+				? "TGLBAYAR terisi; pembayarannya tanpa rincian"
+				: "TGLBAYAR kosong; belum terbayar", 64);
+		if (lunas) {
+			// Sisa diturunkan dari alokasi penerimaan, dan berkas legacy tidak memuat rincian
+			// pembayaran yang bisa dijadikan alokasi. Tagihan ini karena itu akan TAMPAK belum
+			// terbayar di layar. Dilaporkan, bukan didiamkan -- angka terbayar/sisa yang
+			// tersimpan tidak dibaca siapa pun.
+			peringatan.add("tagihan bertanggal bayar tetapi tanpa rincian pembayaran"
+					+ " (akan tampak belum terbayar)");
+		}
 		java.sql.Date sqlTgl = new java.sql.Date(tanggal.getTime());
 		java.sql.Date sqlJatuh = jatuh == null ? null : new java.sql.Date(jatuh.getTime());
 		Integer noBaris = noBaris(r);
@@ -1074,8 +1107,20 @@ public final class SalesInventoryDbfImportHelper {
 					: satuId(session, SalesInventoryDbfImportTenant.cariKode(sk, "salesperson"),
 							kodeSales);
 			String noRetur = s(r, "nomor_retur");
+			// Ditautkan ke fakturnya bila ada yang bernomor dan bercustomer sama.
+			//
+			// Bukan sekadar kerapian: kolomTokoPiutang() menyaring lewat
+			// faktur_penjualan.toko_id, jadi piutang yang tidak tertaut punya toko NULL dan
+			// SELURUHNYA dibuang saringan toko -- layar piutang tampak kosong padahal datanya
+			// ada. Terukur pada UAT cmnmedika: 108 baris di basis data, 0 di si_receivable_list.
+			//
+			// Karena itu piutang_legacy WAJIB diimpor sesudah penjualan_legacy; sebelum dokumen
+			// penjualan terbentuk, tidak ada yang bisa ditautkan.
+			Long fakturId = satuIdDua(session,
+					SalesInventoryDbfImportTenant.cariFakturUntukPiutang(sk), faktur, mitraId);
 			n = jalankan(session, SalesInventoryDbfImportTenant.sisipPiutangLegacy(sk),
-					new Object[] { mitraId, salesId, faktur, noRetur.isEmpty() ? null : noRetur,
+					new Object[] { mitraId, salesId, fakturId, faktur,
+							noRetur.isEmpty() ? null : noRetur,
 							sqlTgl, sqlJatuh, nilaiBd, terbayar, sisa, status, oleh, noBaris,
 							tafsir, mitraId, faktur, sqlTgl });
 		} else {
