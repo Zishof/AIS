@@ -10,14 +10,18 @@ import javax.servlet.http.HttpServletResponse;
 import ais.common.Common;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet tampilan yang meneruskan (forward) permintaan ke salah satu JSP proposal, dipilih
+ * berdasarkan parameter {@code modul}: {@code "kesehatan"} → proposal modul kesehatan,
+ * {@code "gudang"} → proposal modul gudang, nilai lain/tidak ada → proposal umum Enterprise
+ * Education (default). Pemilihan JSP memakai daftar putih (whitelist) nilai literal yang
+ * dibandingkan dengan {@code equalsIgnoreCase}, sehingga nilai parameter {@code modul} TIDAK
+ * pernah dipakai langsung sebagai bagian path JSP — mencegah path traversal lewat parameter
+ * tersebut. Tidak melakukan pembacaan maupun penulisan apa pun ke database.
  */
 public class Proposal extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
 	public Proposal() {
 		super();
 
@@ -25,8 +29,9 @@ public class Proposal extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan GET dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -38,8 +43,9 @@ public class Proposal extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan POST dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -50,6 +56,15 @@ public class Proposal extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menentukan JSP proposal tujuan berdasarkan parameter {@code modul} (whitelist
+	 * {@code "kesehatan"}/{@code "gudang"}, default proposal umum) lalu meneruskan (forward)
+	 * permintaan ke JSP tersebut.
+	 *
+	 * @param request permintaan HTTP masuk, membawa parameter opsional {@code modul}
+	 * @param response respons HTTP yang akan di-forward ke JSP
+	 * @throws Exception bila terjadi galat saat forward ke JSP
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 

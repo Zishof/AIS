@@ -38,14 +38,65 @@ import id.co.veritrans.mdk.v1.gateway.model.VtResponse;
 import id.co.veritrans.mdk.v1.gateway.model.vtdirect.paymentmethod.CreditCard;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet penerima notifikasi pembayaran <b>Veritrans/VT-Direct</b>, terpasang di {@code web.xml}
+ * sebagai penerima callback SDK {@code id.co.veritrans.mdk}.
+ *
+ * <h4>PERINGATAN ARSITEKTUR &mdash; endpoint ini tidak membukukan apa pun</h4>
+ * <p>{@link #process} mem-parsing seluruh medan {@link VtResponse} lalu <b>hanya
+ * mencetaknya</b> ke {@code System.out}; cabang {@code if (transactionStatus == SETTLED)/else}
+ * di ujung method masing-masing cuma berisi komentar {@code // handle settled / successful charge
+ * request} dan {@code // handle denied / unexpected response} tanpa satu baris kode pun. Tidak ada
+ * pemanggilan ke {@link #prosesResponse} atau {@link #prosesTransaksi} dari {@link #process} sama
+ * sekali &mdash; kedua method itu adalah <b>kode mati</b> di kelas ini: keduanya
+ * ada dan bisa dipanggil lewat refleksi/pengujian, tetapi tidak pernah dieksekusi lewat jalur HTTP
+ * normal. Akibatnya, notifikasi pembayaran sukses dari Veritrans yang tiba di endpoint ini
+ * <b>tidak pernah menghasilkan {@link Kegiatan}, {@link CicilanPembayaran}, atau baris log
+ * pembayaran apa pun</b> &mdash; ia hanya tercatat di {@code System.out} lalu dibalas
+ * {@code HTTP 200} tanpa badan (lihat {@link #process}).</p>
+ *
+ * <p>Isi {@link #prosesResponse} dan {@link #prosesTransaksi} sendiri adalah hasil salin-tempel dari
+ * {@link IPayMuResponse#prosesResponse}/{@link IPayMuResponse#prosesTransaksi} yang disesuaikan
+ * label validator menjadi {@code "Vt"} namun <b>tetap memakai entity iPaymu</b>
+ * ({@link IpaymuResponse}/{@link IpaymuRequest}/{@link IpaymuRequestDetail}) bukan entity Veritrans
+ * &mdash; medan yang diisi di {@link #prosesTransaksi} ({@code sid}, {@code status}, {@code merchant},
+ * dsb.) adalah nama medan iPaymu, bukan medan {@link VtResponse} yang sesungguhnya diterima
+ * {@link #process}. Bila endpoint ini dimaksudkan untuk benar-benar membukukan pembayaran Veritrans,
+ * jalur yang berjalan ({@link #process}) dan jalur pembukuan yang tersedia
+ * ({@link #prosesResponse}/{@link #prosesTransaksi}) perlu disatukan dan disesuaikan ke model data
+ * Veritrans yang sebenarnya. Ini didokumentasikan di sini sebagai fakta kode saat ini, bukan
+ * perbaikan.</p>
+ *
+ * <h4>Catatan keamanan pada data yang dicetak</h4>
+ * <p>Sejak r86351, {@code cardToken} dan {@code savedCardToken} disamarkan sebelum dicetak
+ * (hanya ditandai kosong/disamarkan, nilai asli tidak pernah masuk log); medan lain (termasuk
+ * {@code signatureKey}, {@code maskedCardNumber}, {@code approvalCode}) tetap dicetak apa adanya.
+ * Balasan HTTP selalu {@code SC_OK} apa pun isi notifikasinya (lihat {@link #process}), sehingga
+ * kegagalan mem-parsing {@link VtResponse} tidak pernah terlihat oleh Veritrans sebagai kegagalan.</p>
+ *
+ * @see IPayMuResponse
+ * @see VtResponse
  */
 public class VtResponseServlet extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena instance
+	 * servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton pembantu pembayaran. Dipakai oleh {@link #prosesResponse} (jalur kode mati, lihat
+	 * Javadoc kelas) untuk menghitung ulang total/denda cicilan dan memutakhirkan tunggakan; tidak
+	 * dipakai sama sekali oleh {@link #process}, satu-satunya jalur yang benar-benar dieksekusi lewat
+	 * HTTP.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet.
+	 *
+	 * <p>Tidak melakukan inisialisasi apa pun; seluruh kebergantungan diambil lewat field statis
+	 * {@link #pembayaranUtil}.</p>
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public VtResponseServlet() {
@@ -55,8 +106,17 @@ public class VtResponseServlet extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}.
+	 *
+	 * <p>Veritrans lazimnya mengirim notifikasi lewat POST, tetapi GET diperlakukan identik untuk
+	 * berjaga-jaga terhadap konfigurasi mitra yang berbeda. Kegagalan ditelan
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga pengirim tidak menerima 5xx.</p>
+	 *
+	 * @param request  permintaan masuk dari Veritrans
+	 * @param response balasan {@code HTTP 200} tanpa badan (lihat {@link #process})
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doGet(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -68,8 +128,14 @@ public class VtResponseServlet extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan HTTP POST &mdash; metode yang lazim dipakai Veritrans &mdash; dengan
+	 * meneruskannya ke {@link #process}.
+	 *
+	 * @param request  permintaan masuk dari Veritrans
+	 * @param response balasan {@code HTTP 200} tanpa badan (lihat {@link #process})
+	 * @throws ServletException bila kontainer menandai kegagalan servlet
+	 * @throws IOException      bila penulisan balasan gagal
+	 * @see HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -80,6 +146,21 @@ public class VtResponseServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * <b>Kode mati</b> &mdash; tidak pernah dipanggil dari {@link #process}, lihat peringatan pada
+	 * Javadoc kelas.
+	 *
+	 * <p>Salinan nyaris identik dari {@link IPayMuResponse#prosesResponse}: mencocokkan satu
+	 * {@link IpaymuResponse} ke {@link IpaymuRequest} lewat medan {@code nama} (bukan medan Veritrans
+	 * apa pun), lalu membukukan pembayaran dengan {@code validator="Vt"} bila
+	 * {@code status.equalsIgnoreCase(IpaymuResponse.BERHASIL)}. Seluruh langkah pembukuan
+	 * (pembentukan {@link Kegiatan}, pencatatan {@link LogPembayaran}, upsert
+	 * {@link CicilanPembayaran} per {@link IpaymuRequestDetail}, penghitungan ulang
+	 * total/denda, pemutakhiran tunggakan, dan pencetakan bukti pembayaran) identik dengan
+	 * {@link IPayMuResponse#prosesResponse}; lihat Javadoc method tersebut untuk rinciannya.</p>
+	 *
+	 * @param ipaymuResponse baris respons (bertipe iPaymu, bukan Veritrans) yang akan dicocokkan
+	 */
 	@SuppressWarnings("unchecked")
 	public static void prosesResponse(IpaymuResponse ipaymuResponse) {
 		Session session = null;
@@ -222,6 +303,19 @@ public class VtResponseServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * <b>Kode mati</b> &mdash; tidak pernah dipanggil dari {@link #process}, lihat peringatan pada
+	 * Javadoc kelas.
+	 *
+	 * <p>Salinan dari {@link IPayMuResponse#prosesTransaksi}: membangun satu {@link IpaymuResponse}
+	 * dari medan bernama gaya iPaymu ({@code sid}, {@code status}, {@code merchant}, {@code trx_id},
+	 * {@code product}, {@code buyer}, {@code no_rekening_deposit}, {@code comments}) &mdash; bukan
+	 * dari medan {@link VtResponse} yang sesungguhnya diterima {@link #process} &mdash;
+	 * menyimpannya tanpa syarat, lalu meneruskannya ke {@link #prosesResponse}.</p>
+	 *
+	 * @param param peta nama-nilai bergaya iPaymu; tidak pernah diisi dari alur {@link #process}
+	 *              yang sesungguhnya berjalan
+	 */
 	public static void prosesTransaksi(Map<String, String> param) {
 		Session session = null;
 		try {
@@ -250,6 +344,37 @@ public class VtResponseServlet extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca notifikasi Veritrans dari badan permintaan sebagai {@link VtResponse}, mencetak seluruh
+	 * medannya, lalu membalas {@code HTTP 200} tanpa badan.
+	 *
+	 * <p><b>Ini satu-satunya jalur yang benar-benar dieksekusi lewat HTTP untuk servlet ini, dan ia
+	 * tidak membukukan pembayaran apa pun</b> &mdash; lihat peringatan lengkap pada Javadoc kelas.
+	 * Langkah yang dijalankan:</p>
+	 * <ol>
+	 *   <li>{@code request.getInputStream()} diurai lewat {@link VtResponse#deserializeJson};</li>
+	 *   <li>seluruh medan ({@code orderId}, {@code statusCode}, {@code transactionId},
+	 *       {@code paymentMethod}, {@code transactionStatus}, {@code grossAmount},
+	 *       {@code maskedCardNumber}, {@code fraudStatus}, {@code approvalCode},
+	 *       {@code statusMessage}, {@code permataVaNumber}, {@code signatureKey}, dan lain-lain)
+	 *       dicetak ke {@code System.out} &mdash; {@code cardToken}/{@code savedCardToken} disamarkan,
+	 *       medan lain (termasuk {@code signatureKey}) dicetak apa adanya;</li>
+	 *   <li>{@code transactionStatus} diperiksa terhadap {@link TransactionStatus#SETTLED}, tetapi
+	 *       kedua cabangnya (berhasil/gagal) hanya berisi komentar tanpa kode &mdash; tidak ada
+	 *       pemanggilan {@link #prosesResponse}/{@link #prosesTransaksi} maupun operasi basis data
+	 *       apa pun.</li>
+	 * </ol>
+	 *
+	 * <p>Kegagalan mem-parsing {@link VtResponse} (mis. badan bukan JSON yang sah) ditangkap dan
+	 * ditelan {@link Common#tampilErrorJikaAdmin(Exception)}; blok {@code finally} tetap membalas
+	 * {@link HttpServletResponse#SC_OK} tanpa badan apa pun, sehingga Veritrans tidak pernah melihat
+	 * kegagalan sebagai kegagalan.</p>
+	 *
+	 * @param request  permintaan masuk dari Veritrans
+	 * @param response balasan; hanya status {@code SC_OK} yang diset, tanpa badan
+	 * @throws Exception dideklarasikan oleh kontrak method namun tidak pernah merambat keluar karena
+	 *                    seluruh badan dibungkus {@code try/catch}
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
