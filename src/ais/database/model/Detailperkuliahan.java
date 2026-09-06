@@ -1121,7 +1121,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return "";
 	}
 
-	/** Nilai efektif sebuah entri detailNilai: kolom nilai final (idx 1), fallback nilai belum-verify (idx 5). */
+	/**
+	 * Nilai efektif sebuah entri detailNilai: kolom nilai final (idx 1), fallback nilai belum-verify (idx 5).
+	 *
+	 * <p>Dipakai {@link #deteksiKunciSnapshotNol(java.util.List)} untuk membandingkan entri snapshot
+	 * terkunci melawan entri live. Aturannya sama seperti yang dipakai mesin perhitungan: kolom ke-1
+	 * dibaca lebih dulu, dan bila hasilnya mendekati nol barulah kolom ke-5 (nilai belum diverifikasi)
+	 * dipakai sebagai cadangan. Dengan begitu komponen yang nilainya sudah diketik tetapi belum
+	 * diverifikasi tetap terbaca sebagai &quot;ada isinya&quot;.
+	 *
+	 * <p>Ditulis defensif sepenuhnya: entri {@code null}, entri yang lebih pendek dari kolom yang
+	 * dibutuhkan, maupun kolom yang bukan angka semuanya diperlakukan sebagai {@code 0.0} tanpa
+	 * melempar pengecualian, karena string detailNilai warisan bisa saja tidak lengkap.
+	 *
+	 * <p>Perlu dicatat metode ini memakai {@code entri.split(",")} bawaan Java, berbeda dari
+	 * {@code StringUtils.split} yang dipakai di sebagian jalur lain; perbedaannya hanya pada
+	 * perlakuan terhadap kolom kosong beruntun dan tidak berpengaruh untuk format enam kolom ini.
+	 *
+	 * @param entri satu entri CSV detailNilai; boleh {@code null}.
+	 * @return nilai efektif entri tersebut, atau {@code 0.0} bila tidak dapat ditentukan.
+	 */
 	private static double ambilNilaiDariEntri(String entri) {
 		if (entri == null) {
 			return 0.0;
@@ -1137,7 +1156,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return v;
 	}
 
-	/** Jumlah seluruh bobot persen (kolom idx 3) pada string detailNilai; non-angka dihitung 0. */
+	/**
+	 * Jumlah seluruh bobot persen (kolom idx 3) pada string detailNilai; non-angka dihitung 0.
+	 *
+	 * <p>Dipakai {@link #alasanNilaiJadiNol(Boolean, java.util.List)} untuk mendeteksi penyebab
+	 * &quot;total 0 membandel&quot; yang berakar pada <b>pembagi nol</b>: bila seluruh bobot komponen
+	 * masih 0 atau kosong, {@link #hitungTotalNilai(Boolean, java.util.List)} tidak akan pernah bisa
+	 * menghasilkan angka, dan menekan Hitung Ulang berapa kali pun tidak menolong karena bobot ditulis
+	 * ulang tetap 0. Satu-satunya jalan keluar adalah memperbaiki bobot lewat menu Ubah Format.
+	 *
+	 * <p>Berbeda dari {@link #formatNilaiSiapDihitung(java.util.List)} yang menjumlahkan bobot dari
+	 * objek {@link FormatNilai}, metode ini menjumlahkan bobot yang <b>benar-benar tersimpan</b> di
+	 * dalam string detailNilai. Keduanya bisa berbeda &mdash; dan justru selisih itulah yang menandai
+	 * data bermasalah.
+	 *
+	 * <p>Entri yang tidak dapat diurai diabaikan (dianggap berbobot 0) dan kegagalannya dicatat ke
+	 * {@code ErrorAuditUtil}; penangkapnya sengaja {@code Throwable} agar diagnosis tidak pernah
+	 * menjatuhkan layar Input Nilai.
+	 *
+	 * @return jumlah seluruh bobot persen pada {@link #detailNilai}; {@code 0.0} bila string kosong.
+	 */
 	private double hitungTotalPersenDetailNilai() {
 		double totalPersen = 0.0;
 		String str = getDetailNilai();
@@ -1155,11 +1193,61 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return totalPersen;
 	}
 
-	/** Bobot persen sebuah FormatNilai dengan pengaman null (cegah literal "null" merusak baris detailNilai). */
+	/**
+	 * Bobot persen sebuah FormatNilai dengan pengaman null (cegah literal "null" merusak baris detailNilai).
+	 *
+	 * <p>Alasan keberadaannya sangat konkret: string {@link #detailNilai} dibangun dengan perangkaian
+	 * teks, sehingga bobot yang {@code null} akan tertulis apa adanya sebagai empat huruf
+	 * <code>null</code> di dalam kolom ke-3. Entri seperti itu kemudian menggagalkan penguraian angka
+	 * pada setiap pembacaan berikutnya dan membuat komponen <b>hilang diam-diam</b> dari perhitungan.
+	 * Dengan memaksa {@code 0.0}, entri tetap sah secara sintaksis dan masalahnya terlihat sebagai
+	 * bobot nol yang bisa diperbaiki, bukan sebagai data rusak.
+	 *
+	 * @param formatNilai komponen format nilai; boleh {@code null}.
+	 * @return bobot persen komponen, atau {@code 0.0} bila komponen atau bobotnya {@code null}.
+	 */
 	private static Double persenAman(FormatNilai formatNilai) {
 		return formatNilai == null || formatNilai.getPersen() == null ? Double.valueOf(0.0) : formatNilai.getPersen();
 	}
 
+	/**
+	 * <b>Menghitung nilai akhir angka versi &quot;sementara&quot;</b> &mdash; kembaran
+	 * {@link #hitungTotalNilai(Boolean, java.util.List)} yang membaca <b>kolom ke-5</b> (nilai belum
+	 * diverifikasi) dari tiap entri {@link #detailNilai}, bukan kolom ke-1 (nilai final).
+	 *
+	 * <p><b>Untuk apa dua versi?</b> Pada kelas yang mengaktifkan opsi &quot;sembunyikan nilai jika
+	 * belum diverifikasi&quot;, kolom nilai final sengaja ditulis 0 sampai program studi memberi
+	 * verifikasi, sementara angka yang sesungguhnya diketik dosen disimpan di kolom ke-5. Versi
+	 * sementara inilah yang memungkinkan dosen dan pengelola tetap melihat gambaran nilai akhir
+	 * sebelum verifikasi selesai, tanpa membocorkannya ke tampilan mahasiswa. Hasilnya disimpan pada
+	 * {@link #totalNilaiSementara} dan menjadi jaring pengaman bagi {@link #getTotalNilai()} ketika
+	 * nilai final masih nol.
+	 *
+	 * <p><b>Persamaan dengan versi final.</b> Seluruh kerangkanya identik: gerbang &quot;jika ada
+	 * nilai 0 tidak menghitung nilai akhir&quot; (di sini memakai
+	 * {@link #checkApakahAdaNilai0Sementara(Boolean, java.util.List)}), gerbang kehadiran minimal
+	 * lewat {@link #checkApakahNilaiAbsen()}, pemulihan desync lewat {@link #refreshNilaiKeDefault()},
+	 * pembersihan entri usang lewat {@link #bersihkanNilaiKeDefault(java.util.List)}, rata-rata
+	 * tertimbang dengan pembagi {@code totalPersen}, opsi &quot;nilai 0 tidak masuk pembagi&quot;,
+	 * penjaga bobot non-angka, serta pembatasan hasil oleh {@link #batasiNilaiMaksimal100(Double)}.
+	 *
+	 * <p><b>Perbedaan yang perlu diperhatikan.</b> Selain kolom sumbernya, versi ini <b>tidak
+	 * memiliki jatuh-balik silang</b>: bila kolom ke-5 kosong atau bukan angka, nilainya langsung
+	 * dianggap {@code 0.0} tanpa mencoba membaca kolom ke-1. Akibatnya baris lama yang hanya memiliki
+	 * nilai final (tanpa kolom ke-5, mis. data sebelum kolom itu ada) akan menghasilkan nilai
+	 * sementara 0 walau nilai finalnya terisi. Perilaku ini konsisten dengan
+	 * {@link #checkApakahAdaNilai0Sementara(Boolean, java.util.List)} dan disengaja agar kedua jalur
+	 * tidak saling mencemari.
+	 *
+	 * <p>Seperti kembarannya, metode ini <b>hanya menghitung</b>; ia tidak menyimpan hasilnya ke
+	 * field mana pun.
+	 *
+	 * @param gunakanFormatNilaiDariDatabase bila {@code true}, entri komponen yang tidak lagi
+	 *                                       terdaftar dibersihkan lebih dulu.
+	 * @param formatNilais                   daftar komponen yang berlaku; bila {@code null}, daftar
+	 *                                       diambil dari basis data.
+	 * @return nilai akhir sementara pada rentang 0&ndash;100.
+	 */
 	public Double hitungTotalNilaiSementara(Boolean gunakanFormatNilaiDariDatabase, List<FormatNilai> formatNilais) {
 		perkuliahan = getPerkuliahan();
 		if (perkuliahan != null && perkuliahan.getJikaAdaNilai0TidakMenghitungNilaiAkhir()) {
@@ -1237,10 +1325,47 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return batasiNilaiMaksimal100(total);
 	}
 
+	/**
+	 * Pintasan untuk {@link #checkApakahAdaNilai0(Boolean, java.util.List)} tanpa memasok daftar
+	 * komponen, sehingga daftar format nilai diambil dari basis data bila diperlukan.
+	 *
+	 * @param gunakanFormatNilaiDariDatabase bila {@code true}, entri komponen usang dibersihkan
+	 *                                       lebih dulu memakai daftar dari basis data.
+	 * @return {@code true} bila ada komponen yang nilainya 0.
+	 */
 	public boolean checkApakahAdaNilai0(Boolean gunakanFormatNilaiDariDatabase) {
 		return checkApakahAdaNilai0(gunakanFormatNilaiDariDatabase, null);
 	}
 
+	/**
+	 * Memeriksa apakah <b>masih ada komponen bernilai 0</b> pada string {@link #detailNilai},
+	 * membaca <b>kolom ke-1</b> (nilai final) tiap entri.
+	 *
+	 * <p>Hasilnya dipakai sebagai gerbang oleh {@link #hitungTotalNilai(Boolean, java.util.List)}
+	 * ketika kelas mengaktifkan aturan {@code getJikaAdaNilai0TidakMenghitungNilaiAkhir()}: selama
+	 * masih ada komponen yang belum dinilai, nilai akhir sengaja tidak diumumkan dan dipaksa 0.
+	 * Metode yang sama juga menjadi bahan penjelasan bagi
+	 * {@link #alasanNilaiJadiNol(Boolean, java.util.List)} sehingga dosen mendapat keterangan
+	 * mengapa nilainya tidak keluar.
+	 *
+	 * <p>Sebelum memeriksa, {@link #refreshNilaiKeDefault()} dijalankan untuk memulihkan baris yang
+	 * desync, dan &mdash; bila diminta &mdash; entri milik komponen yang sudah tidak dipakai
+	 * dibersihkan lewat {@link #bersihkanNilaiKeDefault(java.util.List)}. Tanpa pembersihan itu,
+	 * entri komponen yang sudah dihapus dari format bisa terus melaporkan &quot;ada nilai 0&quot;
+	 * dan mengunci nilai akhir di angka nol selamanya.
+	 *
+	 * <p><b>Batas ketahanan.</b> Berbeda dari jalur baca lain di kelas ini, kolom ke-1 di sini
+	 * diurai <b>langsung</b> dengan {@code Double.parseDouble} tanpa penjaga {@code Common.isNumber}
+	 * dan tanpa pemeriksaan panjang larik. Entri yang pendek atau berisi teks akan melempar
+	 * pengecualian yang tertangkap {@code Common.tampilErrorJikaAdmin} lalu <b>dilewati</b> &mdash;
+	 * entri semacam itu karenanya tidak pernah dihitung sebagai komponen bernilai 0.
+	 *
+	 * @param gunakanFormatNilaiDariDatabase bila {@code true}, entri komponen usang dibersihkan dulu.
+	 * @param formatNilais                   daftar komponen yang berlaku; bila {@code null}, daftar
+	 *                                       diambil dari basis data.
+	 * @return {@code true} bila sedikitnya satu komponen bernilai 0; {@code false} bila semua terisi
+	 *         atau string detailNilai kosong.
+	 */
 	public boolean checkApakahAdaNilai0(Boolean gunakanFormatNilaiDariDatabase, List<FormatNilai> formatNilais) {
 
 		refreshNilaiKeDefault();
@@ -1273,6 +1398,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return false;
 	}
 
+	/**
+	 * Kembaran {@link #checkApakahAdaNilai0(Boolean, java.util.List)} untuk jalur nilai
+	 * <b>sementara</b>: pemeriksaan dilakukan pada <b>kolom ke-5</b> (nilai belum diverifikasi),
+	 * bukan kolom ke-1.
+	 *
+	 * <p>Dipakai sebagai gerbang oleh
+	 * {@link #hitungTotalNilaiSementara(Boolean, java.util.List)} dengan maksud yang sama: selama
+	 * masih ada komponen bernilai 0, nilai sementara pun tidak diumumkan.
+	 *
+	 * <p>Berbeda dari versi final, penguraian angka di sini <b>dilindungi</b>
+	 * {@code Common.isNumber}: kolom yang bukan angka diperlakukan sebagai {@code 0.0}, yang berarti
+	 * entri rusak justru <b>dihitung sebagai komponen bernilai 0</b> dan mengaktifkan gerbang. Ini
+	 * kebalikan dari perilaku versi final yang melewati entri rusak &mdash; perbedaan halus yang
+	 * perlu diingat saat menelusuri keluhan &quot;nilai sementara 0 padahal nilai final keluar&quot;.
+	 *
+	 * @param gunakanFormatNilaiDariDatabase bila {@code true}, entri komponen usang dibersihkan dulu.
+	 * @param formatNilais                   daftar komponen yang berlaku; bila {@code null}, daftar
+	 *                                       diambil dari basis data.
+	 * @return {@code true} bila sedikitnya satu komponen bernilai 0 pada kolom nilai sementara.
+	 */
 	public boolean checkApakahAdaNilai0Sementara(Boolean gunakanFormatNilaiDariDatabase,
 			List<FormatNilai> formatNilais) {
 
@@ -1306,6 +1451,19 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 		return false;
 	}
 
+	/**
+	 * Pintasan {@link #populateDetailNilai(FormatNilai, FormatNilaiTambahan, Double, Boolean, Boolean, Tbmuser)}
+	 * yang mengambil kebijakan penyembunyian nilai <b>langsung dari kelas induk</b>
+	 * ({@code Perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi()}), sehingga pemanggil tidak
+	 * perlu mengetahuinya sendiri. Bila baris ini tidak memiliki kelas induk (nilai konversi),
+	 * kebijakan dianggap {@code false} sehingga nilai ditulis apa adanya.
+	 *
+	 * @param formatNilai          komponen nilai utama yang diisi; boleh {@code null}.
+	 * @param formatNilaiTambahan  komponen nilai tambahan yang diisi; boleh {@code null}.
+	 * @param jumlah               nilai yang diisikan.
+	 * @param verify               status verifikasi komponen tersebut.
+	 * @param tbmuser              pengguna yang melakukan pengisian (untuk jejak audit).
+	 */
 	public void populateDetailNilai(FormatNilai formatNilai, FormatNilaiTambahan formatNilaiTambahan, Double jumlah,
 			Boolean verify, Tbmuser tbmuser) {
 		perkuliahan = getPerkuliahan();
@@ -1313,6 +1471,60 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				perkuliahan == null ? false : perkuliahan.getSembunyikanNilaiJikaBelumDiverifikasi(), tbmuser);
 	}
 
+	/**
+	 * <b>Titik tulis tunggal untuk nilai satu komponen</b> pada baris ini. Seluruh jalur pengisian
+	 * nilai di aplikasi &mdash; input manual di layar Input Nilai, unggah berkas, sinkronisasi
+	 * Feeder, maupun endpoint e-learning &mdash; bermuara ke metode ini.
+	 *
+	 * <p><b>Penegakan kunci di lapisan model.</b> Pemeriksaan
+	 * {@link #apakahNilaiDikunci(FormatNilai)} dilakukan di awal dan, bila nilai terkunci, metode
+	 * <b>langsung keluar tanpa menulis apa pun</b>. Penempatan penjaga di sini disengaja: menonaktifkan
+	 * komponen di antarmuka saja tidak cukup karena jalur integrasi tidak melewati antarmuka.
+	 * <b>Perhatikan konsekuensinya:</b> keluar-awal ini terjadi <i>sebelum</i> blok
+	 * {@code formatNilaiTambahan} diproses, sehingga kunci yang aktif juga memblokir penulisan nilai
+	 * tambahan pada pemanggilan yang sama.
+	 *
+	 * <p><b>Pembatasan rentang.</b> Argumen {@code jumlah} dilewatkan
+	 * {@link #batasiNilaiMaksimal100(Double)} lebih dulu sehingga nilai negatif, melebihi 100,
+	 * {@code NaN}, maupun tak-hingga tidak pernah masuk ke penyimpanan.
+	 *
+	 * <p><b>Cara menulis entri komponen utama.</b> String {@link #detailNilai} dipecah per entri,
+	 * lalu disusun ulang: entri yang kuncinya cocok diganti dengan nilai baru, entri lain disalin apa
+	 * adanya. Bila setelah menelusuri seluruh entri kuncinya belum pernah ditemukan, entri baru
+	 * <b>ditambahkan</b> di akhir. Kunci pembanding memakai aturan kanonik yang sama seperti seluruh
+	 * kelas ini: {@code statusPertemuan.id} bila ada, atau {@code formatNilai.id} sendiri untuk mode
+	 * OBE/Sub-CPMK.
+	 *
+	 * <p><b>Penyembunyian nilai belum terverifikasi.</b> Bila kebijakan itu aktif dan komponen belum
+	 * diverifikasi, kolom nilai final (ke-1) ditulis <code>0</code> sementara angka sebenarnya tetap
+	 * disimpan pada kolom ke-5. Nilai tidak hilang &mdash; ia hanya tidak ditampilkan &mdash; dan akan
+	 * muncul begitu verifikasi diberikan.
+	 *
+	 * <p><b>Komponen nilai tambahan.</b> Bila {@code formatNilaiTambahan} diisi, string
+	 * {@link #detailNilaiTambahan} diperbarui dengan pola serupa namun format tiga kolom
+	 * (<code>id,nilai,0</code>) dan dikunci langsung oleh id {@link FormatNilaiTambahan}. Blok ini
+	 * tidak mengenal penyembunyian nilai maupun kunci per komponen.
+	 *
+	 * <p><b>Catatan pemeliharaan.</b> Kedua blok menulis <b>langsung ke field</b>, bukan lewat
+	 * {@link #setDetailNilai(String)}/{@link #setDetailNilaiTambahan(String)}, sehingga penjaga kunci
+	 * global pada setter tidak ikut berjalan &mdash; perlindungan sepenuhnya bergantung pada
+	 * pemeriksaan di awal metode ini. Terdapat pula keluaran diagnostik ke {@code System.out}
+	 * berlabel <code>[NILAI-DEBUG populate]</code> yang mencetak id baris, kunci komponen, nilai,
+	 * status verifikasi, status kunci, serta isi detailNilai dan snapshot-nya; keluaran itu sengaja
+	 * dipertahankan untuk menelusuri keluhan &quot;nilai tidak tersimpan&quot;. Parameter
+	 * {@code tbmuser} saat ini tidak dipakai di dalam badan metode dan hanya melengkapi tanda tangan
+	 * bagi pemanggil yang membawa konteks pengguna.
+	 *
+	 * @param formatNilai                            komponen nilai utama; bila {@code null}, blok
+	 *                                               nilai utama dilewati.
+	 * @param formatNilaiTambahan                    komponen nilai tambahan; bila {@code null}, blok
+	 *                                               nilai tambahan dilewati.
+	 * @param jumlah                                 nilai yang diisikan; dibatasi ke rentang 0&ndash;100.
+	 * @param verify                                 status verifikasi komponen ini.
+	 * @param sembunyikanNilaiJikaBelumDiverifikasi  bila {@code true}, nilai komponen yang belum
+	 *                                               diverifikasi ditulis 0 pada kolom nilai final.
+	 * @param tbmuser                                pengguna pengisi; saat ini tidak dipakai.
+	 */
 	public void populateDetailNilai(FormatNilai formatNilai, FormatNilaiTambahan formatNilaiTambahan, Double jumlah,
 			Boolean verify, Boolean sembunyikanNilaiJikaBelumDiverifikasi, Tbmuser tbmuser) {
 		jumlah = batasiNilaiMaksimal100(jumlah);
@@ -1425,6 +1637,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * Memeriksa kunci utama perkuliahan dan kunci khusus satu kolom nilai.
 	 * Method ini sengaja public agar endpoint integrasi dapat memberi respons yang
 	 * jelas, sementara pemeriksaan yang sama tetap dilakukan lagi saat menyimpan.
+	 *
+	 * <p>Nilai {@code true} dikembalikan bila <b>salah satu</b> dari dua kondisi terpenuhi:</p>
+	 * <ol>
+	 *   <li><b>Kunci global kelas</b> &mdash; {@code Perkuliahan.getDikunci()} tidak {@code null},
+	 *       artinya seorang dosen/pengelola telah mengunci seluruh nilai kelas. Kondisi ini berlaku
+	 *       untuk semua komponen sekaligus.</li>
+	 *   <li><b>Kunci per komponen</b> &mdash; {@code FormatNilai.getKunci()} tidak {@code null},
+	 *       membekukan satu kolom nilai saja.</li>
+	 * </ol>
+	 *
+	 * <p>Karena keduanya digabung dengan <i>atau</i>, memanggil metode ini dengan argumen
+	 * {@code null} tetap sah dan berarti &quot;periksa kunci global saja&quot; &mdash; bentuk pemanggilan
+	 * yang dipakai ketika belum diketahui komponen mana yang hendak disentuh.
+	 *
+	 * <p>Perhatikan bahwa yang diperiksa adalah <b>keberadaan</b> penunjuk kunci, bukan identitas
+	 * penguncinya; siapa pun yang mengunci, hasilnya sama-sama terkunci bagi seluruh jalur tulis.
+	 *
+	 * @param formatNilai komponen yang hendak diperiksa; boleh {@code null} untuk memeriksa hanya
+	 *                    kunci global.
+	 * @return {@code true} bila nilai komponen tersebut tidak boleh ditulis.
 	 */
 	public boolean apakahNilaiDikunci(FormatNilai formatNilai) {
 		Perkuliahan kuliah = getPerkuliahan();
@@ -1432,6 +1664,25 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				|| (formatNilai != null && formatNilai.getKunci() != null);
 	}
 
+	/**
+	 * Menentukan <b>kunci kanonik</b> sebuah komponen untuk dipakai pada kolom pertama entri
+	 * {@link #detailNilai}. Inilah satu-satunya tempat aturan tersebut boleh didefinisikan.
+	 *
+	 * <p>Aturannya: pakai {@code formatNilai.getStatusPertemuan().getId()} bila komponen memiliki
+	 * {@code StatusPertemuan} (format nilai klasik seperti UTS, UAS, Tugas), atau
+	 * {@code formatNilai.getId()} sendiri bila tidak (format OBE / Sub-CPMK yang memang tidak
+	 * bersandar pada pertemuan).
+	 *
+	 * <p><b>Mengapa ini penting.</b> Dua identitas berbeda dipakai untuk peran yang sama &mdash;
+	 * persis pola &quot;id anak versus id induk&quot; yang mudah tertukar. Bila jalur tulis memakai
+	 * satu kunci sementara jalur baca memakai kunci lainnya, komponen tidak akan pernah saling
+	 * bertemu: Hitung Ulang menghapus entri yang dianggap tidak dikenal, bobotnya lenyap dari
+	 * {@code totalPersen}, dan nilai akhir jatuh ke 0 dengan huruf E. Karena itu setiap penambahan
+	 * jalur baca/tulis baru wajib memanggil metode ini alih-alih menyusun kuncinya sendiri.
+	 *
+	 * @param formatNilai komponen format nilai; boleh {@code null}.
+	 * @return kunci kanonik komponen, atau {@code null} bila komponennya {@code null}.
+	 */
 	private Long ambilKunciFormatNilai(FormatNilai formatNilai) {
 		if (formatNilai == null) {
 			return null;
@@ -1440,6 +1691,26 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				? formatNilai.getStatusPertemuan().getId() : formatNilai.getId();
 	}
 
+	/**
+	 * Mencari <b>satu entri</b> di dalam string detailNilai berdasarkan kunci kanonik komponen, dan
+	 * mengembalikannya utuh (seluruh enam kolom, belum diurai).
+	 *
+	 * <p>Sengaja dibuat menerima {@code sumber} sebagai parameter alih-alih membaca field, karena
+	 * pemanggilnya perlu menelusuri <b>dua string berbeda</b>: {@link #detailNilai} (data live) dan
+	 * {@link #detailNilaiKunci} (snapshot terkunci). Kemampuan membandingkan keduanya itulah yang
+	 * dipakai {@link #ambilSumberDetailNilai(FormatNilai)} untuk memilih sumber kebenaran dan oleh
+	 * {@link #deteksiKunciSnapshotNol(java.util.List)} untuk mendeteksi snapshot bernilai nol.
+	 *
+	 * <p>Entri yang kolom pertamanya tidak dapat diurai sebagai angka dilewati, dengan kegagalannya
+	 * dicatat ke {@code ErrorAuditUtil} beserta id baris agar data rusak dapat ditelusuri. Nilai
+	 * kembalian {@code null} berarti komponen tersebut <b>belum punya entri</b> pada string itu
+	 * &mdash; kondisi yang bermakna khusus bagi {@link #bekukanDetailNilai(FormatNilai)}, yang lalu
+	 * membuat entri nol eksplisit agar celah &quot;tidak ada referensi&quot; tertutup.
+	 *
+	 * @param sumber      string detailNilai yang ditelusuri; boleh {@code null}/kosong.
+	 * @param kunciFormat kunci kanonik komponen yang dicari; boleh {@code null}.
+	 * @return entri utuh yang cocok, atau {@code null} bila tidak ditemukan.
+	 */
 	private String ambilEntriDetailNilai(String sumber, Long kunciFormat) {
 		if (sumber == null || sumber.trim().isEmpty() || kunciFormat == null) {
 			return null;
@@ -1464,6 +1735,20 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * komponen aktif, entri pada kolom snapshot menjadi sumber kebenaran. Fallback
 	 * ke data live hanya dipakai untuk data lama yang sudah berstatus terkunci
 	 * sebelum kolom snapshot tersedia.
+	 *
+	 * <p>Alur keputusannya singkat namun berlapis. Bila {@link #apakahNilaiDikunci(FormatNilai)}
+	 * menyatakan komponen <b>tidak</b> terkunci, {@link #detailNilai} dikembalikan apa adanya. Bila
+	 * terkunci, metode memeriksa apakah komponen itu benar-benar punya entri di dalam
+	 * {@link #detailNilaiKunci}: bila ada, snapshot dipakai; bila tidak ada &mdash; artinya baris ini
+	 * sudah berstatus terkunci sejak sebelum kolom snapshot diperkenalkan &mdash; pembacaan jatuh
+	 * kembali ke data live agar nilai historis tidak berubah menjadi kosong.
+	 *
+	 * <p>Metode ini menjadi pintu masuk bersama bagi seluruh keluarga
+	 * {@code retreiveDetailNilai*}, sehingga aturan &quot;terkunci berarti baca snapshot&quot;
+	 * cukup ditegakkan di satu tempat.
+	 *
+	 * @param formatNilai komponen yang hendak dibaca; boleh {@code null}.
+	 * @return string detailNilai yang harus dipakai sebagai sumber baca untuk komponen tersebut.
 	 */
 	private String ambilSumberDetailNilai(FormatNilai formatNilai) {
 		if (!apakahNilaiDikunci(formatNilai)) {
@@ -1474,6 +1759,32 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				? detailNilai : detailNilaiKunci;
 	}
 
+	/**
+	 * Menyisipkan atau <b>menimpa satu entri</b> ke dalam sebuah string detailNilai, lalu
+	 * mengembalikan string hasilnya. Operasi bersifat murni terhadap argumen &mdash; tidak ada field
+	 * yang disentuh &mdash; sehingga pemanggil bebas memakainya untuk data live maupun snapshot.
+	 *
+	 * <p>Cara kerjanya: string {@code tujuan} ditelusuri per entri; entri yang kunci kanoniknya cocok
+	 * <b>diganti</b> oleh {@code entriTerkunci}, sedangkan entri lain disalin apa adanya. Bila
+	 * setelah seluruh entri ditelusuri kunci itu ternyata belum pernah ada, {@code entriTerkunci}
+	 * <b>ditambahkan</b> di akhir. Dengan begitu metode ini menangani kasus &quot;perbarui&quot; dan
+	 * &quot;sisipkan baru&quot; sekaligus, dan aman dipanggil pada string yang masih kosong.
+	 *
+	 * <p>Entri kosong dibuang dalam proses penyusunan ulang sehingga string hasil tidak pernah
+	 * mengandung pemisah <code>;</code> beruntun. Bila {@code kunciFormat} atau
+	 * {@code entriTerkunci} tidak layak ({@code null}/kosong), {@code tujuan} dikembalikan tanpa
+	 * perubahan &mdash; sikap yang mencegah penulisan entri cacat ke dalam data.
+	 *
+	 * <p>Dipakai oleh {@link #bekukanDetailNilai(FormatNilai)} untuk menegakkan entri beku pada dua
+	 * string sekaligus, dan oleh
+	 * {@link #setDetailNilaiMematuhiKunci(String, java.util.List)} untuk memulihkan entri terkunci ke
+	 * dalam nilai hasil impor massal.
+	 *
+	 * @param tujuan         string detailNilai yang hendak diperbarui; boleh {@code null}/kosong.
+	 * @param kunciFormat    kunci kanonik komponen yang disisipkan/ditimpa.
+	 * @param entriTerkunci  entri CSV utuh yang hendak ditegakkan.
+	 * @return string detailNilai hasil penggabungan.
+	 */
 	private String gabungkanEntriDetailNilai(String tujuan, Long kunciFormat, String entriTerkunci) {
 		if (kunciFormat == null || entriTerkunci == null || entriTerkunci.trim().isEmpty()) {
 			return tujuan;
