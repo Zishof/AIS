@@ -1,5 +1,68 @@
 # Progres Javadoc Menyeluruh
 
+## 🚨 Batch 138 — 7 mega-file `opus` lagi, 9 task baru (6 Sep 2026)
+
+**`TugasMandiriHelper.java`** (5427→7025 baris) — dikonfirmasi NOL
+relasi dengan `TugasKelompok`/`NamaTugasKelompok` (mekanisme
+pengumpulan INDIVIDUAL sepenuhnya independen, via `TugasFileContent`
+4-kolom-peserta). **Task baru `task_2062d77e`**: broken access control
+parah — tab pengelola diputuskan dari field konstruktor bukan peserta
+terhitung, akun Siswa/CalonSiswa/PesertaKursus (login via
+`PertemuanHelper` tanpa argumen) dapat AKSES PENGELOLA PENUH; checkbox
+massal "tidak ikut"/"boleh upload ulang" nol gerbang peran (mahasiswa
+bisa BEBASKAN DIRI dari kewajiban tugas); kebocoran PII kontak
+(HP+email) di beberapa cabang tanpa gerbang sama sekali.
+
+**`TugasKelompokHelper.java`** (4331→5774 baris) — **4 task baru**:
+`task_6a93c498` (scope ditimpa `null` diam-diam → 8 filter jadi
+selalu-benar, SELURUH TABEL lintas kelas/prodi terekspos),
+`task_ed70e575` (gerbang peran 3-bentuk beda, YANG PALING LONGGAR
+justru jaga tombol tulis absensi SELURUH KELAS), `task_8e0032ba`
+("Ambil Tugas Sebelumnya" salin dangkal, FK pertemuan SEMESTER LAMA
+ikut terbawa, tombol absensi tulis ke pertemuan salah), `task_d4c41ae0`
+(tombol simpan massal tampilkan sukses palsu, nol data tersimpan).
+
+**`PenjadwalanHelper.java`** (4294→5100 baris) — DIKONFIRMASI mesin
+BERSAMA/induk 8 helper "Penjadwalan*" (39 file total memanggil).
+**2 task baru**: `task_6d704a48` (checkbox tampil field A, tulis field
+B — uncheck justru NONAKTIFKAN pertemuan), `task_d55913ee` (3 bug
+salin-tempel entity: KRS-bimbingan tak tersimpan, query sumber vs
+tujuan tertukar, presedensi `&&`/`||` salah blokir salin data KKN/PKL).
+
+**`DetailArtikelHelper.java`**/**`DetailSettingBiayaAction.java`** —
+file 2 sempat berstatus `M` (sesi paralel sedang sesuaikan tanda
+tangan `KegiatanHelper.prosesUploadTagihan`), agent MENUNGGU sampai
+r86122 selesai sebelum menyentuh (perilaku benar, bukan race).
+**Task baru `task_4fcf460f`**: tombol "Setujui Semua" artikel lewati
+gerbang SOP sentral total, TANPA filter status default → baris
+DITOLAK ikut DIBALIK jadi DISETUJUI diam-diam (kredit publikasi
+feed BKD/kinerja).
+
+**`PenilaianSkripsiHelper.java`**/**`PenilaianProposalSkripsiHelper.java`**
+— bug slot dosen tertukar (sesi 6, level entity) DIKONFIRMASI
+terpapar konsisten di level helper (nilai TIDAK tertukar, cuma nama
+kolom) — SATU gap baru: `dosen21`/Pembimbing III jatuh ke slot
+pertama. File proposal DIKONFIRMASI ULANG bersih. **Task baru
+`task_8ec4935e`**: `PenilaianProposalSkripsiHelper.init()` — atribut
+baris sub-komponen salah tunjuk ke INDUK, tombol "Hitung Ulang" bikin
+nilai anak menimpa slot induk berbobot induk → total nilai keliru
+mengalir ke huruf/IP/lulus/transkrip.
+
+**9 task baru batch ini**: `task_2062d77e`, `task_6a93c498`,
+`task_ed70e575`, `task_8e0032ba`, `task_d4c41ae0`, `task_6d704a48`,
+`task_d55913ee`, `task_4fcf460f`, `task_8ec4935e`. Total akumulasi:
+**2000+ file** dari 7.401. Sisa `action/master/helper/`: ~271 file.
+
+**Catatan alat BARU penting**: `perl -ne '/\r\n$/'` memberi hitungan
+CRLF SALAH pada satu file batch ini (mode teks Windows) — verifikasi
+byte-exact Python terhadap `svn cat` baseline lebih andal untuk file
+besar/EOL campuran, pertimbangkan sebagai default berikutnya bukan
+cuma fallback. `build/maven/classes` TERUS kosong sepanjang batch ini
+(beberapa kali) — classpath `temporary/WEB-INF/classes` jadi
+fallback tercepat (~17 detik) tapi BISA BASI untuk file yang baru
+diubah sesi lain (kompilasi ulang file itu dulu ke direktori terpisah,
+taruh PALING DEPAN classpath).
+
 ## 🚨🚨🚨 Batch 137 — 5 mega-file `opus`, termasuk file TERBESAR seluruh inisiatif, 12 task baru (1 sudah ditambal paralel) (6 Sep 2026)
 
 Tier mega-file terdalam yang ditemukan. 5 agent `opus` dedicated,
