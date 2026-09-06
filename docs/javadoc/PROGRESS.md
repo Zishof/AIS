@@ -1,5 +1,82 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 130 — 81 file lepas root (5 agent paralel, 1 `opus`), 4 task baru, total 280/485 root selesai (6 Sep 2026)
+
+Lanjutan backlog root: mega-file+base-class prioritas tinggi (4 file,
+agent `opus`, r85647-r85683), checklist/penilaian/pertemuan (20 file,
+r85646-r85714), dosen/pegawai/catatan (20 file, r85651-r85716),
+billing/diskon/verifikasi-berkas (20 file, r85655-r85765), log/utilitas/
+misc kecil (17 file, r85655-r85719).
+
+**Klaster mega-file+base-class** (`opus`). `VoKunci.java` (28→116
+baris) dipetakan sebagai mata rantai KEEMPAT hierarki VO:
+`DataUtil→GeneralValueObject→sop.DataSop→VoKunci→VOMahasiswa/
+VOPembelajaran` — sumbangannya cuma kontrak `getDikunci()`/
+`setDikunci(Tbmuser)` (bertipe `Tbmuser`, bukan `Boolean`: baris
+menyimpan SIAPA yang mengunci), dipakai sebagai gerbang di **440
+titik** lapisan aksi, dan diwarisi **11 entity konkret** lintas domain
+(bukan cuma 2 seperti dugaan brief). `Karyawan.java` (236→699 baris):
+verifikasi presisi mengoreksi brief — **Dosen membayangi semua 19
+field, Pegawai membayangi 17 TAPI BUKAN `jurusan`/`fakultas`** (satu-
+satunya state Karyawan yang masih hidup runtime, lewat Pegawai;
+`Karyawan` sendiri bukan kelas ter-mapping Hibernate). `InterviewCalonMahasiswa.java`
+(845→1713 baris): `getMulai()`/`getSampai()` TIDAK PERNAH null —
+mengoreksi javadoc `InterviewPunyaCalonMahasiswa` yang menyebut fallback
+bisa null. `PerguruanTinggiLain.java` diperkaya (671→1614 baris);
+`getKodePerguruanTinggi()` dikonfirmasi bukan pengenal unik meski wajib.
+Ditemukan pola XSS tersimpan lintas ~154 titik (`Clients.evalJavaScript`
+konkatenasi string tanpa escaping) — **task baru `task_571f5dd4`**
+(konsolidasi, bukan instance tunggal).
+
+**Klaster checklist/penilaian/pertemuan**. `ChecklistBaruPenilaianOlehDosen
+.count()` ditemukan SQL injection konkatenasi tanpa bind — pola sama
+yang sudah ditambal 1 Sep 2026 di `ChecklistPenilaianHelper` tapi
+terlewat di sini — **task baru `task_d29ee90c`** (sudah mulai dikerjakan
+user sebelum laporan agent selesai). `Judisium` (salah eja, bukan
+"Yudisium") dicatat apa adanya.
+
+**Klaster dosen/pegawai/catatan**. `CatatanPegawai`/`CatatanMahasiswa`/
+`CatatanAdministrasi` **DIKONFIRMASI AMAN** — ketiganya sudah ditambal
+bersamaan di r83945 (`task_484d4bd0`), memanggil
+`LampiranLain.resolveJenisParameterTambahan` yang benar. `Pendaftar.java`
+(root) dikonfirmasi akun ANCHOR ebisnis.id yang dirujuk BALIK oleh
+`tenant.PendaftaranTenant` dan `tenant.PendaftarTenantProfile` — bukan
+sama, bukan independen. `LogMobile.java` dikonfirmasi SUDAH dimitigasi
+(field `linkProfile` disaring `redactSensitive()` sebelum simpan,
+retensi lewat `LogMobileCleanupService`). 0 task baru.
+
+**Klaster billing/diskon**. `JenisDiskonMahasiswa.cariPromoGlobal()`
+tidak meng-cap potongan ke nominal baris (mekanisme sama dengan
+`task_0b015148`) tapi caller (`DetailKegiatan`) sudah clamp sendiri —
+celah ada tapi tak tereksploitasi jalur saat ini, dicatat sebagai
+perluasan. **Task baru `task_9fac1fcd`**: `DetailSettingBiaya
+.ambilDefaultBiaya(Jurusan)` kembalikan `0.0` baik saat jurusan memang
+tanpa override MAUPUN saat error, dan `DetailBiaya.getNilaiBiaya()`
+pakai itu sebagai SATU-SATUNYA sumber nominal tanpa fallback pada mode
+"Tampilkan Per Prodi" — berpotensi menagih Rp 0. `KegiatanTemporary`
+dikonfirmasi FK `kegiatan` menunjuk BALIK ke `Kegiatan` final (header
+staging yang sudah ditautkan, bukan versi sementara). `Pertemuan`
+dikonfirmasi AMAN dari bug kunci-tertukar `task_484d4bd0` (populate
+sendiri, tidak dipakai modul lain). `Paket.java` dikonfirmasi induk 6
+entity `Paket*` lain.
+
+**Klaster log/utilitas/misc**. `LogPembayaran`/`Va` dikonfirmasi TIDAK
+menyimpan data finansial mentah. `Deposit` sendiri ledger append-only
+aman TOCTOU, TAPI caller utamanya `KantinHelper.bayar()` (POS Kantin/
+Koperasi) TIDAK PERNAH validasi saldo di server untuk metode potong-
+saldo — cek hanya di client (`PosKantinAction`, saldo ter-cache) dan
+bisa dilewati total lewat `KantinMemberApi`/servlet API generik. Ini
+instance KELIMA keluarga bug saldo/TOCTOU (asset lending, hotel
+check-in, poin apotik, sirkulasi surat), TAPI LEBIH PARAH — bukan race
+window sempit, ketiadaan gerbang sama sekali. **Task baru
+`task_90a89fa9`** (sudah mulai dikerjakan user).
+
+**4 task baru batch ini**: `task_571f5dd4`, `task_d29ee90c`,
+`task_9fac1fcd`, `task_90a89fa9`. Total akumulasi: **1837+ file** dari
+7.401 — 280/485 file root selesai, sisa **~191 file lepas root murni**
+(catatan: aritmatika berjalan tetap perkiraan, konsisten dengan
+ketidakpastian yang sudah diakui di batch-batch sebelumnya).
+
 ## Batch 129 — 99 file lepas root (5 agent paralel), 3 task baru, total 199/485 root selesai (6 Sep 2026)
 
 Lanjutan backlog root: klaster kepegawaian/prestasi/orang-tua (20
