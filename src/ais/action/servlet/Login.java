@@ -30,19 +30,102 @@ import ais.database.model.sekolah.Siswa;
 import ais.database.model.sisdes.Penduduk;
 
 /**
- * Servlet implementation class Login
+ * Servlet halaman login utama aplikasi — melayani dua hal sekaligus: penyajian halaman login yang
+ * sesuai konfigurasi, dan endpoint otentikasi AJAX {@code action=ajax_login}.
+ *
+ * <h3>Dua peran</h3>
+ * <ol>
+ *   <li><b>Endpoint otentikasi AJAX</b> — dipilih ketika parameter {@code action} bernilai
+ *       {@code ajax_login}. Mengembalikan JSON berisi {@code status}, {@code message}, dan
+ *       {@code redirect}. Otentikasi sesungguhnya <b>tidak</b> dilakukan di kelas ini melainkan
+ *       didelegasikan ke {@code SecurityFilter.doAutoLogin}; kelas ini berperan sebagai pembungkus
+ *       yang menangkap hasilnya dan menerjemahkannya menjadi JSON yang rapi.</li>
+ *   <li><b>Penyaji halaman</b> — memilih berkas JSP login menurut konfigurasi
+ *       {@code default_login_versi_baru}, {@code default_login3_versi_baru},
+ *       {@code default_login5_versi_baru}, lalu menurun ke rantai cadangan berbasis keberadaan
+ *       berkas ({@code ecampus.jsp}, {@code login_ecampus.jsp}, {@code eschool.jsp},
+ *       {@code login.jsp}, {@code index.jsp}). Parameter {@code p} juga dapat mengarahkan ke dua
+ *       halaman modul kantin.</li>
+ * </ol>
+ *
+ * <h3>Validasi kredensial</h3>
+ * <p>Kelas ini hanya memeriksa bahwa nama pengguna dan kata sandi tidak kosong. Pencocokan kata
+ * sandi, penentuan hak akses, dan pembentukan sesi seluruhnya milik
+ * {@code SecurityFilter.doAutoLogin}. Yang dilakukan kelas ini sebelum itu adalah pemeriksaan
+ * <b>status akun</b> lewat {@link #cekStatusAwalAjaxLogin(String, HttpServletRequest)}.</p>
+ *
+ * <h3>Catatan pola query — hubungan dengan perbaikan MatchMode.EXACT</h3>
+ * <p>Seluruh pencarian akun di kelas ini memakai {@link org.hibernate.criterion.Restrictions#eq}
+ * dengan pembandingan persis, <b>bukan</b> {@code Restrictions.ilike(..., MatchMode.EXACT)}.
+ * Karena {@code ilike} menerjemahkan nilainya menjadi pola {@code LIKE}, karakter joker
+ * {@code %} dan {@code _} pada nama pengguna akan ikut berlaku sebagai joker pada pola tersebut;
+ * kelas ini tidak terkena persoalan itu karena tidak memakai {@code ilike} sama sekali. Perlu
+ * dicatat bahwa {@code PembayaranUtil.getCalonMahasiswaByNoPendaftaran} masih memakai pola
+ * {@code ilike} tersebut, tetapi jalur itu tidak dipanggil dari sini.</p>
+ *
+ * <h3>Pembatasan laju percobaan — keadaan yang berlaku sekarang</h3>
+ * <p>Tidak ada pembatasan laju, penundaan bertahap, penguncian akun, maupun CAPTCHA pada endpoint
+ * ini, dan tidak ada pula di {@code SecurityFilter}. {@link #isAjaxLoginReentry(HttpServletRequest)}
+ * <b>bukan</b> pembatas laju: ia hanya mencegah pemanggilan berulang di dalam <i>satu</i>
+ * permintaan yang sama (masuk kembali secara rekursif), dan tidak menghitung apa pun lintas
+ * permintaan. Percobaan kata sandi karenanya dapat diulang tanpa batas dari luar. Keadaan ini
+ * didokumentasikan apa adanya dan sudah tercatat sebagai kandidat perbaikan tersendiri.</p>
+ *
+ * <p>Perlu diketahui pula bahwa {@link #cekStatusAwalAjaxLogin(String, HttpServletRequest)}
+ * berjalan <b>sebelum</b> kata sandi diperiksa dan menghasilkan pesan yang berbeda untuk akun
+ * yang ada tetapi tidak aktif dibandingkan akun yang tidak ditemukan, sehingga membedakan kedua
+ * keadaan itu dimungkinkan tanpa mengetahui kata sandi.</p>
+ *
+ * @see SecurityFilter
+ * @see Main#checkAndSetUserSession(HttpServletRequest, boolean)
  */
 public class Login extends HttpServlet {
+	/** Versi serial standar {@link java.io.Serializable} untuk kontrak servlet. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Kunci atribut permintaan yang menandai bahwa proses login AJAX sedang berjalan pada
+	 * permintaan ini. Dipakai {@link #isAjaxLoginReentry(HttpServletRequest)} untuk mengenali
+	 * pemanggilan yang masuk kembali secara rekursif — misalnya ketika alur otentikasi meneruskan
+	 * permintaan ke servlet ini lagi — agar tidak terjadi pengulangan tanpa akhir.
+	 */
 	private static final String ATTR_AJAX_LOGIN_RUNNING = "ais.login.ajax.running";
+
+	/**
+	 * Kunci atribut permintaan yang mencacah berapa kali pemanggilan masuk kembali terjadi dalam
+	 * satu permintaan. Bersifat diagnostik; nilainya tidak memengaruhi keputusan apa pun.
+	 */
 	private static final String ATTR_AJAX_LOGIN_REENTRY_COUNT = "ais.login.ajax.reentry.count";
+
+	/**
+	 * Kunci atribut permintaan tempat menyimpan pesan galat terakhir, agar pemanggilan yang masuk
+	 * kembali dapat mengambil alasan penolakan yang sudah ditentukan lebih dulu alih-alih
+	 * menghasilkan pesan baru yang kurang tepat.
+	 */
 	private static final String ATTR_AJAX_LOGIN_LAST_MESSAGE = "ais.login.ajax.last.message";
 
+	/**
+	 * Konstruktor default yang dibutuhkan container servlet; tidak melakukan inisialisasi apa pun
+	 * selain memanggil konstruktor {@link HttpServlet}.
+	 */
 	public Login() {
 		super();
 	}
 
+	/**
+	 * Menerima permintaan HTTP GET dan meneruskannya ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Endpoint {@code ajax_login} juga dapat dicapai lewat GET, yang berarti kredensial dapat
+	 * dikirim sebagai parameter query. Exception apa pun ditelan
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} sehingga kegagalan tidak memunculkan halaman
+	 * error container ke pengguna yang belum login.</p>
+	 *
+	 * @param request  permintaan dari peramban
+	 * @param response respons yang akan diisi halaman login atau JSON hasil otentikasi
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan respons gagal
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -52,6 +135,18 @@ public class Login extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menerima permintaan HTTP POST — metode yang seharusnya dipakai formulir login — dan
+	 * meneruskannya ke {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>Perilakunya identik dengan {@link #doGet(HttpServletRequest, HttpServletResponse)};
+	 * kelas ini tidak membedakan metode HTTP.</p>
+	 *
+	 * @param request  permintaan dari peramban
+	 * @param response respons yang akan diisi halaman login atau JSON hasil otentikasi
+	 * @throws ServletException bila container melaporkan kegagalan servlet
+	 * @throws IOException      bila penulisan respons gagal
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -61,6 +156,41 @@ public class Login extends HttpServlet {
 		}
 	} 
 
+	/**
+	 * Menentukan apakah permintaan adalah upaya otentikasi AJAX atau permintaan halaman, lalu
+	 * menjalankan salah satunya.
+	 *
+	 * <h4>Efek samping global di awal</h4>
+	 * <p>Sebelum apa pun, method menulis lima field statis bersama pada {@link Common}:
+	 * {@code REAL_PATH}, {@code REAL_PATH_REPORT_TEMP}, {@code ROOT},
+	 * {@code CURRENT_URL_SIMPLE}, dan {@code CURRENT_URL}. Sama seperti pada
+	 * {@link FilterJSP}, nilai itu adalah state proses dan bukan per-thread.</p>
+	 *
+	 * <h4>Cabang otentikasi AJAX</h4>
+	 * <p>Dipilih ketika {@code action=ajax_login}. Urutannya: menolak nama pengguna atau kata
+	 * sandi kosong; menolak pemanggilan yang masuk kembali
+	 * ({@link #isAjaxLoginReentry(HttpServletRequest)}); memeriksa status akun lewat
+	 * {@link #cekStatusAwalAjaxLogin(String, HttpServletRequest)}; membersihkan atribut galat
+	 * sisa; lalu memanggil {@code SecurityFilter.doAutoLogin} dengan respons yang dibungkus
+	 * {@link AjaxLoginResponseWrapper} agar pengalihan dan keluaran HTML yang dihasilkan alur
+	 * otentikasi lama tertangkap alih-alih terkirim ke klien.</p>
+	 * <p>Setelah otentikasi berhasil, sesi pengguna masih wajib terbentuk: dicoba
+	 * {@code Main.checkAndSetUserSession}, lalu {@code SecurityFilter.getCurrentFromUsername}.
+	 * Bila keduanya gagal, hasil diperlakukan sebagai kegagalan agar klien tidak dialihkan ke
+	 * dasbor dengan sesi yang belum ada.</p>
+	 *
+	 * <h4>Cabang halaman</h4>
+	 * <p>Parameter {@code p} bernilai {@code registrasi_calon_anggota} atau
+	 * {@code halaman_calon_anggota} diteruskan ke halaman modul kantin. Selain itu berkas login
+	 * dipilih menurut tiga konfigurasi versi baru secara berurutan, lalu menurun ke rantai
+	 * cadangan yang memeriksa keberadaan berkas di cakram satu per satu. Seluruh nama berkas
+	 * tujuan adalah <b>konstanta di dalam kode</b>; tidak ada bagian jalur yang berasal dari
+	 * masukan pengguna.</p>
+	 *
+	 * @param request  permintaan yang sedang dilayani
+	 * @param response respons yang akan diisi
+	 * @throws Exception bila penerusan halaman atau proses otentikasi gagal
+	 */
 	@SuppressWarnings({ "deprecation" })
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		Common.REAL_PATH = getServletContext().getRealPath("/");
@@ -238,6 +368,16 @@ public class Login extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Meneruskan permintaan ke berkas JSP tujuan, hanya bila respons masih dapat diubah.
+	 *
+	 * @param request  permintaan yang sedang dilayani
+	 * @param response respons tujuan; boleh {@code null}
+	 * @param path     jalur berkas tujuan, selalu konstanta di dalam kode
+	 * @return {@code true} bila penerusan benar-benar dilakukan
+	 * @throws ServletException bila penerusan gagal
+	 * @throws IOException      bila operasi masukan/keluaran gagal
+	 */
 	private static boolean safeForward(HttpServletRequest request, HttpServletResponse response, String path)
 			throws ServletException, IOException {
 		if (response == null || response.isCommitted()) {
@@ -247,6 +387,22 @@ public class Login extends HttpServlet {
 		return true;
 	}
 
+	/**
+	 * Mengenali pemanggilan endpoint login AJAX yang masuk kembali di dalam permintaan yang sama.
+	 *
+	 * <p>Keadaan itu terjadi ketika alur otentikasi lama meneruskan permintaan kembali ke servlet
+	 * ini; tanpa penjagaan, prosesnya akan berulang tanpa akhir. Penanda yang dipakai adalah
+	 * atribut {@link #ATTR_AJAX_LOGIN_RUNNING}, dan setiap kejadian dicacah ke
+	 * {@link #ATTR_AJAX_LOGIN_REENTRY_COUNT} untuk keperluan diagnostik.</p>
+	 *
+	 * <p><b>Bukan pembatas laju.</b> Seluruh penanda disimpan sebagai atribut <i>permintaan</i>
+	 * yang umurnya habis begitu permintaan selesai, sehingga method ini tidak mengetahui apa pun
+	 * tentang percobaan login sebelumnya dan tidak dapat memperlambat maupun menghentikan
+	 * percobaan berulang dari luar.</p>
+	 *
+	 * @param request permintaan yang sedang dilayani; boleh {@code null}
+	 * @return {@code true} bila pemanggilan ini adalah masuk kembali
+	 */
 	private static boolean isAjaxLoginReentry(HttpServletRequest request) {
 		if (request == null) {
 			return false;

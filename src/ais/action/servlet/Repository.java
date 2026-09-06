@@ -46,26 +46,185 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.repository.RepoBitstream;
 import ais.database.model.Tbmuser;
 
-/** Public entry point and typed read API for Repository AIS. */
+/**
+ * Portal publik Repository AIS: satu servlet yang melayani halaman katalog karya ilmiah, API baca
+ * bertipe (JSON), unduhan berkas, sitasi, umpan RSS/Atom, serta antarmuka panen metadata OAI-PMH.
+ *
+ * <p><b>Pemetaan.</b> Didaftarkan di {@code webapp/WEB-INF/web.xml} sebagai servlet
+ * {@code repository} dengan dua {@code url-pattern}: {@code /repository} dan {@code /repository/*}.
+ * Aturan penutup Spring Security untuk {@code /**} adalah {@code IS_AUTHENTICATED_ANONYMOUSLY},
+ * dan itu memang disengaja — repositori karya ilmiah harus dapat dibaca dan dipanen tanpa akun.
+ * Karena itu seluruh pembatasan berada di dalam kelas ini dan di {@code RepositoryPublicService}.</p>
+ *
+ * <p><b>Rute.</b> Dua gaya rute dipakai bersamaan. Gaya lama memakai parameter {@code action} dan
+ * {@code view}; gaya URL bersih membaca {@code getPathInfo()} dan memetakan {@code /search},
+ * {@code /browse}, {@code /collections}, {@code /policies}, {@code /help}, {@code /ask},
+ * {@code /rss/recent}, {@code /sitemap.xml}, {@code /oai/request}, serta pola bersegmen
+ * {@code /item/{id}}, {@code /collection/{id}}, dan {@code /author/{nama}}. Rute {@code /oai/request}
+ * hanya mengalihkan ke servlet {@code /oai} yang berdiri sendiri.</p>
+ *
+ * <p><b>Dua bentuk tanggapan.</b> Aksi {@code search} dan {@code suggest} membalas JSON; aksi
+ * {@code download}, {@code citation}, {@code feed}, dan {@code oai} membalas berkas atau XML;
+ * selebihnya mengisi atribut permintaan lalu <i>forward</i> ke satu JSP tunggal
+ * ({@link #JSP}). Pemilihan bentuk galat mengikuti pola yang sama lewat {@link #isJsonRequest}.</p>
+ *
+ * <p><b>Mekanisme keamanan yang ada — ringkasan agar tidak diduplikasi.</b></p>
+ * <ul>
+ *   <li><i>Header pengeras.</i> {@link #processSafely} memasang {@code X-Content-Type-Options},
+ *       {@code Referrer-Policy}, {@code X-Frame-Options: SAMEORIGIN}, dan {@code X-Request-Id}
+ *       pada setiap tanggapan.</li>
+ *   <li><i>CSRF.</i> Seluruh aksi yang mengubah state milik pengguna ({@code bookmark},
+ *       {@code savesearch}, {@code removepreference}, {@code helpfeedback}) wajib {@code POST} dan
+ *       diverifikasi {@link #verifyPublicCsrf} dengan pembandingan waktu-tetap
+ *       ({@link #constantTime}).</li>
+ *   <li><i>Pengalihan terbuka.</i> Tujuan {@code sendRedirect} yang berasal dari parameter
+ *       disaring {@link #safeRepositoryUrl}, yang hanya meloloskan URL di bawah
+ *       {@code contextPath + "/repository"}.</li>
+ *   <li><i>Pembatasan laju.</i> {@code PublicRegistrationRateLimiter} per alamat IP: 300
+ *       pencarian/jam, 120 unduhan/jam, 20 umpan balik panduan/jam.</li>
+ *   <li><i>Naskah lengkap.</i> Bila {@code service.anonymousFullTextAllowed()} bernilai
+ *       {@code false}, pengunjung anonim kehilangan daftar berkas pada halaman butir dan ditolak
+ *       di {@link #download}.</li>
+ *   <li><i>Token panen.</i> {@code resumptionToken} OAI-PMH ditandatangani HMAC-SHA256 dan
+ *       ber-masa-berlaku, sehingga tidak dapat dipalsukan untuk melompati penomoran halaman —
+ *       lihat {@link #buildOaiToken} dan {@link #decodeOaiToken}.</li>
+ *   <li><i>Asal publik.</i> {@link #publicOrigin} memvalidasi skema, host, dan porta sebelum
+ *       menyusun URL absolut, sehingga header {@code Host} yang dipalsukan tidak menular ke
+ *       sitemap dan umpan.</li>
+ *   <li><i>Nama berkas unduhan.</i> {@link #safeFileName} membuang pemisah jalur dan karakter
+ *       kendali sebelum nama dipasang di {@code Content-Disposition}.</li>
+ * </ul>
+ *
+ * <p><b>Jalur berkas.</b> Tidak ada jalur berkas yang berasal dari klien. {@link #download}
+ * menerima {@code id} numerik, mengambil baris {@link RepoBitstream} dari basis data, lalu
+ * meminta {@code service.resolveBitstreamFile(...)} menentukan berkas fisiknya; nama berkas dari
+ * basis data hanya dipakai sebagai label unduhan. {@link #forwardRepositoryJsp} selalu
+ * meneruskan ke konstanta {@link #JSP}, tidak pernah ke nilai dari permintaan.</p>
+ *
+ * <p><b>Session Hibernate.</b> Servlet ini berjalan di luar daur hidup <i>OpenSessionInView</i>
+ * ZK. {@code RepositoryPublicService} memakai session {@code ThreadLocal} bawaan, sehingga
+ * {@link #processSafely} wajib memanggil {@code HibernateUtil.closeSession()} di blok
+ * {@code finally} setiap permintaan.</p>
+ *
+ * @see RepositoryPublicService
+ * @see RepositoryWorkflowService
+ */
 public class Repository extends HttpServlet {
+    /** Versi serialisasi servlet; tetap {@code 1L}. */
     private static final long serialVersionUID = 1L;
+    /**
+     * Satu-satunya template yang di-<i>forward</i> servlet ini. Nilainya konstan dan tidak pernah
+     * disusun dari permintaan, sehingga tidak ada jalur <i>path traversal</i> lewat penerusan JSP.
+     * Halaman mana yang dirender ditentukan atribut {@code repoView}, bukan nama berkas.
+     */
     private static final String JSP = "/WEB-INF/baru/modul/repository/landing_page.jsp";
+    /**
+     * Nama atribut {@link HttpSession} tempat token CSRF pengunjung disimpan. Token dibangkitkan
+     * sekali per sesi di {@link #process} dan diperiksa {@link #verifyPublicCsrf}.
+     */
     private static final String CSRF = "repository.public.csrf";
+    /**
+     * Nama atribut permintaan yang menandai bahwa permintaan ini adalah percobaan ulang otomatis
+     * setelah kegagalan sesaat. Penandanya dibaca {@link #canRetryHome} untuk mencegah percobaan
+     * berulang tanpa henti, dan oleh cabang halaman depan di {@link #process} untuk beralih ke
+     * mode terdegradasi (komponen yang gagal diganti nilai kosong alih-alih menggagalkan halaman).
+     */
     private static final String TRANSIENT_RETRY = "repository.public.transientRetry";
+    /**
+     * Kunci HMAC untuk menandatangani {@code resumptionToken} OAI-PMH, disiapkan sekali saat kelas
+     * dimuat oleh {@link #oaiTokenSecret()}.
+     *
+     * <p><b>Catatan operasional.</b> Bila properti sistem
+     * {@code ais.repository.oaiTokenSecret} tidak disetel (atau kurang dari 32 karakter), kunci
+     * dibangkitkan acak per proses. Akibatnya token panen menjadi tidak sah setelah peladen
+     * dimulai ulang, dan tidak dapat dipakai lintas node bila aplikasi dijalankan berkelompok.
+     * Setel properti itu pada instalasi yang dipanen secara rutin.</p>
+     */
     private static final byte[] OAI_TOKEN_SECRET = oaiTokenSecret();
+    /**
+     * Layanan baca publik: pencarian, faset, koleksi, profil penulis, sitasi, statistik pemakaian,
+     * dan pemetaan berkas. Dibuat satu kali per instance servlet dan dipakai bersama seluruh
+     * permintaan, jadi implementasinya harus tetap bebas state.
+     */
     private final RepositoryPublicService service = new RepositoryPublicService();
+    /**
+     * Layanan alur kerja deposit/telaah. Di kelas ini hanya dipakai untuk tiga pertanyaan hak
+     * akses yang menentukan tombol apa yang tampil di halaman: apakah pengguna administrator
+     * repositori, penelaah, dan boleh menyetor. Aksi alur kerjanya sendiri dilayani servlet
+     * {@code RepositoryWorkspace}, bukan servlet publik ini.
+     */
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
 
+    /**
+     * Menangani permintaan {@code GET} dengan meneruskannya ke {@link #processSafely}.
+     *
+     * <p>Hampir seluruh lalu lintas portal ini berupa {@code GET}; aksi yang mengubah state
+     * menolak {@code GET} secara eksplisit di {@link #process} dengan
+     * {@code 405 Method Not Allowed}.</p>
+     *
+     * @param request  permintaan servlet
+     * @param response tanggapan servlet
+     * @throws ServletException bila penerusan ke JSP gagal
+     * @throws IOException      bila penulisan tanggapan gagal
+     */
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         processSafely(request, response);
     }
 
+    /**
+     * Menangani permintaan {@code POST} dengan meneruskannya ke {@link #processSafely}.
+     *
+     * <p>Dipakai aksi yang mengubah state milik pengguna ({@code bookmark}, {@code savesearch},
+     * {@code removepreference}, {@code helpfeedback}); semuanya menuntut token CSRF yang sah.</p>
+     *
+     * @param request  permintaan servlet
+     * @param response tanggapan servlet
+     * @throws ServletException bila penerusan ke JSP gagal
+     * @throws IOException      bila penulisan tanggapan gagal
+     */
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         processSafely(request, response);
     }
 
+    /**
+     * Pembungkus setiap permintaan: memasang header pengeras, menjalankan {@link #process},
+     * menerjemahkan kegagalan menjadi tanggapan yang pantas, dan menutup session Hibernate.
+     *
+     * <p><b>Pengenal permintaan.</b> Sebuah {@code requestId} pendek dibentuk dari cap waktu dan
+     * identitas objek permintaan, dipasang sebagai header {@code X-Request-Id}, dan ikut
+     * disebutkan pada setiap pesan galat — sehingga keluhan pengguna dapat dicocokkan dengan
+     * catatan {@code ErrorAuditUtil} tanpa membocorkan detail internal.</p>
+     *
+     * <p><b>Tiga kelas kegagalan.</b></p>
+     * <ul>
+     *   <li>{@link SecurityException} (mis. token CSRF salah) → halaman status
+     *       {@code 403}.</li>
+     *   <li>{@link IllegalArgumentException} (masukan tidak valid) → {@code 400}, berbentuk JSON
+     *       bila permintaannya permintaan JSON, selain itu halaman status.</li>
+     *   <li>Selebihnya → dicatat sebagai kegagalan yang terlihat pengguna, lalu {@code 500}
+     *       berbentuk JSON, teks biasa (khusus {@code action=citation}), atau
+     *       {@code sendError}.</li>
+     * </ul>
+     *
+     * <p><b>Percobaan ulang halaman depan.</b> Khusus kegagalan umum, bila {@link #canRetryHome}
+     * mengizinkan, session Hibernate ditutup, buffer tanggapan direset, penanda
+     * {@link #TRANSIENT_RETRY} dipasang, header {@code X-Repository-Retry: 1} dikirim, dan
+     * {@link #process} dijalankan sekali lagi. Percobaan kedua berjalan dalam mode terdegradasi
+     * sehingga komponen yang tetap gagal diganti nilai kosong, bukan menggagalkan seluruh
+     * halaman. Bila percobaan ulang juga gagal, kegagalan <i>kedua</i>-lah yang dilaporkan.</p>
+     *
+     * <p><b>Session.</b> Blok {@code finally} selalu memanggil
+     * {@code HibernateUtil.closeSession()} karena servlet ini berada di luar daur hidup
+     * <i>OpenSessionInView</i> ZK dan memakai session {@code ThreadLocal} bawaan yang harus
+     * dikembalikan ke kolam setiap permintaan.</p>
+     *
+     * @param request  permintaan servlet
+     * @param response tanggapan servlet
+     * @throws IOException      bila penulisan tanggapan galat gagal
+     * @throws ServletException bila penerusan ke JSP gagal
+     */
     private void processSafely(HttpServletRequest request, HttpServletResponse response)
             throws IOException, ServletException {
         String requestId = Long.toHexString(System.currentTimeMillis()) + "-"
@@ -116,6 +275,60 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Perutean dan pengisian model: menentukan tampilan mana yang diminta, menjalankan aksi yang
+     * membalas sendiri, lalu — bila permintaannya berupa halaman — menyiapkan atribut untuk JSP
+     * dan meneruskannya.
+     *
+     * <p><b>1. Penentuan rute.</b> Nilai awal diambil dari parameter {@code action} dan
+     * {@code view} (keduanya dijadikan huruf kecil). Sesudah itu {@code getPathInfo()} diperiksa
+     * dan, bila cocok, <b>menimpa</b> nilai tersebut: {@code /search} dan awalan {@code /browse}
+     * menjadi tampilan pencarian; {@code /collections}, {@code /policies}, {@code /help},
+     * {@code /ask} menjadi tampilan senama; {@code /rss/recent} menjadi aksi {@code feed};
+     * {@code /sitemap.xml} langsung dilayani {@link #sitemap}; {@code /oai/request} dialihkan ke
+     * servlet {@code /oai} beserta query string aslinya. Pola bersegmen {@code /item/{id}},
+     * {@code /collection/{id}}, dan {@code /author/{nama}} mengisi {@code routeId} atau
+     * {@code routeAuthor}; nama penulis di-{@code URLDecoder.decode} dan diperlakukan sebagai
+     * teks pencarian, bukan sebagai jalur berkas.</p>
+     *
+     * <p><b>2. Pembatasan laju</b> per alamat IP, sebelum pekerjaan berat apa pun dimulai: 300
+     * permintaan pencarian/saran per jam, 120 unduhan per jam, dan 20 umpan balik panduan per
+     * jam. Pelanggaran dijawab {@code 429} oleh {@link #tooManyRequests}.</p>
+     *
+     * <p><b>3. Aksi yang membalas sendiri</b> dan langsung {@code return}: {@code search} dan
+     * {@code suggest} (JSON), {@code download}, {@code citation}, {@code feed}, {@code oai},
+     * serta {@code robots.txt}/{@code sitemap.xml} bila servlet dipanggil pada jalur itu.</p>
+     *
+     * <p><b>4. Aksi yang mengubah state.</b> {@code bookmark}, {@code savesearch}, dan
+     * {@code removepreference} menuntut tiga hal berurutan: pengguna sudah masuk (jika tidak,
+     * halaman status {@code 401}), metode {@code POST} (jika tidak, {@code 405}), dan token CSRF
+     * yang sah ({@link #verifyPublicCsrf}). Ketiganya bekerja atas {@code actor.getUserId()} dari
+     * sesi, sehingga pemanggil tidak dapat menyunting preferensi pengguna lain. Tujuan pengalihan
+     * yang berasal dari parameter disaring {@link #safeRepositoryUrl}. Aksi
+     * {@code helpfeedback} memakai gerbang yang sama kecuali syarat login — umpan balik panduan
+     * memang boleh anonim — dan ditambah pembatas laju tersendiri.</p>
+     *
+     * <p><b>5. Penyiapan halaman.</b> Untuk permintaan yang berujung pada JSP, atribut yang
+     * dipasang meliputi {@code repoView}, {@code repoPublicOrigin}, {@code repoCsrf} (dibangkitkan
+     * sekali per sesi), {@code repoPublicUser}, {@code repoIsAdmin}, {@code repoIsReviewer},
+     * {@code repoCanDeposit}, dan {@code repoAnonymousFullText}. Pengunjung anonim pada
+     * {@code GET} juga menerima header penanda {@code X-Repository-Cacheable: public} untuk
+     * lapisan cache di depan aplikasi.</p>
+     *
+     * <p><b>6. Cabang per tampilan.</b> {@code item} memuat detail butir dan, bila tidak
+     * ditemukan, mencoba versi nisannya; <b>berkas disembunyikan dari pengunjung anonim</b> bila
+     * {@code anonymousFullTextAllowed()} bernilai {@code false}. Kunjungan dicatat
+     * {@code recordUsage} kecuali butir sudah ditarik. Tampilan {@code search}/{@code browse},
+     * {@code collection}, {@code author}, {@code collections}, dan {@code ask} masing-masing
+     * mengisi atribut yang dibutuhkan JSP; {@code policies} dan {@code help} tidak butuh data.
+     * Selain itu jatuh ke halaman depan, yang memuat banyak komponen secara terpisah agar satu
+     * komponen yang gagal tidak menjatuhkan seluruh halaman — lihat {@link #logDegraded}.</p>
+     *
+     * @param request   permintaan servlet
+     * @param response  tanggapan servlet
+     * @param requestId pengenal permintaan untuk pelacakan galat
+     * @throws Exception dilempar ke {@link #processSafely} untuk diterjemahkan menjadi tanggapan
+     */
     private void process(HttpServletRequest request, HttpServletResponse response, String requestId) throws Exception {
         String action = clean(request.getParameter("action")).toLowerCase();
         String view = clean(request.getParameter("view")).toLowerCase();
@@ -269,6 +482,22 @@ public class Repository extends HttpServlet {
         forwardRepositoryJsp(request,response);
     }
 
+    /**
+     * Meneruskan permintaan ke template tunggal {@link #JSP}.
+     *
+     * <p>Pencarian {@code RequestDispatcher} dilakukan dua kali: lewat permintaan, lalu lewat
+     * {@code ServletContext} bila yang pertama {@code null} — perbedaan yang muncul ketika servlet
+     * dipanggil dari konteks penerusan lain. Bila keduanya gagal, {@link ServletException}
+     * dilempar dengan menyebut nama template, karena penyebabnya selalu masalah pemasangan
+     * (berkas JSP tidak ikut ter-<i>deploy</i>), bukan masukan pengguna.</p>
+     *
+     * <p>Nama template adalah konstanta; tidak ada bagian dari permintaan yang ikut menyusunnya.</p>
+     *
+     * @param request  permintaan servlet yang atributnya sudah diisi {@link #process}
+     * @param response tanggapan servlet
+     * @throws ServletException bila template tidak ditemukan atau JSP melempar
+     * @throws IOException      bila penulisan tanggapan gagal
+     */
     private void forwardRepositoryJsp(HttpServletRequest request,HttpServletResponse response)
             throws ServletException,IOException {
         RequestDispatcher dispatcher=request.getRequestDispatcher(JSP);
@@ -277,6 +506,25 @@ public class Repository extends HttpServlet {
         dispatcher.forward(request,response);
     }
 
+    /**
+     * Menentukan apakah sebuah kegagalan boleh dijawab dengan satu kali percobaan ulang otomatis.
+     *
+     * <p>Syaratnya sengaja ketat, dan semuanya harus terpenuhi:</p>
+     * <ul>
+     *   <li>tanggapan belum ter-<i>commit</i> (masih mungkin direset);</li>
+     *   <li>permintaan ini belum merupakan percobaan ulang ({@link #TRANSIENT_RETRY} belum
+     *       terpasang) — inilah yang mencegah pengulangan berantai;</li>
+     *   <li>metodenya {@code GET}, sehingga pengulangan tidak dapat menggandakan efek samping;</li>
+     *   <li>tidak ada parameter {@code action} — aksi yang membalas sendiri tidak diulang;</li>
+     *   <li>tampilan dan jalurnya kosong atau halaman depan.</li>
+     * </ul>
+     * <p>Dengan kata lain hanya halaman depan anonim yang diulang, yaitu satu-satunya halaman yang
+     * memuat banyak komponen sekaligus dan karena itu paling rentan terhadap kegagalan sesaat.</p>
+     *
+     * @param request  permintaan servlet yang sedang gagal
+     * @param response tanggapan servlet, diperiksa status <i>commit</i>-nya
+     * @return {@code true} bila {@link #process} boleh dijalankan sekali lagi
+     */
     private boolean canRetryHome(HttpServletRequest request,HttpServletResponse response){
         if(response.isCommitted()||Boolean.TRUE.equals(request.getAttribute(TRANSIENT_RETRY))||!"GET".equalsIgnoreCase(request.getMethod()))return false;
         if(clean(request.getParameter("action")).length()>0)return false;
@@ -284,6 +532,21 @@ public class Repository extends HttpServlet {
         return (view.length()==0||"home".equals(view))&&(path.length()==0||"/".equals(path));
     }
 
+    /**
+     * Mencatat bahwa satu komponen halaman gagal dimuat sementara halaman tetap disajikan.
+     *
+     * <p>Dipakai cabang halaman depan {@link #process}, yang memuat ringkasan, koleksi, terbaru,
+     * koleksi populer, topik populer, pilihan redaksi, paling banyak diunduh, rekomendasi, dan
+     * lansiran pencarian secara terpisah. Kegagalan salah satunya menghasilkan bagian kosong,
+     * bukan halaman galat. Karena kegagalan seperti itu tidak terlihat pengunjung, catatan inilah
+     * satu-satunya jejak yang tertinggal — cari nama komponen dan {@code requestId} pada catatan
+     * {@code ErrorAuditUtil} bila ada bagian halaman yang dilaporkan hilang.</p>
+     *
+     * @param failure   kegagalan yang ditelan
+     * @param component nama komponen halaman, mis. {@code "summary"} atau {@code "featured"}
+     * @param requestId pengenal permintaan agar dapat dicocokkan dengan header
+     *                  {@code X-Request-Id}
+     */
     private void logDegraded(Exception failure,String component,String requestId){
         ais.common.ErrorAuditUtil.record(failure,"Repository home degraded component="+component+" request="+requestId);
     }
