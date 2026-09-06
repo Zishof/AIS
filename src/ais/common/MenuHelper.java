@@ -101,8 +101,8 @@ public class MenuHelper {
         try {
             session = HibernateUtil.currentNativeSession();
             tx = session.beginTransaction();
-            session.createSQLQuery("DELETE FROM public.job_has_menu WHERE menu IN (" + ids + ")").executeUpdate();
-            session.createSQLQuery("DELETE FROM public.menu WHERE id IN (" + ids + ")").executeUpdate();
+            // Menu lama disembunyikan tanpa menghapus relasi hak akses yang masih merujuknya.
+            session.createSQLQuery("UPDATE public.menu SET aktif=false WHERE id IN (" + ids + ")").executeUpdate();
             // Sembunyikan semua menu "Akreditasi Online (Sapto)" (label mengandung "Sapto")
             // yang mungkin ada di DB dengan berbagai ID — set aktif=false (soft-hide)
             session.createSQLQuery(
@@ -115,11 +115,7 @@ public class MenuHelper {
             System.err.println("Gagal cleanup menu obsolete: " + e.getMessage());
             e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/common/MenuHelper.java:96");
         } finally {
-            if (session != null) {
-                try { session.disconnect(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/MenuHelper.java:99");}
-                try { session.close(); } catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/MenuHelper.java:100");}
-            }
-            HibernateUtil.closeSession();
+            HibernateUtil.closeSessionQuietly(session);
         }
     }
 

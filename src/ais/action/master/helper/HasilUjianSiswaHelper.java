@@ -463,8 +463,11 @@ public class HasilUjianSiswaHelper implements DataLoader {
 												hasilUjianMahasiswaDetailid.toString());
 								if (hasilUjianMahasiswaDetail != null) {
 
-									String h = (hasilUjianMahasiswaDetail.getUjianPunyaSoal().getUjian()
-											.getTampilanHurufDiPilihanJawaban()
+									String h = (hasilUjianMahasiswaDetail.getBankSoalDetail() != null
+											&& hasilUjianMahasiswaDetail.getUjianPunyaSoal() != null
+											&& hasilUjianMahasiswaDetail.getUjianPunyaSoal().getUjian() != null
+											&& Boolean.TRUE.equals(hasilUjianMahasiswaDetail.getUjianPunyaSoal().getUjian()
+											.getTampilanHurufDiPilihanJawaban())
 													? hasilUjianMahasiswaDetail.getBankSoalDetail().getHuruf() + ". "
 													: "");
 
@@ -472,7 +475,7 @@ public class HasilUjianSiswaHelper implements DataLoader {
 											? (h + hasilUjianMahasiswaDetail.getBankSoalDetail().getJawaban())
 											: hasilUjianMahasiswaDetail.getJawaban();
 
-									if (!j.trim().isEmpty()) {
+									if (j != null && !j.trim().isEmpty()) {
 										j = hasilUjianMahasiswaDetail.getUjianPunyaSoal().getBankSoal().getSoal()
 												+ ";JAWABAN:" + j + "\n\n";
 

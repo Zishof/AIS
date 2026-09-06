@@ -2260,10 +2260,13 @@ public class Pertemuan extends Tugas {
 			String[] nilais = getAbsensi().split(";");
 			for (String nn : nilais) {
 				try {
-					String[] s = nn.split(",");
-					Long formatId = s[0].isEmpty() ? -1L : Long.parseLong(s[0]);
+					String[] s = nn.split(",", -1);
+					if (s.length < 2 || s[0].trim().isEmpty() || s[1].trim().isEmpty()) {
+						continue;
+					}
+					Long formatId = Long.parseLong(s[0].trim());
 					if (ref.equals(formatId)) {
-						return Long.parseLong(s[1]);
+						return Long.parseLong(s[1].trim());
 					}
 				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Pertemuan.java:1172");
 

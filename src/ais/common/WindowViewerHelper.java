@@ -596,7 +596,7 @@ public class WindowViewerHelper {
 					if (Common.isMobile()) {
 						ExecutionsCtrl.getCurrent().sendRedirect(src, "_blank");
 					} else {
-						Clients.evalJavaScript("popupCenter({url: '" + src + "', title: 'Dropbox', w: 1200, h: 600});");
+						Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(src) + "', title: 'Dropbox', w: 1200, h: 600});");
 					}
 					return window;
 				} else if (lowerSrc.endsWith(".txt")) {

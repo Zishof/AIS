@@ -572,7 +572,7 @@ public class UrlDisplayHelper {
 		if (Common.isMobile()) {
 			ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
 		} else {
-			Clients.evalJavaScript("popupCenter({url: '" + url + "', title: '" + title + "', w: 1200, h: 600});");
+			Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(url) + "', title: '" + Common.jsEscape(title) + "', w: 1200, h: 600});");
 		}
 	}
 

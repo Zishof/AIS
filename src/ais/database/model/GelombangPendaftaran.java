@@ -2332,7 +2332,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 					} else {
 
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 				}
@@ -2382,7 +2382,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 				}
@@ -2432,7 +2432,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 				}
@@ -2482,7 +2482,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 				}
@@ -2532,7 +2532,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Grup Whatsapp', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Grup Whatsapp', w: 1200, h: 600});");
 
 					}
 				}
@@ -2581,7 +2581,7 @@ public class GelombangPendaftaran extends GeneralValueObject {
 						ExecutionsCtrl.getCurrent().sendRedirect(server, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + server + "', title: 'Grup Whatsapp', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(server) + "', title: 'Grup Whatsapp', w: 1200, h: 600});");
 
 					}
 				}

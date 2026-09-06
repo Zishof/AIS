@@ -1260,7 +1260,7 @@ public class InterviewCalonSiswa extends GeneralValueObject {
                         ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
                     } else {
                         Clients.evalJavaScript(
-                                "popupCenter({url:'" + url + "',title:'Google Meet',w:1200,h:600});");
+                                "popupCenter({url:'" + Common.jsEscape(url) + "',title:'Google Meet',w:1200,h:600});");
                     }
                     if (eventListener != null) { eventListener.onEvent(null); }
                 }
@@ -1284,7 +1284,7 @@ public class InterviewCalonSiswa extends GeneralValueObject {
                         ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
                     } else {
                         Clients.evalJavaScript(
-                                "popupCenter({url:'" + url + "',title:'Zoom',w:1200,h:600});");
+                                "popupCenter({url:'" + Common.jsEscape(url) + "',title:'Zoom',w:1200,h:600});");
                     }
                     if (eventListener != null) { eventListener.onEvent(null); }
                 }
@@ -1306,7 +1306,7 @@ public class InterviewCalonSiswa extends GeneralValueObject {
                         ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
                     } else {
                         Clients.evalJavaScript(
-                                "popupCenter({url:'" + url + "',title:'BBB',w:1200,h:600});");
+                                "popupCenter({url:'" + Common.jsEscape(url) + "',title:'BBB',w:1200,h:600});");
                     }
                     if (eventListener != null) { eventListener.onEvent(null); }
                 }
@@ -1328,7 +1328,7 @@ public class InterviewCalonSiswa extends GeneralValueObject {
                         ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
                     } else {
                         Clients.evalJavaScript(
-                                "popupCenter({url:'" + url + "',title:'Skype',w:1200,h:600});");
+                                "popupCenter({url:'" + Common.jsEscape(url) + "',title:'Skype',w:1200,h:600});");
                     }
                     if (eventListener != null) { eventListener.onEvent(null); }
                 }
@@ -1350,7 +1350,7 @@ public class InterviewCalonSiswa extends GeneralValueObject {
                         ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
                     } else {
                         Clients.evalJavaScript(
-                                "popupCenter({url:'" + url + "',title:'WhatsApp',w:800,h:600});");
+                                "popupCenter({url:'" + Common.jsEscape(url) + "',title:'WhatsApp',w:800,h:600});");
                     }
                     if (eventListener != null) { eventListener.onEvent(null); }
                 }
@@ -1372,7 +1372,7 @@ public class InterviewCalonSiswa extends GeneralValueObject {
                         ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
                     } else {
                         Clients.evalJavaScript(
-                                "popupCenter({url:'" + url + "',title:'Konferensi Video',w:1200,h:600});");
+                                "popupCenter({url:'" + Common.jsEscape(url) + "',title:'Konferensi Video',w:1200,h:600});");
                     }
                     if (eventListener != null) { eventListener.onEvent(null); }
                 }

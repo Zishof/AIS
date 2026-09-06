@@ -361,6 +361,10 @@ public class RekapitulasiJadwalPelajaranHelper {
 		refresh.addEventListener("onClick", new EventListener() {
 			@Override
 			public void onEvent(Event event) throws Exception {
+				if (tahunAkademik.getSelectedItem() == null || semester.getSelectedItem() == null) {
+					ais.ui.util.MyMessageboxConfig.show("Pilih tahun akademik dan semester terlebih dahulu.");
+					return;
+				}
 				String ta = (String) (tahunAkademik.getSelectedItem().getValue());
 				String smt = (String) semester.getSelectedItem().getValue();
 				reload(tbmuser, center, ta, smt, cari.getValue().trim(), true, -1, tampilStatistik);

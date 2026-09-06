@@ -628,7 +628,7 @@ public class LinimasaApi {
 				// §13.7: epoch mentah agar klien dapat menandai keterlambatan
 				// tanpa mengurai string tanggal berformat lokal.
 				if (tgs.getUploadDate() != null) {
-					jsonObject.put("tgl_upload_epoch", tgs.getUploadDate().getTime());
+					jsonObject.put("tgl_upload_epoch", (Object) Long.valueOf(tgs.getUploadDate().getTime()));
 				}
 				jsonObject.put("tgl_upload",
 						tgs.getUploadDate() == null ? ""
@@ -667,7 +667,7 @@ public class LinimasaApi {
 						: (SmartDateTimeUtil.getDayString(tugas.getMulai(), null)
 								+ Common.dateFormat5.get().format(tugas.getMulai()))));
 		if (tugas.getSelesai() != null) {
-			jsonObjectTugas.put("selesai_epoch", tugas.getSelesai().getTime());
+			jsonObjectTugas.put("selesai_epoch", (Object) Long.valueOf(tugas.getSelesai().getTime()));
 		}
 		jsonObjectTugas.put("sampai",
 				(tugas.getSelesai() == null ? "(tidak ada waktu selesai)"
@@ -1172,7 +1172,7 @@ public class LinimasaApi {
 							.setProjection(Projections.max("tanggal_dirubah"))
 							.uniqueResult();
 					if (diskusiTerakhir instanceof Date) {
-						da.put("diskusi_terakhir", ((Date) diskusiTerakhir).getTime());
+						da.put("diskusi_terakhir", (Object) Long.valueOf(((Date) diskusiTerakhir).getTime()));
 					}
 				} catch (Exception eDiskusi) {
 					// Stempel opsional; kegagalan tidak boleh menggagalkan linimasa.
@@ -1268,7 +1268,7 @@ public class LinimasaApi {
 				da.put("video", video);
 			}
 			if (deadlineTerdekat != null) {
-				da.put("deadline_terdekat", deadlineTerdekat.getTime());
+				da.put("deadline_terdekat", (Object) Long.valueOf(deadlineTerdekat.getTime()));
 				da.put("deadline_terdekat_label",
 						SmartDateTimeUtil.getDayString(deadlineTerdekat, null)
 								+ Common.dateFormat5.get().format(deadlineTerdekat));

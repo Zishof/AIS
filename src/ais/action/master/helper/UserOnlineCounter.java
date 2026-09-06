@@ -780,7 +780,9 @@ public class UserOnlineCounter extends TimerTask {
 	 */
 	public static void runGc(double persen) {
 		if (!gc) {
-			String restartRunGc = Common.getKonfigurasi("persen_auto_run_gc_baru", "10.0").getNilai();
+			ais.database.model.Konfigurasi konfigurasiGc = Common.getKonfigurasi("persen_auto_run_gc_baru", "10.0");
+			String restartRunGc = konfigurasiGc == null || konfigurasiGc.getNilai() == null
+					? "10.0" : konfigurasiGc.getNilai();
 			gc = true;
 			try {
 				boolean runGc = Double.parseDouble(restartRunGc) > persen;

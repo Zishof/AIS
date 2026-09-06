@@ -3077,38 +3077,30 @@ public class PenjadwalanHelper {
 	 * @param jenis        jenis lampiran yang disalin
 	 */
 	public static void copyLampiranPertemuan(Pertemuan pertemuan, Pertemuan pertemuanBaru, String jenis) {
+		Session session = null;
 		try {
-			Session streamingSession = StreamingHibernateUtil.getInstance().currentSession();
-
-			LampiranLain lama = LampiranLain.ambil(pertemuan.getId(), jenis);
-
-			if (lama != null) {
-
-				LampiranLain baru = LampiranLain.ambil(pertemuanBaru.getId(), jenis);
-
-				if (baru == null) {
-
-					LampiranLain lainMahasiswaItem = new LampiranLain();
-
-					lainMahasiswaItem.setJenis(jenis);
-					lainMahasiswaItem.setRef(pertemuanBaru.getId());
-					lainMahasiswaItem.setCopyDari(lama);
-					lainMahasiswaItem.setGdrive(lama.getGdrive());
-
-					streamingSession.getTransaction().begin();
-					streamingSession.save(lainMahasiswaItem);
-					streamingSession.getTransaction().commit();
-				}
+			session = StreamingHibernateUtil.getInstance().openSession();
+			session.beginTransaction();
+			LampiranLain lama = (LampiranLain) session.createCriteria(LampiranLain.class)
+					.add(Restrictions.eq("ref", pertemuan.getId())).add(Restrictions.eq("jenis", jenis))
+					.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
+			LampiranLain baru = (LampiranLain) session.createCriteria(LampiranLain.class)
+					.add(Restrictions.eq("ref", pertemuanBaru.getId())).add(Restrictions.eq("jenis", jenis))
+					.setMaxResults(1).uniqueResult();
+			if (lama != null && baru == null) {
+				baru = new LampiranLain();
+				baru.setJenis(jenis);
+				baru.setRef(pertemuanBaru.getId());
+				baru.setCopyDari(lama);
+				baru.setGdrive(lama.getGdrive());
+				session.save(baru);
 			}
-
-			StreamingHibernateUtil.getInstance().closeSession();
-
-		} catch (Exception e1) {
-			StreamingHibernateUtil.getInstance().rollbackTransaction();
-			e1.printStackTrace(); ais.common.ErrorAuditUtil.record(e1, "auto-audit src/ais/action/master/helper/PenjadwalanHelper.java:2543");
+			session.getTransaction().commit();
+		} finally {
+			// Session milik operasi ini saja; kegagalan tetap diteruskan ke laporan salin.
+			HibernateUtil.closeSessionQuietly(session);
 		}
 	}
-
 	/**
 	 * Hasil salin lampiran/isi satu pertemuan: jumlah tiap jenis yang berhasil disalin + daftar
 	 * kendala rinci (jika ada). Dipakai untuk laporan hasil salin agenda.
@@ -3191,20 +3183,20 @@ public class PenjadwalanHelper {
 			ais.common.ErrorAuditUtil.record(e, "salin-agenda materi p" + pertemuanBaru.getId());
 		}
 
-		// 2) File / Video / Audio materi (session streaming, transaksi per item agar 1 gagal tak
-		// menggagalkan yang lain).
-		Session streamingSession = null;
+		// 2) File / Video / Audio materi (transaksi per item).
+		Session lampiranSession = null;
 		try {
-			streamingSession = StreamingHibernateUtil.getInstance().currentSession();
-			// PostgreSQL Large Object (kolom foto/blob) tidak boleh dibaca atau ditulis
-			// dalam autocommit. Satu transaksi aktif juga mencegah rollback satu item
-			// menutup session lalu iterasi berikutnya memakai session yang sudah closed.
-			streamingSession.beginTransaction();
+			lampiranSession = StreamingHibernateUtil.getInstance().openSession();
+			Session session = lampiranSession;
 
-			List<PertemuanFileContent> pertemuanFileContents = streamingSession.createCriteria(PertemuanFileContent.class)
+			List<PertemuanFileContent> pertemuanFileContents = session.createCriteria(PertemuanFileContent.class)
 					.addOrder(Order.desc("id")).add(Restrictions.eq("pertemuan", pertemuan.getId())).list();
 			for (PertemuanFileContent c : pertemuanFileContents) {
+				Session itemSession = null;
 				try {
+					itemSession = StreamingHibernateUtil.getInstance().openSession();
+					itemSession.beginTransaction();
+					c = (PertemuanFileContent) itemSession.get(PertemuanFileContent.class, c.getId());
 					PertemuanFileContent pertemuanFileContent = new PertemuanFileContent();
 					pertemuanFileContent.setFoto(c.getFoto());
 					pertemuanFileContent.setNama(c.getNama());
@@ -3214,19 +3206,26 @@ public class PenjadwalanHelper {
 					pertemuanFileContent.setLokasiFisik(c.getLokasiFisik());
 					pertemuanFileContent.setPertemuan(pertemuanBaru.getId());
 					pertemuanFileContent.setUploadDate(ais.ui.util.WaktuUtil.getDate());
-					streamingSession.save(pertemuanFileContent);
+					itemSession.save(pertemuanFileContent);
+					itemSession.getTransaction().commit();
 					hasil.file++;
 				} catch (Exception e) {
-					hasil.kendala.add("File materi \"" + c.getNama() + "\": " + pesanError(e));
+					hasil.kendala.add("File materi \"" + c.getNama() + "\": "
+							+ pesanError(e));
 					ais.common.ErrorAuditUtil.record(e, "salin-agenda file p" + pertemuanBaru.getId());
-					throw e;
+				} finally {
+					HibernateUtil.closeSessionQuietly(itemSession);
 				}
 			}
 
-			List<VideoPertemuan> videoPertemuans = streamingSession.createCriteria(VideoPertemuan.class)
+			List<VideoPertemuan> videoPertemuans = session.createCriteria(VideoPertemuan.class)
 					.addOrder(Order.desc("id")).add(Restrictions.eq("pertemuan", pertemuan.getId())).list();
 			for (VideoPertemuan c : videoPertemuans) {
+				Session itemSession = null;
 				try {
+					itemSession = StreamingHibernateUtil.getInstance().openSession();
+					itemSession.beginTransaction();
+					c = (VideoPertemuan) itemSession.get(VideoPertemuan.class, c.getId());
 					VideoPertemuan videoPertemuan = new VideoPertemuan();
 					videoPertemuan.setFoto(c.getFoto());
 					videoPertemuan.setNama(c.getNama());
@@ -3239,19 +3238,26 @@ public class PenjadwalanHelper {
 					videoPertemuan.setCopyDari(c);
 					videoPertemuan.setGdrive(c.getGdrive());
 					videoPertemuan.setPertemuan(pertemuanBaru.getId());
-					streamingSession.save(videoPertemuan);
+					itemSession.save(videoPertemuan);
+					itemSession.getTransaction().commit();
 					hasil.video++;
 				} catch (Exception e) {
-					hasil.kendala.add("Video materi \"" + c.getNama() + "\": " + pesanError(e));
+					hasil.kendala.add("Video materi \"" + c.getNama() + "\": "
+							+ pesanError(e));
 					ais.common.ErrorAuditUtil.record(e, "salin-agenda video p" + pertemuanBaru.getId());
-					throw e;
+				} finally {
+					HibernateUtil.closeSessionQuietly(itemSession);
 				}
 			}
 
-			List<AudioPertemuan> audioPertemuans = streamingSession.createCriteria(AudioPertemuan.class)
+			List<AudioPertemuan> audioPertemuans = session.createCriteria(AudioPertemuan.class)
 					.addOrder(Order.desc("id")).add(Restrictions.eq("pertemuan", pertemuan.getId())).list();
 			for (AudioPertemuan c : audioPertemuans) {
+				Session itemSession = null;
 				try {
+					itemSession = StreamingHibernateUtil.getInstance().openSession();
+					itemSession.beginTransaction();
+					c = (AudioPertemuan) itemSession.get(AudioPertemuan.class, c.getId());
 					AudioPertemuan audioPertemuan = new AudioPertemuan();
 					audioPertemuan.setFoto(c.getFoto());
 					audioPertemuan.setNama(c.getNama());
@@ -3264,25 +3270,24 @@ public class PenjadwalanHelper {
 					audioPertemuan.setCopyDari(c);
 					audioPertemuan.setGdrive(c.getGdrive());
 					audioPertemuan.setPertemuan(pertemuanBaru.getId());
-					streamingSession.save(audioPertemuan);
+					itemSession.save(audioPertemuan);
+					itemSession.getTransaction().commit();
 					hasil.audio++;
 				} catch (Exception e) {
-					hasil.kendala.add("Audio materi \"" + c.getNama() + "\": " + pesanError(e));
+					hasil.kendala.add("Audio materi \"" + c.getNama() + "\": "
+							+ pesanError(e));
 					ais.common.ErrorAuditUtil.record(e, "salin-agenda audio p" + pertemuanBaru.getId());
-					throw e;
+				} finally {
+					HibernateUtil.closeSessionQuietly(itemSession);
 				}
 			}
 
-			streamingSession.getTransaction().commit();
 		} catch (Exception e1) {
-			StreamingHibernateUtil.getInstance().rollbackTransaction();
-			hasil.file = 0;
-			hasil.video = 0;
-			hasil.audio = 0;
-			hasil.kendala.add("Lampiran file/video/audio (umum): " + pesanError(e1));
+			hasil.kendala.add(
+					"Lampiran file/video/audio (umum): " + pesanError(e1));
 			ais.common.ErrorAuditUtil.record(e1, "salin-agenda lampiran-streaming p" + pertemuanBaru.getId());
 		} finally {
-			StreamingHibernateUtil.getInstance().closeSession();
+			HibernateUtil.closeSessionQuietly(lampiranSession);
 		}
 
 		Session session = HibernateUtil.currentSession();

@@ -1847,7 +1847,10 @@ public class AbsensiSiswaHelper {
 															pertemuan);
 													for (String key : maps.keySet()) {
 														try {
-															String[] ss = key.split(":");
+															String[] ss = key == null ? new String[0] : key.split(":", 2);
+															if (ss.length < 2 || !ss[1].matches("(mhs|dsn)[0-9]+")) {
+																continue;
+															}
 															String tgl = ss[0];
 															Siswa siswa = (Siswa) (ss[1].startsWith("mhs")
 																	? ConstantValues.ambil(Siswa.class.getName(),
@@ -1973,7 +1976,10 @@ public class AbsensiSiswaHelper {
 															pertemuan);
 													for (String key : maps.keySet()) {
 														try {
-															String[] ss = key.split(":");
+															String[] ss = key == null ? new String[0] : key.split(":", 2);
+															if (ss.length < 2 || !ss[1].matches("(mhs|dsn)[0-9]+")) {
+																continue;
+															}
 															String tgl = ss[0];
 															Siswa siswa = (Siswa) (ss[1].startsWith("mhs")
 																	? ConstantValues.ambil(Siswa.class.getName(),
@@ -2096,7 +2102,10 @@ public class AbsensiSiswaHelper {
 															pertemuan);
 													for (String key : maps.keySet()) {
 														try {
-															String[] ss = key.split(":");
+															String[] ss = key == null ? new String[0] : key.split(":", 2);
+															if (ss.length < 2 || !ss[1].matches("(mhs|dsn)[0-9]+")) {
+																continue;
+															}
 															String tgl = ss[0];
 															Siswa siswa = (Siswa) (ss[1].startsWith("mhs")
 																	? ConstantValues.ambil(Siswa.class.getName(),
@@ -2232,7 +2241,10 @@ public class AbsensiSiswaHelper {
 
 			for (final String key : maps.keySet()) {
 				try {
-					String[] ss = key.split(":");
+					String[] ss = key == null ? new String[0] : key.split(":", 2);
+					if (ss.length < 2 || !ss[1].matches("(mhs|dsn)[0-9]+")) {
+						continue;
+					}
 					String tgl = ss[0];
 					Siswa siswa = (Siswa) (ss[1].startsWith("mhs")
 							? ConstantValues.ambil(Siswa.class.getName(), Long.parseLong(ss[1].replaceAll("mhs", "")))
@@ -2351,7 +2363,10 @@ public class AbsensiSiswaHelper {
 																}
 
 																try {
-																	String[] ss = key.split(":");
+																	String[] ss = key == null ? new String[0] : key.split(":", 2);
+																	if (ss.length < 2 || !ss[1].matches("(mhs|dsn)[0-9]+")) {
+																		return;
+																	}
 																	String tgl = ss[0];
 																	Siswa siswa = (Siswa) (ss[1].startsWith("mhs")
 																			? ConstantValues.ambil(
