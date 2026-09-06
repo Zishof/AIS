@@ -4332,6 +4332,58 @@ public class PosApi extends HttpServlet {
 		return pembayaran;
 	}
 
+	/**
+	 * <h3>Aksi {@code detail_transaksi} -- isi struk sekaligus status gerbang koreksi.</h3>
+	 *
+	 * Melayani tombol "Cetak Struk"/"Detail" dari SEMUA layar yang menampilkan baris
+	 * transaksi (Ringkasan, Laporan, Retur Penjualan). Karena itu kunci menunya di
+	 * {@link #bolehAksesActionKantin} sengaja jamak ({@code laporan} ATAU
+	 * {@code ringkasan} ATAU {@code returpenjualan}): sebelumnya hanya {@code laporan}
+	 * yang diperiksa, sehingga kasir yang melihat baris di dasbor Ringkasan ditolak
+	 * server begitu menekan Cetak Struk pada baris yang sama.
+	 *
+	 * <h3>Cakupan -- ditentukan server, bukan klien</h3>
+	 * <p>{@code tokoId} TIDAK diambil dari payload melainkan dari
+	 * {@link #resolveTokoIdTransaksi}, lalu SETIAP kueri di bawah membawa
+	 * {@code AND toko = ?}. Menyebut id transaksi milik toko lain hanya menghasilkan
+	 * "Transaksi tidak ditemukan pada toko yang boleh diakses akun ini" -- bukan
+	 * isinya.</p>
+	 *
+	 * <h3>Dua bentuk transaksi yang harus dilayani satu aksi</h3>
+	 * <ol>
+	 *   <li><b>Punya header kelompok</b> ({@code pembelian_anggota_koperasi}): jalur
+	 *       normal. Rincian item diurutkan
+	 *       {@code ORDER BY COALESCE(induk_id, id), id} supaya baris "Produk Ekstra"
+	 *       menempel tepat di bawah induknya -- urutan id mentah bisa salah karena
+	 *       baris ekstra dapat ber-id lebih kecil dari baris induk LAIN yang tak
+	 *       terkait. Klien cukup meng-indent saat {@code indukId != null}.</li>
+	 *   <li><b>Baris berdiri sendiri / legacy</b> ({@code pembelian_anggota_koperasi}
+	 *       NULL): header SINTETIS disusun dari satu baris itu. Rincian tunai /
+	 *       non-tunai / kembalian diisi nol karena memang tidak pernah tercatat tanpa
+	 *       header kelompok -- nol di sini berarti "tak terekam", bukan "nol rupiah".</li>
+	 * </ol>
+	 *
+	 * <p>Perhatikan urutan pembacaan di jalur pertama: SELURUH kolom {@code ResultSet}
+	 * dibaca SEBELUM {@code session.get(...)}. Hibernate dapat memakai koneksi yang
+	 * sama dan menutup {@code ResultSet} yang masih aktif -- terbukti pada UAT volume
+	 * sebagai {@code PSQLException "This ResultSet is closed"}. Menyisipkan pembacaan
+	 * kolom setelah panggilan Hibernate akan menghidupkan kembali cacat itu.</p>
+	 *
+	 * <h3>Gerbang koreksi transaksi dikirim BUTIR PER BUTIR</h3>
+	 * <p>Selain keputusan akhir {@code bolehEditTransaksi}, balasan membawa tiap
+	 * syaratnya secara terpisah ({@code penggunaBolehEditTransaksi},
+	 * {@code punyaHeaderTransaksi}, {@code transaksiSudahPosting},
+	 * {@code transaksiMemilikiRetur}, {@code kebijakanEditGlobalAktif},
+	 * {@code kebijakanEditTokoAktif}) plus {@code alasanEditTransaksi} berisi langkah
+	 * perbaikan yang konkret. Disengaja: petugas dukungan tidak boleh menyimpulkan
+	 * seluruh masalah dari satu pesan prioritas. Keputusannya sendiri TIDAK dihitung
+	 * di sini melainkan di {@code KantinHelper.bolehEditTransaksiDetail}, sehingga
+	 * jalur ZK dan jalur POS tidak pernah berbeda pendapat.</p>
+	 *
+	 * <p>Sesi Hibernate ditutup {@link #tutupOpenSession} (clear-disconnect-close),
+	 * bukan sekadar {@code close()}, karena method ini memakai
+	 * {@code session.connection()} untuk JDBC mentah.</p>
+	 */
 	private void prosesDetailTransaksi(Tbmuser tbmuser, JSONObject payload, JSONObject hasil) throws Exception {
 		if (payload.isNull("id")) { hasil.put("status", "error"); hasil.put("message", "ID transaksi wajib diisi."); return; }
 		long idTransaksi;
@@ -5801,6 +5853,19 @@ public class PosApi extends HttpServlet {
 		} finally { HibernateUtil.closeSessionQuietly(session); }
 	}
 
+	/**
+	 * Baris kosong berisi NOL untuk satu kasir pada Laporan Transaksi per Kasir.
+	 *
+	 * <p>Dipakai sebagai nilai awal saat sebuah kasir pertama kali ditemui dalam
+	 * penggabungan hasil beberapa kueri (sesi kas, transaksi, metode pembayaran) yang
+	 * tidak selalu memuat kasir yang sama. Mengisi SELURUH field di satu tempat
+	 * menjamin bentuk objeknya seragam: kasir yang hanya muncul di salah satu kueri
+	 * tetap tampil dengan angka nol, bukan hilang dari laporan atau tampil dengan
+	 * field yang tidak ada sehingga terbaca {@code undefined} di klien.</p>
+	 *
+	 * @param namaKasir nama kasir; {@code null} diganti "Kasir tidak tercatat" supaya
+	 *                  baris transaksi lama tanpa identitas kasir tetap terlihat
+	 */
 	private JSONObject laporanTransaksiKasirBaru(String namaKasir) throws Exception {
 		JSONObject o = new JSONObject(); o.put("kasir", namaKasir == null ? "Kasir tidak tercatat" : namaKasir);
 		o.put("jumlahSesi", 0); o.put("jumlahTransaksi", 0); o.put("modalAwal", 0); o.put("totalTransaksi", 0);

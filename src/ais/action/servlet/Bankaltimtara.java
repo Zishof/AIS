@@ -46,7 +46,48 @@ import ais.database.model.sekolah.Tagihan;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet endpoint <b>gateway Bank Kaltimtara (kode internal {@code "BMS"})</b>
+ * untuk pembayaran Virtual Account dan QRIS.
+ *
+ * <h3>Dua arah komunikasi</h3>
+ * Berbeda dengan {@link Mandiri} dan {@link Bniresponse} yang hanya menerima,
+ * kelas ini bekerja dua arah:
+ * <ul>
+ * <li><b>Keluar (AIS &rarr; bank).</b> {@link #checkPakaiva} dan
+ * {@link #checkPakaiqris} dipakai untuk rekonsiliasi manual "Cek Pembayaran":
+ * AIS login ke gateway memakai username+password dari konfigurasi, menerima
+ * bearer {@code token}, lalu menanyakan status sebuah tagihan. Perintah HTTP-nya
+ * dijalankan lewat proses {@code curl} eksternal
+ * ({@link #jalankanPerintahAmbilKeluaran}), bukan klien HTTP dalam JVM.</li>
+ * <li><b>Masuk (bank &rarr; AIS).</b> {@link #process} menerima callback
+ * pembayaran dan meneruskannya ke {@link #doProses} lalu {@link #doProcess},
+ * yang benar-benar membukukan pelunasan.</li>
+ * </ul>
+ *
+ * <h3>PENTING &mdash; letak pemeriksaan kredensial</h3>
+ * Kredensial gateway <b>hanya dipakai pada arah keluar</b>, yaitu untuk
+ * memperoleh token pada {@link #checkPakaiva}/{@link #checkPakaiqris}. Jalur
+ * <b>masuk</b> &mdash; satu-satunya jalur yang membukukan uang &mdash;
+ * <b>tidak memverifikasi tanda tangan, MAC, maupun token</b> atas payload
+ * callback. Satu-satunya pengenalan pemanggil adalah pencocokan alamat IP ke
+ * tabel {@link BankHost} lewat
+ * {@link PembayaranUtil#getBankHost(String, String)} di {@link #process}, dan
+ * hasilnya tidak dipakai sebagai gerbang. Pembaca kode perlu menyadari bahwa
+ * perlindungan endpoint masuk bertumpu pada pembatasan jaringan di depan
+ * aplikasi, bukan pada pemeriksaan di dalam kode ini.
+ *
+ * <h3>Bentuk callback masuk</h3>
+ * {@link #doProses} mengenali dua bentuk payload:
+ * <ul>
+ * <li><b>VA</b> &mdash; memuat {@code number} (nomor VA), {@code amount}
+ * (nominal), dan {@code trx_date};</li>
+ * <li><b>QRIS</b> &mdash; memuat {@code kd_tagihan}; pada bentuk ini nominal
+ * sengaja diisi sentinel negatif yang belakangan diganti nilai total tagihan itu
+ * sendiri di {@link #doProcess}, karena kanal QRIS memang tidak mengirim
+ * nominal terpisah.</li>
+ * </ul>
+ * URI yang berakhiran {@code BankaltimtaraReversal} menandai callback pembatalan
+ * ({@code reversal}), yang membalik pembayaran alih-alih membukukannya.
  *
  * <p>
  * <b>Riwayat keamanan (DIPERBAIKI 2026-09-06):</b> {@link #checkPakaiqris} dan
@@ -68,11 +109,19 @@ import ais.ui.util.WaktuUtil;
  * </p>
  */
 public class Bankaltimtara extends HttpServlet {
+	/** Versi serialisasi standar {@link HttpServlet}; tidak dipakai secara fungsional. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; di kelas ini dipakai untuk memetakan alamat IP
+	 * pemanggil callback ke baris {@link BankHost}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
 	/**
+	 * Konstruktor tanpa argumen yang dibutuhkan kontainer servlet untuk
+	 * meng-instansiasi endpoint ini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Bankaltimtara() {
@@ -80,6 +129,17 @@ public class Bankaltimtara extends HttpServlet {
 	}
 
 	/**
+	 * Menangani request HTTP GET ke endpoint callback dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * <p>
+	 * Exception ditelan dan hanya ditampilkan bagi admin agar koneksi dari bank
+	 * tidak putus tanpa jawaban.
+	 *
+	 * @param request  request masuk dari gateway Bank Kaltimtara
+	 * @param response respons yang akan diisi badan JSON
+	 * @throws ServletException bila kontainer servlet gagal memproses request
+	 * @throws IOException      bila terjadi kegagalan I/O saat menulis respons
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -92,6 +152,48 @@ public class Bankaltimtara extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Rekonsiliasi manual kanal <b>QRIS</b>: menanyakan langsung ke gateway Bank
+	 * Kaltimtara apakah sebuah tagihan sudah dibayar, lalu menandainya lunas bila
+	 * memang sudah.
+	 *
+	 * <h3>Dua panggilan berurutan</h3>
+	 * <ol>
+	 * <li><b>Autentikasi</b> ke {@code bankaltimtara_gateway_qris_url_autentication}
+	 * dengan {@code bankaltimtara_qris_username} dan
+	 * {@code bankaltimtara_qris_password} dari konfigurasi, menghasilkan bearer
+	 * {@code token}.</li>
+	 * <li><b>Cek status</b> ke {@code bankaltimtara_gateway_qris_url_check_status}
+	 * dengan {@code kd_tagihan} (kode VA) dan {@code institusi} dari
+	 * {@code bankaltimtara_inst_id_qris}, memakai token tersebut.</li>
+	 * </ol>
+	 * Keduanya dijalankan lewat proses {@code curl} eksternal
+	 * ({@link #jalankanPerintahAmbilKeluaran}) dengan batas waktu koneksi 10 detik
+	 * dan total 45 detik.
+	 *
+	 * <h3>Pencocokan nominal</h3>
+	 * {@code bruto_amount} dari bank dibandingkan dengan
+	 * {@link VirtualAccountBank#totalBiaya()}, yaitu total <i>ditambah</i> biaya
+	 * administrasi &mdash; bukan {@code getTotal()} saja. Ini penting: VA/QRIS
+	 * diterbitkan sebesar {@code totalBiaya()}, sehingga bila
+	 * {@code bankaltimtara_biaya_administrasi} bukan nol, membandingkan ke
+	 * {@code getTotal()} tidak akan pernah cocok dan tagihan yang sebenarnya sudah
+	 * lunas di bank tidak pernah tertandai lunas di sistem. Hanya bila nominal cocok
+	 * dan VA belum tertandai lunas, {@link VirtualAccountBank#bayarVa} dipanggil.
+	 *
+	 * <p>
+	 * Kredensial yang dipakai di sini adalah kredensial <b>keluar</b>; lihat catatan
+	 * pada javadoc kelas mengenai letak pemeriksaan kredensial dan riwayat perbaikan
+	 * kredensial hardcoded.
+	 *
+	 * @param virtualAccountBankReadOnly VA yang hendak dicek; dipakai hanya untuk
+	 *                                   dibaca kode dan nominalnya, penandaan lunas
+	 *                                   dilakukan lewat session terpisah
+	 * @return objek JSON hasil cek status dari bank, atau {@code null} bila respons
+	 *         tidak dapat diurai
+	 * @throws Exception bila autentikasi atau cek status gagal, termasuk ketika bank
+	 *                   menjawab bahwa transaksi belum ada
+	 */
 	public static JSONObject checkPakaiqris(final VirtualAccountBank virtualAccountBankReadOnly) throws Exception {
 		System.out.println("Request body: ");
 
@@ -498,6 +600,26 @@ public class Bankaltimtara extends HttpServlet {
 		return tandaiSumberData(jsonObject2, dariNotifTersimpan);
 	}
 
+	/**
+	 * Mengekstrak objek transaksi yang memuat field {@code amount} dari respons cek
+	 * status Bank Kaltimtara, yang bentuknya tidak selalu sama.
+	 *
+	 * <h3>Bentuk yang ditangani</h3>
+	 * <ul>
+	 * <li>{@code data} berupa objek &mdash; dipakai langsung bila punya
+	 * {@code amount};</li>
+	 * <li>{@code data} berupa larik &mdash; ditelusuri <b>dari belakang</b> supaya
+	 * yang terambil adalah entri terbaru, dan dipakai entri pertama yang punya
+	 * {@code amount};</li>
+	 * <li>tanpa pembungkus {@code data} &mdash; objek respons itu sendiri dipakai
+	 * bila sudah memuat {@code amount}.</li>
+	 * </ul>
+	 *
+	 * @param response objek JSON respons dari bank
+	 * @return objek transaksi yang memuat {@code amount}, atau {@code null} bila
+	 *         tidak ada satu pun bentuk di atas yang cocok
+	 * @throws Exception bila pembacaan struktur JSON gagal
+	 */
 	private static JSONObject ambilDataPembayaranBankaltimtara(JSONObject response) throws Exception {
 		if (!response.isNull("data")) {
 			Object data = response.get("data");
@@ -519,6 +641,22 @@ public class Bankaltimtara extends HttpServlet {
 		return response.isNull("amount") ? null : response;
 	}
 
+	/**
+	 * Mengubah nilai nominal dari respons bank menjadi {@link Double}, dengan
+	 * toleransi terhadap format yang dikirim gateway.
+	 *
+	 * <p>
+	 * Pemisah ribuan berupa koma dibuang lebih dulu dan spasi di tepi dipangkas,
+	 * karena Bank Kaltimtara dapat mengirim nominal sebagai teks berformat
+	 * ({@code "1,250,000"}) maupun sebagai angka. Nilai kosong maupun yang tidak
+	 * dapat diurai sengaja dilempar sebagai exception ber-pesan jelas &mdash; bukan
+	 * dianggap nol &mdash; supaya kegagalan pembacaan tidak pernah tersamar sebagai
+	 * pembayaran bernilai nol.
+	 *
+	 * @param nominal nilai mentah dari JSON respons; boleh {@code null}
+	 * @return nominal sebagai {@link Double}
+	 * @throws Exception bila nominal kosong atau tidak dapat diurai sebagai angka
+	 */
 	private static Double parseNominalBankaltimtara(Object nominal) throws Exception {
 		String nilai = nominal == null ? "" : nominal.toString().trim().replace(",", "");
 		if (nilai.isEmpty()) {
@@ -531,6 +669,28 @@ public class Bankaltimtara extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyisipkan penanda asal-usul data ke objek JSON hasil cek pembayaran, supaya
+	 * admin tidak salah menyimpulkan bahwa hasil yang dilihatnya berasal dari
+	 * pengecekan langsung ke bank.
+	 *
+	 * <p>
+	 * Bila hasil berasal dari cadangan notifikasi tersimpan, ditambahkan field
+	 * {@code _sumberData} bernilai {@code "notifikasi_tersimpan_fallback"} beserta
+	 * {@code _keterangan} yang menjelaskan bahwa pengecekan live ke gateway gagal
+	 * dan angka yang ditampilkan diproses ulang dari notifikasi terakhir. Bila
+	 * berasal dari pengecekan live, objek dikembalikan apa adanya tanpa penanda.
+	 *
+	 * <p>
+	 * Kegagalan menyisipkan penanda sengaja tidak dilempar &mdash; hanya dicatat ke
+	 * Error Log &mdash; karena penandaan bersifat informatif dan tidak boleh
+	 * menggagalkan hasil cek pembayaran yang sudah diperoleh.
+	 *
+	 * @param jsonObject2        objek hasil cek yang akan ditandai
+	 * @param dariNotifTersimpan {@code true} bila hasil berasal dari cadangan
+	 *                           notifikasi tersimpan, bukan pengecekan live
+	 * @return objek yang sama, sudah ditandai bila perlu
+	 */
 	private static JSONObject tandaiSumberData(JSONObject jsonObject2, boolean dariNotifTersimpan) {
 		try {
 			if (dariNotifTersimpan) {
@@ -546,6 +706,15 @@ public class Bankaltimtara extends HttpServlet {
 	}
 
 	/**
+	 * Menangani request HTTP POST ke endpoint callback &mdash; jalur normal
+	 * notifikasi pembayaran VA/QRIS Bank Kaltimtara &mdash; dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request  request masuk dari gateway Bank Kaltimtara; badan request
+	 *                 dibaca sebagai JSON mentah
+	 * @param response respons yang akan diisi badan JSON
+	 * @throws ServletException bila kontainer servlet gagal memproses request
+	 * @throws IOException      bila terjadi kegagalan I/O saat menulis respons
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -558,6 +727,27 @@ public class Bankaltimtara extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menentukan apakah sebuah VA sudah melewati batas waktu bayar sehingga callback
+	 * otomatis dari bank harus ditolak.
+	 *
+	 * <p>
+	 * Dipakai <b>hanya</b> pada jalur callback publik. Rekonsiliasi manual
+	 * ({@code chekLagi}/{@code chek}) dan {@code reversal} sengaja dikecualikan di
+	 * {@link #doProcess}, karena admin memang perlu bisa merapikan tagihan yang
+	 * sudah lewat tenggat.
+	 *
+	 * <p>
+	 * Batas waktu diambil dari {@link VirtualAccountBank#getKadaluarsaWaktu()}; VA
+	 * tanpa batas waktu dianggap belum kedaluwarsa. Perbandingan memakai
+	 * {@code !batasPembayaran.after(sekarang)} sehingga tepat pada detik batas pun
+	 * sudah dihitung kedaluwarsa.
+	 *
+	 * @param virtualAccountBank VA yang diperiksa; {@code null} dianggap belum
+	 *                           kedaluwarsa
+	 * @return {@code true} bila callback otomatis harus ditolak karena tenggat sudah
+	 *         lewat
+	 */
 	private static boolean sudahKadaluarsaUntukCallbackOtomatis(VirtualAccountBank virtualAccountBank) {
 		if (virtualAccountBank == null) {
 			return false;

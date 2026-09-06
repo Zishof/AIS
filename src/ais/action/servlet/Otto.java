@@ -45,14 +45,73 @@ import ais.database.model.sekolah.Tagihan;
 import ais.ui.util.WaktuUtil;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet gateway <i>host-to-host</i> (H2H) penyedia pembayaran <b>OTTO</b> untuk skema Virtual
+ * Account: melayani <b>inquiry</b> (tanya tagihan), <b>payment</b> (pelunasan), dan
+ * <b>reversal</b> (pembatalan pembayaran) atas baris {@link VirtualAccountBank}.
+ *
+ * <p>Terpasang di {@code web.xml} sebagai servlet {@code Otto} pada URL {@code /Otto}, dengan
+ * {@link FilterOtto} terpasang pada pola URL yang sama. Filter tersebut hanya membungkus
+ * <i>response</i> (mencatat setiap header yang disetel dan menahan header
+ * {@code Authorization}); ia <b>bukan</b> penyaring alamat IP dan tidak melakukan otentikasi
+ * apa pun atas permintaan yang masuk.</p>
+ *
+ * <p>Identitas penyedianya dipastikan dari kode, bukan dari namanya saja: payload memakai field
+ * {@code trxRef} dan {@code amount}, URI pembatalan berakhiran {@code "OttoReversal"}, dan
+ * simulasi timeout memakai kunci konfigurasi {@code otto_va_sleep} — pola khas gerbang pembayaran
+ * OTTO, bukan lembaga pengawas.</p>
+ *
+ * <h4>Asal-usul: salinan dari {@link BMS}</h4>
+ * <p>Berkas ini adalah <b>salinan struktural {@link BMS}</b>. Penyesuaian yang sudah dilakukan
+ * meliputi nama field JSON ({@code trxRef} dan {@code amount} menggantikan {@code nim} dan
+ * {@code paymentAmount}), URI reversal, kunci konfigurasi, serta penambahan {@link #doHead}.
+ * Waktu transaksi tidak dikirim penyedia ini, sehingga {@link #doProses} meneruskan
+ * {@code tanggalP} bernilai {@code null} dan {@link #doProcess} jatuh ke waktu server saat ini.</p>
+ *
+ * <p><b>Satu penanda milik BMS masih tertinggal</b>: {@link #process} menetapkan label bank
+ * {@code "BMS"}. Karena label itulah yang disimpan sebagai {@code validator} pada {@link Kegiatan}
+ * dan {@link CicilanPembayaran}, pembayaran lewat kanal ini tercatat atas nama BMS. Bahwa URI dan
+ * kunci konfigurasi sudah bernama Otto sementara label bank belum menunjukkan penyesuaian yang
+ * belum tuntas. Dicatat apa adanya; perbaikannya di luar cakupan berkas ini.</p>
+ *
+ * <h4>Model autentikasi (tidak ada tanda tangan digital)</h4>
+ * <p>Sama seperti {@link BMS}, {@link Nagari}, dan {@link BSI}, kanal ini <b>tidak memverifikasi
+ * tanda tangan, HMAC, token, maupun kata sandi</b> — baik pada cabang inquiry, pembayaran, maupun
+ * reversal. Satu-satunya pengenal pemanggil adalah pencocokan alamat IP lewat
+ * {@link PembayaranUtil#getBankHost(String, String)}, dan hasilnya <b>tidak dipakai sebagai
+ * gerbang</b>: {@code bankHost} bernilai {@code null} untuk IP tak dikenal, namun pemrosesan tetap
+ * berlanjut. Bandingkan dengan {@link Bsiresponse} yang payload-nya harus dibuka memakai kunci
+ * rahasia bersama sehingga verifikasi terjadi pada jalur transaksi. IP dibaca dari
+ * {@link HttpServletRequest#getRemoteAddr()}, bukan dari header {@code X-Forwarded-For} yang dapat
+ * dipalsukan klien.</p>
+ *
+ * @see BMS
+ * @see Nagari
+ * @see FilterOtto
+ * @see VirtualAccountBank
  */
 public class Otto extends HttpServlet {
+	/** Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton utilitas pembayaran; dipakai untuk memetakan alamat IP pemanggil menjadi
+	 * {@link BankHost} dan untuk menghitung total serta denda dari cicilan.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/**
+	 * Pemformat tanggal {@code yyyyMMddHHmmss}, warisan dari {@link BMS}.
+	 *
+	 * <p>Penyedia OTTO tidak mengirimkan waktu transaksi, sehingga {@link #doProses} meneruskan
+	 * {@code null} dan penguraian di {@link #doProcess} selalu gagal lalu jatuh ke waktu server
+	 * saat ini. Dengan demikian pemformat ini praktis tidak terpakai pada alur normal, dan tetap
+	 * dipertahankan mengikuti bentuk berkas asalnya.</p>
+	 *
+	 * <p>Dibungkus {@link ThreadLocal} karena {@link SimpleDateFormat} tidak aman dipakai bersama
+	 * antar-thread, sedangkan servlet dilayani banyak thread sekaligus.</p>
+	 */
 	private static final ThreadLocal<SimpleDateFormat> dateFormat = new ThreadLocal<SimpleDateFormat>() {
+		/** Membuat pemformat baru untuk setiap thread yang pertama kali memakainya. */
 		@Override
 		protected SimpleDateFormat initialValue() {
 			return new SimpleDateFormat("yyyyMMddHHmmss");
@@ -60,6 +119,9 @@ public class Otto extends HttpServlet {
 	};
 
 	/**
+	 * Konstruktor bawaan yang dipanggil kontainer servlet; tidak ada inisialisasi khusus karena
+	 * seluruh keadaan bersifat statis.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Otto() {
@@ -67,6 +129,17 @@ public class Otto extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP GET dengan meneruskannya ke {@link #process}; perlakuannya sama
+	 * dengan {@link #doPost}.
+	 *
+	 * <p>Exception apa pun ditelan di sini dan hanya diteruskan ke
+	 * {@code Common.tampilErrorJikaAdmin}, sehingga kegagalan tak terduga tidak menjadi HTTP 500
+	 * melainkan balasan kosong bertatus 200.</p>
+	 *
+	 * @param request  permintaan dari sisi penyedia pembayaran
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -79,6 +152,26 @@ public class Otto extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menangani permintaan HTTP HEAD dengan meneruskannya sepenuhnya ke implementasi bawaan
+	 * {@link HttpServlet#doHead}.
+	 *
+	 * <p>Method ini tidak menambahkan perilaku apa pun — implementasi bawaanlah yang menjalankan
+	 * {@link #doGet} dan membuang badan balasannya sehingga hanya header yang terkirim. Kehadiran
+	 * penimpaan kosong ini kemungkinan besar sisa kerangka yang dihasilkan IDE (komentar
+	 * {@code TODO Auto-generated method stub} masih tertinggal), namun aman dipertahankan karena
+	 * perilakunya identik dengan tanpa penimpaan.</p>
+	 *
+	 * <p>Perlu dicatat: karena bawaan {@code doHead} menjalankan {@link #doGet}, sebuah permintaan
+	 * HEAD tetap melewati seluruh alur pemrosesan termasuk pembacaan badan permintaan dan
+	 * kemungkinan pencatatan pembayaran — bukan sekadar pemeriksaan ketersediaan layanan.</p>
+	 *
+	 * @param req  permintaan HEAD dari klien
+	 * @param resp tujuan penulisan header balasan
+	 * @throws ServletException diteruskan dari implementasi bawaan
+	 * @throws IOException      diteruskan dari implementasi bawaan
+	 * @see HttpServlet#doHead(HttpServletRequest, HttpServletResponse)
+	 */
 	@Override
 	protected void doHead(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		// TODO Auto-generated method stub
@@ -88,6 +181,13 @@ public class Otto extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST — jalur yang dipakai penyedia pembayaran — dengan
+	 * meneruskannya ke {@link #process}.
+	 *
+	 * @param request  permintaan dari sisi penyedia, badan JSON-nya dibaca di {@link #process}
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws ServletException diwariskan dari kontrak {@link HttpServlet}; tidak dilempar sendiri
+	 * @throws IOException      bila penulisan balasan gagal
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -100,6 +200,73 @@ public class Otto extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Inti gateway: mencari VA, menyusun balasan JSON, dan — sesuai mode — mencatat pelunasan atau
+	 * membatalkannya.
+	 *
+	 * <h4>Tiga mode</h4>
+	 * <ul>
+	 *   <li><b>inquiry</b> ({@code inquery=true}) — hanya membaca tagihan dan mengisi
+	 *       {@code billDetails}; tidak ada penyimpanan, sehingga pengecekan tagihan tidak pernah
+	 *       tercatat sebagai pembayaran;</li>
+	 *   <li><b>payment</b> — mencatat {@link Kegiatan} beserta {@link CicilanPembayaran} lalu
+	 *       memanggil {@link VirtualAccountBank#updateVa};</li>
+	 *   <li><b>reversal</b> ({@code reversal=true}) — membatalkan pembayaran dengan memutus
+	 *       kaitan VA ke kegiatannya ({@code setKegiatan(null)}) sehingga VA kembali terbuka.</li>
+	 * </ul>
+	 *
+	 * <h4>Urutan pemeriksaan dan kode galat</h4>
+	 * <ol>
+	 *   <li>VA tidak ditemukan &rarr; {@code errorCode=01} "Nomor VA salah";</li>
+	 *   <li>VA kedaluwarsa &rarr; {@code errorCode=02} "Tagihan tidak tersedia" (dilewati pada
+	 *       mode reversal, karena pembatalan justru wajar terjadi setelah masa berlaku habis);</li>
+	 *   <li>reversal atas VA yang belum pernah dibayar &rarr; {@code errorCode=05}
+	 *       "Reversal gagal";</li>
+	 *   <li>{@code VirtualAccountBank.isSudahTerbayarUntukPayment} &rarr; {@code errorCode=03}
+	 *       "Tagihan sudah terbayar", pencegah pembayaran ganda;</li>
+	 *   <li><b>pencocokan nominal</b> — pada mode pembayaran {@code nominalP} harus sama persis
+	 *       (sebagai {@code int}) dengan {@code getTotal() + getBiayaAdmin()}; bila tidak,
+	 *       {@code errorCode=04} "Nominal Tagihan tidak sesuai";</li>
+	 *   <li>kegagalan tak terduga &rarr; {@code errorCode=91} "Link Down", atau
+	 *       {@code errorCode=05} bila sedang reversal.</li>
+	 * </ol>
+	 *
+	 * <h4>Waktu transaksi</h4>
+	 * <p>Penyedia ini tidak mengirim waktu transaksi, sehingga {@link #doProses} meneruskan
+	 * {@code tanggalP} bernilai {@code null}. Penguraiannya dijamin gagal dan tertangkap, lalu
+	 * seluruh pembukuan memakai waktu server saat permintaan diterima.</p>
+	 *
+	 * <h4>Dua cabang pembayar</h4>
+	 * <p>VA milik siswa/calon siswa diproses {@link VirtualAccountBank#bayarSiswa}; VA milik
+	 * mahasiswa/calon mahasiswa diproses di tempat dengan membuat atau memperbarui
+	 * {@link Kegiatan} dan baris {@link CicilanPembayaran} untuk tiap komponen pada kolom
+	 * {@code cicilan}, yang dikenali dari awalannya ({@code "Bulanan-"}, {@code "Item-"},
+	 * {@code "Keranjang-"}, atau angka murni).</p>
+	 *
+	 * <p>Blok {@code finally} <b>selalu</b> memanggil
+	 * {@code PembayaranGatewayHelper.catatLogHostToHost} tanpa syarat {@code bankHost}, sehingga
+	 * permintaan dari IP tak dikenal pun tetap meninggalkan jejak audit. Ini keputusan arsitektur
+	 * yang disengaja, bukan kelalaian pemeriksaan.</p>
+	 *
+	 * @param nominalP nominal setoran dari penyedia; diabaikan saat inquiry
+	 * @param tanggalP waktu transaksi; pada alur normal selalu {@code null} sehingga dipakai waktu
+	 *                 server saat ini
+	 * @param va       penanda transaksi yang membawa nomor Virtual Account (field {@code trxRef})
+	 * @param bank     label bank yang disimpan sebagai {@code validator}; saat ini bernilai
+	 *                 {@code "BMS"} warisan salinan {@link BMS}
+	 * @param bankHost host hasil pencocokan IP; boleh {@code null} dan tidak menjadi gerbang
+	 * @param request  permintaan asli, dipakai untuk pencatatan log H2H
+	 * @param data     badan permintaan mentah; juga menjadi kerangka objek balasan
+	 * @param chekLagi penanda dari pemanggil; pada alur servlet selalu {@code true}
+	 * @param inquery  {@code true} untuk mode tanya tagihan yang bersifat baca-saja
+	 * @param reversal {@code true} untuk pembatalan pembayaran
+	 * @param chek     mode pemeriksaan internal; melonggarkan pemeriksaan kedaluwarsa dan
+	 *                 "sudah terbayar"
+	 * @return objek JSON balasan berisi {@code errorCode}, {@code statusDescription}, identitas
+	 *         pembayar, dan — pada inquiry — {@code billDetails}
+	 * @throws Exception bila penyusunan JSON gagal; kegagalan basis data ditangkap di dalam dan
+	 *                   diubah menjadi {@code errorCode=91}
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi, boolean inquery, boolean reversal, boolean chek)
@@ -797,6 +964,43 @@ public class Otto extends HttpServlet {
 		return response;
 	}
 
+	/**
+	 * Mengurai payload permintaan penyedia menjadi parameter terpisah, memanggil
+	 * {@link #doProcess}, dan menentukan mode inquiry maupun reversal.
+	 *
+	 * <p>Penanda transaksi diambil dari field {@code trxRef} dan nominal dari {@code amount},
+	 * masing-masing dengan cadangan berupa parameter query bernama sama. <b>Ketiadaan</b>
+	 * {@code amount} itu sendiri yang menandai permintaan sebagai inquiry — penyedia
+	 * mengirimkannya hanya saat benar-benar menyetor. Mode reversal ditentukan dari URI yang
+	 * berakhiran {@code "OttoReversal"}. Waktu transaksi tidak dikirim penyedia, sehingga
+	 * {@code tanggalP} sengaja diteruskan sebagai {@code null}.</p>
+	 *
+	 * <p>Bila {@link #doProcess} melempar exception, balasan diganti {@link #errorDb} sehingga
+	 * penyedia menerima {@code errorCode=91} "Link Down" dan tidak menganggap tagihan lunas.</p>
+	 *
+	 * <p><b>Perbedaan dengan {@link BMS#doProses}.</b> Dua pengaman yang sudah ada di {@link BMS}
+	 * belum tersalin ke sini:</p>
+	 * <ul>
+	 *   <li>tidak ada pemeriksaan bentuk payload di awal ({@link BMS} menolak badan kosong atau
+	 *       yang tidak diawali <code>{</code> dengan {@code errorCode=30}), dan {@code req} yang
+	 *       bernilai {@code null} langsung dipakai memanggil {@code req.isNull(...)};</li>
+	 *   <li>simulasi timeout di bawah masih dijalankan <b>setelah</b> {@link #doProcess} selesai
+	 *       dan pembayaran tercatat, serta cukup diaktifkan lewat konfigurasi
+	 *       {@code otto_va_sleep} saja — sedangkan {@link BMS} kini mengembalikan balasan timeout
+	 *       <b>sebelum</b> pembayaran dicatat dan mensyaratkan JVM flag
+	 *       {@code ais.bms.allowTimeoutSimulation}.</li>
+	 * </ul>
+	 * <p>Kedua hal itu dicatat apa adanya; perbaikannya di luar cakupan berkas ini.</p>
+	 *
+	 * @param data     badan permintaan mentah
+	 * @param request  permintaan asli, sumber cadangan parameter dan penentu mode reversal
+	 * @param bankHost host hasil pencocokan IP; boleh {@code null}
+	 * @param bank     label bank yang akan tercatat sebagai {@code validator}
+	 * @param chek     mode pemeriksaan internal, diteruskan ke {@link #doProcess}
+	 * @return teks JSON balasan
+	 * @throws Exception bila payload bukan JSON yang sah, atau {@link Thread#sleep} pada simulasi
+	 *                   timeout terinterupsi
+	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
 		JSONObject req = data == null ? null : new JSONObject(data);
@@ -839,6 +1043,31 @@ public class Otto extends HttpServlet {
 		return body;
 	}
 
+	/**
+	 * Membaca badan permintaan, menetapkan {@link BankHost} dari alamat IP pemanggil, memanggil
+	 * {@link #doProses}, lalu menuliskan hasilnya sebagai JSON.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris lalu digabung <b>tanpa pemisah</b>, sehingga
+	 * JSON yang terpecah beberapa baris tetap menjadi satu dokumen utuh.</p>
+	 *
+	 * <p>Identifikasi pemanggil memakai {@link PembayaranUtil#getBankHost(String, String)} dengan
+	 * {@link HttpServletRequest#getRemoteAddr()} — alamat TCP sebenarnya, bukan header yang dapat
+	 * dipalsukan klien. Hasilnya hanya dilekatkan pada log dan pencarian VA; ia <b>tidak</b>
+	 * dipakai untuk menolak permintaan.</p>
+	 *
+	 * <p>Label bank yang ditetapkan di sini adalah {@code "BMS"} — penanda warisan salinan
+	 * {@link BMS} yang belum diganti menjadi Otto, padahal nilainya tersimpan sebagai
+	 * {@code validator} pada Kegiatan dan CicilanPembayaran (lihat javadoc
+	 * {@link Otto kelas ini}).</p>
+	 *
+	 * <p>Berbeda dari {@link BMS#process} dan {@link Nagari#process}, tidak ada penanganan
+	 * exception tambahan di sini: kegagalan {@link #doProses} merambat ke {@link #doPost} yang
+	 * menelannya, sehingga penyedia menerima balasan kosong alih-alih JSON bertanda gagal.</p>
+	 *
+	 * @param request  permintaan dari sisi penyedia pembayaran
+	 * @param response tujuan penulisan balasan JSON
+	 * @throws Exception bila pembacaan badan permintaan, pemrosesan, atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -869,6 +1098,23 @@ public class Otto extends HttpServlet {
 
 	}
 
+	/**
+	 * Menyusun balasan bertanda <i>timeout</i> ({@code errorCode=68}, "Connection Timeout") untuk
+	 * keperluan simulasi pengujian.
+	 *
+	 * <p>Balasan dibangun dari payload permintaan itu sendiri, sehingga seluruh field yang dikirim
+	 * penyedia tetap ada dan hanya status yang diganti.</p>
+	 *
+	 * <p><b>Peringatan.</b> Pada berkas ini pemanggilnya di {@link #doProses} berjalan
+	 * <b>setelah</b> {@link #doProcess} selesai mencatat pembayaran, sehingga balasan timeout ini
+	 * dapat terkirim untuk transaksi yang sebenarnya sudah tersimpan lunas. {@link BMS} sudah
+	 * mengubah urutan ini; lihat javadoc {@link #doProses}.</p>
+	 *
+	 * @param inquery penanda mode inquiry; saat ini tidak memengaruhi hasil
+	 * @param data    badan permintaan mentah yang dipakai sebagai kerangka balasan
+	 * @return teks JSON balasan timeout
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 */
 	private static String timeoutDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);
@@ -877,6 +1123,19 @@ public class Otto extends HttpServlet {
 		return jsonObjectResponse.toString();
 	}
 
+	/**
+	 * Menyusun balasan bertanda gagal ({@code errorCode=91}, "Link Down"), dipakai saat
+	 * {@link #doProcess} melempar exception.
+	 *
+	 * <p>Seperti {@link #timeoutDb}, balasan dibangun dari payload permintaan sehingga bentuknya
+	 * tetap dikenali pengurai di sisi penyedia. Kode 91 menandakan gangguan sementara, sehingga
+	 * penyedia memperlakukan tagihan sebagai <b>belum</b> lunas dan dapat mengulang permintaan.</p>
+	 *
+	 * @param inquery penanda mode inquiry; saat ini tidak memengaruhi hasil
+	 * @param data    badan permintaan mentah yang dipakai sebagai kerangka balasan
+	 * @return teks JSON balasan gagal
+	 * @throws Exception bila {@code data} bukan JSON yang sah
+	 */
 	private static String errorDb(boolean inquery, String data) throws Exception {
 
 		JSONObject jsonObjectResponse = new JSONObject(data);

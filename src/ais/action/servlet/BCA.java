@@ -1607,6 +1607,94 @@ public class BCA extends HttpServlet {
 		return validateSignature;
 	}
 
+	/**
+	 * Titik masuk tunggal seluruh endpoint SNAP BCA: membaca body, menegakkan rantai otentikasi,
+	 * memilih cabang, lalu menulis balasan JSON.
+	 *
+	 * <p>Dipanggil {@link #doGet} maupun {@link #doPost}. Keempat {@code url-pattern} yang
+	 * dipetakan ke servlet ini bermuara di sini; pemilihan cabang tidak ditentukan oleh URL
+	 * melainkan oleh isi body dan akhiran {@code request.getRequestURI()}.</p>
+	 *
+	 * <h3>Pembacaan permintaan</h3>
+	 * <p>Body dibaca baris demi baris menjadi satu {@link String} lalu diurai menjadi
+	 * {@link JSONObject}. Seluruh nama header disalin ke sebuah {@code JSONObject} agar dapat
+	 * dibaca tanpa peduli huruf besar-kecil — setiap header penting diambil dua kali, sekali
+	 * dengan ejaan {@code Title-Case} dan sekali {@code UPPER-CASE}. Tiga penanda menentukan
+	 * cabang: {@code grantType} pada body, ada-tidaknya {@code paidAmount} (menetapkan
+	 * {@code inquery}), dan apakah URI berakhiran {@code status}.</p>
+	 *
+	 * <h3>Rantai otentikasi — hasil verifikasi presisi</h3>
+	 * <p>Berbeda dengan gateway {@code OcbcNisp} dan {@link Briva}, <b>cabang transaksi kelas ini
+	 * benar-benar memverifikasi identitas pemanggil</b>. Urutan lengkapnya:</p>
+	 * <ol>
+	 *   <li><b>Semua cabang</b> — {@code X-TIMESTAMP} wajib terurai oleh {@link #dateFormat1};
+	 *       gagal berarti {@code 4007301}. Yang diperiksa hanya <i>format</i>, bukan kesegaran,
+	 *       sehingga stempel waktu lama tetap diterima.</li>
+	 *   <li><b>Cabang penerbitan token</b> ({@code grantType != null}) — {@code grantType} wajib
+	 *       {@code client_credentials}; {@code X-CLIENT-KEY} wajib sama dengan konfigurasi
+	 *       {@code strClientId_bca}; lalu {@link #sign(String, String)} memverifikasi tanda tangan
+	 *       RSA atas {@code "<clientId>|<timestamp>"}. Baru setelah ketiganya lolos, sebuah
+	 *       {@link UUID} diterbitkan, sebuah {@link Remover} dijalankan, dan token dicatat ke
+	 *       {@link #accessTokens}.</li>
+	 *   <li><b>Cabang transaksi</b> ({@code grantType == null}) — empat gerbang berurutan:
+	 *     <ul>
+	 *       <li>{@code CHANNEL-ID} wajib sama dengan {@code channel_id_bca};</li>
+	 *       <li>{@code X-PARTNER-ID} wajib sama dengan {@code partner_id_bca};</li>
+	 *       <li>bearer token dari header {@code Authorization} <b>dicari kembali di
+	 *           {@link #accessTokens}</b> — tidak ditemukan berarti {@code 401 Invalid Token
+	 *           (B2B)}. Inilah pembacaan yang membuat {@link #accessTokens} berfungsi sebagai
+	 *           gerbang, bukan sekadar field yang ditulis lalu dilupakan;</li>
+	 *       <li>tanda tangan <b>HMAC-SHA512</b> dihitung ulang atas
+	 *           {@code "POST:<requestPath>:<token>:<sha256 heksadesimal huruf kecil dari body
+	 *           terminifikasi>:<timestamp>"} memakai rahasia {@code strClientScret_bca}, lalu
+	 *           dibandingkan dengan {@code X-SIGNATURE}. Tidak cocok berarti {@code 401
+	 *           Unauthorized [Signature]}.</li>
+	 *     </ul>
+	 *     Barulah setelah keempatnya lolos, field transaksi diurai dan {@link #doProcess doProcess}
+	 *     dipanggil.</li>
+	 * </ol>
+	 * <p>Token yang berhasil dipakai juga diperpanjang lewat {@link Remover#setStartedTime(long)},
+	 * sehingga masa berlakunya bergeser mengikuti pemakaian.</p>
+	 *
+	 * <h3>Kelemahan yang tersisa</h3>
+	 * <ul>
+	 *   <li><b>Rahasia HMAC punya nilai bawaan di kode.</b> {@code strClientScret_bca} dibaca lewat
+	 *       {@code Common.getKonfigurasi} dengan literal rahasia sebagai cadangan; karena helper
+	 *       tersebut menuliskan nilai bawaan ke basis data saat kunci belum ada, instalasi yang tak
+	 *       pernah menggantinya memakai kunci yang dapat dibaca dari kode sumber. Kunci simetris
+	 *       yang bocor berarti tanda tangan transaksi dapat dipalsukan.</li>
+	 *   <li><b>Pembandingan tanda tangan memakai {@code equalsIgnoreCase}</b>, sehingga tidak
+	 *       <i>constant-time</i> dan secara teori terbuka terhadap serangan pewaktuan.</li>
+	 *   <li><b>Tidak ada jendela kesegaran</b> pada {@code X-TIMESTAMP}; penangkalan pengulangan
+	 *       sepenuhnya bergantung pada {@link #unikId} yang hanya di memori.</li>
+	 *   <li><b>Penyaringan IP bersifat informasional.</b> {@link BankHost} dipetakan dari
+	 *       {@code request.getRemoteAddr()} — pilihan yang tepat karena tidak memercayai header
+	 *       {@code X-Forwarded-For} atau {@code CF-Connecting-IP} yang dapat dipalsukan — tetapi
+	 *       hasil {@code null} tidak menghentikan transaksi.</li>
+	 *   <li><b>Seluruh body dan header dicetak ke {@code System.out}</b> untuk penelusuran,
+	 *       termasuk data transaksi nasabah; berkas log server harus diperlakukan sebagai data
+	 *       sensitif.</li>
+	 * </ul>
+	 *
+	 * <h3>Penulisan respons</h3>
+	 * <p>Sebelum ditulis, string {@code "null"} berkutip diganti menjadi {@code null} JSON sejati.
+	 * Respons dikirim dengan {@code Content-Type: application/json} dan header non-standar
+	 * {@code length}. Status HTTP sudah ditetapkan lebih dulu oleh masing-masing cabang atau oleh
+	 * {@link #doProcess doProcess}.</p>
+	 *
+	 * <p><b>Penanganan galat:</b> kegagalan apa pun di dalam cabang transaksi ditangkap dan
+	 * diterjemahkan menjadi {@code 401 Invalid Token (B2B)} — pesan yang menyesatkan bila
+	 * penyebabnya sebenarnya galat pemrosesan, namun bersifat gagal-tertutup.</p>
+	 *
+	 * @param request  permintaan dari BCA
+	 * @param response respons yang akan diisi JSON SNAP
+	 * @throws Exception bila pembacaan body atau penulisan respons gagal di luar blok yang sudah
+	 *                   tertangkap
+	 * @see #doProcess(Double, String, String, String, String, String, String, String, String,
+	 *      String, String, String, String, BankHost, HttpServletRequest, HttpServletResponse,
+	 *      String, boolean, boolean, boolean)
+	 * @see #sign(String, String)
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
