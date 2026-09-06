@@ -1067,6 +1067,35 @@ public class Repository extends HttpServlet {
         out.flush();
     }
 
+    /**
+     * Menuliskan satu rekaman OAI-PMH: hanya bagian {@code header} untuk
+     * {@code ListIdentifiers}, atau {@code record} lengkap beserta metadata Dublin Core untuk
+     * {@code ListRecords} dan {@code GetRecord}.
+     *
+     * <p>{@code header} memuat {@code identifier}, {@code datestamp} (bernilai epoch bila butir
+     * tidak punya cap waktu, agar dokumen tetap sah), dan {@code setSpec}
+     * {@code collection:{id}}. Butir yang sudah ditarik memperoleh atribut
+     * {@code status="deleted"} dan metadatanya sengaja tidak ditulis meski diminta — inilah cara
+     * protokol memberi tahu pemanen agar menghapus salinannya.</p>
+     *
+     * <p>Metadata dipetakan ke {@code oai_dc}: {@code dc:title}, satu {@code dc:creator} untuk
+     * tiap penulis (dipisah tanda titik koma, bagian kosong dilewati), {@code dc:description},
+     * {@code dc:subject}, {@code dc:publisher}, {@code dc:date}, {@code dc:type},
+     * {@code dc:language}, {@code dc:identifier} (ditambah satu lagi bila butir punya
+     * <i>handle</i> DSpace), dan {@code dc:rights} yang diisi kebijakan akses. Ruas yang kosong
+     * dilewati, bukan ditulis kosong.</p>
+     *
+     * <p>Seluruh nilai dilewatkan {@link #xml}, sehingga metadata yang mengandung
+     * {@code &}, {@code <}, atau tanda kutip tidak merusak dokumen maupun menyisipkan elemen.</p>
+     *
+     * <p>{@code item} bernilai {@code null} membuat method langsung kembali tanpa menulis apa pun
+     * — dapat terjadi ketika butir hilang di antara pencarian dan pembacaan detailnya.</p>
+     *
+     * @param out             penulis tanggapan XML
+     * @param item            detail butir; boleh {@code null}
+     * @param includeMetadata {@code true} untuk menulis pembungkus {@code record} beserta
+     *                        metadata; {@code false} untuk header saja
+     */
     private void writeOaiRecord(PrintWriter out, ItemDetail item, boolean includeMetadata) {
         if (item == null) return;
         if (includeMetadata) out.print("<record>");
@@ -1090,6 +1119,22 @@ public class Repository extends HttpServlet {
         if (includeMetadata) out.print("</record>");
     }
 
+    /**
+     * Menyusun berkas {@code robots.txt} khusus portal Repository.
+     *
+     * <p>Isinya mengizinkan seluruh agen menelusuri {@code contextPath + "/repository"} dan
+     * menunjuk sitemap pada asal publik. Karena repositori karya ilmiah memang ingin terindeks
+     * mesin pencari akademik, aturannya sengaja permisif.</p>
+     *
+     * <p>Cabang yang memanggil method ini di {@link #process} hanya aktif bila
+     * {@code getServletPath()} berakhiran {@code robots.txt}; pada pemasangan baku berkas itu
+     * dilayani servlet {@code websiteDiscovery}, sehingga jalur ini berlaku untuk pemasangan yang
+     * memetakan servlet Repository ke sana.</p>
+     *
+     * @param request  permintaan servlet
+     * @param response tanggapan servlet
+     * @throws Exception bila {@link #publicOrigin} menolak asal permintaan atau penulisan gagal
+     */
     private void robots(HttpServletRequest request, HttpServletResponse response) throws Exception {
         response.setContentType("text/plain;charset=UTF-8");
         String origin = publicOrigin(request);
@@ -1097,6 +1142,30 @@ public class Repository extends HttpServlet {
                 + "/repository\nSitemap: " + origin + request.getContextPath() + "/sitemap.xml\n");
     }
 
+    /**
+     * Menyusun sitemap XML yang memuat halaman depan Repository dan tautan <b>setiap</b> butir
+     * publik.
+     *
+     * <p>Butir dikumpulkan dengan menelusuri seluruh halaman hasil pencarian kosong sebesar
+     * {@code RepositoryPublicService.MAX_PAGE_SIZE} per halaman, ditulis langsung ke aliran
+     * tanggapan sambil berjalan sehingga tidak seluruh katalog ditahan di memori sekaligus.</p>
+     *
+     * <p><b>Biaya dan cakupannya.</b> Method ini dijangkau tanpa autentikasi lewat jalur
+     * {@code /repository/sitemap.xml} dan <b>tidak</b> termasuk yang dibatasi
+     * {@code PublicRegistrationRateLimiter} — pembatas laju di {@link #process} hanya mencakup
+     * pencarian, saran, unduhan, dan umpan balik panduan. Pada katalog besar, satu permintaan di
+     * sini berarti banyak kueri berurutan. Bila jumlah butir tumbuh, pertimbangkan
+     * meng-<i>cache</i> hasilnya atau memecahnya menjadi indeks sitemap, bukan menambah gerbang
+     * autentikasi — sitemap memang harus dapat dibaca perayap.</p>
+     *
+     * <p>Setiap URL dilewatkan {@link #xml} dan disusun di atas {@link #publicOrigin} yang sudah
+     * memvalidasi skema, host, dan porta, sehingga header {@code Host} palsu tidak menular ke
+     * berkas yang dibaca mesin pencari.</p>
+     *
+     * @param request  permintaan servlet
+     * @param response tanggapan servlet
+     * @throws Exception bila pencarian, {@link #publicOrigin}, atau penulisan gagal
+     */
     private void sitemap(HttpServletRequest request, HttpServletResponse response) throws Exception {
         response.setContentType("application/xml;charset=UTF-8");
         String origin = publicOrigin(request) + request.getContextPath();
@@ -1114,6 +1183,27 @@ public class Repository extends HttpServlet {
         out.print("</urlset>");
     }
 
+    /**
+     * Menyusun umpan publikasi terbaru dalam format RSS 2.0 (bawaan) atau Atom
+     * ({@code format=atom}).
+     *
+     * <p>Kueri umpan dibangun dari parameter permintaan lewat {@link #queryFrom} — sehingga
+     * pembaca dapat berlangganan hasil penyaringan tertentu, misalnya satu koleksi atau satu
+     * program studi — lalu <b>ditimpa</b> pada tiga hal: halaman 1, ukuran 20, dan pengurutan
+     * {@code newest}. Penimpaan itulah yang membuat umpan selalu ringan dan selalu benar-benar
+     * "terbaru", berapa pun nilai yang dikirim pemanggil.</p>
+     *
+     * <p>Atom memakai {@code entry} dengan {@code updated} bercap waktu XML; RSS memakai
+     * {@code item} dengan {@code pubDate} berformat RFC 822 ({@link #rfc822}). Pada kedua format,
+     * {@code guid}/{@code id} diisi pengenal OAI butir sehingga stabil meski tautannya berubah.
+     * Seluruh nilai teks dilewatkan {@link #xml}.</p>
+     *
+     * <p>Jalur ini juga dicapai lewat rute bersih {@code /repository/rss/recent}.</p>
+     *
+     * @param request  permintaan servlet; membawa {@code format} dan penyaring pencarian
+     * @param response tanggapan servlet
+     * @throws Exception bila pencarian, {@link #publicOrigin}, atau penulisan gagal
+     */
     private void feed(HttpServletRequest request, HttpServletResponse response) throws Exception {
         boolean atom = "atom".equalsIgnoreCase(clean(request.getParameter("format")));
         String base = publicOrigin(request) + request.getContextPath();
@@ -1132,23 +1222,88 @@ public class Repository extends HttpServlet {
         }
     }
 
+    /**
+     * Memformat tanggal menjadi cap waktu RFC 822 yang diwajibkan elemen {@code pubDate} RSS.
+     *
+     * <p>{@link java.util.Locale#US} dipakai secara eksplisit agar nama hari dan bulan tetap
+     * berbahasa Inggris apa pun <i>locale</i> peladen — RSS menuntut singkatan Inggris, dan
+     * peladen berlokal Indonesia akan menghasilkan umpan yang tidak sah tanpa ini. Zona waktu
+     * dipaksa UTC. {@code null} dipetakan ke epoch supaya keluarannya tetap berupa cap waktu yang
+     * sah, bukan string kosong.</p>
+     *
+     * <p>Objek {@link SimpleDateFormat} sengaja dibuat baru setiap pemanggilan karena kelas itu
+     * tidak aman-thread, sementara servlet melayani banyak permintaan bersamaan.</p>
+     *
+     * @param date tanggal yang diformat; boleh {@code null}
+     * @return cap waktu RFC 822 dalam UTC
+     */
     private String rfc822(Date date) {
         SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.US);
         format.setTimeZone(TimeZone.getTimeZone("UTC"));
         return format.format(date == null ? new Date(0L) : date);
     }
 
+    /**
+     * Menjawab pelanggaran pembatas laju dengan status {@code 429}.
+     *
+     * <p>Header {@code Retry-After: 3600} sengaja disamakan dengan jendela pembatas
+     * ({@code PublicRegistrationRateLimiter} memakai 3.600.000 milidetik pada seluruh
+     * pemanggilan di kelas ini), sehingga klien yang patuh menunggu tepat selama jendela itu
+     * alih-alih mencoba terus. Badan tanggapan selalu JSON berkode {@code RATE_LIMITED} — bahkan
+     * untuk permintaan halaman — karena jalur yang dibatasi hampir selalu dipanggil dari skrip
+     * halaman.</p>
+     *
+     * @param response  tanggapan servlet
+     * @param requestId pengenal permintaan untuk pelacakan
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     private void tooManyRequests(HttpServletResponse response, String requestId) throws IOException {
         response.setHeader("Retry-After", "3600");
         writeJsonError(response, 429, "RATE_LIMITED",
                 "Terlalu banyak permintaan. Silakan coba kembali beberapa saat lagi.", requestId);
     }
 
+    /**
+     * Mengembalikan {@code userId} pengunjung untuk dicatat pada statistik pemakaian, atau string
+     * kosong bila ia anonim.
+     *
+     * <p>Dibuat sengaja tidak pernah melempar: statistik kunjungan dan unduhan tidak boleh
+     * menggagalkan penyajian halaman atau pengaliran berkas, sehingga exception apa pun dari
+     * {@code Common.getCurrentUser} ditelan menjadi string kosong. String kosong — bukan
+     * {@code null} — dipilih agar {@code recordUsage} tidak perlu memeriksa {@code null}.</p>
+     *
+     * @param request permintaan servlet
+     * @return {@code userId} pengunjung, atau string kosong
+     */
     private String actorId(HttpServletRequest request) {
         try { ais.database.model.Tbmuser u = Common.getCurrentUser(request); return u == null ? "" : u.getUserId(); }
         catch (Exception e) { return ""; }
     }
 
+    /**
+     * Menentukan asal publik ({@code skema://host[:porta]}) yang dipakai menyusun URL absolut
+     * pada sitemap, umpan, dan {@code robots.txt}.
+     *
+     * <p><b>Sumber pertama:</b> properti sistem {@code ais.repository.publicBaseUrl}. Nilai itu
+     * divalidasi ketat dan ditolak dengan {@link IllegalStateException} bila skemanya bukan
+     * {@code http}/{@code https}, host kosong, memuat {@code userInfo}, memuat query, memuat
+     * fragmen, atau memuat jalur selain kosong/{@code /}. Ketatnya disengaja: nilai ini menjadi
+     * awalan setiap tautan yang dibaca mesin pencari, jadi salah setel akan mengarahkan seluruh
+     * indeks ke tempat yang keliru.</p>
+     *
+     * <p><b>Sumber kedua:</b> permintaan itu sendiri. Skema harus {@code http}/{@code https},
+     * porta harus dalam 1–65535, dan nama host harus cocok pola {@code [A-Za-z0-9.-]+} atau
+     * bentuk heksadesimal IPv6 — penyaring inilah yang mencegah header {@code Host} yang
+     * dipalsukan menyusup ke dalam sitemap dan umpan.</p>
+     *
+     * <p>Host IPv6 dibungkus kurung siku, dan porta baku ({@code 80} untuk {@code http},
+     * {@code 443} untuk {@code https}) dihilangkan agar URL yang dihasilkan kanonik.</p>
+     *
+     * @param request permintaan servlet
+     * @return asal publik tanpa {@code contextPath} dan tanpa garis miring penutup
+     * @throws Exception {@link IllegalStateException} bila properti sistem atau asal permintaan
+     *                   tidak lolos validasi
+     */
     private String publicOrigin(HttpServletRequest request) throws Exception {
         String configured = clean(System.getProperty("ais.repository.publicBaseUrl"));
         if (configured.length() > 0) {
@@ -1172,6 +1327,19 @@ public class Repository extends HttpServlet {
         boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
         return scheme + "://" + authority + (defaultPort ? "" : ":" + port);
     }
+    /**
+     * Membaca kode negara pengunjung dari header yang dipasang lapisan di depan aplikasi.
+     *
+     * <p>{@code CF-IPCountry} (Cloudflare) diperiksa lebih dulu, lalu {@code X-Country-Code}
+     * sebagai bentuk umum proksi lain. Bila keduanya tidak ada, hasilnya string kosong.</p>
+     *
+     * <p><b>Nilai ini hanya untuk statistik.</b> Header dapat dipalsukan klien mana pun bila
+     * aplikasi tidak benar-benar berada di belakang proksi yang menimpanya, jadi jangan sekali-kali
+     * memakainya sebagai dasar keputusan akses.</p>
+     *
+     * @param request permintaan servlet
+     * @return kode negara, atau string kosong bila tidak tersedia
+     */
     private String country(HttpServletRequest request){String value=clean(request.getHeader("CF-IPCountry"));if(value.length()==0)value=clean(request.getHeader("X-Country-Code"));return value;}
 
     private void writeOaiRequest(PrintWriter out, HttpServletRequest request, String base, String verb) {
