@@ -1,5 +1,91 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 127 (penomoran orkestrator ini — CATATAN: sesi paralel lain independen kebetulan juga memakai label "Batch 126" untuk `streaming` di atas, isi berbeda total, bukan tabrakan kerja) — mulai backlog 485 file lepas ROOT `ais.database.model`, 100 file pertama, 5 task baru (6 Sep 2026)
+
+**PIVOT BESAR**: paket besar (>10 file) dan puluhan sub-paket kecil kini
+HABIS — backlog terbesar yang tersisa adalah **485 file lepas langsung
+di root `ais/database/model/`** (bukan sub-paket), dikonfirmasi lewat
+audit sesi paralel lain sebelumnya. Batch ini: 100 file PERTAMA
+(diurutkan least-documented dulu), 5 agent paralel, 20 file/agent.
+
+**Klaster dosen/pegawai** (20 file, r85343-r85432). **Task baru
+`task_df2356d0`**: `RekeningDosen` (nomor rekening bank dosen tersimpan
+PLAINTEXT) gerbang aksesnya cuma privilese READ generik, TANPA
+penyaringan satuan kerja/kepemilikan — siapa pun berhak baca menu ini
+melihat rekening SELURUH dosen institusi. **Task baru `task_b1d10e27`**:
+`UserDevices` (field `imei`/`password` MENYESATKAN — bukan IMEI/kredensial
+asli, sebenarnya kode pairing acak + link konfigurasi) — endpoint
+pre-auth `ApiUtil.code()` TIDAK memverifikasi kepemilikan username
+sebelum menimpa link tersimpan, potensi redirect konfigurasi klien.
+`RoleHasDashboard` dikonfirmasi entity yatim (satu-satunya pemakai di
+kode ter-comment-out `BlankAction`).
+
+**Klaster kemahasiswaan/kegiatan** (20 file, r85347-r85431). **Task
+baru `task_49610d9c`**: `ExecuteTemplateQueryAction` (pemakai
+`TemplateQuery`) menjalankan `session.createSQLQuery(q).list()` atas
+teks bebas-edit pengguna, gerbang cuma privilese READ + blacklist
+substring `update/delete/truncate/drop/alter` — TIDAK memblokir
+`INSERT`/`CREATE`/`GRANT`/`COPY ... TO PROGRAM` (potensi RCE
+PostgreSQL). Verifikasi kunci: `MahasiswaDapatKkn`/`MahasiswaDapatPkl`/
+`MahasiswaDapatBeasiswa` DIKONFIRMASI BUKAN legacy — jalur PARALEL aktif
+terpisah (penetapan akhir peserta yang DITERIMA) dari
+`kkn.MahasiswaDaftarKkn`/`pkl.MahasiswaDaftarPkl`/
+`beasiswa.MahasiswaDaftarBeasiswa` (pendaftaran dengan status seleksi).
+`ParameterTambahanPengajuanPegawai` dikonfirmasi SUDAH memakai
+mekanisme terpusat aman (`LampiranLain.resolveJenisParameterTambahan`)
+— bukan instance `task_484d4bd0`.
+
+**Klaster status/jenis mahasiswa** (20 file, r85350-r85430, termasuk 1
+file `VOPesertaPembelajaran.java` yang ternyata sudah lengkap dari
+r78719 sebelum inisiatif ini dimulai — tidak disentuh ulang). 0 task
+baru. Klarifikasi kunci: `StatusMahasiswa` (master lookup) ≠
+`HistoryStatusMahasiswa` (satu-satunya sumber kebenaran status per
+mahasiswa per semester, sudah tercatat entity terpisah sesi jauh
+sebelumnya); `StatusSetelahLulus`/`StatusDomisiliSetelahLulus`/
+`StatusPekerjaanSetelahLulus` dikonfirmasi TIGA SUMBU INDEPENDEN
+tracer-study (bukan gabungan/breakdown satu sama lain); `RangkingIpd`
+"IPD" = Indeks Penilaian Dosen (evaluasi angket dosen, BUKAN indeks
+prestasi mahasiswa) — auto-seed 5 pita default tertulis nyata ke DB
+saat laporan pertama dibuka; `DataSister` (root) dikonfirmasi
+KOMPLEMENTER (cadangan JSON mentah generik dari `DataSisterApi`) bukan
+duplikat 88 entity terstruktur `sister.*`; `ParameterTambahanPengaduan`
+diverifikasi BUKAN perluasan `task_484d4bd0`/`task_18d52b8b` (FK
+eksplisit ke `ParameterTambahan`, bukan resolusi `LampiranLain`, tanpa
+data pribadi/tenant).
+
+**Klaster matakuliah/kurikulum/finansial** (20 file, r85354-r85427). 0
+task baru. `JenisRekonsiliasiHostToHost` diverifikasi AMAN — strategy
+pattern refleksi (`Class.forName`) dari baris `Konfigurasi` yang sudah
+divalidasi, BUKAN perluasan `task_a1e32ff3`/`LogHostToHost` (mekanisme
+beda total, tak menyimpan payload H2H mentah). `KomentarPerkuliahan`
+filter visibilitas sesuai desain, tapi tombol hapus di
+`DetailperkuliahanForPenilaianHelper` cuma `setVisible` client-side
+tanpa re-verifikasi server — memperkuat pola bypass-otorisasi UI-only
+yang sudah luas tercatat, tidak di-task-kan terpisah.
+
+**Klaster integrasi eksternal/notifikasi/misc** (20 file, r85345-r85434,
+agent penutup). **Task baru `task_e8559cbe`** — `SharepointCode`
+(kolom `keterangan` menyimpan OAuth authorization code Azure AD MENTAH,
+entity ternyata HANYA PERNAH DITULIS tak pernah dibaca kembali — yatim)
+— **SUDAH DIEKSEKUSI USER**, diperbaiki langsung (`setKeterangan()`
+sekarang selalu null). **Task baru `task_f597932c`** — `GCalendarCode`/
+`GDriveCode` BEDA dari SharePoint: AKTIF dipakai sungguhan (kode OAuth
+ditukar jadi token via `CalendarUtil`/`GDriveUtilPerPengguna`), token
+disimpan MENTAH tanpa enkripsi, tidak dibersihkan setelah dipakai
+(`GDrive.hapusCodeDrive()` dipanggil di AWAL koneksi baru, bukan
+SESUDAH token berhasil ditukar) — masih PENDING. `WaProfile`
+TERVERIFIKASI AMAN (nol token API WhatsApp, cuma nomor+teks profil).
+`EpsbedStatusPs` versi ROOT dikonfirmasi LEBIH PARAH dari versi
+`epsbed` yang sudah yatim — bahkan TIDAK terdaftar `hibernate.cfg.xml`
+sama sekali (Hibernate tidak mengenalnya). `ChatConvertation`
+dikonfirmasi entity yatim total (fitur chat nyata pakai `Pesan`).
+
+**5 task baru batch ini** (1 sudah dieksekusi user):
+`task_df2356d0`, `task_b1d10e27`, `task_49610d9c`, `task_e8559cbe`
+(SELESAI), `task_f597932c`. Total akumulasi domain-batched + root-level:
+**1643+ file** dari 7.401 — SISA **385 file lepas root** untuk
+batch-batch berikutnya.
+
 ## Batch 126 — paket `streaming` TUNTAS 100% (2 file, r85334/r85336, 6 Sep 2026); 🚨 temuan SSRF, `task_879b879e`
 
 `VideoPertemuan`+`AudioPertemuan` — kembar (video/audio pertemuan
