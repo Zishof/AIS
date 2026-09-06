@@ -31,14 +31,14 @@
 		<!-- Pertahanan berlapis untuk broken access control AmbilLaporanMahasiswa: gerbang utama
 			 (login + kepemilikan/getMelihatDataSatkerLain) sudah ditambal di kode servlet itu
 			 sendiri (lihat Javadoc kelasnya). Pola tanpa "/**" dipilih supaya HANYA jalur persis
-			 ini yang tertutup, tidak ikut menutup url-pattern lain -- lihat catatan di aturan "/al"
+			 ini yang tertutup, tidak ikut menutup url-pattern lain; lihat catatan di aturan "/al"
 			 di bawah tentang pola yang tidak sengaja jadi terlalu lebar. -->
 		<intercept-url pattern="/AmbilLaporanMahasiswa" access="IS_AUTHENTICATED_REMEMBERED" />
 		<!-- Pertahanan berlapis untuk broken access control 6 servlet Ambil*/AmbilFile* di
 			 ais.action.servlet (lampiran penelitian/pengabdian dan pengumuman akademis/
 			 penelitian/perkuliahan): querinya langsung Restrictions.idEq(id) tanpa lewat
 			 LampiranLain/FileFotoLain.ambil() sama sekali, sehingga TIDAK ada penyaring jenis
-			 untuk task_b82b25d2 yang relevan di sini -- primary key ditebak langsung. Gerbang
+			 untuk task_b82b25d2 yang relevan di sini; primary key ditebak langsung. Gerbang
 			 utama (login + kepemilikan/getMelihatDataSatkerLain untuk 3 pertama, login +
 			 status ditampilkan/aktif untuk 3 Pengumuman*) sudah ditambal di kode servlet
 			 masing-masing (lihat Javadoc kelasnya). Pola tanpa "/**" dipilih karena
