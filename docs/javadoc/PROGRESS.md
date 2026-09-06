@@ -1,5 +1,31 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 126 — paket `streaming` TUNTAS 100% (2 file, r85334/r85336, 6 Sep 2026); 🚨 temuan SSRF, `task_879b879e`
+
+`VideoPertemuan`+`AudioPertemuan` — kembar (video/audio pertemuan
+e-learning), AKTIF dipakai luas (`VideoPertemuanHelper`/
+`AudioPertemuanHelper`/`*GrupPertemuanHelper`/`Rekapitulasi*Helper`,
+bukan yatim), `extends FileFotoLain` (mewarisi mesin resolusi lampiran
+generik yang sudah didokumentasikan lengkap di paket `file`). Pola
+`copyDari` berulang: banyak getter menimpa field lokal dari object
+"master/template" sebagai efek samping baca (getter-mutasi, severity
+biasa). `getJenis()` SELALU memaksa `DEFAULT_JENIS` — kolom `jenis` di
+DB tidak pernah benar-benar terbaca.
+
+**Temuan keamanan (`task_879b879e`)**: `getKeteranganTambahan()` di
+KEDUA file melakukan fetch HTTP SISI SERVER (Jsoup, timeout 3 detik) ke
+field `link` bila diawali `"http"` — TANPA validasi host, dipicu
+sebagai efek samping GETTER (bisa terpicu kapan pun entity dibaca,
+bukan hanya saat disimpan). `link` diisi dosen/guru lewat helper
+terkait — pola SSRF-capable yang HANYA ada di 2 file ini, tidak
+ditemukan di tempat lain pada basis kode (`Jsoup.parse(new URL(` cuma
+2 hit). Perbaikan (allowlist host / pindah dari getter ke aksi
+eksplisit) didelegasikan ke task, TIDAK diperbaiki di batch ini (scope
+javadoc-only). Divergensi kecil antar kembar: `AudioPertemuan.getLink()`
+TIDAK menimpa dari `copyDari` (beda dari `VideoPertemuan`), tidak
+diperbaiki (severity rendah, bukan pola bug kembar tak-simetris yang
+berbahaya seperti temuan `kkn`/`pkl` di batch 124).
+
 ## Batch 125 — paket `test`+`temporary` TUNTAS 100% (2 file, orkestrator langsung tanpa agent, 6 Sep 2026)
 
 `test/LazyAssociationGetterSelfTest.java` (163→229 baris, r85330) —

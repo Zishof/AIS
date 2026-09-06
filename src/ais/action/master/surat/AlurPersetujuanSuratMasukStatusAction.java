@@ -1108,6 +1108,40 @@ public class AlurPersetujuanSuratMasukStatusAction extends GenericAutowireCompos
 		data = null;
 	}
 
+	/**
+	 * Menjawab: apakah pengguna yang sedang login SUNGGUH salah satu {@link Pejabat} dirinya sendiri
+	 * yang cocok dengan pejabat yang sedang dipilih pada kolom Pejabat ({@code pejabat.getAttribute("pejabat")})?
+	 *
+	 * <p>Sinkron dengan {@code AlurPersetujuanSuratKeluarStatusAction.berwenangAtasPejabatTerpilih()}
+	 * (mekanisme surat keluar) -- lihat javadoc method itu untuk rasional lengkap. Memakai ulang
+	 * {@link Common#getCurrentPejabat(Boolean)} (refresh=true, tidak mengandalkan cache sesi basi),
+	 * resolusi yang sama dipakai untuk filter pencarian di {@link #doAfterCompose(Component)}.</p>
+	 *
+	 * @return {@code true} hanya bila pejabat yang dipilih ada dalam daftar pejabat milik pengguna
+	 *         saat ini; {@code false} bila kolom Pejabat kosong, pengguna tidak punya Pejabat sama
+	 *         sekali, atau pejabat yang dipilih bukan salah satu miliknya
+	 */
+	private boolean berwenangAtasPejabatTerpilih() {
+		try {
+			Pejabat pejabatDipilih = (Pejabat) pejabat.getAttribute("pejabat");
+			if (pejabatDipilih == null || pejabatDipilih.getId() == null) {
+				return false;
+			}
+			List<Pejabat> pejabatSaya = Common.getCurrentPejabat(true);
+			if (pejabatSaya == null) {
+				return false;
+			}
+			for (Pejabat p : pejabatSaya) {
+				if (p != null && p.getId() != null && p.getId().equals(pejabatDipilih.getId())) {
+					return true;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "AlurPersetujuanSuratMasukStatusAction.berwenangAtasPejabatTerpilih");
+		}
+		return false;
+	}
+
 	@SuppressWarnings("unchecked")
 	public boolean onSave(Event event) throws Exception {
 		if (pejabat.getAttribute("pejabat") == null) {
@@ -1120,6 +1154,19 @@ public class AlurPersetujuanSuratMasukStatusAction extends GenericAutowireCompos
 					MyMessageboxConfig.INFORMATION);
 			return false;
 		}
+
+		// GERBANG KEWENANGAN: lihat catatan lengkap di
+		// AlurPersetujuanSuratKeluarStatusAction.onSave() (mekanisme kembar surat keluar). Centang
+		// Disetujui/Ditolak di sini adalah tanda tangan/keputusan pejabat pada kolom Pejabat, yang
+		// sebelum gerbang ini bisa diganti bebas ke pejabat mana pun tanpa diperiksa ulang.
+		if ((disetujui.isChecked() || ditolak.isChecked()) && !Common.getApakahAdmin()
+				&& !berwenangAtasPejabatTerpilih()) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, Anda tidak berwenang merekam persetujuan/penolakan atas nama pejabat yang dipilih. Langkah yang dapat dilakukan: (1) pastikan pejabat yang dipilih pada kolom Pejabat adalah jabatan Bapak/Ibu sendiri; (2) hubungi admin bila Bapak/Ibu memang perlu memproses atas nama pejabat lain.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
 		List<Row> rowsFotoGambar = null;
 		if (gridGambar != null && gridGambar.getRows() != null) {
 			rowsFotoGambar = gridGambar.getRows().getChildren();

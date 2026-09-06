@@ -1405,6 +1405,42 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 		data = null;
 	}
 
+	/**
+	 * Menjawab: apakah pengguna yang sedang login SUNGGUH salah satu {@link Pejabat} dirinya sendiri
+	 * yang cocok dengan pejabat yang sedang dipilih pada kolom Pejabat ({@code pejabat.getAttribute("pejabat")})?
+	 *
+	 * <p>Memakai ulang {@link Common#getCurrentPejabat(Boolean)} (dipanggil dengan {@code refresh=true}
+	 * agar tidak mengandalkan cache sesi yang mungkin basi) -- resolusi yang SAMA dipakai untuk mengisi
+	 * filter pencarian di {@link #doAfterCompose(Component)}, sehingga hasilnya konsisten dengan
+	 * pejabat mana yang ditampilkan sebagai "milik Anda" di layar ini. Pencocokan murni berdasarkan
+	 * id baris {@link Pejabat}, bukan nama/jenisJabatan, agar tidak keliru mencocokkan dua pejabat
+	 * berbeda dengan jenis jabatan yang sama.</p>
+	 *
+	 * @return {@code true} hanya bila pejabat yang dipilih ada dalam daftar pejabat milik pengguna
+	 *         saat ini; {@code false} bila kolom Pejabat kosong, pengguna tidak punya Pejabat sama
+	 *         sekali, atau pejabat yang dipilih bukan salah satu miliknya
+	 */
+	private boolean berwenangAtasPejabatTerpilih() {
+		try {
+			Pejabat pejabatDipilih = (Pejabat) pejabat.getAttribute("pejabat");
+			if (pejabatDipilih == null || pejabatDipilih.getId() == null) {
+				return false;
+			}
+			List<Pejabat> pejabatSaya = Common.getCurrentPejabat(true);
+			if (pejabatSaya == null) {
+				return false;
+			}
+			for (Pejabat p : pejabatSaya) {
+				if (p != null && p.getId() != null && p.getId().equals(pejabatDipilih.getId())) {
+					return true;
+				}
+			}
+		} catch (Exception e) {
+			ais.common.ErrorAuditUtil.record(e, "AlurPersetujuanSuratKeluarStatusAction.berwenangAtasPejabatTerpilih");
+		}
+		return false;
+	}
+
 	@SuppressWarnings("unchecked")
 	public boolean onSave(Event event) throws Exception {
 		if (pejabat.getAttribute("pejabat") == null) {
@@ -1417,6 +1453,23 @@ public class AlurPersetujuanSuratKeluarStatusAction extends GenericAutowireCompo
 					MyMessageboxConfig.INFORMATION);
 			return false;
 		}
+
+		// GERBANG KEWENANGAN: centang Disetujui/Ditolak di layar ini ADALAH tanda tangan/keputusan
+		// pejabat yang dipilih pada kolom Pejabat. Sebelum gerbang ini, kolom Pejabat bebas diganti
+		// ke pejabat MANA PUN (bukan terkunci ke identitas login) dan tidak pernah diperiksa ulang
+		// di sini -- siapa pun yang punya akses layar ini dapat mencentang "disetujui" atas nama
+		// pejabat lain, secara efektif memalsukan tanda tangannya. Hanya ditegakkan saat sebuah
+		// KEPUTUSAN sungguhan sedang disimpan (disetujui/ditolak tercentang); menambah/mengubah
+		// baris pejabat yang belum diputuskan tidak digerbang. Admin tetap diizinkan lewat jalur
+		// eksplisit yang sudah dipakai di kelas ini (Common.getApakahAdmin(), lihat baris ~527).
+		if ((disetujui.isChecked() || ditolak.isChecked()) && !Common.getApakahAdmin()
+				&& !berwenangAtasPejabatTerpilih()) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, Anda tidak berwenang merekam persetujuan/penolakan atas nama pejabat yang dipilih. Langkah yang dapat dilakukan: (1) pastikan pejabat yang dipilih pada kolom Pejabat adalah jabatan Bapak/Ibu sendiri; (2) hubungi admin bila Bapak/Ibu memang perlu memproses atas nama pejabat lain.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			return false;
+		}
+
 		List<Row> rowsFotoGambar = gridGambar.getRows().getChildren();
 		for (Row row : rowsFotoGambar) {
 			FotoGambarSuratKeluar fotoGambarSuratKeluar = (FotoGambarSuratKeluar) row
