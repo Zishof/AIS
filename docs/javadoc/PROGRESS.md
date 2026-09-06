@@ -1,5 +1,47 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉 Batch 145 — MENUTUP `ais/action/servlet/` (157 file), 2 task baru (7 Sep 2026)
+
+Batch penutup 17 file sisa. Mayoritas TERNYATA sudah selesai sesi lain
+(diverifikasi svn log dulu, bukan ditulis ulang) — konsisten dengan
+pola akhir-backlog yang sudah berulang di inisiatif ini.
+
+**`DokuResponseServlet.java`** — `task_afe63fd6` (checksum finalisasi
+pembayaran Doku) DIKONFIRMASI SUDAH DITAMBAL sesi paralel TEPAT
+sebelum agent mulai (`verifikasiChecksum` wajib, gagal→"Stop" tanpa
+simpan). **`BniForwarder.java`/`BniForwarderLagi.java`** DIKONFIRMASI
+**TIDAK** SSRF (beda dari `BtnForwarder` yang sudah ditambal) — `strURL`
+LITERAL TETAP di kode, bukan dari parameter klien. **`CheckISBN.java`**
+— ironi terkonfirmasi: file sumber nama stub template usang ("Servlet
+implementation class CheckISBN") yang muncul berulang di puluhan file
+lain SENDIRI masih stub sebelum batch ini.
+
+**Klaster 10 file kecil** — 4 sudah selesai sesi lain (`ClearCookieServlet`/
+`Web`/`Welsis`/`New`). **`StrukM.java`** dikonfirmasi SAMA ANONIM/
+ENUMERABLE dengan `Struk.java` (`task_493423ef`) — cuma robustness
+parsing lebih baik, bukan gerbang baru. **Task baru `task_b256470e`**:
+`AmbilFileServer.java` — arbitrary file read/path traversal TANPA
+dekripsi/validasi direktori SAMA SEKALI, nol otentikasi (LEBIH PARAH
+dari `F.java` yang minimal mensyaratkan path terenkripsi).
+
+**Klaster misc besar** — 5 dari 8 sudah selesai sesi lain (`Tamu`/
+`Welpus`/`Pustaka`/`SosialSmartlinkCallback`[HMAC-SHA256 constant-time
++ rate limit sudah benar]/`Web`). `Api.java` dilengkapi (otorisasi
+per-rute via `ApiAccessGuard`, arsitektur konsisten). **Task baru
+`task_274162a7`**: `DoUpload.java` — jalur `handleUserProfileUpload()`
+lolos tanpa login bila `tanpaLogin=true` (dikendalikan klien) TANPA
+batasi kelas lampiran/id entitas target, cuma validasi subkelas
+`FileFotoLain`. `Oai.java` DIKONFIRMASI **DUA implementasi OAI-PMH
+TERPISAH** dari `Repository.oai()` (data sama, URL beda, resumption-
+token/rate-limit dikodekan ulang independen) — duplikasi arsitektur
+dicatat, bukan bug.
+
+**2 task baru batch ini**: `task_b256470e`, `task_274162a7`. Total
+akumulasi: **2150+ file** dari 7.401. **`ais/action/servlet/` (157
+file) KINI TUNTAS** — pivot berikutnya ke area lain (`action/report/`
+527 file, subdirektori `action/master` domain lain, atau audit ulang
+kualitas Javadoc template-generik di package yang sudah "selesai").
+
 ## Batch 143-144 — 44 servlet, TERPUTUS infrastruktur di tengah jalan (OAuth token expired) lalu DISELESAIKAN, 6 task baru (7 Sep 2026)
 
 **Catatan operasional PENTING**: batch 143 (5 agent) terputus MASSAL di

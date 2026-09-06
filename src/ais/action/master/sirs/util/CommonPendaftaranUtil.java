@@ -107,6 +107,16 @@ import ais.ui.util.MyTextbox;
  */
 public class CommonPendaftaranUtil {
 
+	private static String formatTanggalLahirTransaksi(Pasien pasien) {
+		Date tanggal = pasien == null ? null : pasien.getTanggalLahir();
+		return tanggal == null ? "" : Common.dateFormat2.get().format(tanggal);
+	}
+
+	private static String formatUmurTransaksi(Pasien pasien) {
+		Integer umur = pasien == null ? null : pasien.getUmur();
+		return umur == null ? "" : umur + " thn";
+	}
+
 	@SuppressWarnings("deprecation")
 	public static EventListener initTransaksi(final Rows rows, Label kode, final TransaksiMedis transaksi,
 			final TransaksiListener transaksiListener) throws Exception {
@@ -131,7 +141,7 @@ public class CommonPendaftaranUtil {
 				: kelasPerawatanAwal.getNama());
 		final Label ttl = new Label(
 				pasien == null ? "" : (pasien.getTempatLahir() == null ? "" : pasien.getTempatLahir() + " / "));
-		final Label tglLahir = new Label(pasien == null ? null : Common.dateFormat2.get().format(pasien.getTanggalLahir()));
+		final Label tglLahir = new Label(formatTanggalLahirTransaksi(pasien));
 		final Label jenisKelamin = new Label(transaksi.getJenisKelamin());
 		final Label jenisPasien = new Label(
 				transaksi.getJenisPasien() == null ? "" : transaksi.getJenisPasien().toString());
@@ -168,19 +178,18 @@ public class CommonPendaftaranUtil {
 				kelasPerawatan.setValue(kelasPendaftaran == null || kelasPendaftaran.getNama() == null ? ""
 						: kelasPendaftaran.getNama());
 
-				pasienBanbox.setValue(pasien == null ? "" : pasien.getKode().trim());
+				pasienBanbox.setValue(pasien == null || pasien.getKode() == null ? "" : pasien.getKode().trim());
 
 				if (!bebas.isChecked()) {
 					nama.setValue(pasien == null ? "" : pasien.getNama());
 				}
 
-				umur.setValue(pasien == null ? "" : pasien.getUmur().toString() + " thn");
+				umur.setValue(formatUmurTransaksi(pasien));
 
 				alamat.setValue(pasien == null ? "" : pasien.getAlamatLengkap());
 				ttl.setValue(
 						pasien == null ? "" : (pasien.getTempatLahir() == null ? "" : pasien.getTempatLahir() + " / "));
-				umur.setValue(pasien == null ? "" : pasien.getUmur().toString() + " thn");
-				tglLahir.setValue(pasien == null ? null : Common.dateFormat2.get().format(pasien.getTanggalLahir()));
+				tglLahir.setValue(formatTanggalLahirTransaksi(pasien));
 
 				jenisKelamin.setValue(
 						pasien == null ? "" : pasien.getJenisKelamin() == null ? "" : pasien.getJenisKelamin());
