@@ -29,16 +29,21 @@ import ais.database.hibernate.HibernateUtil;
  * Servlet ini hanya boleh menjalankan class di paket laporan (whitelist) yang
  * mengekspos kedua method itu; selain itu ditolak.
  *
- * <p><b>CATATAN KEAMANAN (ditemukan saat penyusunan dokumentasi ini).</b> Whitelist
- * {@link #PAKET_DIIZINKAN} hanya membatasi PAKET class laporan yang boleh dijalankan; servlet
- * ini SAMA SEKALI TIDAK memeriksa apakah pemanggil sudah login ({@code Common.getCurrentUser}
- * tidak pernah dipanggil di sini). URL {@code /jalankan-laporan} juga tidak punya
- * {@code intercept-url} khusus di {@code applicationContext-security.xml}, sehingga jatuh ke
- * default paling bawah {@code pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY"}. Akibatnya
- * siapa pun tanpa login bisa menjalankan laporan apa pun di paket whitelist yang sudah
- * mengimplementasikan kontrak ini (mis. {@code LaporanStokItem}, yang parameter-generator-nya
- * juga tidak melakukan scoping satker/perpustakaan). Temuan ini sudah dilaporkan sebagai task
- * perbaikan terpisah (task_11e5ae35); JANGAN anggap sudah aman hanya karena whitelist paket ada.</p>
+ * <p><b>CATATAN KEAMANAN (task_11e5ae35, DITAMBAL).</b> Whitelist {@link #PAKET_DIIZINKAN}
+ * hanya membatasi PAKET class laporan yang boleh dijalankan, bukan gerbang otentikasi; servlet
+ * sebelumnya SAMA SEKALI TIDAK memeriksa apakah pemanggil sudah login, dan URL
+ * {@code /jalankan-laporan} juga tidak punya {@code intercept-url} khusus di
+ * {@code applicationContext-security.xml} (jatuh ke default paling bawah
+ * {@code pattern="/**" access="IS_AUTHENTICATED_ANONYMOUSLY"}), sehingga siapa pun tanpa login
+ * bisa menjalankan laporan apa pun di paket whitelist yang sudah mengimplementasikan kontrak ini
+ * (mis. {@code LaporanStokItem}, yang parameter-generator-nya juga tidak melakukan scoping
+ * satker/perpustakaan). Sudah ditambal dengan gerbang {@code Common.getCurrentUser(request) != null}
+ * fail-closed di awal {@link #proses} plus {@code intercept-url} eksplisit
+ * {@code IS_AUTHENTICATED_REMEMBERED} untuk {@code /jalankan-laporan} di
+ * {@code applicationContext-security.xml}. Gerbang ini HANYA memastikan pemanggil sudah login;
+ * scoping satker/kepemilikan data per-laporan (mis. {@code LaporanStokItem} menerima parameter
+ * {@code perpustakaan} apa pun dari request tanpa validasi kepemilikan) TIDAK ikut ditambal di
+ * sini dan perlu ditinjau per-class laporan.</p>
  */
 public class JalankanLaporanJsp extends HttpServlet {
 
@@ -108,8 +113,9 @@ public class JalankanLaporanJsp extends HttpServlet {
 	 * diimplementasikan, atau kegagalan generate) ditampilkan sebagai pesan HTML sederhana,
 	 * bukan stack trace mentah.
 	 *
-	 * <p>Lihat catatan keamanan pada javadoc kelas: method ini tidak memeriksa sesi/login sama
-	 * sekali sebelum menjalankan laporan.</p>
+	 * <p>Lihat catatan keamanan pada javadoc kelas: method ini menggerbangi pemanggil lewat
+	 * {@code Common.getCurrentUser(request) != null} (fail-closed) sebelum memvalidasi paket
+	 * class ({@link #diizinkan}) dan menjalankan laporan.</p>
 	 *
 	 * @param request permintaan HTTP masuk; parameter {@code kelas}, {@code format},
 	 *        {@code unduh}, dan {@code locale} dibaca di sini, sisanya diteruskan apa adanya ke
@@ -118,6 +124,10 @@ public class JalankanLaporanJsp extends HttpServlet {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private void proses(HttpServletRequest request, HttpServletResponse response) {
+		if (Common.getCurrentUser(request) == null) {
+			tampilPesan(response, "Anda harus login terlebih dahulu untuk menjalankan laporan ini.");
+			return;
+		}
 		String kelas = request.getParameter("kelas");
 		String format = request.getParameter("format");
 		if (format == null || format.trim().length() == 0) {
