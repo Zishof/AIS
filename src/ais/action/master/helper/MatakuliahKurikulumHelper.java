@@ -912,17 +912,17 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 				toolbar.setVisible(tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null);
 				// toolbar.setHeight("25px");
 				toolbar.setParent(groupbox);
-				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Ambil Matakuliah", "/img/new.gif");
-				button.setVisible(add && tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
+				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Tambah Mata Kuliah", "/img/new.gif");
+				button.setTooltiptext("Tambahkan mata kuliah master ke semester kurikulum ini");
+				button.setVisible((add || edit) && tbmuser != null && tbmuser.getMahasiswa() == null && tbmuser.getSiswa() == null
 						&& tbmuser.ambilDosen() == null);
 				button.addEventListener("onClick", new EventListener() {
-
-					private AmbilDataMatakuliahKurikulumHelper ambilDataMatakuliahKurikulumHelper = new AmbilDataMatakuliahKurikulumHelper();
-
 					@Override
 					public void onEvent(Event event) throws Exception {
-
-						ambilDataMatakuliahKurikulumHelper.display(kurikulum, getDataloader(), semester,
+						if (!(add || edit)) {
+							return;
+						}
+						new AmbilDataMatakuliahKurikulumHelper().display(kurikulum, getDataloader(), semester,
 								indukMatakuliah);
 					}
 
@@ -954,6 +954,8 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 								.add(Restrictions.eq("kurikulumPunyaMatakuliah.semester", semester));
 					}
 				}, contents);
+				cetakToolbarbutton.setLabel("Download RPS/Silabus");
+				cetakToolbarbutton.setTooltiptext("Unduh rincian indikator, topik, metode, dan pengalaman belajar");
 				toolbar.appendChild(cetakToolbarbutton);
 
 				MyToolbarbuttonConfig upload = Common.uploadData(new DataSearchDefault() {
@@ -963,6 +965,8 @@ public class MatakuliahKurikulumHelper implements DataLoader {
 						loadData(null);
 					}
 				}, KurikulumPunyaMatakuliahDetail.class, contents);
+				upload.setLabel("Upload RPS/Silabus" + Common.ukuranLabelFileUpload());
+				upload.setTooltiptext("Unggah rincian RPS/silabus; bukan untuk menambahkan master mata kuliah");
 				toolbar.appendChild(upload);
 
 				button = new MyToolbarbuttonConfig("Hapus Semua", "/img/svg/trash.svg");

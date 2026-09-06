@@ -176,14 +176,7 @@ public class ManajemenProperty {
 			} catch (Exception e) {
 				ais.common.ErrorAuditUtil.record(e, "ManajemenProperty.processSignature");
 			} finally {
-				try {
-					if (signatureSession != null && signatureSession.isOpen()) {
-						signatureSession.clear();
-						signatureSession.disconnect();
-						signatureSession.close();
-					}
-				} catch (Exception abaikan) {
-				}
+				HibernateUtil.closeSessionQuietly(signatureSession);
 			}
 
 			// 2. File TTD Logic
@@ -602,7 +595,7 @@ public class ManajemenProperty {
 						// Jika gagal, coba reload dari DB
 						Session session = null;
 						try {
-							session = HibernateUtil.currentNativeSession();
+							session = HibernateUtil.openSession();
 							// Menggunakan Criteria untuk reload object
 							Criteria criteria = session.createCriteria(clazz)
 									.add(Restrictions.idEq(generalValueObject.getId()));
@@ -615,11 +608,7 @@ public class ManajemenProperty {
 						} catch (Exception ee) { ais.common.ErrorAuditUtil.record(ee, "auto-audit(empty-catch) src/ais/common/ManajemenProperty.java:459");
 							// ignore
 						} finally {
-							if (session != null && session.isOpen()) {
-								session.disconnect();
-								session.close();
-							}
-							HibernateUtil.closeSession();
+							HibernateUtil.closeSessionQuietly(session);
 						}
 					}
 

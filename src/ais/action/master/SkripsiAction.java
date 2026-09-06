@@ -1969,7 +1969,7 @@ public class SkripsiAction extends GenericAutowireComposer implements DataCriter
 												.ambil(Mahasiswa.class.getName(), mhs.longValue());
 										if (mahasiswa != null) {
 											try {
-												JSONArray jsonArray = new JSONArray(o[2]);
+												JSONArray jsonArray = new JSONArray(o[2] == null ? "[]" : o[2].toString());
 
 												for (int ii = 0; ii < jsonArray.length(); ii++) {
 													JSONObject oa = jsonArray.getJSONObject(ii);

@@ -138,7 +138,9 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 		for (Row row : list) {
 			List data = row.getChildren();
 			try {
-				MyCheckboxConfig checkbox = (MyCheckboxConfig) data.get(0);
+				Object pilihan = row.getAttribute("checkbox");
+				if (!(pilihan instanceof MyCheckboxConfig)) continue;
+				MyCheckboxConfig checkbox = (MyCheckboxConfig) pilihan;
 				if (checkbox.isChecked()) {
 					Mahasiswa mahasiswa = (Mahasiswa) checkbox.getAttribute("mahasiswa");
 
@@ -357,6 +359,7 @@ public class AmbilDataMahasiswaForDosenPAHelper {
 				for (Row row : rows) {
 					try {
 						MyCheckboxConfig myCheckbox = (MyCheckboxConfig) row.getAttribute("checkbox");
+						if (myCheckbox == null) continue;
 						myCheckbox.setChecked(!myCheckbox.isDisabled() && checkbox.isChecked());
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/AmbilDataMahasiswaForDosenPAHelper.java:291");
 

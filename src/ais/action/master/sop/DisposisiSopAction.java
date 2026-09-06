@@ -515,8 +515,8 @@ public class DisposisiSopAction extends GenericAutowireComposer
 			ais.common.Common.tampilErrorJikaAdmin(e);
 		}
 
-			vbox.appendChild(new Label(tbmuser.getUserNama()));
-			vbox.appendChild(new Label(disposisiSop.getDisposisiStart() == null ? ""
+			vbox.appendChild(new Label(tbmuser == null ? "Pengaju belum tersedia" : tbmuser.getUserNama()));
+			vbox.appendChild(new Label(disposisiSop.getDisposisiStart() == null || disposisiSop.getDisposisiStart().getAlurSop() == null ? ""
 					: disposisiSop.getDisposisiStart().getAlurSop().getAktor()));
 
 			Vbox a;
@@ -545,7 +545,11 @@ public class DisposisiSopAction extends GenericAutowireComposer
 					.add(Restrictions.eq("sop", disposisiSop.getSop())).setMaxResults(1).addOrder(Order.asc("id"))
 					.add(Restrictions.eq("start", true)).uniqueResult();
 
-			if (alurSop != null) {
+			if (disposisiSop.getDisposisiStart() == null || disposisiSop.getDisposisiStart().getAlurSop() == null) {
+				myvbox.appendChild(new Label("Langkah awal pengajuan belum lengkap. Hubungi pengelola SOP untuk melengkapi data ini."));
+			}
+			if (alurSop != null && disposisiSop.getDisposisiStart() != null
+					&& disposisiSop.getDisposisiStart().getAlurSop() != null) {
 
 				Groupbox groupbox = new Groupbox();
 				groupbox.setParent(detail);

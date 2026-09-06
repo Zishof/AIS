@@ -852,16 +852,36 @@ public class Report extends GenericAutowireComposer {
 
 	private static String stackTraceToString(Throwable throwable) {
 		if (throwable == null) return "";
-		StringWriter sw = new StringWriter();
-		PrintWriter pw = new PrintWriter(sw);
-		throwable.printStackTrace(pw);
-		pw.flush();
-		return sw.toString();
+		StringBuilder text = new StringBuilder(4096);
+		java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+		while (throwable != null && seen.add(throwable) && text.length() < 60000) {
+			text.append(throwable.getClass().getName()).append(": ").append(diagnosticValue(throwable.getMessage())).append('\n');
+			StackTraceElement[] frames = throwable.getStackTrace();
+			for (int i = 0; i < frames.length && i < 150 && text.length() < 60000; i++) {
+				text.append("\tat ").append(diagnosticValue(frames[i].toString())).append('\n');
+			}
+			if (frames.length > 150) text.append("[stack trace dipersingkat]\n");
+			throwable = throwable.getCause();
+		}
+		return text.toString();
+	}
+
+	// Diagnostik tidak boleh mengekspansi koleksi/entity/data laporan yang besar.
+	private static String diagnosticValue(Object value) {
+		if (value == null) return "null";
+		String text;
+		if (value instanceof String || value instanceof Number || value instanceof Boolean || value instanceof Character) {
+			text = String.valueOf(value);
+		} else {
+			text = "[" + value.getClass().getName() + "]";
+		}
+		return text.length() > 1024 ? text.substring(0, 1024) + " [dipersingkat]" : text;
 	}
 
 	private static Throwable getRootCause(Throwable throwable) {
 		Throwable result = throwable;
-		while (result != null && result.getCause() != null && result.getCause() != result) result = result.getCause();
+		java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+		while (result != null && result.getCause() != null && seen.add(result.getCause())) result = result.getCause();
 		return result == null ? throwable : result;
 	}
 
@@ -869,7 +889,8 @@ public class Report extends GenericAutowireComposer {
 
 	private static boolean containsInThrowable(Throwable throwable, String pattern) {
 		Throwable current = throwable;
-		while (current != null) {
+		java.util.Set<Throwable> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+		while (current != null && seen.add(current)) {
 			if (containsIgnoreCase(current.getClass().getName(), pattern) || containsIgnoreCase(current.getMessage(), pattern)) return true;
 			current = current.getCause();
 		}
@@ -906,8 +927,8 @@ public class Report extends GenericAutowireComposer {
 		sb.append("Informasi teknis ringkas:\n");
 		sb.append("- Waktu: ").append(Common.datetimeFormat2s.get().format(WaktuUtil.getDate())).append("\n");
 		sb.append("- Nama laporan: ").append(nvl(namaAsli, fileD)).append("\n- File/template: ").append(fileD).append("\n- Format output: ").append(formatLaporan).append("\n");
-		sb.append("- Tipe error utama: ").append(throwable == null ? "" : throwable.getClass().getName()).append("\n- Pesan error utama: ").append(throwable == null ? "" : throwable.getMessage()).append("\n");
-		sb.append("- Tipe penyebab terdalam: ").append(root == null ? "" : root.getClass().getName()).append("\n- Pesan penyebab terdalam: ").append(root == null ? "" : root.getMessage()).append("\n\n");
+		sb.append("- Tipe error utama: ").append(throwable == null ? "" : throwable.getClass().getName()).append("\n- Pesan error utama: ").append(diagnosticValue(throwable == null ? "" : throwable.getMessage())).append("\n");
+		sb.append("- Tipe penyebab terdalam: ").append(root == null ? "" : root.getClass().getName()).append("\n- Pesan penyebab terdalam: ").append(diagnosticValue(root == null ? "" : root.getMessage())).append("\n\n");
 		sb.append("Analisis awal untuk admin/TI:\n");
 		if (containsInThrowable(throwable, "Invalid UUID string")) {
 			sb.append("- JasperReports menemukan UUID tidak valid di JRXML. Contoh yang sering terjadi: uuid='gh-rect-001'.\n- Perbaiki atribut uuid pada elemen JRXML menjadi UUID valid, misalnya hasil java.util.UUID.randomUUID().\n- Buka ulang template di iReport/Jaspersoft Studio yang sesuai, lalu simpan kembali.\n");
@@ -922,15 +943,19 @@ public class Report extends GenericAutowireComposer {
 		if (isReportErrorParameterEnabled() && parameters != null) {
 			sb.append("Parameter laporan yang dikirim:\n");
 			Iterator iterator = parameters.keySet().iterator();
-			while (iterator.hasNext()) {
-				Object key = iterator.next(); Object value = parameters.get(key); String keyText = String.valueOf(key);
+			int count = 0;
+			while (iterator.hasNext() && count++ < 100) {
+				Object key = iterator.next(); Object value = parameters.get(key); String keyText = diagnosticValue(key);
 				if (containsIgnoreCase(keyText, "password") || containsIgnoreCase(keyText, "token") || containsIgnoreCase(keyText, "secret")) value = "***disembunyikan***";
-				sb.append("- ").append(keyText).append(" = ").append(value).append("\n");
+				sb.append("- ").append(keyText).append(" = ").append(diagnosticValue(value)).append("\n");
 			}
+			if (iterator.hasNext()) sb.append("[parameter lainnya dipersingkat]\n");
 			sb.append("\n");
 		} else if (parameters != null) {
 			sb.append("Daftar key parameter laporan:\n");
-			Iterator iterator = parameters.keySet().iterator(); while (iterator.hasNext()) sb.append("- ").append(String.valueOf(iterator.next())).append("\n");
+			Iterator iterator = parameters.keySet().iterator(); int count = 0;
+			while (iterator.hasNext() && count++ < 100) sb.append("- ").append(diagnosticValue(iterator.next())).append("\n");
+			if (iterator.hasNext()) sb.append("[parameter lainnya dipersingkat]\n");
 			sb.append("\n");
 		}
 		if (isReportErrorStackTraceEnabled()) sb.append("Stack trace teknis:\n------------------------------------------------------------\n").append(stackTraceToString(throwable));
@@ -4326,6 +4351,16 @@ public class Report extends GenericAutowireComposer {
 			return;
 		}
 		try {
+			if (center instanceof Iframe) {
+				Iframe frame = (Iframe) center;
+				frame.setSrc("about:blank");
+				frame.setContent(new AMedia("pratinjau.html", "html", "text/html",
+						"<!doctype html><html lang='id'><meta charset='UTF-8'><body>"
+						+ "<p>Pratinjau laporan belum tersedia atau file sementara sudah dibersihkan. "
+						+ "Silakan ulangi cetak/refresh laporan.</p></body></html>"));
+				frame.setTooltiptext("Pratinjau belum tersedia. Silakan ulangi cetak/refresh laporan.");
+				return;
+			}
 			Common.clear(center);
 			Label label = new Label("Pratinjau laporan belum tersedia atau file sementara sudah dibersihkan. "
 					+ "Silakan ulangi cetak/refresh laporan.");

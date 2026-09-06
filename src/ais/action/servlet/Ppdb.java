@@ -11,14 +11,18 @@ import ais.common.Common;
 import ais.database.model.Konfigurasi;
 
 /**
- * Servlet implementation class CheckISBN
+ * Servlet endpoint {@code /ppdb} yang meneruskan (forward) permintaan ke salah satu dari dua
+ * tampilan PPDB (Penerimaan Peserta Didik Baru): halaman ZK lama ({@code /WEB-INF/z/x/y/psb.zul},
+ * default) atau halaman JSP baru ({@code /WEB-INF/baru/ppdb.jsp}). Pemilihan versi ditentukan
+ * oleh (mana pun yang terpenuhi lebih dulu memicu versi baru): parameter {@code baru} hadir pada
+ * permintaan, konfigurasi global {@code default_ppdb_gunakan_versi_baru} bernilai
+ * {@link Konfigurasi#AKTIF}, atau parameter {@code hanya_tampil_jsp=true}. Tidak melakukan
+ * penulisan apa pun ke database; hanya membaca satu baris {@link Konfigurasi}.
  */
 public class Ppdb extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 
-	/**
-	 * @see HttpServlet#HttpServlet()
-	 */
+	/** Konstruktor baku servlet, tanpa inisialisasi tambahan. */
 	public Ppdb() {
 		super();
 
@@ -26,8 +30,9 @@ public class Ppdb extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan GET dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -39,8 +44,9 @@ public class Ppdb extends HttpServlet {
 	}
 
 	/**
-	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
-	 *      response)
+	 * Menangani permintaan POST dengan mendelegasikan ke
+	 * {@link #process(HttpServletRequest, HttpServletResponse)}; galat ditangani oleh
+	 * {@link Common#tampilErrorJikaAdmin(Exception)} agar detail teknis hanya tampil untuk admin.
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
@@ -51,6 +57,19 @@ public class Ppdb extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menentukan halaman PPDB tujuan: default halaman ZK lama
+	 * ({@code /WEB-INF/z/x/y/psb.zul}), beralih ke halaman JSP baru
+	 * ({@code /WEB-INF/baru/ppdb.jsp}) bila parameter {@code baru} hadir pada permintaan, atau
+	 * konfigurasi {@code default_ppdb_gunakan_versi_baru} aktif, atau parameter
+	 * {@code hanya_tampil_jsp} bernilai {@code "true"} (case-insensitive) — lalu meneruskan
+	 * (forward) permintaan ke halaman yang dipilih.
+	 *
+	 * @param request permintaan HTTP masuk, membawa parameter opsional {@code baru} dan
+	 *                {@code hanya_tampil_jsp}
+	 * @param response respons HTTP yang akan di-forward ke halaman tujuan
+	 * @throws Exception bila terjadi galat saat forward ke halaman tujuan
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		String dispatcherPath = "/WEB-INF/z/x/y/psb.zul";

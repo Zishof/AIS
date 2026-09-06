@@ -352,10 +352,11 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 							public void run() {
 								try {
 
-								Session session = HibernateUtil.currentNativeSession();
 								for (Kelas kelas : kelases) {
 									String kunciKelas = kelas == null || kelas.getNama() == null ? "-" : kelas.getNama();
+									Session session = null;
 									try {
+										session = HibernateUtil.openSession();
 										Criteria criteria = session.createCriteria(Mahasiswa.class)
 												.add(Restrictions.or(Restrictions.isNull("aktif"),
 														Restrictions.eq("aktif", true)))
@@ -409,6 +410,8 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 									} catch (Exception e) {
 										Common.tampilErrorJikaAdmin(e);
 										laporan.catatGagalDetail(nomorBarisLaporan.getAndIncrement(), kunciKelas, e);
+									} finally {
+										HibernateUtil.closeSessionQuietly(session);
 									}
 								}
 								HibernateUtil.closeSession();
@@ -977,6 +980,19 @@ public class KelasAction extends GenericAutowireComposer implements DataCriteria
 		kelas.setUpdateDosenPaSekarang(updateDosenPaSekarang.isChecked());
 
 		Common.refreshSaveOrUpdate(kelas);
+
+		String namaBaru = kelas.getNama();
+		if (kelLama != null && namaBaru != null && !kelLama.equals(namaBaru)) {
+			Session session = kelasDao.getCurrentSession();
+			@SuppressWarnings("unchecked")
+			List<Perkuliahan> jadwalTerkait = session.createCriteria(Perkuliahan.class)
+					.add(Restrictions.eq("kelasref", kelas)).list();
+			for (Perkuliahan jadwal : jadwalTerkait) {
+				jadwal.setKelas(namaBaru);
+			}
+			// Flush melalui Hibernate agar perubahan jadwal ikut tercatat oleh Envers beserta pelakunya.
+			session.flush();
+		}
 
 		String query = "update mahasiswa set kelas='" + kelas.getNama() + "' where kelas ilike '" + kelLama + "'";
 		kelasDao.getCurrentSession().createSQLQuery(query).executeUpdate();

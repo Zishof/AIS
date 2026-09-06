@@ -828,8 +828,9 @@ public class ProfileDosen {
 					a.setStyle("font-size:11px;font-weight: bolder;color:red;");
 				} else {
 					for (final KrsMahasiswa krsMahasiswa : krsMahasiswas) {
+						if (krsMahasiswa == null) continue;
 
-						if (dosen != null && krsMahasiswa.getDosenPa() != null
+						if (dosen != null && krsMahasiswa.getDosenPa() != null && krsMahasiswa.getDosenPa().getId() != null
 								&& krsMahasiswa.getDosenPa().getId().equals(dosen.getId())) {
 
 							if (rowsKrsMahasiswa == null || rowsKrsMahasiswa.getPage() == null) {

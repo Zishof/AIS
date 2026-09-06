@@ -293,6 +293,12 @@ public class LaporanRealisasiLkpTerpaduWindow extends MyWindow {
 
 	@SuppressWarnings({ "rawtypes" })
 	private Map generateParameter() throws Exception {
+		if (tahunAkademik.getSelectedItem() == null || !(tahunAkademik.getSelectedItem().getValue() instanceof Integer)) {
+			throw new org.zkoss.zk.ui.WrongValueException(tahunAkademik, "Pilih tahun laporan dari daftar.");
+		}
+		if (semesterAbsensi.getSelectedItem() == null || !(semesterAbsensi.getSelectedItem().getValue() instanceof Integer)) {
+			throw new org.zkoss.zk.ui.WrongValueException(semesterAbsensi, "Pilih bulan laporan dari daftar.");
+		}
 
 		Double prosentasi_nilai_skp_kuantitas = 70.0;
 		Double prosentasi_nilai_skp_kualitas = 10.0;

@@ -185,12 +185,12 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 			MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 			button.setOrient("vertical");
 			button.setVisible(delete);
-			button.setTooltiptext("Hapus Data");
+			button.setTooltiptext("Keluarkan dari kelas");
 			button.addEventListener("onClick", new EventListener() {
 				@Override
 				public void onEvent(Event event) throws Exception {
 
-					MyMessageboxConfig.show("Apakah yakin ingin menghapus data ini ?", "Pertanyaan",
+					MyMessageboxConfig.show("Keluarkan mahasiswa dari kelas ini? Data mahasiswa dan riwayat akademik tetap disimpan.", "Pertanyaan",
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
 
@@ -200,7 +200,8 @@ public class KelasPunyaMahasiswaHelper implements DataLoader, DataCriteria {
 									if (i == MyMessageboxConfig.OK) {
 										try {
 
-											Common.refreshDelete(mahasiswa);
+											mahasiswa.setKelas(null);
+											Common.refreshSaveOrUpdate(mahasiswa);
 
 											Common.createDefaultTimer(new EventListener() {
 

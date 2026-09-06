@@ -376,10 +376,7 @@ public final class RingkasanKampusCache {
 	}
 
 	private static void closeBatchSession(Session session) {
-		if (session == null) return;
-		try { session.clear(); } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "clear batch ringkasan kampus"); }
-		try { if (session.isConnected()) session.disconnect(); } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "disconnect batch ringkasan kampus"); }
-		try { if (session.isOpen()) session.close(); } catch (Throwable e) { ais.common.ErrorAuditUtil.record(e, "close batch ringkasan kampus"); }
+		HibernateUtil.closeSessionQuietly(session);
 	}
 
 	/** Dosen yang MENGAJAR (punya jadwal perkuliahan) per jurusan pada TA. */

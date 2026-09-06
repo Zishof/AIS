@@ -1446,7 +1446,10 @@ public abstract class VOPembelajaran extends VoKunci {
 				return;
 			}
 
-			List<Pertemuan> pertemuans = ambilDataBanyak(Pertemuan.class, pertemuansId);
+			List<Pertemuan> pertemuans = session.createCriteria(Pertemuan.class)
+					.add(Restrictions.in("id", pertemuansId))
+					.addOrder((getUrutkanotomatis() != null && !getUrutkanotomatis()) ? Order.asc("pertemuanKe") : Order.asc("tanggal"))
+					.addOrder(Order.asc("id")).list();
 			tulisLokasiPertemuan(new JSONObject().toString());
 			
 			int pertemuanKe = 1;
@@ -1708,7 +1711,10 @@ public abstract class VOPembelajaran extends VoKunci {
 				return;
 			}
 
-			List<Pertemuan> pertemuans = ambilDataBanyak(Pertemuan.class, pertemuansId);
+			List<Pertemuan> pertemuans = session.createCriteria(Pertemuan.class)
+					.add(Restrictions.in("id", pertemuansId))
+					.addOrder((getUrutkanotomatis() != null && !getUrutkanotomatis()) ? Order.asc("pertemuanKe") : Order.asc("tanggal"))
+					.addOrder(Order.asc("id")).list();
 			tulisLokasiPertemuan(new JSONObject().toString());
 			
 			int pertemuanKe = 1;
@@ -1856,7 +1862,8 @@ public abstract class VOPembelajaran extends VoKunci {
 				return;
 			}
 
-			List<Pertemuan> pertemuans = ambilDataBanyak(Pertemuan.class, pertemuansId);
+			List<Pertemuan> pertemuans = session.createCriteria(Pertemuan.class)
+					.add(Restrictions.in("id", pertemuansId)).addOrder(Order.asc("id")).list();
 
 			for (Pertemuan pertemuan : pertemuans) {
 				if (pertemuan != null) {

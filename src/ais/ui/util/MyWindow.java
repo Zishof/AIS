@@ -127,6 +127,10 @@ public class MyWindow extends Window {
 	@Override
 	public void onModal() throws InterruptedException {
 		if (headless) return;
+		if (getPage() == null && org.zkoss.zk.ui.sys.ExecutionsCtrl.getCurrentCtrl() != null
+				&& org.zkoss.zk.ui.sys.ExecutionsCtrl.getCurrentCtrl().getCurrentPage() != null) {
+			setPage(org.zkoss.zk.ui.sys.ExecutionsCtrl.getCurrentCtrl().getCurrentPage());
+		}
 		if (getPage() == null && org.zkoss.zk.ui.Executions.getCurrent() != null
 				&& org.zkoss.zk.ui.Executions.getCurrent().getDesktop() != null
 				&& org.zkoss.zk.ui.Executions.getCurrent().getDesktop().getFirstPage() != null) {

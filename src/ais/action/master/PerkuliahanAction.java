@@ -2524,6 +2524,12 @@ public class PerkuliahanAction extends GenericAutowireComposer
 							+ (kurikulum == null ? "" : " (Kurikulum : " + kurikulum.getNama() + ")"));
 			a.setStyle("font-size:9px");
 			a.setParent(arg0);
+			if (perkuliahan.getKelasref() != null) {
+				Vbox riwayatKelas = RevisiHelper.createNewRevisi(Kelas.class, perkuliahan.getKelasref(),
+						"Riwayat master kelas " + perkuliahan.getKelasref().getNama());
+				riwayatKelas.setStyle("font-size:9px");
+				riwayatKelas.setParent(a);
+			}
 
 			MatakuliahPrasyaratAction.tampilPrasyarat(a, perkuliahan.getMatakuliah());
 

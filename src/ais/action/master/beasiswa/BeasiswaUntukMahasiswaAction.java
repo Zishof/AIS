@@ -714,6 +714,16 @@ public class BeasiswaUntukMahasiswaAction extends GenericAutowireComposer {
 				}
 
 				for (final Component component : components) {
+					if (component instanceof MyDatebox) {
+						try {
+							((MyDatebox) component).getValue();
+						} catch (org.zkoss.zk.ui.WrongValueException invalidDate) {
+							org.zkoss.zk.ui.util.Clients.wrongValue(component,
+									"Tanggal belum valid. Pilih tanggal melalui kalender atau gunakan format dd-MM-yyyy.");
+							((MyDatebox) component).focus();
+							return;
+						}
+					}
 
 					if (component.getAttribute("persyaratan") != null) {
 						PersyaratanBeasiswa persyaratan = (PersyaratanBeasiswa) component.getAttribute("persyaratan");

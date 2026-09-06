@@ -3482,7 +3482,7 @@ public class Kegiatan extends GeneralValueObject {
 		JSONObject snapshot = new JSONObject();
 		snapshot.put("nominal", nominalBaru.doubleValue());
 		snapshot.put("alasan", alasan.trim());
-		snapshot.put("waktuEpoch", waktu);
+		snapshot.put("waktuEpoch", (Object) Long.valueOf(waktu));
 		if (userId != null) snapshot.put("userId", userId);
 		if (userNama != null) snapshot.put("userNama", userNama);
 		if (itemBiaya != null && itemBiaya.getId() != null) snapshot.put("itemBiayaId", itemBiaya.getId());

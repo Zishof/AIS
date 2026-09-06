@@ -2389,8 +2389,9 @@ public abstract class FileFotoLain extends FileFoto {
 						final FileFotoLain hasilUpload = (FileFotoLain) ev.getData();
 
 						if (hasilUpload != null) {
-							Session session = StreamingHibernateUtil.getInstance().currentSession();
+							Session session = null;
 							try {
+								session = StreamingHibernateUtil.getInstance().openSession();
 								String key = "data_baru_" + (usingId ? "_id" : "");
 								FileFotoLain finalObj = hasilUpload;
 
@@ -2427,7 +2428,7 @@ public abstract class FileFotoLain extends FileFoto {
 							} catch (Exception e) {
 								e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/database/model/file/FileFotoLain.java:776");
 							} finally {
-								StreamingHibernateUtil.getInstance().closeSession();
+								ais.database.hibernate.HibernateUtil.closeSessionQuietly(session);
 								if (resetAfterUpload != null)
 									resetAfterUpload.onEvent(null);
 							}
@@ -2826,14 +2827,7 @@ public abstract class FileFotoLain extends FileFoto {
 			return bytes;
 		} finally {
 			rollbackQuietly(transaction);
-			if (readSession != null) {
-				try {
-					if (readSession.isOpen()) {
-						readSession.close();
-					}
-				} catch (Exception eignore) { ais.common.ErrorAuditUtil.record(eignore, "auto-audit(empty-catch) src/ais/database/model/file/FileFotoLain.java:973");
-				}
-			}
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(readSession);
 		}
 	}
 

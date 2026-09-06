@@ -1210,6 +1210,10 @@ public class CommonDownloadUpload {
 
 															boolean updated = false;
 															if (vaBank.getVa() == null) {
+																if (vaBank.getKode() == null || vaBank.getKode().trim().length() == 0) {
+																	throw new IllegalArgumentException("Kode Virtual Account kosong pada data " + vaBank.getId()
+																			+ "; lengkapi kode sebelum sinkronisasi. Nomor VA tidak dibuat otomatis dari data kosong.");
+																}
 																Va va = new Va();
 																va.setKode(vaBank.getKode());
 																threadSession.save(va);

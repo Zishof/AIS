@@ -187,42 +187,9 @@ public final class CommonPagingHelper {
 
 		int size = pageSize;
 		if (criteria != null && projection != null) {
-			try {
-				size = ((Number) criteria.setProjection(projection).uniqueResult()).intValue();
-			} catch (Exception e) {
-				Common.tampilErrorJikaAdmin(e);
-				// KE-FIX (ConstraintViolationException saat autoflush objek transient tak
-				// terkait, mis. Tbmuser duplikat "keuangan"): count paging ini sudah gagal-aman
-				// (size tetap default), TAPI transaksi sesi ZK (currentSession()) ikut tertandai
-				// aborted oleh Postgres setelah exception ini -- seluruh query LAIN di request
-				// yang sama (mis. render grid setelah paging ini) ikut gagal "current transaction
-				// is aborted" kalau tidak dipulihkan. Rollback + clear + buka transaksi baru
-				// (JANGAN close() -- currentSession() dikelola ZK, ditutup di akhir request).
-				try {
-					org.hibernate.Session s = ais.database.hibernate.HibernateUtil.currentSession();
-					if (s != null && s.isOpen()) {
-						try {
-							if (s.getTransaction() != null && s.getTransaction().isActive()) {
-								s.getTransaction().rollback();
-							}
-						} catch (Exception rbEx) { ais.common.ErrorAuditUtil.record(rbEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-rollback"); }
-						/* Rollback pada beberapa konfigurasi Hibernate lama dapat ikut
-						 * menutup currentSession. Periksa ulang sebelum clear/beginTransaction;
-						 * memanggil clear() pada sesi tertutup hanya menghasilkan exception
-						 * kedua yang menutupi penyebab awal. */
-						try {
-							if (s.isOpen()) {
-								s.clear();
-							}
-						} catch (Exception clEx) { ais.common.ErrorAuditUtil.record(clEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-clear"); }
-						try {
-							if (s.isOpen() && (s.getTransaction() == null || !s.getTransaction().isActive())) {
-								s.beginTransaction();
-							}
-						} catch (Exception txEx) { ais.common.ErrorAuditUtil.record(txEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-retx"); }
-					}
-				} catch (Exception recoverEx) { ais.common.ErrorAuditUtil.record(recoverEx, "auto-audit(empty-catch) src/ais/common/CommonPagingHelper.java:setupPagingData-recover"); }
-			}
+			// Biarkan kegagalan query menghentikan request; session dimiliki pemanggil.
+			Number total = (Number) criteria.setProjection(projection).uniqueResult();
+			size = total == null ? 0 : total.intValue();
 		}
 
 		paging.setTotalSize(size);

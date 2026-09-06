@@ -56,8 +56,10 @@ public final class LibraryWorkspaceApi {
                     "select count(h.id) from library.pesanan_anggota h where lower(coalesce(h.status,'')) not in ('batal','selesai','diambil')",
                     "h.anggota", context);
 
-            JSONObject counts = new JSONObject().put("titles", titles).put("copies", copies).put("visits", visits)
-                    .put("loans", loans).put("returns", returns).put("overdue", overdue).put("holds", holds);
+            JSONObject counts = new JSONObject().put("titles", (Object) Long.valueOf(titles))
+                    .put("copies", (Object) Long.valueOf(copies)).put("visits", (Object) Long.valueOf(visits))
+                    .put("loans", (Object) Long.valueOf(loans)).put("returns", (Object) Long.valueOf(returns))
+                    .put("overdue", (Object) Long.valueOf(overdue)).put("holds", (Object) Long.valueOf(holds));
             JSONObject result = new JSONObject().put("ok", true).put("scope", context.scope()).put("counts", counts);
             result.put("visitTrend", visitTrend(session, context));
             result.put("topSubjects", topSubjects(session));
@@ -144,7 +146,7 @@ public final class LibraryWorkspaceApi {
                 if (context.admin) item.put("memberCode", string(row[4])).put("memberName", string(row[5]));
                 data.put(item);
             }
-            return new JSONObject().put("ok", true).put("scope", context.scope()).put("total", total).put("page", page).put("pageSize", size).put("data", data);
+            return new JSONObject().put("ok", true).put("scope", context.scope()).put("total", (Object) Long.valueOf(total)).put("page", page).put("pageSize", size).put("data", data);
         } finally {
             HibernateUtil.closeSessionQuietly(session);
         }
@@ -174,7 +176,7 @@ public final class LibraryWorkspaceApi {
                 if (context.admin) item.put("memberCode", string(row[5])).put("memberName", string(row[6]));
                 data.put(item);
             }
-            return new JSONObject().put("ok", true).put("scope", context.scope()).put("total", total).put("page", page).put("pageSize", size).put("data", data);
+            return new JSONObject().put("ok", true).put("scope", context.scope()).put("total", (Object) Long.valueOf(total)).put("page", page).put("pageSize", size).put("data", data);
         } finally {
             HibernateUtil.closeSessionQuietly(session);
         }
@@ -215,7 +217,7 @@ public final class LibraryWorkspaceApi {
     private static String text(String raw, int max) { if (raw == null || raw.trim().length() == 0) return null; String value=raw.trim(); return value.length()>max?value.substring(0,max):value; }
     private static Long positiveLong(String raw) { try { long value=Long.parseLong(raw); return value>0?Long.valueOf(value):null; } catch(Exception ignored){ return null; } }
     private static int bounded(String raw,int min,int max,int fallback){ try{int value=Integer.parseInt(raw);return value<min||value>max?fallback:value;}catch(Exception ignored){return fallback;} }
-    private static long number(Object value) { return value instanceof Number ? ((Number)value).longValue() : 0L; }
+    private static Long number(Object value) { return Long.valueOf(value instanceof Number ? ((Number)value).longValue() : 0L); }
     private static String string(Object value) { return value == null ? "" : String.valueOf(value); }
 
     /**

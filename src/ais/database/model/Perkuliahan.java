@@ -1456,28 +1456,17 @@ public class Perkuliahan extends VOPembelajaran {
 	/**
 	 * Label kelas paralel ("A", "B", ...).
 	 *
-	 * <p><b>Efek samping:</b> bila kelas terikat master {@link Kelas} lewat {@code kelasref}, nama
-	 * master MENIMPA teks bebas dan ditulis balik ke field — pola yang sama dengan
-	 * {@link JamPerkuliahan} pada jam kuliah. {@code null} dinormalkan menjadi string kosong.</p>
+	 * <p>Nilai yang dikembalikan selalu berasal dari kolom {@code kelas}. Relasi master
+	 * {@link #getKelasref()} tidak dibaca di getter terpetakan ini; bila nama master berubah,
+	 * {@code KelasAction} menyinkronkan kolom jadwal secara eksplisit melalui Hibernate. Dengan
+	 * demikian proses baca tidak dapat menghasilkan UPDATE dan revisi semu.</p>
 	 *
 	 * @return label kelas yang sudah di-trim; tidak pernah {@code null}.
 	 * @see #getKelasref()
 	 */
 	@Column(name = "kelas", length = 255)
 	public String getKelas() {
-		try {
-			kelasref = getKelasref();
-			if (kelasref != null && kelasref.getNama() != null) {
-				kelas = kelasref.getNama();
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/Perkuliahan.java:855");
-			// TODO: handle exception
-		}
-
-		if (kelas == null) {
-			kelas = "";
-		}
-		return kelas.trim();
+		return kelas == null ? "" : kelas.trim();
 	}
 
 	/**
@@ -1993,10 +1982,9 @@ public class Perkuliahan extends VOPembelajaran {
 				}
 			}
 		} catch (Exception e) {
-			// Data pengunci lama dapat menunjuk akun/dosen yang sudah tidak aktif atau
-			// proxy yang session-nya telah berakhir. Dalam kondisi itu kelas diperlakukan
-			// tidak terkunci, sesuai aturan di atas, tanpa menjadikannya error sistem.
-			dikunci = null;
+			// Gagal membaca relasi bukan bukti bahwa pengunci tidak lagi berwenang.
+			// Pertahankan kunci agar gangguan session tidak membuka perubahan nilai.
+			ais.common.ErrorAuditUtil.record(e, "Perkuliahan.getDikunci: gagal memeriksa pengampu, kunci dipertahankan");
 		}
 		return dikunci;
 	}
@@ -5689,8 +5677,9 @@ public class Perkuliahan extends VOPembelajaran {
 	/**
 	 * Master {@link Kelas} yang menjadi acuan label kelas ini.
 	 *
-	 * <p>Bila terisi, nama master MENIMPA teks bebas pada {@link #getKelas()}. Dipakai institusi
-	 * yang mengelola daftar kelas terpusat alih-alih mengetik "A"/"B" per jadwal.</p>
+	 * <p>Bila terisi, perubahan nama master disinkronkan secara eksplisit ke kolom teks
+	 * {@link #getKelas()} oleh alur penyimpanan master kelas. Dipakai institusi yang mengelola
+	 * daftar kelas terpusat alih-alih mengetik "A"/"B" per jadwal.</p>
 	 *
 	 * @return master kelas, atau {@code null} bila label diisi bebas.
 	 */

@@ -1661,6 +1661,10 @@ public class PeminjamanPengadaanItemAction extends GenericAutowireComposer {
 			Common.refreshUpdate(session, peminjamanPengadaanItem);
 		} else {
 			peminjamanPengadaanItem.setDibuatOleh(Common.getCurrentUser());
+			// Nomor dan INSERT berada dalam transaksi yang sama; serialisasi antar operator.
+			if (!session.getTransaction().isActive()) session.beginTransaction();
+			session.createSQLQuery("select 1 from (select pg_advisory_xact_lock(hashtext(:key))) locked")
+					.setString("key", "library:peminjaman_pengadaan_item:kode").uniqueResult();
 
 			peminjamanPengadaanItem.setIndex(
 					LibraryUtil.generateMaxByPerpustakaan(PeminjamanPengadaanItem.class, currentPerpustakaan) + 1);
