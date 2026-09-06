@@ -1342,6 +1342,25 @@ public class Repository extends HttpServlet {
      */
     private String country(HttpServletRequest request){String value=clean(request.getHeader("CF-IPCountry"));if(value.length()==0)value=clean(request.getHeader("X-Country-Code"));return value;}
 
+    /**
+     * Menuliskan elemen {@code <request>} yang wajib ada pada setiap tanggapan OAI-PMH.
+     *
+     * <p>Elemen ini menggemakan kembali argumen permintaan sebagai atribut — {@code verb},
+     * {@code identifier}, {@code metadataPrefix}, {@code from}, {@code until}, {@code set},
+     * {@code resumptionToken} — dan memuat base URL sebagai isinya. Hanya argumen yang benar-benar
+     * dikirim yang ditulis; parameter {@code action} milik aplikasi tidak pernah ikut karena tidak
+     * ada dalam daftar nama.</p>
+     *
+     * <p>{@code verb} diambil dari argumen method, bukan dibaca ulang dari permintaan, sehingga
+     * nilainya konsisten dengan yang benar-benar diproses. Seluruh nilai dilewatkan {@link #xml}
+     * sebelum ditulis sebagai atribut, sehingga tanda kutip pada masukan tidak dapat memecah
+     * atribut atau menyisipkan atribut baru.</p>
+     *
+     * @param out     penulis tanggapan XML
+     * @param request permintaan servlet, sumber nilai argumen
+     * @param base    base URL OAI-PMH
+     * @param verb    verb yang sedang diproses
+     */
     private void writeOaiRequest(PrintWriter out, HttpServletRequest request, String base, String verb) {
         out.print("<request");
         String[] names = new String[] { "verb", "identifier", "metadataPrefix", "from", "until", "set", "resumptionToken" };
@@ -1352,11 +1371,54 @@ public class Repository extends HttpServlet {
         out.print(">" + xml(base) + "</request>");
     }
 
+    /**
+     * Menyatakan apakah sebuah string termasuk enam verb OAI-PMH 2.0 yang didukung.
+     *
+     * <p>Perbandingannya <b>peka huruf besar-kecil</b>, sesuai spesifikasi: {@code Identify},
+     * {@code ListMetadataFormats}, {@code ListSets}, {@code GetRecord}, {@code ListIdentifiers},
+     * {@code ListRecords}. Kiriman {@code listrecords} karena itu ditolak sebagai
+     * {@code badVerb}, bukan diterima diam-diam.</p>
+     *
+     * @param verb nilai parameter {@code verb} yang sudah dilewatkan {@link #clean}
+     * @return {@code true} bila verb dikenal
+     */
     private boolean isOaiVerb(String verb) {
         return "Identify".equals(verb) || "ListMetadataFormats".equals(verb) || "ListSets".equals(verb)
                 || "GetRecord".equals(verb) || "ListIdentifiers".equals(verb) || "ListRecords".equals(verb);
     }
 
+    /**
+     * Memusatkan seluruh pemeriksaan kesesuaian argumen OAI-PMH; mengembalikan pesan galat, atau
+     * string kosong bila permintaan sah.
+     *
+     * <p>Protokol OAI-PMH menuntut penolakan argumen yang <i>berlebih</i>, bukan sekadar
+     * mengabaikannya, dan method inilah yang menegakkannya. Urutan pemeriksaannya:</p>
+     * <ol>
+     *   <li>Verb harus dikenal ({@link #isOaiVerb}).</li>
+     *   <li>Setiap nama parameter harus termasuk tujuh nama yang dikenal — {@code action} milik
+     *       aplikasi dikecualikan — dan tidak boleh diulang (larik nilai berukuran lebih dari
+     *       satu ditolak).</li>
+     *   <li>Bila {@code resumptionToken} ada: hanya sah untuk {@code ListIdentifiers} dan
+     *       {@code ListRecords}, dan harus menjadi satu-satunya argumen selain {@code verb}
+     *       (batas jumlah parameter disesuaikan bila {@code action} ikut terkirim).</li>
+     *   <li>{@code Identify} dan {@code ListSets} tidak menerima argumen tambahan sama sekali;
+     *       {@code ListMetadataFormats} hanya menerima {@code identifier}.</li>
+     *   <li>{@code GetRecord} wajib membawa {@code identifier} dan {@code metadataPrefix}, dan
+     *       tidak menerima {@code set}/{@code from}/{@code until}.</li>
+     *   <li>Untuk verb daftar tanpa token: {@code resumptionToken} kosong ditolak,
+     *       {@code metadataPrefix} wajib, {@code identifier} dilarang, dan {@code from} serta
+     *       {@code until} harus memakai granularitas yang sama — keduanya tanggal saja, atau
+     *       keduanya bercap waktu.</li>
+     * </ol>
+     *
+     * <p>Pemanggil di {@link #oai} memetakan hasilnya menjadi {@code badVerb} bila verb tidak
+     * dikenal, dan {@code badArgument} untuk selebihnya.</p>
+     *
+     * @param request permintaan servlet
+     * @param verb    verb yang diminta
+     * @param token   nilai {@code resumptionToken} yang sudah dibersihkan
+     * @return pesan galat berbahasa Indonesia, atau string kosong bila tidak ada masalah
+     */
     private String oaiArgumentError(HttpServletRequest request, String verb, String token) {
         if (!isOaiVerb(verb)) return "Verb OAI-PMH tidak dikenal.";
         Map<?,?> parameters = request.getParameterMap();
@@ -1400,45 +1462,219 @@ public class Repository extends HttpServlet {
         return "";
     }
 
+    /**
+     * Menyatakan apakah permintaan membawa setidaknya satu dari sejumlah nama parameter.
+     *
+     * <p>Pemeriksaannya {@code getParameter(...) != null}, bukan "tidak kosong" — sesuai
+     * kebutuhan OAI-PMH, mengirim {@code &set=} dengan nilai kosong tetap terhitung sebagai
+     * mengirim argumen dan karena itu tetap ditolak untuk verb yang tidak menerimanya.</p>
+     *
+     * @param request permintaan servlet
+     * @param names   daftar nama parameter yang dilarang untuk verb bersangkutan
+     * @return {@code true} bila salah satu nama itu hadir
+     */
     private boolean hasAnyOaiArgument(HttpServletRequest request, String[] names) {
         for (int i = 0; i < names.length; i++) if (request.getParameter(names[i]) != null) return true;
         return false;
     }
 
+    /**
+     * Menyatakan apakah {@code metadataPrefix} yang diminta didukung.
+     *
+     * <p>Repositori ini hanya mengumumkan dan melayani {@code oai_dc}, format wajib menurut
+     * spesifikasi OAI-PMH. Nilai lain dijawab {@code cannotDisseminateFormat}, sesuai kode galat
+     * yang ditentukan protokol untuk kasus ini.</p>
+     *
+     * @param value nilai parameter {@code metadataPrefix}; boleh {@code null}
+     * @return {@code true} hanya untuk {@code oai_dc}
+     */
     private boolean validOaiPrefix(String value) {
         return "oai_dc".equals(clean(value));
     }
 
+    /**
+     * Membaca nomor halaman dari sebuah {@code resumptionToken}.
+     *
+     * <p>Token kosong berarti permintaan pertama, sehingga hasilnya 1. Token yang gagal
+     * diverifikasi tanda tangannya, rusak, atau memuat nomor halaman nol/negatif menghasilkan
+     * {@code -1}, yang oleh {@link #oai} diterjemahkan menjadi {@code badResumptionToken}. Nilai
+     * negatif dipilih sebagai penanda gagal supaya tidak dapat tertukar dengan nomor halaman yang
+     * sah.</p>
+     *
+     * @param token nilai {@code resumptionToken}; boleh {@code null} atau kosong
+     * @return nomor halaman ≥ 1, atau {@code -1} bila token tidak sah
+     */
     private int parseOaiPage(String token) {
         if (token == null || token.length() == 0) return 1;
         String[] values=decodeOaiToken(token);if(values==null)return -1;
         try{int page=Integer.parseInt(values[0]);return page>0?page:-1;}catch(Exception e){return -1;}
     }
 
+    /**
+     * Membentuk {@code resumptionToken} bertanda tangan yang membawa seluruh konteks panen.
+     *
+     * <p>Muatannya adalah enam ruas yang dipisah tanda {@code |}: nomor halaman berikutnya,
+     * identitas himpunan (0 bila tidak ada), batas bawah dan batas atas tanggal dalam milidetik
+     * (0 bila tidak ada), penanda verb ({@code I} untuk {@code ListIdentifiers}, {@code R} untuk
+     * {@code ListRecords}), dan cap waktu penerbitan. Bentuk akhirnya adalah muatan Base64
+     * URL-safe, titik, lalu tanda tangan HMAC-SHA256 dalam Base64 URL-safe.</p>
+     *
+     * <p>Karena seluruh konteks ikut ditandatangani, pemanen tidak dapat mengganti nomor halaman,
+     * memindahkan token ke himpunan lain, melebarkan rentang tanggal, atau memakai token
+     * {@code ListIdentifiers} pada {@code ListRecords}. Cap waktu penerbitan memberi masa berlaku
+     * yang diperiksa {@link #decodeOaiToken}.</p>
+     *
+     * <p>Kegagalan pembentukan tanda tangan dianggap galat pemasangan, bukan masukan pengguna,
+     * sehingga dilempar sebagai {@link IllegalStateException}.</p>
+     *
+     * @param page  nomor halaman yang akan dilayani token ini
+     * @param setId identitas koleksi; boleh {@code null}
+     * @param from  batas bawah tanggal ubah; boleh {@code null}
+     * @param until batas atas tanggal ubah; boleh {@code null}
+     * @param verb  verb asal, penentu penanda {@code I}/{@code R}
+     * @return token bertanda tangan yang siap ditulis ke tanggapan
+     */
     private String buildOaiToken(int page, Long setId, Date from, Date until, String verb) {
         try{String payload=page+"|"+(setId==null?0L:setId.longValue())+"|"+(from==null?0L:from.getTime())+"|"+(until==null?0L:until.getTime())+"|"+("ListIdentifiers".equals(verb)?"I":"R")+"|"+System.currentTimeMillis();byte[] bytes=payload.getBytes("UTF-8");return Base64.encodeBase64URLSafeString(bytes)+"."+Base64.encodeBase64URLSafeString(hmac(bytes));}catch(Exception e){throw new IllegalStateException("Resumption token tidak dapat dibuat.",e);}
     }
 
+    /**
+     * Membaca salah satu ruas bertipe angka dari {@code resumptionToken} yang sudah terverifikasi.
+     *
+     * <p>Kunci yang dikenal: {@code "s"} untuk identitas himpunan, {@code "f"} untuk batas bawah
+     * tanggal, dan {@code "u"} untuk batas atas — masing-masing memetakan ke indeks 1, 2, dan 3
+     * pada muatan token. Nilai nol atau negatif berarti "tidak disetel" dan dikembalikan sebagai
+     * {@code null}, sesuai cara {@link #buildOaiToken} menyandikan ketiadaan nilai.</p>
+     *
+     * <p>Token yang tidak sah, kunci yang tidak dikenal, dan ruas yang bukan angka semuanya
+     * menghasilkan {@code null} — tidak ada exception yang lolos ke pemanggil.</p>
+     *
+     * @param token nilai {@code resumptionToken}
+     * @param key   {@code "s"}, {@code "f"}, atau {@code "u"}
+     * @return nilai ruas, atau {@code null} bila tidak tersedia
+     */
     private Long parseOaiTokenLong(String token, String key) {
         String[] values=decodeOaiToken(token);if(values==null)return null;int index="s".equals(key)?1:("f".equals(key)?2:("u".equals(key)?3:-1));if(index<0)return null;try{long value=Long.parseLong(values[index]);return value<=0L?null:Long.valueOf(value);}catch(Exception e){return null;}
     }
 
+    /**
+     * Membaca ruas tanggal dari {@code resumptionToken} sebagai objek {@link Date}.
+     *
+     * <p>Pembungkus tipis atas {@link #parseOaiTokenLong}: nilai milidetik diubah menjadi
+     * {@link Date}, dan ketiadaan nilai tetap dikembalikan sebagai {@code null} sehingga
+     * pemanggil dapat membedakan "tanpa batas" dari "batas pada epoch".</p>
+     *
+     * @param token nilai {@code resumptionToken}
+     * @param key   {@code "f"} untuk batas bawah, {@code "u"} untuk batas atas
+     * @return tanggal batas, atau {@code null} bila tidak disetel
+     */
     private Date parseOaiTokenDate(String token, String key) {
         Long value = parseOaiTokenLong(token, key);
         return value == null ? null : new Date(value.longValue());
     }
 
+    /**
+     * Mengembalikan verb asal sebuah {@code resumptionToken}.
+     *
+     * <p>Penanda {@code I} berarti {@code ListIdentifiers}; nilai lain — yang sudah dipastikan
+     * {@code R} oleh {@link #decodeOaiToken} — berarti {@code ListRecords}. Token yang tidak sah
+     * menghasilkan string kosong, yang tidak akan pernah sama dengan verb mana pun sehingga
+     * pemeriksaan di {@link #oai} otomatis gagal.</p>
+     *
+     * <p>Pemeriksaan ini penting: tanpa itu, token yang diterbitkan untuk {@code ListIdentifiers}
+     * dapat dipakai melanjutkan {@code ListRecords}, yang berarti mengambil metadata lengkap dari
+     * penomoran halaman yang dibuat untuk keluaran ringan.</p>
+     *
+     * @param token nilai {@code resumptionToken}
+     * @return {@code "ListIdentifiers"}, {@code "ListRecords"}, atau string kosong
+     */
     private String parseOaiTokenVerb(String token) {
         String[] values=decodeOaiToken(token);return values==null?"":("I".equals(values[4])?"ListIdentifiers":"ListRecords");
     }
 
+    /**
+     * Menyatakan apakah sebuah {@code resumptionToken} lolos verifikasi lengkap.
+     *
+     * <p>Pembungkus atas {@link #decodeOaiToken}; seluruh aturan sebenarnya — tanda tangan HMAC,
+     * bentuk muatan, dan masa berlaku — ada di sana.</p>
+     *
+     * @param token nilai {@code resumptionToken}
+     * @return {@code true} bila token sah dan belum kedaluwarsa
+     */
     private boolean validOaiToken(String token) {
         return decodeOaiToken(token)!=null;
     }
 
+    /**
+     * Memverifikasi dan mengurai {@code resumptionToken} menjadi enam ruas muatannya — pusat
+     * seluruh keamanan penomoran halaman OAI-PMH.
+     *
+     * <p>Urutan pemeriksaannya:</p>
+     * <ol>
+     *   <li>Bentuk harus tepat {@code muatan.tandatangan} dengan <b>satu</b> titik; titik ganda
+     *       ditolak.</li>
+     *   <li>Tanda tangan dibandingkan {@link MessageDigest#isEqual} — pembandingan waktu-tetap,
+     *       bukan {@code Arrays.equals}.</li>
+     *   <li>Muatan harus terurai menjadi tepat enam ruas, dan ruas verb harus {@code I} atau
+     *       {@code R}.</li>
+     *   <li>Keempat ruas angka harus benar-benar angka, dan nomor halaman minimal 1.</li>
+     *   <li>Masa berlaku: cap waktu penerbitan tidak boleh lebih dari satu menit di masa depan
+     *       (toleransi selisih jam antar-node) dan tidak boleh lebih tua dari
+     *       {@link #oaiTokenMaximumAge()}.</li>
+     * </ol>
+     *
+     * <p>Setiap kegagalan mengembalikan {@code null}, tanpa membedakan penyebabnya — pemanen
+     * tidak diberi petunjuk apakah tanda tangannya salah, bentuknya rusak, atau tokennya sekadar
+     * kedaluwarsa. Seluruh exception ditangkap dengan alasan yang sama.</p>
+     *
+     * @param token nilai {@code resumptionToken}; boleh {@code null}
+     * @return enam ruas muatan, atau {@code null} bila token tidak sah
+     */
     private String[] decodeOaiToken(String token){try{String value=clean(token);int dot=value.indexOf('.');if(dot<=0||dot!=value.lastIndexOf('.'))return null;byte[] payload=Base64.decodeBase64(value.substring(0,dot)),signature=Base64.decodeBase64(value.substring(dot+1));if(!MessageDigest.isEqual(signature,hmac(payload)))return null;String[] parts=new String(payload,"UTF-8").split("\\|",-1);if(parts.length!=6||!("I".equals(parts[4])||"R".equals(parts[4])))return null;int page=Integer.parseInt(parts[0]);Long.parseLong(parts[1]);Long.parseLong(parts[2]);Long.parseLong(parts[3]);long issued=Long.parseLong(parts[5]),maximumAge=oaiTokenMaximumAge();if(page<1||issued>System.currentTimeMillis()+60000L||System.currentTimeMillis()-issued>maximumAge)return null;return parts;}catch(Exception e){return null;}}
+    /**
+     * Menghitung tanda tangan HMAC-SHA256 atas muatan token memakai {@link #OAI_TOKEN_SECRET}.
+     *
+     * <p>Objek {@link Mac} dibuat baru setiap pemanggilan karena kelas itu tidak aman-thread,
+     * sementara servlet melayani banyak permintaan bersamaan. Kunci disimpan sebagai byte statis
+     * dan tidak pernah ikut ditulis ke tanggapan.</p>
+     *
+     * @param payload byte muatan token yang ditandatangani
+     * @return tanda tangan 32 byte
+     * @throws Exception bila algoritma tidak tersedia atau kunci ditolak
+     */
     private static byte[] hmac(byte[] payload)throws Exception{Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(OAI_TOKEN_SECRET,"HmacSHA256"));return mac.doFinal(payload);}
+    /**
+     * Menyiapkan kunci HMAC untuk token panen, dipanggil sekali saat kelas dimuat.
+     *
+     * <p>Nilai diambil dari properti sistem {@code ais.repository.oaiTokenSecret} bila panjangnya
+     * minimal 32 karakter. Bila tidak, kunci dibangkitkan dari gabungan dua {@link UUID} acak.</p>
+     *
+     * <p><b>Konsekuensi kunci acak.</b> Kunci acak aman secara kriptografis, tetapi hanya hidup
+     * selama proses: {@code resumptionToken} menjadi tidak sah setelah peladen dimulai ulang, dan
+     * pemanen yang sedang berjalan harus mengulang dari awal. Pada pemasangan berkelompok, token
+     * yang diterbitkan satu node juga akan ditolak node lain. Setel properti sistem itu — sama
+     * pada semua node — untuk instalasi yang dipanen secara rutin.</p>
+     *
+     * <p>Kegagalan penyandian dilempar sebagai {@link ExceptionInInitializerError} karena terjadi
+     * di dalam inisialisasi statis; servlet tanpa kunci tidak boleh dijalankan sama sekali.</p>
+     *
+     * @return byte kunci HMAC
+     */
     private static byte[] oaiTokenSecret(){try{String configured=System.getProperty("ais.repository.oaiTokenSecret","").trim();String value=configured.length()>=32?configured:UUID.randomUUID().toString()+UUID.randomUUID().toString();return value.getBytes("UTF-8");}catch(Exception e){throw new ExceptionInInitializerError(e);}}
+    /**
+     * Mengembalikan masa berlaku maksimum {@code resumptionToken} dalam milidetik.
+     *
+     * <p>Dibaca dari properti sistem {@code ais.repository.oaiTokenTtlSeconds} dengan nilai bawaan
+     * 86.400 detik (satu hari), lalu <b>dijepit</b> ke rentang 300 detik sampai 604.800 detik
+     * (lima menit sampai tujuh hari). Penjepitan itu mencegah dua kesalahan setel yang sama-sama
+     * merugikan: nilai terlalu kecil membuat panen katalog besar tidak pernah selesai, nilai
+     * terlalu besar membuat token hidup jauh lebih lama daripada yang diperlukan.</p>
+     *
+     * <p>Nilai yang bukan angka jatuh ke bawaan satu hari, bukan melempar — properti yang salah
+     * ketik tidak boleh melumpuhkan antarmuka panen.</p>
+     *
+     * @return masa berlaku dalam milidetik, terjamin berada di antara 300.000 dan 604.800.000
+     */
     private static long oaiTokenMaximumAge(){try{long seconds=Long.parseLong(System.getProperty("ais.repository.oaiTokenTtlSeconds","86400"));return Math.max(300L,Math.min(seconds,604800L))*1000L;}catch(Exception e){return 86400000L;}}
 
     private Date parseOaiDate(String value, boolean endOfDay) {
