@@ -5726,13 +5726,90 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 		}
 	}
 
+	/**
+	 * Jumlah peserta yang menjadi <b>penyebut</b> seluruh statistik ujian di layar ini.
+	 *
+	 * <p>Diisi oleh {@link #loadData(Object)} dan maknanya BERBEDA menurut mode tampilan:</p>
+	 * <ul>
+	 *   <li><b>Mode satu mahasiswa</b> ({@link #mahasiswa} tidak null): diisi
+	 *       {@code perkuliahan.ambilJumlahDetailperkuliahan()} — jumlah peserta kelas, bukan 1.</li>
+	 *   <li><b>Mode satu calon mahasiswa</b> ({@link #biodataCalonMahasiswa} tidak null): jumlah
+	 *       baris {@code HasilUjianMahasiswa} ber-{@code keyhasil} untuk ujian ini.</li>
+	 *   <li><b>Mode PMB per gelombang</b>: jumlah calon mahasiswa terdaftar pada gelombang.</li>
+	 *   <li><b>Mode pertemuan perkuliahan</b>: jumlah mahasiswa peserta pertemuan setelah
+	 *       menyaring daftar {@code mhsYgTidakIkut}.</li>
+	 *   <li><b>Mode lain</b>: ukuran daftar peserta hasil query gabungan.</li>
+	 * </ul>
+	 *
+	 * <p>Field ini juga dibaca dari luar melalui {@code Ambildata} yang diserahkan ke
+	 * {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}, agar kartu
+	 * "Peserta Ujian" pada dashboard analisis butir soal memakai angka yang SAMA dengan
+	 * "Jumlah Peserta" di tab Statistik. Karena dibaca saat tombol diklik (bukan saat tombol
+	 * dibuat), nilainya sudah terisi hasil {@code loadData}.</p>
+	 *
+	 * <p><b>Perhatian pembagian nol:</b> {@link #displayStatistik(int, int, int)} membagi dengan
+	 * field ini tanpa penjagaan. Bila bernilai 0 (mis. ujian tanpa peserta terdaftar), hasil bagi
+	 * {@code double} menjadi {@code NaN}/{@code Infinity} dan tampil apa adanya pada label
+	 * persentase — bukan exception, tetapi angka yang tidak bermakna.</p>
+	 */
 	private int jumlahPeserta = 0;
+
+	/**
+	 * Cache hasil ujian seluruh peserta untuk satu kali tampilan grid, berkunci
+	 * <b>id peserta</b> ({@code VOMahasiswa.getId()} — bisa id Mahasiswa, BiodataCalonMahasiswa,
+	 * Siswa, atau CalonSiswa tergantung mode).
+	 *
+	 * <p><b>Bentuk nilai:</b> {@code Object[2]} dengan
+	 * {@code [0]} = entity {@link HasilUjianMahasiswa} peserta tersebut, dan
+	 * {@code [1]} = {@code Set<Long>} berisi id {@code BankSoal} yang sudah terjawab
+	 * (hasil {@code ambilBankSoalIdTerjawab}). Elemen {@code [1]} yang tidak kosong dipakai
+	 * sebagai definisi "peserta sudah ikut ujian" baik di {@link #loadData(Object)} maupun di
+	 * dashboard {@link #analsisButirSoal(PertemuanPunyaUjian, Ambildata, Ambildata)}.</p>
+	 *
+	 * <p><b>Konkurensi:</b> diisi ulang sebagai {@code java.util.concurrent.ConcurrentHashMap}
+	 * pada setiap {@link #loadData(Object)} karena pengisiannya dilakukan oleh kolam sampai
+	 * 100 thread. {@code ConcurrentHashMap} WAJIB di sini — {@code HashMap} biasa dapat rusak
+	 * struktur internalnya bila di-{@code put} bersamaan. Konsekuensi lain yang perlu diingat:
+	 * map ini TIDAK menerima kunci maupun nilai {@code null}.</p>
+	 *
+	 * <p><b>Pemakai:</b> renderer baris ({@code DetailPertemuanPunyaUjianRenderer.render}) membaca
+	 * map ini untuk mengubah objek peserta menjadi hasil ujiannya; hampir seluruh tombol toolbar
+	 * (Hitung Ulang Semua, Koreksi via AI, Download Lampiran, Lampiran ke Drive, Hasil OBE,
+	 * Analisis Butir Soal) mengiterasi {@code values()}-nya. Karena itu semua fitur tersebut
+	 * hanya bekerja atas peserta yang sedang termuat di grid — bukan atas seluruh isi database.</p>
+	 *
+	 * <p><b>Siklus hidup:</b> bernilai {@code null} sebelum {@link #loadData(Object)} pertama.
+	 * Menekan tombol toolbar sebelum pemuatan selesai dapat menimbulkan
+	 * {@link NullPointerException} yang tertangkap penanganan error masing-masing listener.</p>
+	 */
 	private Map<Long, Object[]> hasilUjianMahasiswas = null;
-	
-	// PERBAIKAN 1: Gunakan tipe pasti <VOMahasiswa>, hindari wildcard '? extends'
+
+	/**
+	 * Daftar objek peserta yang menjadi <b>model baris grid</b> pada satu kali pemuatan.
+	 *
+	 * <p>Bertipe {@code List<VOMahasiswa>} — {@code VOMahasiswa} adalah antarmuka bersama yang
+	 * diimplementasikan {@code Mahasiswa}, {@code BiodataCalonMahasiswa}, {@code Siswa}, dan
+	 * {@code CalonSiswa}, sehingga satu daftar dapat menampung keempat jenis peserta dan
+	 * renderer cukup melakukan {@code instanceof} untuk membedakannya. Komentar "PERBAIKAN 1"
+	 * pada kode menandai penggantian wildcard {@code List<? extends VOMahasiswa>} dengan tipe
+	 * pasti ini agar {@code addAll(...)} dapat dipakai — dengan wildcard, penambahan elemen
+	 * ditolak kompiler.</p>
+	 *
+	 * <p><b>Alur:</b> diisi {@link #loadData(Object)} dari berbagai Criteria sesuai mode, lalu
+	 * dibungkus {@code SimpleListModel} dan dipasang ke {@link #grid}. Setelah model terpasang,
+	 * sebuah timer ZK memanggil {@code clear()} atas daftar ini untuk melepas referensi entity
+	 * agar tidak menahan memori sepanjang umur desktop — karena itu jangan mengandalkan isinya
+	 * setelah pemuatan selesai; sumber kebenaran per peserta adalah
+	 * {@link #hasilUjianMahasiswas}.</p>
+	 *
+	 * <p><b>Perhatian:</b> thread latar pengisi {@link #hasilUjianMahasiswas} mengiterasi daftar
+	 * yang sama, sementara timer ZK dapat mengosongkannya. Iterasi memakai for-each atas
+	 * {@code ArrayList} biasa, sehingga urutan kedua peristiwa itu menentukan apakah muncul
+	 * {@code ConcurrentModificationException} — tertangkap {@code catch} terluar thread dan hanya
+	 * berakibat sebagian baris tidak terisi (grid tampak kosong sebagian) tanpa merusak data.</p>
+	 */
 	private List<VOMahasiswa> mahasiswasTemorary = null;
 
-	@SuppressWarnings("unchecked")
 	/**
 	 * Implementasi {@link DataLoader#loadData(Object)} — memuat data hasil ujian dari
 	 * database dan mengisi {@link #grid}. Dipanggil oleh framework {@code DataCriteria}
@@ -5744,30 +5821,84 @@ public class HasilUjianMahasiswaHelper implements DataLoader {
 	 * {@code PertemuanPunyaUjian}), per-mahasiswa, atau per-calon-mahasiswa. Juga mendukung
 	 * filter pencarian nama peserta.</p>
 	 *
-	 * <p><b>Cara kerja:</b></p>
+	 * <p><b>Dua fase yang harus dibedakan.</b> Method ini TIDAK memuat hasil ujian secara
+	 * sinkron. Ia hanya menyusun DAFTAR PESERTA lebih dulu, memasangnya sebagai model grid,
+	 * lalu menyerahkan pengambilan hasil ujian per peserta kepada kolam thread di latar:</p>
 	 * <ol>
-	 *   <li>Menggunakan {@code ConcurrentHashMap} sebagai storage hasil ({@code hasilUjianMahasiswas})
-	 *       agar aman bila dipanggil dari konteks multi-thread.</li>
-	 *   <li>Membaca parameter filter: nilai {@code pertemuanPunyaUjian} (spesifik atau semua
-	 *       dalam pertemuan), {@code mahasiswa}, {@code biodataCalonMahasiswa}, dan nilai
-	 *       pencarian dari {@link #nama}.</li>
-	 *   <li>Membangun Criteria berbeda untuk masing-masing tipe peserta (mahasiswa reguler,
-	 *       calon mahasiswa PMB dengan berbagai filter gelombang/ruangan, siswa, calon siswa,
-	 *       peserta kursus). Tiap Criteria digabung via OR bila mode semua-peserta.</li>
-	 *   <li>Memanggil {@link #displayStatistik} dengan hasil agregat setelah data dimuat.</li>
-	 *   <li>Setiap hasil dimasukkan ke grid sebagai {@code Object[]} yang dirender oleh
-	 *       inner class {@code RowRenderer}.</li>
+	 *   <li><b>Fase 1 &mdash; daftar peserta (sinkron).</b> {@link #hasilUjianMahasiswas}
+	 *       diinisialisasi ulang sebagai {@code ConcurrentHashMap} dan
+	 *       {@link #mahasiswasTemorary} sebagai {@code ArrayList} kosong. Parameter filter
+	 *       diekstrak sekali di awal ({@code jadwalUjianPMB}, {@code ujianPMB}, gelombang,
+	 *       {@code pesertaUjianHarusTelahUjian}, {@code pesertaUjianHarusPunyaNomorUjian},
+	 *       {@code ruanganYgIkut}, paket) agar rantai getter panjang tidak diulang di setiap
+	 *       cabang. Tiga {@code Criterion} pencarian disiapkan di muka — versi beralias untuk
+	 *       query yang menyertakan {@code createAlias}, versi langsung untuk query atas
+	 *       {@code BiodataCalonMahasiswa} sendiri, dan versi mahasiswa — masing-masing menjadi
+	 *       {@code sqlRestriction("true")} bila kotak pencarian kosong sehingga struktur query
+	 *       tetap seragam tanpa percabangan tambahan.</li>
+	 *   <li><b>Fase 2 &mdash; hasil ujian per peserta (asinkron).</b> Sebuah {@code Thread}
+	 *       menyerahkan satu tugas per peserta ke {@code ExecutorService} berukuran
+	 *       {@code DbThreadPool.safe(100)}. Tiap tugas memanggil
+	 *       {@code HasilUjianMahasiswa.ambilByKey(...)} lalu menyimpan
+	 *       {@code Object[]{hasilUjian, idSoalTerjawab}} ke {@link #hasilUjianMahasiswas}.
+	 *       Bilah pemuatan diperbarui dari dalam tugas; setelah seluruh tugas selesai label
+	 *       dikosongkan sehingga callback ZK berjalan dan grid dirender.</li>
 	 * </ol>
 	 *
-	 * <p><b>Session Hibernate:</b> Menggunakan session terdedikasi ({@code openSession()} dari
-	 * SessionFactory), ditutup di {@code finally} via {@link #closeSessionSafe(Session)}.
-	 * Ini penting karena method ini dipanggil dari thread latar DataCriteria.</p>
+	 * <p><b>Enam mode pemilihan peserta.</b> Percabangan di fase 1 menentukan siapa yang masuk
+	 * {@link #mahasiswasTemorary}: (a) satu mahasiswa tertentu; (b) satu calon mahasiswa
+	 * tertentu; (c) PMB dengan syarat "peserta harus telah ujian" &mdash; diambil dari
+	 * {@code HasilUjianMahasiswa} yang {@code mulaiPada}-nya tidak null; (d) PMB dengan pembatasan
+	 * ruangan &mdash; lewat {@code RuangPaketPMB} dan {@code sqlRestriction} atas kolom
+	 * {@code ruang_pmb}; (e) PMB per gelombang &mdash; seluruh calon aktif pada gelombang, inilah
+	 * satu-satunya cabang yang mengikutsertakan calon yang BELUM ujian; (f) pertemuan perkuliahan
+	 * &mdash; {@code pertemuan.ambilMahasiswa()} disaring di memori terhadap kata kunci pencarian
+	 * dan daftar {@code mhsYgTidakIkut}. Cabang terakhir sebagai cadangan menggabungkan peserta
+	 * calon dan mahasiswa yang punya {@code keyhasil}.</p>
 	 *
-	 * <p><b>Parameter {@code value}:</b> Bila {@code Boolean.TRUE}, grid di-refresh (data lama
-	 * dihapus terlebih dahulu). Bila null/false, ini adalah load pertama kali.</p>
+	 * <p><b>Efek samping {@code reloadNama}.</b> Bila kotak pencarian KOSONG, method menganggap
+	 * ini pemuatan penuh dan MERESET berkas lokasi hasil ujian pada {@code PertemuanPunyaUjian}
+	 * ({@code bersihkanLokasiHasilUjianMahasiswa()} lalu menulis JSON kosong), untuk kemudian
+	 * diisi ulang oleh tiap tugas lewat {@code populateHasilUjianMahasiswa(...)}. Saat pencarian
+	 * berisi teks, reset ini DILEWATI supaya hasil pencarian parsial tidak menghapus peta lokasi
+	 * peserta lain. Konsekuensi yang perlu diingat: memuat ulang tanpa kata kunci akan menulis
+	 * ulang berkas tersebut.</p>
 	 *
-	 * @param value Boolean; true = refresh mode (invalidasi cache); null/false = load pertama
+	 * <p><b>Session Hibernate.</b> Setiap cabang query membuka session terdedikasi dari
+	 * {@code SessionFactory} dan menutupnya di {@code finally} lewat
+	 * {@link #closeSessionSafe(org.hibernate.Session)} (clear &rarr; disconnect &rarr; close).
+	 * Di dalam tugas thread pool, {@code HibernateUtil.closeSession()} dipanggil DUA KALI —
+	 * sekali di awal untuk membuang session {@code ThreadLocal} yang basi (thread pool dipakai
+	 * ulang lintas request sehingga koneksi JDBC-nya bisa sudah ditutup c3p0 walau
+	 * {@code isOpen()} masih true) dan sekali di {@code finally} agar tidak menggantung.</p>
+	 *
+	 * <p><b>Statistik.</b> Callback ZK menjumlahkan {@code terjawab} dari seluruh nilai map dan
+	 * mencacah peserta yang himpunan jawabannya tidak kosong sebagai
+	 * {@code pesertaYgIkutUjian}, lalu memanggil
+	 * {@link #displayStatistik(int, int, int)} dengan {@link #jumlahPeserta} sebagai penyebut.</p>
+	 *
+	 * <p><b>Renderer.</b> Baris grid dirender oleh {@link DetailPertemuanPunyaUjianRenderer},
+	 * yang memetakan objek peserta kembali ke {@link #hasilUjianMahasiswas} berdasarkan id.
+	 * Peserta yang belum sempat terisi thread latar akan menghasilkan baris kosong (renderer
+	 * langsung {@code return}), bukan error.</p>
+	 *
+	 * <p><b>Otorisasi dan cakupan data.</b> Method ini tidak menerapkan penyaringan satuan kerja
+	 * maupun pemeriksaan peran. Pembatasan hanya berasal dari objek yang disuntikkan melalui
+	 * konstruktor: bila {@link #mahasiswa} atau {@link #biodataCalonMahasiswa} diisi, hanya
+	 * peserta itu yang dimuat; bila keduanya null, SELURUH peserta ujian dimuat. Dengan demikian
+	 * pemilihan konstruktor yang tepat oleh Action pemanggil adalah satu-satunya gerbang cakupan
+	 * data pada layar ini.</p>
+	 *
+	 * <p><b>Parameter {@code value}.</b> Diperlakukan sebagai {@code Boolean} {@code refresh} dan
+	 * diteruskan ke {@code ambilBankSoalIdTerjawab(..., refresh)}: {@code true} memaksa pembacaan
+	 * ulang himpunan jawaban dari sumbernya (menembus cache), {@code null}/{@code false}
+	 * mengizinkan pemakaian cache. Nilai selain {@code Boolean} akan menimbulkan
+	 * {@link ClassCastException} pada baris konversi di awal method.</p>
+	 *
+	 * @param value {@code Boolean} penanda refresh; {@code true} = paksa baca ulang jawaban,
+	 *              {@code null}/{@code false} = boleh memakai cache
 	 */
+	@SuppressWarnings("unchecked")
 	@Override
 	public void loadData(Object value) {
 	    // Menggunakan ConcurrentHashMap agar aman saat diproses oleh banyak thread

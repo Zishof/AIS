@@ -311,6 +311,29 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * "pastikan assignment soal-ke-peserta lengkap, lalu ekspor rekapnya ke Excel" — bukan
 	 * sekadar laporan baca-saja.
 	 *
+	 * <p><b>Cakupan filter dan isi berkas yang dihasilkan.</b> Perlu disadari saat menyunting
+	 * bagian ini: ketiga filter opsional (fakultas, prodi, dosen) boleh dibiarkan kosong, dan
+	 * checkbox "Hanya ujian di pertemuan ini" boleh dilepas. Bila semuanya dikosongkan pada
+	 * pertemuan yang BUKAN ujian PMB/PSB, satu-satunya penyaring yang tersisa adalah rentang
+	 * tanggal {@code mulai_ujian} — sehingga cakupannya menjadi seluruh {@link PertemuanPunyaUjian}
+	 * di rentang tersebut, lintas fakultas dan lintas program studi. Tidak ada penyempitan
+	 * berbasis satuan kerja maupun berbasis mata kuliah yang diampu pengguna. Berkas keluarannya
+	 * pun bukan sekadar daftar peserta: kolom SOAL berisi teks soal (di-strip HTML lewat Jsoup),
+	 * kolom JAWABAN HURUF dan JAWABAN TEKS berisi opsi jawaban dari {@link BankSoalDetail}, dan
+	 * kolom BETUL berisi penanda kunci jawaban. Penjagaan aksesnya sepenuhnya bergantung pada
+	 * visibilitas tombol pemanggil di {@link #display(Pertemuan, Component)} — yang bersifat
+	 * UI-only dan tidak diperiksa ulang di dalam listener ini.
+	 *
+	 * <p><b>Pola sesi dan transaksi.</b> Query pemilihan data memakai
+	 * {@code HibernateUtil.currentNativeSession()} pada thread background, dan ditutup di blok
+	 * {@code finally} lewat {@code HibernateUtil.closeSession()} agar tidak bocor walau terjadi
+	 * error. Sebaliknya, setiap {@link HasilUjianMahasiswaDetail} baru disimpan lewat
+	 * {@code HibernateUtil.openSession()} TERSENDIRI dengan transaksi per baris, lengkap dengan
+	 * rollback pada catch serta {@code disconnect}/{@code close} pada finally. Konsekuensinya
+	 * penyimpanan bersifat idempoten per baris tetapi TIDAK atomik secara keseluruhan: bila proses
+	 * gagal di tengah, assignment yang sudah tersimpan tetap ada dan pemanggilan berikutnya
+	 * melanjutkan dari sisa yang belum punya assignment.
+	 *
 	 * @param pertemuan   pertemuan konteks; dipakai untuk deteksi ujian PMB/PSB dan sebagai
 	 *                    default filter "hanya ujian di pertemuan ini".
 	 * @param buttonLabel label tombol toolbar yang ditampilkan.
@@ -1801,6 +1824,34 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 		 * (pindah pertemuan, tutup window Kelola Soal), dan pada checkbox "Random" memanggil
 		 * ulang {@code render(arg0, pertemuanPunyaUjian)} sendiri setelah {@code Common.clear(arg0)}
 		 * untuk menyegarkan seluruh baris.
+		 *
+		 * <p><b>Merender saja sudah bisa mengubah data.</b> Selain autosave per field di atas, ada
+		 * tiga mutasi yang terjadi tanpa pengguna menyentuh kontrol apa pun:
+		 * <ul>
+		 * <li>Bila {@code pertemuanPunyaUjian.getJmlDitampilkan()} kosong atau {@code <= 0},
+		 * jumlah soal riil dihitung dari {@code ujian.ambilUjianPunyaSoal(...)} lalu DISIMPAN ke
+		 * database lewat {@code Common.refreshUpdate}. Membuka modal pengaturan pada ujian yang
+		 * belum pernah dikonfigurasi karena itu menulis satu baris.</li>
+		 * <li>Bila konfigurasi {@code tampilkan_ujian_dibatasi_waktu} nonaktif, checkbox
+		 * "Ujian ini dibatasi waktu" disembunyikan dan {@code setDibatasiWaktu(true)} dipanggil
+		 * TANPA {@code refreshUpdate}. Entity menjadi kotor di sesi Hibernate dan bisa ikut
+		 * ter-flush oleh operasi lain pada request yang sama — perubahan yang tampak "muncul
+		 * sendiri" dan sulit dilacak.</li>
+		 * <li>Bila {@code getUjian()} {@code null} padahal id ada, entity di-{@code refresh} dari
+		 * database dan entri cache {@code ProsesUjianHelper.kuotaUjian} milik peserta ini dibuang.</li>
+		 * </ul>
+		 *
+		 * <p><b>Gerbang peran di dalam method ini tidak seragam.</b> Predikat "pengguna adalah
+		 * pengelola" dieja ulang manual di empat blok dengan isi berbeda: blok "Kelola Soal Ujian"
+		 * dan blok tiga checkbox autosave memeriksa {@code getPesertaKursus()}/{@code getSiswa()}/
+		 * {@code getCalonSiswa()} tetapi TIDAK memeriksa {@code tbmuser.getMahasiswa()} maupun
+		 * {@code getBiodataCalonMahasiswa()}, sedangkan visibilitas tombol Hasil/Preview/Ubah/Hapus
+		 * memeriksa keduanya tetapi justru TIDAK memeriksa {@code getPesertaKursus()} — padahal
+		 * peserta kursus diperlakukan sebagai peserta pada dua blok lain di method yang sama. Hanya
+		 * blok "Pindahkan ke pertemuan" yang mengejanya lengkap. Pada beberapa varian
+		 * {@code getSiswa() == null} bahkan ditulis dua sampai tiga kali. Jangan menyalin salah
+		 * satu ejaan ini ke kode baru; penyeragamannya ditangani terpisah lewat
+		 * {@code task_d45feed7}.
 		 *
 		 * @param arg0 baris grid tujuan yang akan diisi komponen.
 		 * @param data instance {@link PertemuanPunyaUjian} yang akan dirender (di-cast langsung, NPE
@@ -3912,6 +3963,21 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * {@link #display(Pertemuan, Component)}), cabang ini praktis tidak pernah tereksekusi lewat
 	 * alur normal aplikasi.</li>
 	 * </ul>
+	 *
+	 * <p><b>Pemilih peran ada di sini, dan ejaannya tidak lengkap.</b> Variabel lokal
+	 * {@code pengelola} adalah SATU-SATUNYA penentu apakah seorang pengguna melihat kartu
+	 * pengelola (dengan Kelola Soal, Ubah, Hapus, Gandakan) atau kartu peserta. Predikatnya
+	 * memeriksa field {@link #mahasiswa}/{@link #biodataCalonMahasiswa} milik helper ini beserta
+	 * {@code tbmuser.getPesertaKursus()}/{@code getSiswa()}/{@code getCalonSiswa()}, tetapi TIDAK
+	 * memeriksa {@code tbmuser.getMahasiswa()} maupun {@code tbmuser.getBiodataCalonMahasiswa()}.
+	 * Akibatnya, bila helper dikonstruksi dengan identitas kosong
+	 * ({@code new PertemuanPunyaUjianHelper(null, null)}), akun yang {@link Tbmuser}-nya tertaut ke
+	 * {@link Mahasiswa}/{@link BiodataCalonMahasiswa} tetap dianggap pengelola. Jalur pemanggilan
+	 * lewat {@code PertemuanHelper} tidak terdampak karena konstruktornya sengaja mengambil ulang
+	 * identitas dari sesi login, begitu pula {@code UjianOnlineCalonMahasiswaAction} yang selalu
+	 * mengirim {@link BiodataCalonMahasiswa} non-null; yang memakai identitas kosong adalah
+	 * {@code JadwalUjianAction} (masih dijaga {@code CommonPrivilages}) dan
+	 * {@code HasilUjianMahasiswaHelper}. Lihat {@code task_d45feed7}.
 	 *
 	 * @param value {@code Boolean.TRUE} untuk memaksa {@code pertemuan.belum("pertemuan_punya_Ujian")}
 	 *              (menghapus cache lokal koleksi ini di entity {@link Pertemuan} sehingga data

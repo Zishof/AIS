@@ -2412,6 +2412,55 @@ public class PembayaranUtilHelper {
 	 * transaksi perbaikan di-rollback dan dilaporkan via {@code Common.tampilErrorJikaAdmin}, tidak
 	 * menggagalkan pengisian {@code dataTagihanData} yang sudah terjadi sebelumnya.
 	 *
+	 * <p><b>PERINGATAN INTEGRITAS 1 — jalur tampilan ini menulis ke DATA MASTER BERSAMA.</b>
+	 * {@link DetailBiaya} dan {@link PengaturanPembayaranBulanan} bukan baris milik satu
+	 * mahasiswa: keduanya adalah baris <i>template</i> milik suatu {@link SettingBiaya} yang
+	 * dicocokkan ke mahasiswa lewat profil (angkatan, jenjang, prodi, program, semester, status,
+	 * dan seterusnya). Method ini dipanggil dari alur <i>menampilkan layar</i>, namun melakukan
+	 * {@code session.saveOrUpdate(...)} dan {@code commit()} pada kedua entity tersebut. Artinya
+	 * membuka layar Daftar Ulang untuk <b>satu</b> mahasiswa dapat mengubah nominal template yang
+	 * berlaku bagi <b>semua</b> mahasiswa berprofil sama, dan nilai penggantinya diturunkan dari
+	 * riwayat pembayaran mahasiswa yang kebetulan sedang dibuka itu. Tidak ada pemeriksaan
+	 * otorisasi, tidak ada jejak {@code posting_history}, dan tidak ada pencatatan nilai
+	 * sebelum/sesudah — jejak yang tersisa hanya revisi Envers pada tabel masternya. Perbaikan
+	 * memang dibatasi pada baris yang nominalnya masih {@code 0}/{@code null} sehingga tidak
+	 * menimpa nominal yang sudah benar, tetapi sifat "baca yang diam-diam menulis" ini wajib
+	 * diketahui sebelum method ini dipanggil dari konteks baru.</p>
+	 *
+	 * <p><b>PERINGATAN INTEGRITAS 2 — dasar perhitungan {@code nominal} bulanan berbeda antara
+	 * kedua mode.</b> Pada <i>mode non-angsuran</i>, perbaikan {@code PengaturanPembayaranBulanan.nominal}
+	 * bersarang di dalam pemeriksaan {@code (db.getNilaiBiaya() == null || db.getNilaiBiaya() < 0.01)},
+	 * sehingga {@code totalNilai} yang dipakai sebagai dasar persis sama dengan nilai yang baru
+	 * saja ditulis ke {@code nilaiBiaya} — konsisten. Pada <i>mode angsuran</i>, perulangan
+	 * {@code ppbList} berada <b>sejajar</b> dengan pemeriksaan itu, bukan di dalamnya. Akibatnya
+	 * {@code ppbFix.setNominal(totalNilai * persentase / 100.0)} tetap dijalankan walaupun
+	 * {@code db.getNilaiBiaya()} sudah berisi nilai yang sah dan berbeda dari {@code totalNilai}.
+	 * Karena {@code totalNilai} adalah jumlah {@code nilaiAsli} seluruh cicilan yang <i>sudah
+	 * dibayar</i>, bukan besaran tagihan satu semester, baris bulanan yang nominalnya {@code 0}
+	 * akan diperbaiki memakai dasar yang terlalu kecil bila mahasiswa baru membayar sebagian
+	 * angsuran — dan hasil yang terlalu kecil itu <b>disimpan permanen</b> ke template bersama.
+	 * Dasar yang benar untuk cabang ini semestinya {@code db.getNilaiBiaya()} ketika nilai
+	 * tersebut sudah sah, dan {@code totalNilai} hanya ketika {@code nilaiBiaya} memang baru
+	 * direkonstruksi.</p>
+	 *
+	 * <p><b>Catatan tentang {@code getNilaiAsli()}.</b> Penjumlahan {@code totalNilai} memakai
+	 * {@link CicilanPembayaran#getNilaiAsli()}, yang merupakan <i>getter destruktif</i>: bila
+	 * field-nya masih {@code null} atau bernilai {@code 0}, getter itu menuliskan
+	 * {@code getNilai()} ke dalam field sebelum mengembalikannya. Pada instance yang masih
+	 * dikelola sesi Hibernate, pembacaan biasa tersebut dapat menerbitkan {@code UPDATE} beserta
+	 * revisi Envers. Jadi sekadar <i>menghitung</i> total di sini pun berpotensi mengubah baris
+	 * cicilan. Ini perwujudan pola getter-mutasi-field yang sudah terdokumentasi luas di
+	 * {@code ais/database/model/}; disebutkan di sini karena letaknya persis di jalur uang.</p>
+	 *
+	 * <p><b>Batas semester tidak berlaku pada tahap perbaikan.</b> Penyaring
+	 * {@code semester != null && !semester.equals(dbSemester)} hanya diterapkan pada perulangan
+	 * yang mengisi {@code dataTagihanData}. Perulangan yang menyusun {@code sumPerDb}/
+	 * {@code sumNilaiMap} tidak menyaring semester sama sekali. Dalam praktik hal ini tidak
+	 * menimbulkan pencampuran antar-semester karena seluruh cicilan yang menunjuk satu
+	 * {@link DetailBiaya} otomatis berbagi semester milik {@link DetailBiaya} tersebut — tetapi
+	 * ketergantungan implisit itu akan patah bila suatu saat cicilan boleh menunjuk
+	 * {@link DetailBiaya} lintas semester.</p>
+	 *
 	 * @param student subjek tagihan, instance {@link Mahasiswa} atau {@link BiodataCalonMahasiswa}; {@code null} membatalkan fallback
 	 * @param jenisKegiatan penyaring jenis kegiatan/tagihan; boleh {@code null} untuk semua jenis kegiatan
 	 * @param dataTagihanData daftar tagihan yang sedang dibangun oleh pemanggil; HANYA diisi bila datang kosong, dan diisi in-place

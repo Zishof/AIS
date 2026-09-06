@@ -257,6 +257,31 @@ public class DetailUjianHelper implements DataLoader {
 
 			tabPeserta.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Membangun isi tab "Peserta yg tidak perlu ikut" saat tab diklik pertama kali (lazy).
+				 *
+				 * <p>Penjaga {@code tabpanelPeserta.getChildren().isEmpty()} membuat method ini efektif hanya
+				 * sekali; klik berikutnya tidak merakit ulang apa pun sehingga state kontrol yang sudah
+				 * ditampilkan tetap utuh.
+				 *
+				 * <p><b>Deteksi kurikulum OBE.</b> Sebelum grid dirakit, kode menentukan apakah perkuliahan
+				 * induk memakai kurikulum OBE ({@code Kurikulum.apakahObe} untuk tahun ajaran + ganjil/genap
+				 * yang bersangkutan). Bila ya, daftar Sub-CPMK yang dipilih pada ujian ini dibaca dari JSON
+				 * {@code pertemuanPunyaUjian.getFormatNilais()}: setiap {@link ais.database.model.FormatNilai}
+				 * milik perkuliahan yang kuncinya ADA di JSON itu (dan punya {@code statusPertemuan}) masuk ke
+				 * {@code subCpmkTerpilih}. Kegagalan parsing JSON ditelan dan dicatat ke {@code ErrorAuditUtil},
+				 * sehingga kurikulum OBE dengan JSON rusak akan diperlakukan seolah tidak punya Sub-CPMK —
+				 * bukan menggagalkan tab.
+				 *
+				 * <p>Flag {@code adaSubCpmk} inilah yang menentukan bentuk grid: tanpa Sub-CPMK hanya dua kolom
+				 * (Peserta 70% + "Tidak perlu ikut" 30%); dengan Sub-CPMK menjadi empat kolom (35% + 12% +
+				 * "Nilai Manual" 23% + "Sub-CPMK yang dikerjakan" 30%). Karena itu baris renderer harus selalu
+				 * mengisi jumlah sel yang sama — lihat sel {@code Label} kosong yang sengaja ditambahkan di
+				 * renderer agar kolom tetap sejajar.
+				 *
+				 * @param arg0 event {@code onClick} tab; tidak dibaca
+				 * @throws Exception diteruskan dari perakitan komponen ZK atau query daftar peserta
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (tabpanelPeserta.getChildren().isEmpty()) {
@@ -335,6 +360,45 @@ public class DetailUjianHelper implements DataLoader {
 						grid.setWidth("100%");
 
 						grid.setRowRenderer(new ais.ui.util.MyRowRenderer() {
+							/**
+							 * Merender satu baris peserta: sel identitas (foto + NIM + nama), checkbox "Tidak perlu ikut",
+							 * dan — pada kurikulum OBE — sel Nilai Manual per Sub-CPMK serta checklist Sub-CPMK yang
+							 * dikerjakan peserta.
+							 *
+							 * <p><b>Empat tipe peserta.</b> {@code arg1} di-{@code instanceof}-kan ke {@link Mahasiswa},
+							 * {@link BiodataCalonMahasiswa}, {@link Siswa}, atau {@link CalonSiswa} sehingga renderer yang
+							 * sama dipakai lintas jenis peserta. Dalam praktiknya model grid diisi dari
+							 * {@code perkuliahan.ambilMahasiswa()} sehingga hanya cabang {@link Mahasiswa} yang aktif; tiga
+							 * cabang lain disiapkan untuk pemakaian ulang dan saat ini tidak pernah terpicu. Checkbox
+							 * "Tidak perlu ikut" bahkan di-{@code setDisabled(mahasiswa == null)}, jadi peserta non-mahasiswa
+							 * hanya bisa dilihat.
+							 *
+							 * <p><b>Sel identitas memakai flexbox.</b> Sel dibangun sebagai {@code Div} ber-{@code display:flex}
+							 * alih-alih {@code Hbox}/{@code Vbox} — keduanya ter-render sebagai {@code &lt;table&gt;} yang
+							 * memaksa rata-tengah sehingga nama "loncat-loncat" antar baris. Teks NIM/nama ditulis lewat
+							 * {@link Html} mentah dan WAJIB melewati {@code DashboardUiKit.esc()} karena nama peserta adalah
+							 * data pengguna yang akan disisipkan ke markup.
+							 *
+							 * <p><b>Holder array untuk visibilitas dinamis.</b> Karena target Java 7 mengharuskan variabel
+							 * yang ditangkap listener anonim bersifat {@code final}, referensi yang perlu DIUBAH setelah
+							 * dibuat disimpan dalam array satu elemen ({@code wrapNilaiRef}, {@code wrapCpmkRef},
+							 * {@code cbPaksaRef}) — idiom umum di codebase ini, bukan kekeliruan. Dua
+							 * {@link java.util.LinkedHashMap} ({@code nilaiRowMap}, {@code obeCbMap}) memetakan id Sub-CPMK
+							 * ke barisnya agar aturan visibilitas bisa diterapkan per Sub-CPMK.
+							 *
+							 * <p><b>Aturan visibilitas</b> (diterapkan {@code perbaruiVisibilitasNilai}, dipanggil sekali di
+							 * akhir renderer agar keadaan awal langsung benar): bila "Tidak perlu ikut" dicentang seluruh
+							 * blok Nilai Manual dan Sub-CPMK disembunyikan; kotak Nilai Manual sebuah Sub-CPMK hanya muncul
+							 * bila peserta ikut, checkbox "Paksa" dicentang, DAN Sub-CPMK itu sendiri dicentang.
+							 *
+							 * <p><b>Keanggotaan pengecualian</b> dibaca dengan {@code getMhsYgTidakIkut().contains("," + id + ",")}
+							 * — konvensi CSV berpagar koma yang berlaku di seluruh codebase (lihat {@code Tugas} dan
+							 * {@code GradingHelper.containsId}).
+							 *
+							 * @param arg0 baris {@link Row} yang sedang dirender
+							 * @param arg1 objek peserta dari model grid
+							 * @throws Exception diteruskan dari perakitan komponen atau pembacaan JSON nilai manual
+							 */
 							@Override
 							public void render(Row arg0, Object arg1) throws Exception {
 								arg0.setValign("top");
@@ -394,6 +458,25 @@ public class DetailUjianHelper implements DataLoader {
 
 								// Menyegarkan tampilan Nilai Manual/Sub-CPMK sesuai tiga kondisi di atas.
 								final EventListener perbaruiVisibilitasNilai = new EventListener() {
+									/**
+									 * Menyegarkan visibilitas blok Nilai Manual dan checklist Sub-CPMK sesuai tiga keadaan: peserta
+									 * ikut/tidak, checkbox "Paksa" aktif/tidak, dan tiap Sub-CPMK dicentang/tidak.
+									 *
+									 * <p>Blok pembungkus Nilai Manual dan Sub-CPMK hanya tampil bila peserta masih ikut ujian
+									 * ({@code !checkboxConfig.isChecked()}). Selanjutnya tiap baris nilai per Sub-CPMK tampil hanya
+									 * bila peserta ikut DAN "Paksa" dicentang DAN checkbox Sub-CPMK-nya dicentang — Sub-CPMK yang
+									 * tidak punya checkbox pasangan dianggap tercentang ({@code obe == null || obe.isChecked()}).
+									 *
+									 * <p>Setelah visibilitas diubah, baris di-{@code invalidate()} agar ZK merender ulang dan tinggi
+									 * baris menyesuaikan konten yang baru tampil/tersembunyi; tanpa ini checkbox "Paksa" bisa
+									 * terpotong karena tinggi baris masih mengikuti perhitungan sebelumnya.
+									 *
+									 * <p>Listener ini juga dipanggil langsung ({@code onEvent(null)}) dari beberapa titik sebagai
+									 * prosedur biasa, sehingga parameternya tidak boleh dibaca.
+									 *
+									 * @param evVis event pemicu; TIDAK dibaca dan sering {@code null} karena listener dipanggil langsung
+									 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+									 */
 									@Override
 									public void onEvent(Event evVis) throws Exception {
 										boolean ikut = !checkboxConfig.isChecked();
@@ -419,6 +502,31 @@ public class DetailUjianHelper implements DataLoader {
 
 								checkboxConfig.addEventListener("onClick", new EventListener() {
 
+									/**
+									 * Menambahkan atau menghapus peserta dari daftar pengecualian
+									 * {@code pertemuanPunyaUjian.getMhsYgTidakIkut()} ketika checkbox "Tidak perlu ikut" diklik,
+									 * lalu menyimpannya seketika ke database.
+									 *
+									 * <p>Entity di-{@code refresh()} lebih dulu (bila sudah punya id) supaya perubahan dari sesi
+									 * lain pada kolom daftar tidak tertimpa oleh salinan basi yang dipegang layar ini. Penyimpanan
+									 * memakai {@code Common.refreshUpdate} sehingga tab ini menyimpan langsung tanpa menunggu tombol
+									 * "Simpan" di footer.
+									 *
+									 * <p><b>Kuirk pembentukan daftar.</b> Daftar disimpan sebagai CSV berpagar koma
+									 * ({@code ",id1,id2,"}) dan dibaca di mana-mana dengan {@code contains("," + id + ",")}. Namun
+									 * pembaruan di sini melakukan DUA replace: pertama membuang bentuk berpagar {@code ",id,"}
+									 * (benar), lalu membuang {@code id} sebagai substring TANPA pagar. Replace kedua itu tidak aman
+									 * terhadap id yang menjadi substring id lain — mis. pada daftar {@code ",120,12,"} pembukaan
+									 * centang peserta 12 menyisakan {@code ",0"} sehingga peserta 120 ikut hilang dari pengecualian.
+									 * Pola yang sama tersalin di beberapa berkas lain; penambalannya dilacak terpisah dan sengaja
+									 * tidak dilakukan dalam perubahan dokumentasi ini.
+									 *
+									 * <p>Terakhir {@code perbaruiVisibilitasNilai} dipanggil agar blok Nilai Manual/Sub-CPMK
+									 * langsung menyesuaikan status centang yang baru.
+									 *
+									 * @param arg0 event {@code onClick} checkbox; tidak dibaca
+									 * @throws Exception diteruskan dari operasi Hibernate
+									 */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 
@@ -480,6 +588,21 @@ public class DetailUjianHelper implements DataLoader {
 											db.setWidth("90px");
 											db.setParent(rowN);
 											db.addEventListener("onChange", new EventListener() {
+												/**
+												 * Menyimpan nilai manual satu Sub-CPMK untuk satu peserta ke JSON
+												 * {@code pertemuanPunyaUjian.getNilaiManualJson()} setiap kali {@link org.zkoss.zul.Doublebox}
+												 * diubah.
+												 *
+												 * <p>Strukturnya JSON dua tingkat: kunci luar adalah id mahasiswa, kunci dalam
+												 * {@code "fn_&lt;idFormatNilai&gt;"}. Entity di-{@code refresh()} lebih dulu dan JSON dibaca ulang
+												 * dari database pada setiap perubahan — bukan dari salinan di memori — sehingga perubahan pada
+												 * peserta atau Sub-CPMK lain yang tersimpan sesudah layar dibuka tidak tertimpa. Nilai
+												 * {@code null} (kotak dikosongkan) menghapus kuncinya alih-alih menulis nol, sehingga "belum
+												 * dinilai" tetap dapat dibedakan dari "dinilai 0".
+												 *
+												 * @param ev event {@code onChange}; tidak dibaca
+												 * @throws Exception diteruskan dari operasi Hibernate atau parsing JSON
+												 */
 												@Override
 												public void onEvent(Event ev) throws Exception {
 													Session s = HibernateUtil.currentSession();
@@ -511,6 +634,20 @@ public class DetailUjianHelper implements DataLoader {
 											tbKet.setTooltiptext("Keterangan untuk nilai " + fn.getNama());
 											tbKet.setParent(rowN);
 											tbKet.addEventListener("onChange", new EventListener() {
+												/**
+												 * Menyimpan keterangan teks pendamping nilai manual satu Sub-CPMK ke JSON yang sama dengan
+												 * nilainya, memakai kunci {@code "fn_&lt;idFormatNilai&gt;_ket"}.
+												 *
+												 * <p>Mekanismenya identik dengan listener nilai di atasnya (refresh + baca ulang JSON dari
+												 * database + tulis balik), dan keterangan kosong/hanya spasi menghapus kuncinya sehingga JSON
+												 * tidak menyimpan string kosong.
+												 *
+												 * <p>Catatan UI terkait: label bantu kotak ini dipasang lewat {@code setTooltiptext}, bukan
+												 * {@code setPlaceholder}, karena placeholder memicu batch-error di ZK5 pada konteks ini.
+												 *
+												 * @param ev event {@code onChange}; tidak dibaca
+												 * @throws Exception diteruskan dari operasi Hibernate atau parsing JSON
+												 */
 												@Override
 												public void onEvent(Event ev) throws Exception {
 													Session s = HibernateUtil.currentSession();
@@ -540,6 +677,21 @@ public class DetailUjianHelper implements DataLoader {
 										cbPaksa.setParent(wrapNilai);
 										cbPaksaRef[0] = cbPaksa;
 										cbPaksa.addEventListener("onCheck", new EventListener() {
+											/**
+											 * Menyimpan flag "Paksa pakai nilai ini jika tetap ikut ujian" ke JSON nilai manual peserta
+											 * (kunci {@code "paksa"} pada entry mahasiswa yang bersangkutan).
+											 *
+											 * <p>Flag inilah yang menentukan apakah nilai manual per Sub-CPMK benar-benar dipakai ketika
+											 * peserta TETAP mengikuti ujian; tanpa itu nilai manual hanya tersimpan sebagai cadangan.
+											 * Seperti listener nilai/keterangan, JSON dibaca ulang dari database setelah
+											 * {@code refresh()} sebelum ditulis balik.
+											 *
+											 * <p>Sesudah menyimpan, {@code perbaruiVisibilitasNilai} dipanggil karena mencentang/membuka
+											 * "Paksa" langsung mengubah tampil-tidaknya seluruh kotak Nilai Manual pada baris ini.
+											 *
+											 * @param ev event {@code onCheck}; tidak dibaca
+											 * @throws Exception diteruskan dari operasi Hibernate atau parsing JSON
+											 */
 											@Override
 											public void onEvent(Event ev) throws Exception {
 												Session s = HibernateUtil.currentSession();
@@ -572,6 +724,27 @@ public class DetailUjianHelper implements DataLoader {
 											.ambilSubCpmkPeserta(mhsIdCpmk);
 									final java.util.LinkedHashMap<Long, org.zkoss.zul.Checkbox> cbMap = new java.util.LinkedHashMap<Long, org.zkoss.zul.Checkbox>();
 									EventListener onCpmk = new EventListener() {
+										/**
+										 * Menyimpan pilihan Sub-CPMK yang DIKERJAKAN seorang peserta ke JSON
+										 * {@code pertemuanPunyaUjian.getSubCpmkPerPeserta()} setiap kali salah satu checklist Sub-CPMK
+										 * diubah.
+										 *
+										 * <p><b>Konvensi "semua = default".</b> Bila SELURUH checkbox tercentang, entry peserta
+										 * DIHAPUS dari JSON alih-alih menyimpan daftar lengkap. Dengan begitu keadaan normal (peserta
+										 * mengerjakan semua Sub-CPMK ujian) tidak memakan tempat penyimpanan, dan pembacaan
+										 * {@code ambilSubCpmkPeserta(id)} yang mengembalikan {@code null} diperlakukan sebagai
+										 * "semua terpilih" — lihat inisialisasi checkbox di renderer
+										 * ({@code terpilihPeserta == null || terpilihPeserta.contains(...)}). Konsekuensinya, menambah
+										 * Sub-CPMK baru ke ujian otomatis ikut berlaku bagi peserta yang memakai default.
+										 *
+										 * <p>Satu instance listener ini dipakai bersama oleh semua checkbox Sub-CPMK pada baris tersebut
+										 * ({@code cbMap}), sehingga seluruh pilihan selalu ditulis sebagai satu kesatuan, bukan
+										 * per-checkbox. Sesudah menyimpan, {@code perbaruiVisibilitasNilai} dipanggil karena Sub-CPMK
+										 * yang tidak dicentang menyembunyikan kotak Nilai Manual pasangannya.
+										 *
+										 * @param ev event {@code onCheck}; tidak dibaca
+										 * @throws Exception diteruskan dari operasi Hibernate atau parsing JSON
+										 */
 										@Override
 										public void onEvent(Event ev) throws Exception {
 											Session s = HibernateUtil.currentSession();
@@ -622,6 +795,26 @@ public class DetailUjianHelper implements DataLoader {
 
 						EventListener cariAkun = new EventListener() {
 
+							/**
+							 * Menyaring daftar peserta perkuliahan sesuai kata kunci pada kotak "Peserta :" lalu memasang
+							 * hasilnya sebagai model grid.
+							 *
+							 * <p>Sumber datanya {@code perkuliahan.ambilMahasiswa()} (dibaca ulang setiap kali dicari, bukan
+							 * di-cache), dan pencocokan dilakukan di memori — bukan lewat query — atas NIM atau nama secara
+							 * case-insensitive. Kata kunci kosong berarti semua peserta ditampilkan.
+							 *
+							 * <p>Listener ini dipakai bertiga: dipanggil langsung sekali ({@code cariAkun.onEvent(null)})
+							 * untuk mengisi grid saat tab dibuka, dipasang pada {@code onOK} kotak pencarian (tekan Enter),
+							 * dan dipasang pada tombol berikon kaca pembesar. Karena itu parameternya tidak boleh dibaca.
+							 *
+							 * <p><b>Cabang mati.</b> Variabel {@code biodataCalonMahasiswa} dideklarasikan {@code null} di
+							 * dalam loop dan tidak pernah diisi, sehingga seluruh cabang OR yang mencocokkan nomor
+							 * registrasi/nama calon mahasiswa tidak pernah bernilai benar. Cabang itu sisa dari renderer
+							 * yang memang menangani empat tipe peserta; pada tab ini sumbernya selalu {@link Mahasiswa}.
+							 *
+							 * @param arg0 event pemicu; TIDAK dibaca dan {@code null} saat dipanggil langsung
+							 * @throws Exception diteruskan dari pengambilan daftar peserta
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								List<Mahasiswa> mahasiswasTemorary = pertemuanPunyaUjian.getPertemuan().getPerkuliahan()
@@ -684,6 +877,34 @@ public class DetailUjianHelper implements DataLoader {
 
 						checkboxConfigAll.addEventListener("onClick", new EventListener() {
 
+							/**
+							 * Menerapkan status checkbox "Tidak perlu ikut" pada HEADER kolom ke seluruh peserta yang
+							 * sedang lolos filter pencarian, lalu menyimpannya sekali ke database.
+							 *
+							 * <p>Berbeda dengan checkbox per-baris yang menyimpan tiap kali diklik, listener ini mengubah
+							 * daftar pengecualian untuk setiap peserta yang cocok filter di dalam loop, dan baru memanggil
+							 * {@code Common.refreshUpdate} SATU KALI setelah loop selesai — satu perjalanan ke database
+							 * untuk seluruh perubahan massal.
+							 *
+							 * <p><b>Cakupannya mengikuti filter pencarian, bukan seluruh kelas.</b> Kondisi pencocokan di
+							 * sini adalah salinan persis dari {@code cariAkun}, sehingga bila kotak "Peserta :" terisi maka
+							 * hanya peserta yang cocok yang terpengaruh. Grid kemudian dipasangi model berisi peserta yang
+							 * sama, jadi tampilan dan cakupan aksi selalu konsisten.
+							 *
+							 * <p><b>Dua kuirk yang perlu diketahui.</b> (1) Sama seperti checkbox per-baris, pembaruan
+							 * daftar memakai replace substring TANPA pagar koma pada langkah kedua, sehingga id yang menjadi
+							 * substring id lain dapat merusak entri peserta lain — penambalannya dilacak terpisah. (2)
+							 * Variabel {@code biodataCalonMahasiswa}, {@code siswa}, dan {@code calonSiswa} dideklarasikan
+							 * {@code null} dan tidak pernah diisi, sehingga cabang-cabang OR serta rantai ternary pemilihan
+							 * id yang melibatkannya tidak pernah aktif; id selalu berasal dari {@link Mahasiswa}.
+							 *
+							 * <p>Perhatikan juga bahwa baris-baris grid TIDAK dirender ulang dengan status centang baru —
+							 * model dipasang ulang sehingga renderer berjalan kembali dan membaca daftar pengecualian yang
+							 * sudah diperbarui.
+							 *
+							 * @param arg0 event {@code onClick} checkbox header; tidak dibaca
+							 * @throws Exception diteruskan dari operasi Hibernate atau pengambilan daftar peserta
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 
@@ -772,6 +993,19 @@ public class DetailUjianHelper implements DataLoader {
 
 			tabSyarat.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Membangun isi tab "Syarat Ikut Ujian" saat tab diklik pertama kali (lazy).
+				 *
+				 * <p>Penjaga {@code tabpanelSyarat.getChildren().isEmpty()} memastikan perakitan hanya sekali.
+				 * Isinya sepenuhnya didelegasikan ke {@code Tugas.tampilanSyarat(...)} — komponen syarat yang
+				 * dipakai bersama modul tugas — dengan pertemuan dan ujian dari
+				 * {@code pertemuanPunyaUjian}; parameter lain dibiarkan {@code null} karena konteks kelompok/
+				 * tugas tidak berlaku untuk ujian. {@code syaratAlert} adalah {@link java.util.Set} kosong yang
+				 * dioper sebagai penampung keluaran peringatan dari helper tersebut.
+				 *
+				 * @param arg0 event {@code onClick} tab; tidak dibaca
+				 * @throws Exception diteruskan dari {@code Tugas.tampilanSyarat}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (tabpanelSyarat.getChildren().isEmpty()) {
@@ -792,6 +1026,21 @@ public class DetailUjianHelper implements DataLoader {
 			// sepenuhnya; Center pembungkus (lihat borderlayoutUjian di atas) yang men-scroll.
 			tabpanelAntiCurang.setStyle("min-height:2000px");
 			tabAntiCurang.addEventListener("onClick", new EventListener() {
+				/**
+				 * Membangun isi tab "Anti Curang" saat tab diklik pertama kali (lazy), dengan mendelegasikan ke
+				 * {@link #isiTabAntiCurang}.
+				 *
+				 * <p>Penjaga {@code tabpanelAntiCurang.getChildren().isEmpty()} memastikan form hanya dirakit
+				 * sekali sehingga nilai yang sedang diketik pengguna tidak hilang saat berpindah tab.
+				 *
+				 * <p>Tab ini memakai {@code min-height} (bukan {@code height} tetap) karena isinya paling
+				 * panjang di antara semua tab — banyak checkbox, textarea, dan field GPS. Dengan height tetap,
+				 * {@code overflow:hidden} bawaan ZK5 memotong field paling bawah ("Radius lokasi"); dengan
+				 * {@code min-height} tab bebas tumbuh dan {@code Center} pembungkuslah yang men-scroll.
+				 *
+				 * @param arg0 event {@code onClick} tab; tidak dibaca
+				 * @throws Exception diteruskan dari {@link #isiTabAntiCurang}
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (tabpanelAntiCurang.getChildren().isEmpty()) {
@@ -822,6 +1071,17 @@ public class DetailUjianHelper implements DataLoader {
 					"/img/cancel.gif");
 			btnBatalUjian.setTooltiptext(Common.getBahasaConfig("Tutup jendela"));
 			btnBatalUjian.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menutup jendela detail ujian tanpa aksi tambahan (tombol "Batal" pada footer).
+				 *
+				 * <p>Penutupan hanya dilakukan bila kontainer asal memang sebuah {@link Window}; bila ujian
+				 * ditampilkan tertanam di komponen lain, klik ini tidak berefek. Perhatikan tidak ada
+				 * pembatalan perubahan di sini: seluruh kontrol pada keempat tab sudah menyimpan seketika saat
+				 * diubah, sehingga "Batal" berarti menutup jendela, bukan mengurungkan.
+				 *
+				 * @param e event {@code onClick}; tidak dibaca
+				 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+				 */
 				@Override
 				public void onEvent(Event e) throws Exception {
 					if (detailWindow instanceof Window) {
@@ -835,6 +1095,18 @@ public class DetailUjianHelper implements DataLoader {
 					"/img/save.gif");
 			btnSimpanUjian.setTooltiptext(Common.getBahasaConfig("Simpan & tutup jendela"));
 			btnSimpanUjian.addEventListener("onClick", new EventListener() {
+				/**
+				 * Menutup jendela detail ujian (tombol "Simpan" pada footer).
+				 *
+				 * <p>Badannya SAMA PERSIS dengan tombol "Batal" di sebelahnya — dan memang disengaja. Semua
+				 * kontrol pada tab "Peserta yg tidak perlu ikut", "Syarat Ikut Ujian", dan "Anti Curang" sudah
+				 * menulis ke database seketika lewat {@code onChange}/{@code onCheck} masing-masing, sehingga
+				 * tidak ada state tertunda yang perlu di-commit di sini. Tombol ini murni penegasan bagi
+				 * pengguna yang mengharapkan adanya tombol "Simpan".
+				 *
+				 * @param e event {@code onClick}; tidak dibaca
+				 * @throws Exception dipersyaratkan {@link EventListener}; tidak dilempar di sini
+				 */
 				@Override
 				public void onEvent(Event e) throws Exception {
 					if (detailWindow instanceof Window) {

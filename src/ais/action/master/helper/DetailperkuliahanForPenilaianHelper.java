@@ -1380,7 +1380,12 @@ public class DetailperkuliahanForPenilaianHelper implements DataLoader {
 							if (nilaiHuruf == null) {
 								for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
 									if (huruf != null && huruf.getNilaiHuruf() != null && huruf.getNilaiHuruf()
-											.equalsIgnoreCase(nilaiHurufText.getValue().trim())) {
+											.equalsIgnoreCase(nilaiHurufText.getValue().trim())
+											// hanya aturan GLOBAL MURNI (tanpa jurusan/fakultas) yang boleh jadi fallback
+											// terakhir -- selaras CommonAcademicKrsNilaiHelper.getNilaiHuruf() &
+											// ConstantValues.nilaiHurufTerkait(); sebelumnya tier ini bisa mengambil
+											// aturan milik jurusan/fakultas LAIN karena tanpa syarat cakupan sama sekali.
+											&& huruf.getJurusan() == null && huruf.getFakultas() == null) {
 										nilaiHuruf = huruf;
 										break;
 									}

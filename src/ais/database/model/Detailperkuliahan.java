@@ -2804,7 +2804,10 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 				if (nilaiHuruf == null) {
 					for (NilaiHuruf huruf : ConstantValues.nilaiHurufs) {
 						if (huruf != null && huruf.getNilaiHuruf() != null
-								&& huruf.getNilaiHuruf().equalsIgnoreCase(this.nilaiHuruf)) {
+								&& huruf.getNilaiHuruf().equalsIgnoreCase(this.nilaiHuruf)
+								// hanya aturan GLOBAL MURNI (tanpa jurusan/fakultas) boleh jadi fallback terakhir --
+								// selaras CommonAcademicKrsNilaiHelper.getNilaiHuruf() & ConstantValues.nilaiHurufTerkait().
+								&& huruf.getJurusan() == null && huruf.getFakultas() == null) {
 							nilaiHuruf = huruf;
 							break;
 						}
