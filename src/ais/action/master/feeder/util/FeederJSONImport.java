@@ -45,6 +45,7 @@ import ais.database.model.JenisTinggalMahasiswa;
 import ais.database.model.Jenjang;
 import ais.database.model.Jurusan;
 import ais.database.model.Konfigurasi;
+import ais.database.model.KrsMahasiswa;
 import ais.database.model.Kurikulum;
 import ais.database.model.KurikulumPunyaMatakuliah;
 import ais.database.model.LembagaPengangkat;
@@ -2188,6 +2189,14 @@ public class FeederJSONImport {
 			history.setSemester(semester);
 			history.setTahap(ConstantValues.aktifkanTahapan ? mahasiswa.currentTahapan(semester) : null);
 			history.setStatusAwalMahasiswa(mahasiswa.getStatusAwalMahasiswa());
+		}
+		KrsMahasiswa krsMahasiswa = (KrsMahasiswa) session.createCriteria(KrsMahasiswa.class)
+				.add(Restrictions.eq("mahasiswa", mahasiswa))
+				.add(Restrictions.eq("semester", semester))
+				.add(Restrictions.isNull("semesterPendek"))
+				.addOrder(Order.desc("id")).setMaxResults(1).uniqueResult();
+		if (krsMahasiswa != null) {
+			history.setSks(krsMahasiswa.getSksBukanKonversi());
 		}
 		history.setTahunAkademik(tahunAkademik);
 		history.setStatusMahasiswa(statusMahasiswa);
