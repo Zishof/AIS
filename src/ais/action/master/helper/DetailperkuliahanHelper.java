@@ -1514,8 +1514,9 @@ public class DetailperkuliahanHelper implements DataCriteria, DataLoader {
 											Detailperkuliahan detailperkuliahan = (Detailperkuliahan) GeneralValueObject
 													.ambilData(Detailperkuliahan.class, detailperkuliahanid.toString());
 											if (detailperkuliahan != null) {
-												if (detailperkuliahan.getPersetujuan()
-														.equals(Detailperkuliahan.BELUM_DISETUJUI)) {
+												if (detailperkuliahan.getPersetujuan() == null
+														|| detailperkuliahan.getPersetujuan()
+																.equals(Detailperkuliahan.BELUM_DISETUJUI)) {
 													Number jumlahRequestTugasAkhir = (Number) HibernateUtil.currentSession()
 															.createCriteria(MahasiswaRequestTugasAkhir.class)
 															.setProjection(org.hibernate.criterion.Projections.rowCount())
