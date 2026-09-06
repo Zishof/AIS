@@ -62,13 +62,15 @@ public class Dashboard extends HttpServlet {
 			Common.REAL_PATH = getServletContext().getRealPath("/");
 			Common.REAL_PATH_REPORT_TEMP = getServletContext().getRealPath("/report");
 			Common.ROOT = request.getContextPath();
-			Common.CURRENT_URL_SIMPLE = (request.isSecure() ? "https://" : "http://") + request.getServerName()
-					+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? ""
-							: ":" + request.getServerPort());
-			Common.CURRENT_URL = (Common.isSecure(request) ? "https://" : "http://") + request.getServerName()
-					+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? ""
-							: ":" + request.getServerPort())
-					+ request.getContextPath();
+			if (Common.sanitizedRequestHostForCurrentUrl(request) != null) {
+				Common.CURRENT_URL_SIMPLE = (request.isSecure() ? "https://" : "http://") + request.getServerName()
+						+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? ""
+								: ":" + request.getServerPort());
+				Common.CURRENT_URL = (Common.isSecure(request) ? "https://" : "http://") + request.getServerName()
+						+ (request.getServerPort() == 80 || request.getServerPort() == 443 ? ""
+								: ":" + request.getServerPort())
+						+ request.getContextPath();
+			}
 			Konfigurasi config = Common.getKonfigurasi("akses_ke_dashboard_tanpa_login_tidak_diizinkan",
 					Konfigurasi.AKTIF);
 			if (config.getNilai().equalsIgnoreCase(Konfigurasi.AKTIF)) {

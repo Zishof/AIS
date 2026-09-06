@@ -89,8 +89,10 @@ public class Baru extends HttpServlet {
 			port = ":" + serverPort;
 		}
 
-		Common.CURRENT_URL_SIMPLE = protocol + serverName + port;
-		Common.CURRENT_URL = Common.CURRENT_URL_SIMPLE + request.getContextPath();
+		if (Common.sanitizedRequestHostForCurrentUrl(request) != null) {
+			Common.CURRENT_URL_SIMPLE = protocol + serverName + port;
+			Common.CURRENT_URL = Common.CURRENT_URL_SIMPLE + request.getContextPath();
+		}
 	}
 
 	private String resolveDispatcher(HttpServletRequest request, Tbmuser tbmuser) throws Exception {

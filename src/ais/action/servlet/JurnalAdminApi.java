@@ -2,11 +2,88 @@ package ais.action.servlet;
 import java.text.SimpleDateFormat;import java.util.Date;import javax.servlet.http.*;import org.json.*;
 import ais.action.master.jurnal.*;import ais.common.*;import ais.common.newui.NewUiCsrfUtil;import ais.database.hibernate.HibernateUtil;import ais.database.model.Tbmuser;import ais.database.model.jurnal.PenugasanReviewerJurnal;import ais.database.model.penelitiandanpengabdian.JurnalPenelitian;import ais.database.model.repository.*;
 import ais.action.master.jurnal.importer.*;import ais.database.model.jurnal.ImportJobOjs;import ais.database.model.jurnal.ImportSumberOjs;
-/** Thin JSON command API; business authorization remains inside journal services. */
+/**
+ * API JSON tipis untuk seluruh operasi administratif/backoffice modul Jurnal (workspace
+ * editor, workflow naskah, review, penerbitan terbitan, DOI/URN, langganan, integrasi OJS,
+ * dsb.), memetakan {@code GET}/{@code POST /jurnal-admin-api?action=...}.
+ *
+ * <p><b>Gerbang keamanan.</b> Login wajib untuk seluruh aksi ({@link Common#getCurrentUser}
+ * membalas {@link SecurityException} bila {@code null}, ditangkap sebagai 403). Aksi baca
+ * ringan ({@code capabilities}, {@code health}, {@code workspace}) tidak butuh CSRF karena
+ * tidak mengubah state; SELURUH aksi lain (lewat {@link #command}) wajib metode {@code POST}
+ * dan token CSRF valid ({@link NewUiCsrfUtil#isValid}). Servlet ini SENGAJA <i>thin</i> --
+ * hanya mem-parsing parameter dan memanggil satu method pada satu service per aksi; otorisasi
+ * bisnis rinci (mis. siapa boleh mengedit jurnal X, siapa reviewer yang sah) sepenuhnya
+ * ditegakkan DI DALAM service yang dipanggil (mis. {@code JurnalAuthorizationService},
+ * {@code JurnalWorkflowService}), bukan di sini -- lihat javadoc service masing-masing untuk
+ * rincian gerbangnya.</p>
+ */
 public final class JurnalAdminApi extends HttpServlet{
- private static final long serialVersionUID=1L;private final JurnalAuthorizationService auth=new JurnalAuthorizationService();
- protected void doGet(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{handle(q,r);}protected void doPost(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{handle(q,r);}
+ /** ID versi serialisasi servlet ini (kontrak {@link java.io.Serializable} bawaan {@code HttpServlet}). */
+ private static final long serialVersionUID=1L;
+ /** Layanan otorisasi bersama, dipakai untuk membangun payload {@code capabilities} dan menggerbangi aksi impor OJS. */
+ private final JurnalAuthorizationService auth=new JurnalAuthorizationService();
+
+ /**
+  * Melayani {@code GET}; sekadar mendelegasikan ke {@link #handle} seperti {@link #doPost}
+  * (aksi baca seperti {@code capabilities}/{@code health}/{@code workspace} dipanggil lewat
+  * {@code GET}, sedangkan aksi tulis lewat {@link #command} tetap mensyaratkan {@code POST}
+  * di dalam {@link #handle}).
+  *
+  * @param q permintaan HTTP
+  * @param r tanggapan HTTP; selalu diisi JSON
+  * @throws java.io.IOException bila penulisan tanggapan gagal
+  */
+ protected void doGet(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{handle(q,r);}
+
+ /**
+  * Melayani {@code POST}; mendelegasikan ke {@link #handle}.
+  *
+  * @param q permintaan HTTP
+  * @param r tanggapan HTTP; selalu diisi JSON
+  * @throws java.io.IOException bila penulisan tanggapan gagal
+  */
+ protected void doPost(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{handle(q,r);}
+
+ /**
+  * Titik masuk tunggal untuk {@code GET} maupun {@code POST}: memastikan pengguna login,
+  * memilih aksi berdasarkan parameter {@code action} (baku {@code "capabilities"}), lalu
+  * menerjemahkan hasil/galat menjadi JSON dan kode status HTTP.
+  *
+  * <p>Aksi {@code capabilities}/{@code health}/{@code workspace} dilayani langsung di sini;
+  * aksi lain wajib {@code POST} dengan CSRF valid dan didelegasikan ke {@link #command}.
+  * {@link SecurityException} (belum login atau otorisasi service ditolak) membalas 403;
+  * {@link IllegalArgumentException} (parameter/aksi tidak valid) membalas 422 dengan
+  * pesannya; galat lain dicatat lewat {@link ais.common.ErrorAuditUtil} dan membalas 500
+  * dengan ID jejak di header {@code X-Request-Id} dan isi tanggapan.</p>
+  *
+  * @param q permintaan HTTP; parameter {@code action} menentukan cabang, sisanya bergantung aksi
+  * @param r tanggapan HTTP; selalu diisi JSON {@code {ok, ...}} atau {@code {ok:false, code, message}}
+  * @throws java.io.IOException bila penulisan tanggapan gagal
+  */
  private void handle(HttpServletRequest q,HttpServletResponse r)throws java.io.IOException{String trace=Long.toHexString(System.currentTimeMillis())+Integer.toHexString(System.identityHashCode(q));r.setContentType("application/json; charset=UTF-8");r.setHeader("Cache-Control","no-store");r.setHeader("X-Content-Type-Options","nosniff");r.setHeader("X-Request-Id",trace);JSONObject out=new JSONObject();try{Tbmuser user=Common.getCurrentUser(q);if(user==null)throw new SecurityException("Login diperlukan.");String action=text(q.getParameter("action"),"capabilities");if("capabilities".equals(action))capabilities(out,user,q);else if("health".equals(action))out.put("data",new JurnalHealthService().check(user));else if("workspace".equals(action)){JSONObject data=new JurnalWorkspaceService().load(req(q,"module"),optionalId(q,"journalId"),integer(q,"page",0),integer(q,"size",25),user);out.put("data",data);}else{if(!"POST".equalsIgnoreCase(q.getMethod())||!NewUiCsrfUtil.isValid(q))throw new SecurityException("Token CSRF tidak valid.");command(action,q,out,user,trace);}out.put("ok",true);}catch(SecurityException e){r.setStatus(403);fail(out,"FORBIDDEN",e.getMessage());}catch(IllegalArgumentException e){r.setStatus(422);fail(out,"VALIDATION_FAILED",e.getMessage());}catch(Exception e){r.setStatus(500);fail(out,"INTERNAL_ERROR","Perintah jurnal gagal. ID: "+trace);ais.common.ErrorAuditUtil.record(e,"JurnalAdminApi:"+trace);}finally{try{r.getWriter().write(out.toString());}catch(Exception ignored){}HibernateUtil.closeSession();}}
+ /**
+  * Mengeksekusi satu aksi tulis (mutasi) berdasarkan nama {@code a}, memanggil tepat satu
+  * method pada satu service Jurnal terkait, dan mengisi {@code o} dengan hasilnya.
+  *
+  * <p>Mencakup puluhan aksi administratif: pembuatan jurnal/naskah/isu, alur kerja review
+  * (undang/terima/tolak reviewer, submit ulasan), transisi status naskah, penugasan tahap,
+  * identifier (DOI/URN), diskusi, undangan pengguna, langganan &amp; pembayaran (lihat juga
+  * {@link JurnalPaymentCallback} untuk jalur callback provider), serta impor OJS (preflight,
+  * registrasi sumber, mulai/lanjut/selesaikan/batalkan job). Setiap cabang hanya memanggil
+  * satu method service dan menyalin field hasil ke {@code o} -- validasi parameter dan
+  * otorisasi sepenuhnya berada di service yang dipanggil. Aksi yang tidak dikenal melempar
+  * {@link IllegalArgumentException}.</p>
+  *
+  * @param a nama aksi, mis. {@code "createJournal"}, {@code "transition"}, {@code "startImport"}
+  * @param q permintaan HTTP; parameter bergantung pada {@code a}
+  * @param o objek JSON tanggapan yang akan diisi field hasil aksi
+  * @param u pengguna yang melakukan aksi (sudah dipastikan login oleh {@link #handle})
+  * @param trace ID jejak permintaan untuk audit/idempotensi pada beberapa aksi
+  * @throws Exception galat apa pun dari service yang dipanggil, termasuk
+  *         {@link SecurityException} dan {@link IllegalArgumentException}; ditangani oleh
+  *         pemanggil ({@link #handle})
+  */
  private void command(String a,HttpServletRequest q,JSONObject o,Tbmuser u,String trace)throws Exception{
   if("createJournal".equals(a)){JurnalPenelitian x=new JurnalAdministrationService().create(q.getParameter("tenant"),req(q,"title"),req(q,"slug"),q.getParameter("locale"),u);o.put("id",x.getId()).put("collectionId",x.getRepoCollectionId());}
   else if("generateDemoData".equals(a)){JurnalDemoDataService.Result x=new JurnalDemoDataService().generate(integer(q,"journalCount",500),integer(q,"articlesPerJournal",100),optionalId(q,"authorId"),q.getParameter("authorName"),req(q,"idempotencyKey"),req(q,"confirmation"),u);o.put("idempotencyKey",x.key).put("authorName",x.authorName).put("authorReference",x.authorReference).put("journalsRequested",x.journalsRequested).put("journalsCreated",x.journalsCreated).put("articlesPerJournal",x.articlesPerJournal).put("articlesCreated",x.articlesCreated).put("contributorsCreated",x.contributorsCreated).put("elapsedMillis",x.elapsedMillis);}
@@ -51,9 +128,174 @@ public final class JurnalAdminApi extends HttpServlet{
   else if("cancelImport".equals(a))new ais.action.master.jurnal.importer.OjsImportExecutionService().cancel(id(q,"jobId"),u);
   else throw new IllegalArgumentException("Aksi jurnal tidak dikenal.");
  }
+ /**
+  * Menyusun payload {@code capabilities}: daftar entri menu/modul Jurnal beserta hak
+  * buka/baca pengguna saat ini untuk masing-masing (lihat {@link JurnalAksesKatalog}), serta
+  * token CSRF baru untuk sesi ini yang wajib disertakan pada aksi tulis berikutnya.
+  *
+  * @param o objek JSON tanggapan yang akan diisi {@code entries} dan {@code csrf}
+  * @param u pengguna yang meminta, sumber hak buka/baca per entri
+  * @param q permintaan HTTP, dipakai untuk membuat/mengambil sesi tempat token CSRF disimpan
+  * @throws Exception bila penyusunan JSON gagal
+  */
  private void capabilities(JSONObject o,Tbmuser u,HttpServletRequest q)throws Exception{JSONArray rows=new JSONArray();for(JurnalAksesKatalog.Entri e:JurnalAksesKatalog.DAFTAR)rows.put(new JSONObject().put("key",e.kunci).put("child",e.child).put("label",e.label).put("open",auth.canMenu(u,e.kunci)).put("read",auth.canRead(u,e.kunci)));o.put("entries",rows).put("csrf",NewUiCsrfUtil.getToken(q.getSession(true)));}
+
+ /**
+  * Memuat satu {@link ImportSumberOjs} aktif berdasarkan {@code id}, setelah memastikan
+  * {@code u} berwenang {@code manageImport} secara umum dan berwenang atas jurnal pemilik
+  * sumber tersebut secara khusus.
+  *
+  * @param id ID sumber import OJS
+  * @param u pengguna yang meminta
+  * @return sumber import yang ditemukan dan aktif
+  * @throws SecurityException bila {@code u} tidak berwenang {@code manageImport} atau atas jurnal terkait
+  * @throws IllegalArgumentException bila sumber tidak ditemukan atau tidak aktif
+  */
  private ImportSumberOjs source(Long id,Tbmuser u){auth.requireWorkflow(u,"manageImport");ImportSumberOjs x=(ImportSumberOjs)HibernateUtil.currentSession().get(ImportSumberOjs.class,id);if(x==null||!Boolean.TRUE.equals(x.getAktif()))throw new IllegalArgumentException("Sumber import tidak ditemukan.");auth.requireJournalScope(HibernateUtil.currentSession(),u,x.getJurnalPenelitianId(),null,null,false,"JOURNAL");return x;}
+
+ /**
+  * Memuat satu {@link ImportJobOjs} aktif berdasarkan {@code id}, dengan gerbang otorisasi
+  * yang sama dengan {@link #source}.
+  *
+  * @param id ID job import OJS
+  * @param u pengguna yang meminta
+  * @return job import yang ditemukan dan aktif
+  * @throws SecurityException bila {@code u} tidak berwenang {@code manageImport} atau atas jurnal terkait
+  * @throws IllegalArgumentException bila job tidak ditemukan atau tidak aktif
+  */
  private ImportJobOjs job(Long id,Tbmuser u){auth.requireWorkflow(u,"manageImport");ImportJobOjs x=(ImportJobOjs)HibernateUtil.currentSession().get(ImportJobOjs.class,id);if(x==null||!Boolean.TRUE.equals(x.getAktif()))throw new IllegalArgumentException("Job import tidak ditemukan.");auth.requireJournalScope(HibernateUtil.currentSession(),u,x.getJurnalPenelitianId(),null,null,false,"JOURNAL");return x;}
+
+ /**
+  * Menyalin field ringkasan satu job import OJS ({@code jobId}, {@code status},
+  * {@code dryRun}, dan {@code report} bila ada) ke objek JSON tanggapan.
+  *
+  * @param o objek JSON tanggapan yang akan diisi
+  * @param x job import yang hasilnya akan disalin
+  * @throws Exception bila penyusunan JSON gagal
+  */
  private static void importJob(JSONObject o,ImportJobOjs x)throws Exception{o.put("jobId",x.getId()).put("status",x.getStatus()).put("dryRun",x.getDryRun()).put("report",x.getReportJson()==null?JSONObject.NULL:new JSONObject(x.getReportJson()));}
- private static void item(JSONObject o,RepoItem x)throws Exception{o.put("id",x.getId()).put("status",x.getWorkflowStatus()).put("version",x.getLockVersion());}private static void fail(JSONObject o,String c,String m){try{o.put("ok",false).put("code",c).put("message",m==null?c:m);}catch(Exception ignored){}}private static String req(HttpServletRequest q,String n){String v=q.getParameter(n);if(v==null||v.trim().length()==0)throw new IllegalArgumentException(n+" wajib diisi.");return v.trim();}private static Long id(HttpServletRequest q,String n){Long v=optionalId(q,n);if(v==null)throw new IllegalArgumentException(n+" wajib diisi.");return v;}private static Long optionalId(HttpServletRequest q,String n){String v=q.getParameter(n);if(v==null||v.trim().length()==0)return null;try{return Long.valueOf(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}private static Integer optionalInt(HttpServletRequest q,String n){String v=q.getParameter(n);return v==null||v.trim().length()==0?null:Integer.valueOf(integer(q,n,0));}private static int integer(HttpServletRequest q,String n,int d){String v=q.getParameter(n);if(v==null||v.length()==0)return d;try{return Integer.parseInt(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}private static long longValue(HttpServletRequest q,String n,long d){String v=q.getParameter(n);if(v==null||v.trim().length()==0)return d;try{return Long.parseLong(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}private static java.math.BigDecimal decimal(HttpServletRequest q,String n){try{return new java.math.BigDecimal(req(q,n));}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}private static boolean bool(HttpServletRequest q,String n){return"true".equalsIgnoreCase(q.getParameter(n));}private static Date date(String v){if(v==null||v.trim().length()==0)return null;try{SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd");f.setLenient(false);return f.parse(v);}catch(Exception e){throw new IllegalArgumentException("Tanggal tidak valid.");}}private static String text(String v,String d){return v==null||v.trim().length()==0?d:v.trim();}
+
+ /**
+  * Menyalin field ringkasan satu {@link RepoItem} ({@code id}, {@code status} workflow, dan
+  * {@code version} optimistic-lock) ke objek JSON tanggapan -- dipakai oleh banyak aksi yang
+  * mengembalikan naskah/artikel yang baru dibuat atau diubah.
+  *
+  * @param o objek JSON tanggapan yang akan diisi
+  * @param x item repository yang hasilnya akan disalin
+  * @throws Exception bila penyusunan JSON gagal
+  */
+ private static void item(JSONObject o,RepoItem x)throws Exception{o.put("id",x.getId()).put("status",x.getWorkflowStatus()).put("version",x.getLockVersion());}
+
+ /**
+  * Mengisi objek JSON tanggapan galat dengan {@code ok=false} dan kode/pesan yang diberikan;
+  * bila {@code m} {@code null}, kode dipakai ulang sebagai pesan. Kegagalan penyusunan JSON
+  * sengaja diabaikan agar penulisan tanggapan galat itu sendiri tidak ikut gagal.
+  *
+  * @param o objek JSON tanggapan yang akan diisi
+  * @param c kode galat mesin-terbaca, mis. {@code "FORBIDDEN"}
+  * @param m pesan galat untuk manusia, boleh {@code null}
+  */
+ private static void fail(JSONObject o,String c,String m){try{o.put("ok",false).put("code",c).put("message",m==null?c:m);}catch(Exception ignored){}}
+
+ /**
+  * Mengambil parameter {@code n} dan memastikan terisi (tidak {@code null}/kosong setelah di-trim).
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @return nilai parameter yang sudah di-trim
+  * @throws IllegalArgumentException bila parameter tidak ada atau kosong
+  */
+ private static String req(HttpServletRequest q,String n){String v=q.getParameter(n);if(v==null||v.trim().length()==0)throw new IllegalArgumentException(n+" wajib diisi.");return v.trim();}
+
+ /**
+  * Mengambil parameter ID {@code n} wajib (harus terisi, berbeda dengan {@link #optionalId}).
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @return ID hasil parse
+  * @throws IllegalArgumentException bila parameter kosong atau bukan angka valid
+  */
+ private static Long id(HttpServletRequest q,String n){Long v=optionalId(q,n);if(v==null)throw new IllegalArgumentException(n+" wajib diisi.");return v;}
+
+ /**
+  * Mengambil parameter ID {@code n} opsional: {@code null} bila kosong/tidak ada.
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @return ID hasil parse, atau {@code null} bila parameter kosong/tidak ada
+  * @throws IllegalArgumentException bila parameter terisi tetapi bukan angka valid
+  */
+ private static Long optionalId(HttpServletRequest q,String n){String v=q.getParameter(n);if(v==null||v.trim().length()==0)return null;try{return Long.valueOf(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}
+
+ /**
+  * Mengambil parameter angka bulat {@code n} opsional: {@code null} bila kosong/tidak ada.
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @return nilai hasil parse, atau {@code null} bila parameter kosong/tidak ada
+  * @throws IllegalArgumentException bila parameter terisi tetapi bukan angka bulat valid
+  */
+ private static Integer optionalInt(HttpServletRequest q,String n){String v=q.getParameter(n);return v==null||v.trim().length()==0?null:Integer.valueOf(integer(q,n,0));}
+
+ /**
+  * Mengambil parameter angka bulat {@code n}, atau {@code d} bila parameter kosong/tidak ada.
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @param d nilai baku bila parameter tidak diisi
+  * @return nilai parameter, atau {@code d}
+  * @throws IllegalArgumentException bila parameter terisi tetapi bukan angka bulat valid
+  */
+ private static int integer(HttpServletRequest q,String n,int d){String v=q.getParameter(n);if(v==null||v.length()==0)return d;try{return Integer.parseInt(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}
+
+ /**
+  * Mengambil parameter bilangan panjang {@code n}, atau {@code d} bila parameter kosong/tidak ada.
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @param d nilai baku bila parameter tidak diisi
+  * @return nilai parameter, atau {@code d}
+  * @throws IllegalArgumentException bila parameter terisi tetapi bukan angka valid
+  */
+ private static long longValue(HttpServletRequest q,String n,long d){String v=q.getParameter(n);if(v==null||v.trim().length()==0)return d;try{return Long.parseLong(v);}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}
+
+ /**
+  * Mengambil parameter {@code n} wajib dan mem-parsingnya sebagai {@link java.math.BigDecimal}.
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @return nilai parameter sebagai {@link java.math.BigDecimal}
+  * @throws IllegalArgumentException bila parameter tidak ada, kosong, atau bukan angka desimal valid
+  */
+ private static java.math.BigDecimal decimal(HttpServletRequest q,String n){try{return new java.math.BigDecimal(req(q,n));}catch(Exception e){throw new IllegalArgumentException(n+" tidak valid.");}}
+
+ /**
+  * Mengambil parameter boolean {@code n}: {@code true} hanya bila nilainya persis
+  * {@code "true"} (case-insensitive); nilai lain (termasuk tidak ada) dianggap {@code false}.
+  *
+  * @param q permintaan HTTP
+  * @param n nama parameter
+  * @return {@code true} bila parameter bernilai {@code "true"}, selain itu {@code false}
+  */
+ private static boolean bool(HttpServletRequest q,String n){return"true".equalsIgnoreCase(q.getParameter(n));}
+
+ /**
+  * Mem-parsing tanggal berformat {@code yyyy-MM-dd} secara ketat (tidak lenient); {@code null}
+  * atau kosong menghasilkan {@code null} (dianggap "tidak diisi", bukan galat).
+  *
+  * @param v teks tanggal, boleh {@code null}/kosong
+  * @return tanggal hasil parse, atau {@code null} bila {@code v} kosong
+  * @throws IllegalArgumentException bila {@code v} terisi tetapi bukan tanggal valid pada format tersebut
+  */
+ private static Date date(String v){if(v==null||v.trim().length()==0)return null;try{SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd");f.setLenient(false);return f.parse(v);}catch(Exception e){throw new IllegalArgumentException("Tanggal tidak valid.");}}
+
+ /**
+  * Menormalkan teks: {@code null}/kosong (setelah di-trim) menghasilkan nilai baku {@code d},
+  * selain itu dikembalikan hasil {@code trim()}.
+  *
+  * @param v teks apa adanya, boleh {@code null}
+  * @param d nilai baku bila {@code v} kosong
+  * @return teks yang sudah dinormalkan, tidak pernah {@code null} bila {@code d} tidak {@code null}
+  */
+ private static String text(String v,String d){return v==null||v.trim().length()==0?d:v.trim();}
 }

@@ -56,13 +56,50 @@ import ais.database.model.inventory.Toko;
  */
 public class LaporanKantinPdf extends HttpServlet {
 
+    /**
+     * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+     * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+     */
     private static final long serialVersionUID = 1L;
+    /** Locale Indonesia dipakai memformat angka dan tanggal pada seluruh isi laporan. */
     private static final Locale ID = new Locale("id", "ID");
 
+    /**
+     * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet}.
+     *
+     * @param req  permintaan masuk berisi parameter filter laporan (lihat Javadoc kelas untuk
+     *             daftar lengkap parameter URL)
+     * @param resp balasan yang akan diisi berkas PDF laporan e-Kantin
+     * @throws java.io.IOException bila penulisan balasan gagal
+     * @see #doGet(HttpServletRequest, HttpServletResponse)
+     */
     public void doPost(HttpServletRequest req, HttpServletResponse resp) throws java.io.IOException {
         doGet(req, resp);
     }
 
+    /**
+     * Titik masuk servlet: membangun data+lingkup laporan lewat {@link LaporanKantinUtil#build},
+     * menuliskan header respons PDF, lalu mendelegasikan perenderan ke {@link #generate}.
+     *
+     * <p>Sesi Hibernate yang dibuka {@code LaporanKantinUtil.build} (lewat
+     * {@code HibernateUtil.currentSession()}) SELALU ditutup di blok {@code finally} lewat
+     * {@code HibernateUtil.closeSession()} &mdash; lihat Javadoc kelas untuk alasannya (servlet
+     * murni, bukan konteks ZK, tidak ada filter open-session-in-view).</p>
+     *
+     * <p>Kegagalan apa pun (termasuk kegagalan {@code LaporanKantinUtil.build} atau
+     * {@link #generate}) ditelan: dicatat lewat {@code ErrorAuditUtil.record} dan
+     * {@code printStackTrace}, tanpa balasan error terstruktur ke klien &mdash; permintaan yang
+     * gagal menghasilkan berkas PDF kosong/tidak lengkap pada koneksi yang sudah terlanjur
+     * dibuka {@code resp.getOutputStream()}.</p>
+     *
+     * @param req  permintaan masuk; parameter yang dipakai (lihat {@link LaporanKantinUtil#build}
+     *             dan {@link #generate}) meliputi {@code r} (id laporan), {@code tokoId},
+     *             {@code tglMulai}, {@code tglSampai}, {@code qProduk}, {@code qPelanggan}
+     * @param resp balasan; diisi header {@code Content-Type: application/pdf} dan
+     *             {@code Content-Disposition: inline} lalu bita PDF ditulis langsung ke
+     *             {@code resp.getOutputStream()}
+     * @throws java.io.IOException bila penulisan balasan gagal
+     */
     public void doGet(HttpServletRequest req, HttpServletResponse resp) throws java.io.IOException {
         try {
             Hasil H = LaporanKantinUtil.build(req);
@@ -147,6 +184,18 @@ public class LaporanKantinPdf extends HttpServlet {
 
     // ====================== Tabel ======================
 
+    /**
+     * Membangun tabel utama laporan (header kolom, baris detail, subtotal per grup bila
+     * {@code H.grup >= 0}, dan grand total di baris terakhir bila {@code H.grandTotal}).
+     *
+     * <p>Lebar kolom ditentukan otomatis dari {@code Kolom.tipe}: kolom teks lebih lebar
+     * ({@code 2.6f}), kolom tanggal sedang ({@code 2.0f}), kolom lain (termasuk angka)
+     * paling sempit ({@code 1.7f}).</p>
+     *
+     * @param H hasil {@code LaporanKantinUtil.build(...)} yang menyediakan kolom dan baris data
+     * @return tabel iText siap ditambahkan ke {@link Document}
+     * @throws Exception bila pembangunan sel/tabel iText gagal
+     */
     private PdfPTable buildTable(Hasil H) throws Exception {
         int n = H.kolom.size();
         PdfPTable table = new PdfPTable(n);
@@ -224,6 +273,29 @@ public class LaporanKantinPdf extends HttpServlet {
         return table;
     }
 
+    /**
+     * Menambahkan satu baris detail ke {@code table}: mem-format tiap sel sesuai tipe kolom
+     * ({@code num} dijajarkan kanan dan diformat lewat {@link #fmtNum}, {@code tgl} dijajarkan
+     * tengah dan diformat {@code dd-MM-yyyy}, selain itu teks apa adanya rata kiri), lalu
+     * mengakumulasi nilai kolom {@code num} ke {@code sub} (subtotal grup berjalan, boleh
+     * {@code null} bila tanpa pengelompokan) dan {@code grand} (grand total keseluruhan).
+     *
+     * <p>Kolom penanda grup ({@code i == gi}) sengaja dikosongkan di baris detail karena
+     * nilainya sudah ditampilkan pada baris header grup oleh {@link #buildTable}.</p>
+     *
+     * @param table    tabel iText yang sedang dibangun; sel baru ditambahkan ke sini
+     * @param H        hasil laporan, dipakai untuk mengetahui definisi kolom ({@code H.kolom})
+     * @param row      satu baris data mentah dari {@code H.baris}
+     * @param gi       indeks kolom pengelompokan, atau {@code -1} bila laporan tidak berkelompok
+     * @param sub      akumulator subtotal grup berjalan (diperbarui in-place); {@code null} bila
+     *                 tanpa pengelompokan
+     * @param grand    akumulator grand total (diperbarui in-place)
+     * @param bf       font isi sel
+     * @param amt      pemformat angka desimal (dua digit di belakang koma)
+     * @param intf     pemformat bilangan bulat (tanpa desimal)
+     * @param sdf      pemformat tanggal {@code dd-MM-yyyy}
+     * @param lineBody warna garis pemisah bawah tiap sel
+     */
     private void addDetail(PdfPTable table, Hasil H, Object[] row, int gi, double[] sub, double[] grand,
                            Font bf, NumberFormat amt, NumberFormat intf, SimpleDateFormat sdf, BaseColor lineBody) {
         int n = H.kolom.size();
@@ -256,6 +328,21 @@ public class LaporanKantinPdf extends HttpServlet {
         }
     }
 
+    /**
+     * Menambahkan satu baris subtotal grup ke {@code table}: kolom pengelompokan ({@code i ==
+     * gi}) diisi label {@code "Subtotal " + key}, kolom {@code num} diisi jumlah {@code sub}
+     * yang sudah diakumulasi {@link #addDetail} selama grup berjalan, kolom lain dikosongkan.
+     *
+     * @param table  tabel iText yang sedang dibangun; sel baru ditambahkan ke sini
+     * @param H      hasil laporan, dipakai untuk mengetahui definisi kolom ({@code H.kolom}) dan
+     *               indeks kolom pengelompokan ({@code H.grup})
+     * @param sub    akumulator subtotal grup yang baru saja selesai (dibaca, tidak diubah)
+     * @param key    nilai kunci grup yang ditutup, ditampilkan pada label subtotal
+     * @param gf     font tebal untuk baris subtotal
+     * @param amt    pemformat angka desimal (dua digit di belakang koma)
+     * @param intf   pemformat bilangan bulat (tanpa desimal)
+     * @param subLine warna garis pembatas atas/bawah baris subtotal
+     */
     private void addSubtotal(PdfPTable table, Hasil H, double[] sub, String key,
                              Font gf, NumberFormat amt, NumberFormat intf, BaseColor subLine) {
         int n = H.kolom.size(); int gi = H.grup;
@@ -273,23 +360,68 @@ public class LaporanKantinPdf extends HttpServlet {
         }
     }
 
+    /**
+     * Menentukan perataan horizontal sel header berdasarkan tipe kolom: {@code num} rata kanan,
+     * {@code tgl} rata tengah, tipe lain (termasuk teks) rata kiri.
+     *
+     * @param tipe tipe kolom ({@code Kolom.tipe}): {@code "num"}, {@code "tgl"}, atau lainnya
+     * @return salah satu konstanta perataan {@link Element} ({@code ALIGN_RIGHT}/
+     *         {@code ALIGN_CENTER}/{@code ALIGN_LEFT})
+     */
     private static int alignOf(String tipe) {
         if ("num".equals(tipe)) return Element.ALIGN_RIGHT;
         if ("tgl".equals(tipe)) return Element.ALIGN_CENTER;
         return Element.ALIGN_LEFT;
     }
 
+    /**
+     * Menebak apakah sebuah label kolom angka merupakan cacahan (hitungan unit, bukan nilai
+     * uang) dari awalan labelnya, tanpa peka besar/kecil huruf.
+     *
+     * @param label label kolom, mis. {@code "Jumlah Item"} atau {@code "Jml Transaksi"}
+     * @return {@code true} bila label berawalan {@code "jml"} atau {@code "jumlah"}; {@code false}
+     *         bila {@code label} bernilai {@code null} atau tidak cocok pola tersebut
+     */
     private static boolean isCount(String label) {
         if (label == null) return false;
         String l = label.toLowerCase();
         return l.startsWith("jml") || l.startsWith("jumlah");
     }
 
+    /**
+     * Memformat sebuah nilai angka untuk ditampilkan pada tabel: cacahan ({@link #isCount}
+     * bernilai {@code true} untuk {@code label}) diformat sebagai bilangan bulat lewat
+     * {@code intf}, nilai lain (mis. nominal uang) diformat dua digit desimal lewat
+     * {@code amt}; nilai negatif dibungkus tanda kurung (notasi akuntansi) alih-alih tanda
+     * minus.
+     *
+     * @param d    nilai yang diformat
+     * @param label label kolom, dipakai untuk memilih pemformat lewat {@link #isCount}
+     * @param amt  pemformat angka desimal (dua digit di belakang koma)
+     * @param intf pemformat bilangan bulat (tanpa desimal)
+     * @return representasi teks nilai {@code d}, dibungkus tanda kurung bila negatif
+     */
     private static String fmtNum(double d, String label, NumberFormat amt, NumberFormat intf) {
         String s = (isCount(label) ? intf : amt).format(Math.abs(d));
         return d < 0 ? ("(" + s + ")") : s;
     }
 
+    /**
+     * Menentukan teks nama toko yang ditampilkan pada kop laporan ({@code KopFooter}).
+     *
+     * <p>Urutan resolusi: (1) bila pengguna login ({@code Common.getCurrentUser(req)}) adalah
+     * pedagang dengan toko terpasang, nama toko pedagang itu dipakai (mengikat kop pada
+     * identitas login, bukan input request); (2) bila tidak, dan parameter {@code tokoId} pada
+     * request terisi, toko dicari lewat id tersebut dan namanya dipakai bila ditemukan; (3) bila
+     * keduanya tidak menghasilkan toko, teks bawaan {@code "Semua Toko"} dipakai.</p>
+     *
+     * <p>Method ini HANYA menentukan teks tampilan pada kop halaman; scoping data laporan yang
+     * sesungguhnya (baris mana yang boleh muncul di tabel) ditentukan terpisah oleh
+     * {@link LaporanKantinUtil#build}, bukan oleh method ini.</p>
+     *
+     * @param req permintaan asal, dipakai membaca pengguna login dan parameter {@code tokoId}
+     * @return nama toko untuk ditampilkan, atau {@code "Semua Toko"} bila tidak dapat ditentukan
+     */
     private String resolveTokoTxt(HttpServletRequest req) {
         try {
             Tbmuser u = Common.getCurrentUser(req);
@@ -314,6 +446,22 @@ public class LaporanKantinPdf extends HttpServlet {
         return "Semua Toko";
     }
 
+    /**
+     * Memformat rentang tanggal filter laporan menjadi teks siap tampil pada kop halaman.
+     *
+     * <p>Kedua parameter diharapkan berformat {@code yyyy-MM-dd} (format input filter web) dan
+     * ditampilkan ulang sebagai {@code dd-MM-yyyy}. Kombinasi nilai kosong/terisi menentukan
+     * bentuk teks: keduanya kosong &rarr; {@code "Semua Periode"}; keduanya terisi &rarr;
+     * {@code "<a> s/d <b>"}; hanya {@code a} &rarr; {@code "Mulai <a>"}; hanya {@code b} &rarr;
+     * {@code "s/d <b>"}. Kegagalan parsing tanggal apa pun (format tak dikenal) jatuh kembali
+     * ke {@code "Semua Periode"} alih-alih melempar galat ke pemanggil.</p>
+     *
+     * @param a tanggal mulai filter ({@code yyyy-MM-dd}), atau {@code null}/kosong bila tidak
+     *          difilter
+     * @param b tanggal akhir filter ({@code yyyy-MM-dd}), atau {@code null}/kosong bila tidak
+     *          difilter
+     * @return teks periode siap tampil pada kop laporan
+     */
     private static String periode(String a, String b) {
         SimpleDateFormat in = new SimpleDateFormat("yyyy-MM-dd");
         SimpleDateFormat out = new SimpleDateFormat("dd-MM-yyyy");
@@ -348,22 +496,67 @@ public class LaporanKantinPdf extends HttpServlet {
      * @see LaporanKantinPdf
      */
     private static final class KopFooter extends PdfPageEventHelper {
-        private final String instansi, judul, toko, periode, dicetak, logoPath;
+        /** Nama instansi/koperasi ditampilkan di baris pertama kop, huruf besar semua. */
+        private final String instansi;
+        /** Judul laporan ({@code Hasil.judul}), ditampilkan di baris kedua kop. */
+        private final String judul;
+        /** Teks nama toko (hasil {@link #resolveTokoTxt}), ditampilkan pada baris ketiga kop. */
+        private final String toko;
+        /** Teks rentang periode filter (hasil {@link #periode}), ditampilkan pada baris ketiga kop. */
+        private final String periode;
+        /** Teks tanggal+jam cetak, ditampilkan rata kiri pada footer tiap halaman. */
+        private final String dicetak;
+        /** Path berkas logo instansi, atau {@code null} bila tidak ada logo untuk ditampilkan. */
+        private final String logoPath;
+        /** Templat iText tempat total jumlah halaman dituliskan belakangan di {@link #onCloseDocument}. */
         private PdfTemplate total;
+        /** Font dasar dipakai menghitung lebar teks nomor halaman pada footer. */
         private BaseFont base;
+        /** Gambar logo yang sudah dimuat dari {@link #logoPath}, atau {@code null} bila gagal/tidak ada. */
         private Image logo;
+        /** Penanda agar pemuatan {@link #logo} dari {@link #logoPath} hanya dicoba sekali per dokumen. */
         private boolean logoTried = false;
 
+        /**
+         * Membangun event helper kop+footer dengan seluruh teks statis yang akan dicetak
+         * berulang pada tiap halaman laporan.
+         *
+         * @param instansi nama instansi/koperasi untuk baris pertama kop
+         * @param judul    judul laporan untuk baris kedua kop
+         * @param toko     teks nama toko untuk baris ketiga kop
+         * @param periode  teks rentang periode filter untuk baris ketiga kop
+         * @param dicetak  teks tanggal+jam cetak untuk footer
+         * @param logoPath path berkas logo instansi, atau {@code null} bila tidak ada
+         */
         KopFooter(String instansi, String judul, String toko, String periode, String dicetak, String logoPath) {
             this.instansi = instansi; this.judul = judul; this.toko = toko;
             this.periode = periode; this.dicetak = dicetak; this.logoPath = logoPath;
         }
 
+        /**
+         * Dipanggil iText sekali saat dokumen dibuka: menyiapkan {@link #base} (font pengukur
+         * lebar teks) dan {@link #total} (templat kosong berukuran 50x14pt yang akan diisi
+         * jumlah halaman final di {@link #onCloseDocument}, karena jumlah itu baru diketahui
+         * setelah seluruh halaman selesai dirender).
+         *
+         * <p>Kegagalan pembuatan {@link #base} ditelan; footer tetap dicetak tanpa nomor
+         * halaman total bila ini terjadi.</p>
+         *
+         * @param writer   penulis PDF aktif
+         * @param document dokumen yang baru dibuka
+         */
         public void onOpenDocument(PdfWriter writer, Document document) {
             try { base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/LaporanKantinPdf.java:323"); }
             total = writer.getDirectContent().createTemplate(50, 14);
         }
 
+        /**
+         * Memuat lazily gambar logo dari {@link #logoPath}, hanya mencoba sekali per dokumen
+         * (ditandai {@link #logoTried}) agar kegagalan pemuatan tidak diulang pada tiap halaman.
+         *
+         * @return gambar logo, atau {@code null} bila {@link #logoPath} kosong/{@code null} atau
+         *         pemuatannya gagal
+         */
         private Image logo() {
             if (!logoTried) {
                 logoTried = true;
@@ -373,6 +566,18 @@ public class LaporanKantinPdf extends HttpServlet {
             return logo;
         }
 
+        /**
+         * Dipanggil iText di awal tiap halaman: menggambar logo (bila ada, dilebarkan
+         * proporsional maksimum 150pt dengan tinggi tetap 34pt) diikuti tiga baris teks kop
+         * (instansi, judul, toko+periode) dan sebuah garis pemisah tebal di bawahnya.
+         *
+         * <p>Seluruh operasi digambar langsung ke {@code PdfContentByte} dokumen; kegagalan
+         * apa pun (termasuk kegagalan menggambar logo) ditelan agar satu halaman yang
+         * bermasalah tidak menggagalkan seluruh dokumen.</p>
+         *
+         * @param writer   penulis PDF aktif
+         * @param document dokumen yang sedang memulai halaman baru
+         */
         public void onStartPage(PdfWriter writer, Document document) {
             try {
                 PdfContentByte cb = writer.getDirectContent();
@@ -406,6 +611,17 @@ public class LaporanKantinPdf extends HttpServlet {
             } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/LaporanKantinPdf.java:366"); }
         }
 
+        /**
+         * Dipanggil iText di akhir tiap halaman: menggambar garis pemisah tipis, teks
+         * {@link #dicetak} rata kiri, teks {@code "Halaman X / "} diikuti templat
+         * {@link #total} (diisi belakangan di {@link #onCloseDocument}) rata kanan.
+         *
+         * <p>Kegagalan apa pun ditelan agar satu halaman yang bermasalah tidak menggagalkan
+         * seluruh dokumen; footer halaman itu bisa jadi tidak lengkap bila ini terjadi.</p>
+         *
+         * @param writer   penulis PDF aktif
+         * @param document dokumen yang halamannya baru selesai
+         */
         public void onEndPage(PdfWriter writer, Document document) {
             try {
                 PdfContentByte cb = writer.getDirectContent();
@@ -426,6 +642,19 @@ public class LaporanKantinPdf extends HttpServlet {
             } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/LaporanKantinPdf.java:386"); }
         }
 
+        /**
+         * Dipanggil iText sekali saat dokumen ditutup, setelah jumlah halaman final diketahui:
+         * menuliskan jumlah halaman itu (nomor halaman terakhir dikurangi satu, karena
+         * {@code writer.getPageNumber()} pada titik ini sudah menghitung halaman "berikutnya"
+         * yang tidak pernah dibuka) ke {@link #total}, templat yang sudah ditempatkan pada
+         * footer tiap halaman oleh {@link #onEndPage}.
+         *
+         * <p>Kegagalan apa pun ditelan; nomor total halaman pada footer bisa jadi tidak
+         * tercetak bila ini terjadi, tanpa menggagalkan penutupan dokumen.</p>
+         *
+         * @param writer   penulis PDF aktif
+         * @param document dokumen yang baru ditutup
+         */
         public void onCloseDocument(PdfWriter writer, Document document) {
             try {
                 if (total != null && base != null) {
