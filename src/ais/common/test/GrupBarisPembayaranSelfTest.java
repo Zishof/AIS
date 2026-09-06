@@ -5,6 +5,9 @@ import org.zkoss.zul.Checkbox;
 import org.zkoss.zul.Group;
 import org.zkoss.zul.Row;
 import org.zkoss.zul.Rows;
+import org.zkoss.zul.Doublebox;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
 import ais.database.model.sekolah.GrupItemBiayaSekolah;
 import ais.database.model.sekolah.ItemBiayaSekolah;
 import ais.database.model.sekolah.Tagihan;
@@ -38,6 +41,14 @@ public final class GrupBarisPembayaranSelfTest {
         Group pb1 = new Group("Pengaturan 1");
         rows.appendChild(pb1);
         Row a = row(rows, 10L);
+        final int[] calls = { 0 };
+        EventListener paymentListener = new EventListener() {
+            public void onEvent(Event event) { calls[0]++; }
+        };
+        a.getFirstChild().addEventListener("onCheck", paymentListener);
+        Doublebox amount = new Doublebox();
+        amount.setValue(Double.valueOf(125000));
+        a.appendChild(amount);
         Row ungrouped = row(rows, null);
         rows.appendChild(new Group("Pengaturan 2"));
         Row b = row(rows, 20L);
@@ -54,9 +65,27 @@ public final class GrupBarisPembayaranSelfTest {
         check(rows.getChildren().get(6) == b, "Same labels with different IDs remain separate");
         check(((Checkbox) a.getFirstChild()).isChecked(), "Selection must survive regrouping");
         check(a.getAttribute("tagihan") != null, "Original bill reference must survive");
+        check(amount.getParent() == a && Double.valueOf(125000).equals(amount.getValue()),
+                "Payment amount and input identity must survive");
+        java.util.Iterator listeners = a.getFirstChild().getListenerIterator("onCheck");
+        while (listeners.hasNext()) {
+            ((EventListener) listeners.next()).onEvent(new Event("onCheck", a.getFirstChild()));
+        }
+        check(calls[0] == 1, "Original payment listener must remain attached exactly once");
         ((Group) rows.getFirstChild()).setOpen(false);
         check(a.getParent() == rows && c.getParent() == rows, "Collapse must not remove payment rows");
         method.invoke(null, new Rows());
+        Rows withoutGroups = new Rows();
+        Group originalHeader = new Group("Biaya tanpa grup");
+        withoutGroups.appendChild(originalHeader);
+        Row first = row(withoutGroups, null);
+        Row second = row(withoutGroups, null);
+        method.invoke(null, withoutGroups);
+        check(withoutGroups.getChildren().size() == 3
+                && withoutGroups.getChildren().get(0) == originalHeader
+                && withoutGroups.getChildren().get(1) == first
+                && withoutGroups.getChildren().get(2) == second,
+                "Without configured groups, existing order and rows remain unchanged");
         System.out.println("PASS GrupBarisPembayaranSelfTest");
     }
 }
