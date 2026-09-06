@@ -211,6 +211,38 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 * {@link BankSoalAction#onAddExternal}, download/upload Excel, hapus semua, refresh, cari) dan
 	 * grid berpaging. Lalu memuat datanya.
 	 *
+	 * <p><b>Tombol "Ambil Soal".</b> Mengumpulkan id seluruh soal yang SUDAH ada di grup ini lalu
+	 * menyerahkannya ke {@link AmbilDataBankSoalBanyak} sebagai daftar yang sudah terpilih. Soal
+	 * yang dipilih dipindahkan ke grup ini dengan {@code setPenjelasanBankSoal(...)}. Perlu
+	 * diperhatikan bahwa pemanggilan penyimpanan di dalam loop adalah
+	 * {@code Common.refreshUpdate(session, penjelasanBankSoal)} &mdash; yang disimpan secara
+	 * eksplisit adalah entitas GRUP, bukan {@code bankSoal} yang baru saja diubah. Perpindahan
+	 * tetap tersimpan karena {@link AmbilDataBankSoalBanyak} memuat soal-soal itu lewat
+	 * {@code HibernateUtil.currentSession()}, yaitu sesi yang sama, sehingga perubahannya
+	 * ter-flush oleh pemeriksaan kotor (dirty checking) Hibernate. Ketergantungan itu tersirat:
+	 * bila kelak soal dimuat dari sesi lain sehingga berstatus detached, perpindahan akan hilang
+	 * tanpa pesan galat.</p>
+	 *
+	 * <p><b>Tombol "Soal Baru".</b> Menyiapkan {@link BankSoal} yang mewarisi jenis koreksi,
+	 * fakultas, jurusan, dosen, guru, dan satuan kerja dari {@code penjelasanBankSoal} sebelum
+	 * membuka form {@link BankSoalAction#onAddExternal}. Inilah satu-satunya jalur pembuatan soal
+	 * di kelas ini yang mewariskan konteks tersebut &mdash; jalur impor tidak.</p>
+	 *
+	 * <p><b>Tombol "Hapus".</b> Menghapus SELURUH soal dalam grup (bukan baris terpilih) lewat
+	 * {@code session.delete} satu per satu setelah konfirmasi. Penghapusan bergantung pada
+	 * kaskade pemetaan untuk membereskan {@link BankSoalDetail} miliknya.</p>
+	 *
+	 * <p><b>Penjagaan peran.</b> Tombol "Ambil Soal", "Soal Baru", "Download", "Upload", dan
+	 * "Hapus" disembunyikan hanya bila {@code tbmuser.getMahasiswa() != null}. Syarat ini lebih
+	 * longgar daripada syarat mode sunting pada {@link DetailUjianRenderer} (bukan mahasiswa,
+	 * bukan siswa, bukan calon mahasiswa), sehingga pengguna bertipe siswa atau calon mahasiswa
+	 * tetap melihat dan dapat menekan tombol-tombol tersebut. Tombol "Refresh" dan tombol cari
+	 * ditandai {@code janganDisabled} sehingga tetap aktif walau layar dikunci.</p>
+	 *
+	 * <p>Perhatikan pula bahwa {@code button.setParent(toolbar)} dipanggil dua kali berturut-turut
+	 * untuk tombol Upload; pemanggilan kedua tidak menambah tombol karena hanya memindahkan
+	 * komponen yang sama ke induk yang sama.</p>
+	 *
 	 * @param penjelasanBankSoal grup soal yang isinya ditampilkan/dikelola
 	 * @param detail             komponen induk ZK tempat UI dibangun
 	 */
@@ -812,6 +844,36 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 * Menampilkan ringkasan jumlah baris terupload lewat {@link MyMessageboxConfig}, lalu memicu
 	 * {@code dataLoader.loadData(true)}.
 	 *
+	 * <p><b>Cakupan lintas grup.</b> Pencocokan soal dilakukan atas SELURUH tabel
+	 * {@link BankSoal} dengan syarat {@code id} sama ATAU teks soal sama persis, tanpa penyaring
+	 * satuan kerja, fakultas, jurusan, maupun dosen pemiliknya. Grup tujuan pun diambil dari isi
+	 * sel PENJELASAN (kolom 16) berkas yang diunggah lewat {@code Common.getContentAsObject},
+	 * bukan dari konteks layar. Saat dokumentasi ini ditulis method ini tidak dipanggil dari mana
+	 * pun di basis kode; bila kelak dipakai, penjagaan kepemilikan perlu ditambahkan lebih
+	 * dulu.</p>
+	 *
+	 * <p><b>Cabang BENAR_SALAH tidak pernah tercapai di varian ini.</b> Variabel
+	 * {@code jumlahJawaban} dideklarasikan bernilai 0 lalu diuji dengan
+	 * {@code else if (jumlahJawaban == 2)}, namun tidak pernah dinaikkan di sepanjang method ini
+	 * &mdash; berbeda dari {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)} yang
+	 * menaikkannya pada tiap opsi yang tersimpan. Akibatnya soal hasil impor lewat method ini
+	 * tidak pernah diklasifikasikan {@link BankSoal#BENAR_SALAH}: hanya
+	 * {@link BankSoal#COMBINATION_CHOICE} (bila lebih dari satu opsi benar) atau
+	 * {@link BankSoal#MULTIPLE_COICE}.</p>
+	 *
+	 * <p><b>Sesi dan transaksi.</b> Penulisan memakai
+	 * {@code HibernateUtil.currentNativeSession()} dengan pasangan {@code begin()}/
+	 * {@code commit()} per operasi simpan, sedangkan hitungan {@code count(betul = true)} yang
+	 * menentukan {@code jenisPilihanGanda} dibaca lewat {@code HibernateUtil.currentSession()},
+	 * yaitu sesi yang BERBEDA. Kegagalan per baris ditangkap dan hanya dicatat tanpa rollback
+	 * eksplisit, lalu proses lanjut ke baris berikutnya; jumlah yang dilaporkan ke pengguna
+	 * ({@code terupload}) hanya menghitung baris yang selesai tanpa exception.</p>
+	 *
+	 * <p><b>Berkas sementara.</b> Isi unggahan disalin ke {@code /temp/<nama berkas asli>} di
+	 * dalam webapp memakai nama yang dikirim klien apa adanya; validasi sebelumnya
+	 * ({@code AmbilDataTugasFileContent.checkFile}) hanya menolak sekumpulan ekstensi tertentu
+	 * dan tidak memeriksa pemisah direktori. Berkas tidak dihapus setelah diproses.</p>
+	 *
 	 * @param media      berkas Excel yang diunggah; ditolak dengan pesan error bila bukan {@code .xlsx}
 	 * @param dataLoader callback muat-ulang data pemanggil setelah impor selesai
 	 * @throws Exception diteruskan dari kegagalan I/O atau parsing Excel
@@ -1028,6 +1090,33 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 * {@code penjelasanBankSoal} (grup) tertentu — soal yang cocok (via id atau teks persis) dicari
 	 * hanya di dalam grup ini, dan soal baru otomatis ditautkan ke grup ini. Kolom nomor urut (kolom
 	 * ke-20) turut dibaca dan disimpan ke {@code nomorUrut}.
+	 *
+	 * <p><b>Inilah varian yang dipakai aplikasi</b> (lewat {@link #uploadSoal}). Pembatasan grup
+	 * membuat kolom id pada berkas Excel tidak dapat dipakai menyunting soal milik grup lain: id
+	 * yang menunjuk ke luar grup tidak akan cocok, dan prosesnya jatuh ke pembuatan soal baru di
+	 * dalam grup ini. Berbeda dari overload lintas-grupnya, grup tujuan diambil dari parameter
+	 * (konteks layar), bukan dibaca dari isi berkas.</p>
+	 *
+	 * <p><b>Penyimpulan jenis pilihan ganda.</b> Urutannya: bila jumlah opsi bertanda benar lebih
+	 * dari satu maka {@link BankSoal#COMBINATION_CHOICE}; jika tidak, bila jumlah opsi yang
+	 * tersimpan pada baris ini tepat dua maka {@link BankSoal#BENAR_SALAH}; selain itu
+	 * {@link BankSoal#MULTIPLE_COICE}. Hitungan opsi benar diambil dari basis data atas SELURUH
+	 * opsi soal tersebut, sehingga sisa opsi lama dari impor sebelumnya (yang tidak pernah
+	 * dihapus) ikut terhitung; sedangkan {@code jumlahJawaban} hanya menghitung opsi yang terisi
+	 * pada baris Excel kali ini. Kedua angka itu berasal dari sumber berbeda dan dapat tidak
+	 * sejalan pada soal yang diimpor berulang.</p>
+	 *
+	 * <p><b>Nomor urut.</b> Kolom ke-20 (indeks 19) dibaca sebagai {@code nomorUrut} soal. Berkas
+	 * hasil {@link #doDownload(PenjelasanBankSoal, Criteria)} mengisi kolom itu dengan nomor urut
+	 * GRUP yang sama untuk semua baris, sehingga siklus ekspor-impor tanpa penyuntingan manual
+	 * akan menyamakan {@code nomorUrut} seluruh soal dalam grup &mdash; padahal kolom itulah
+	 * kunci pengurutan utama pada {@link #loadData(Object)} dan {@link #initSpreadsheet()}.</p>
+	 *
+	 * <p>Perilaku sesi/transaksi, penanganan galat per baris, dan penulisan berkas sementara sama
+	 * dengan {@link #doUpload(Media, DataLoader)}; lihat dokumentasi method tersebut. Soal baru
+	 * yang dibuat di sini tidak mewarisi fakultas, jurusan, dosen, guru, maupun satuan kerja dari
+	 * {@code penjelasanBankSoal}, berbeda dari tombol "Soal Baru" pada
+	 * {@link #display(PenjelasanBankSoal, Component)}.</p>
 	 *
 	 * @param media              berkas Excel yang diunggah
 	 * @param penjelasanBankSoal grup soal tujuan impor
@@ -1249,7 +1338,15 @@ public class DetailGrupSoalHelper implements DataLoader {
 		}
 	}
 
-	/** Mengekspor seluruh soal pada {@link #penjelasanBankSoal} (diurutkan nomor urut lalu id) lewat {@link #doDownload(PenjelasanBankSoal, Criteria)}. */
+	/**
+	 * Mengekspor seluruh soal pada {@link #penjelasanBankSoal} (diurutkan nomor urut lalu id)
+	 * lewat {@link #doDownload(PenjelasanBankSoal, Criteria)}.
+	 *
+	 * <p>Berbeda dari {@link #loadData(Object)}, ekspor tidak dibatasi paging: seluruh soal dalam
+	 * grup ikut terbawa, termasuk yang tidak dapat dijangkau lewat grid.</p>
+	 *
+	 * @throws Exception diteruskan dari kegagalan pembangunan spreadsheet atau I/O
+	 */
 	private void initSpreadsheet() throws Exception {
 		DetailGrupSoalHelper.doDownload(penjelasanBankSoal,
 				HibernateUtil.currentSession().createCriteria(BankSoal.class)
@@ -1257,7 +1354,19 @@ public class DetailGrupSoalHelper implements DataLoader {
 						.addOrder(Order.asc("id")));
 	}
 
-	/** Mengimpor {@code media} ke {@link #penjelasanBankSoal} lewat {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)}, dengan {@code this} sebagai callback muat-ulang. */
+	/**
+	 * Mengimpor {@code media} ke satu grup soal lewat
+	 * {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)}, dengan {@code this} sebagai
+	 * callback muat-ulang.
+	 *
+	 * <p>Grup tujuan diambil dari PARAMETER, bukan dari field {@link #penjelasanBankSoal}. Pada
+	 * satu-satunya pemanggilnya (listener {@code onUpload} di
+	 * {@link #display(PenjelasanBankSoal, Component)}) keduanya merujuk objek yang sama.</p>
+	 *
+	 * @param media              berkas Excel yang diunggah
+	 * @param penjelasanBankSoal grup soal tujuan impor
+	 * @throws Exception diteruskan dari kegagalan I/O atau parsing Excel
+	 */
 	private void uploadSoal(Media media, PenjelasanBankSoal penjelasanBankSoal) throws Exception {
 		DetailGrupSoalHelper.doUpload(media, penjelasanBankSoal, this);
 	}
@@ -1265,6 +1374,18 @@ public class DetailGrupSoalHelper implements DataLoader {
 	/**
 	 * Memuat satu halaman {@link BankSoal} milik {@link #penjelasanBankSoal} (diurutkan nomor urut
 	 * lalu id) ke grid, sesuai halaman aktif pada {@link #paging}.
+	 *
+	 * <p><b>Dua keterbatasan yang perlu diketahui.</b> Pertama, nilai kotak {@link #cari} tidak
+	 * pernah dibaca di sini, sehingga kata kunci yang diketik pengguna tidak memengaruhi hasil.
+	 * Kedua, {@code paging.setTotalSize(...)} diisi dengan jumlah baris pada HALAMAN yang baru
+	 * diambil, bukan jumlah seluruh soal dalam grup &mdash; karena nilai itu tidak pernah
+	 * melebihi {@code Common.ROWS_COUNT_ON_PAGE_1}, syarat
+	 * {@code setVisible(size > ROWS_COUNT_ON_PAGE_1)} tidak pernah terpenuhi dan kontrol paging
+	 * tetap tersembunyi. Akibatnya hanya halaman pertama yang dapat dijangkau lewat UI ini,
+	 * sementara {@link #initSpreadsheet()} tetap mengekspor seluruh soal.</p>
+	 *
+	 * <p>Pengaturan paging dibungkus {@code try/catch} yang menelan galat, jadi grid tetap terisi
+	 * walau {@link #paging} belum terbentuk.</p>
 	 *
 	 * @param value tidak dipakai; parameter standar {@link DataLoader}
 	 */

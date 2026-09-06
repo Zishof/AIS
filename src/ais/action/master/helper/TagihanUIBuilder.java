@@ -1070,15 +1070,190 @@ public class TagihanUIBuilder {
 
 											tasks.add(new java.util.concurrent.Callable<Map<String, Object>>() {
 												/**
-												 * Menghitung rincian tagihan untuk SATU kombinasi (jenis kegiatan, semester):
-												 * resolusi {@link DetailBiaya}/{@link PengaturanPembayaranBulanan} yang berlaku
-												 * (termasuk jalur khusus calon mahasiswa), jumlah tagihan & denda per item lewat
-												 * {@link Kegiatan#ambilJumlahTagihan}/{@code checkDenda}, jumlah sudah dibayar
-												 * lewat {@link VOMahasiswa#hitungTotalCicilan}, lalu merender potongan UI grid
-												 * rincian (dikunci sesaat lewat {@code Executions.activate}/{@code deactivate}
-												 * karena berjalan di luar UI thread) dan menuliskan snapshot baris laporan ke
-												 * {@code semua}. Mengembalikan map kosong bila tidak ada {@link DetailBiaya}
-												 * yang berlaku untuk kombinasi ini.
+												 * Inti perhitungan: menghasilkan rincian tagihan lengkap untuk <b>satu</b>
+												 * kombinasi (jenis kegiatan, semester). Inilah tempat angka yang dilihat
+												 * pengguna dan angka yang dicetak ke PDF benar-benar dirakit.
+												 *
+												 * <h4>Langkah 1 — menentukan objek pemilik yang tepat</h4>
+												 * <p>
+												 * Pemilik baku adalah {@code mhsUtama}. Namun bila pemiliknya
+												 * {@link Mahasiswa} dan jenis kegiatan yang sedang diproses adalah
+												 * {@code PENDAFTARAN_CALON_MAHASISWA} atau
+												 * {@code PENDAFTARAN_ULANG_MAHASISWA_BARU}, sasaran dialihkan ke
+												 * {@link BiodataCalonMahasiswa} miliknya. Sebabnya biaya pendaftaran
+												 * melekat pada berkas calon, bukan pada mahasiswa yang sudah ber-NIM.
+												 * Bila objek calon tidak ditemukan, sasaran tetap mahasiswa.
+												 * </p>
+												 *
+												 * <h4>Langkah 2 — resolusi item biaya yang berlaku</h4>
+												 * <p>
+												 * Untuk sasaran {@link Mahasiswa}, daftar diambil lewat
+												 * {@code PembayaranUtilHelper.getDetailBiayaMahasiswa}. Untuk sasaran
+												 * {@link BiodataCalonMahasiswa}, program studi acuan ditentukan berjenjang:
+												 * {@code prodiLulus} bila ada, selain itu {@code prodi1}, selain itu
+												 * {@code prodi2} — lalu dipakai
+												 * {@code getDetailBiayaCalonMahasiswa} dengan varian berbeda untuk
+												 * pendaftaran (tanpa semester) dan daftar ulang (dengan semester).
+												 * Perhatikan bahwa untuk sasaran calon, jenis kegiatan <b>selain</b> kedua
+												 * jenis tersebut tidak menghasilkan daftar apa pun sehingga kombinasi itu
+												 * berakhir kosong.
+												 * </p>
+												 * <p>
+												 * Berikutnya {@code PembayaranUtilHelper.countBulanan} memeriksa apakah
+												 * kombinasi ini memiliki {@link PengaturanPembayaranBulanan}. Bila ada,
+												 * daftar item biaya <b>diambil ulang</b> dalam mode bulanan, sehingga
+												 * elemen koleksi berubah dari {@link DetailBiaya} menjadi
+												 * {@link PengaturanPembayaranBulanan}. Karena itulah perulangan utama
+												 * memeriksa tipe setiap elemen dengan {@code instanceof} dan bercabang
+												 * menjadi dua jalur perakitan. Bila daftar akhirnya kosong, method segera
+												 * mengembalikan peta kosong dan kombinasi ini tidak muncul di layar
+												 * maupun di laporan.
+												 * </p>
+												 *
+												 * <h4>Langkah 3 — konteks kegiatan, cicilan, dan jadwal denda</h4>
+												 * <p>
+												 * {@link Kegiatan} untuk kombinasi ini diambil lewat
+												 * {@code ambilKegiatans}, daftar cicilan disaring dari koleksi bersama, dan
+												 * {@code dataCicilan} disusun sebagai {@code Object[]} enam elemen untuk
+												 * dititipkan ke snapshot laporan. Tahun akademik dihitung lewat
+												 * {@code Common.getTahunAkademik} dari semester, tahun angkatan, semester
+												 * masuk pindahan, dan nama semester mulai; hasilnya menjadi teks
+												 * {@code "<tahun>/<tahun+1>"} yang dipakai untuk mencari
+												 * {@link JadwalPembayaran} beserta aturan dendanya.
+												 * </p>
+												 * <p>
+												 * Identitas peserta dikumpulkan lewat dua cabang (mahasiswa versus calon).
+												 * Khusus {@code gelombangPendaftaran} milik mahasiswa diambil lewat
+												 * <b>refleksi</b> ({@code getMethod("getGelombangPendaftaran")}) di dalam
+												 * blok {@code try} — pola bertahan hidup terhadap perbedaan versi model,
+												 * yang berarti hilangnya method tersebut tidak akan terdeteksi saat
+												 * kompilasi melainkan berubah menjadi nilai {@code null} secara diam-diam.
+												 * </p>
+												 * <p>
+												 * Variabel {@code jdw} bernilai objek jadwal <b>hanya bila</b> jadwal
+												 * tersebut memiliki {@code khususUntukNim} yang memuat
+												 * {@code ","+identitas+","}; selain itu {@code null}. Jadi untuk mayoritas
+												 * peserta, argumen jadwal yang diteruskan ke perhitungan denda adalah
+												 * {@code null}, dan tenggat akhirnya bersandar pada
+												 * {@code detailBiaya.getDefaultTanggalDeadline()} atau pada deadline
+												 * bulanan. Pola pencocokan berbasis teks yang diapit koma ini menuntut
+												 * kolom {@code khususUntukNim} ditulis dengan koma di kedua ujungnya.
+												 * </p>
+												 *
+												 * <h4>Langkah 4 — perakitan angka per item (dua cabang)</h4>
+												 * <p>
+												 * Seluruh perulangan per item biaya berjalan <b>di dalam</b> kurungan
+												 * {@code Executions.activate(desktop)} … {@code deactivate(desktop)}.
+												 * Komentar di kode menyebut kurungan itu hanya untuk memperbarui
+												 * label/progress, tetapi kenyataannya mencakup seluruh perhitungan dan
+												 * perenderan — lihat catatan paralelisme pada Javadoc kelas. Bila tidak ada
+												 * desktop hidup, <b>seluruh</b> blok ini dilewati sehingga peta hasil
+												 * kembali kosong: tanpa UI dan tanpa snapshot laporan.
+												 * </p>
+												 * <p>
+												 * Untuk setiap elemen, {@link DetailKegiatan} pasangannya dicari lewat
+												 * {@code ambilSatuDetailKegiatan}. Item yang ditandai
+												 * {@code bukanTagihan} dilewati seluruhnya. Selebihnya dirakit lewat salah
+												 * satu dari dua cabang dengan urutan operasi yang sama:
+												 * </p>
+												 * <ol>
+												 * <li>nominal pokok lewat {@link Kegiatan#ambilJumlahTagihan} ({@code null}
+												 * dinormalkan menjadi 0);</li>
+												 * <li>hasil denda lewat {@code checkDenda}, kecuali bila
+												 * {@code batalkanDenda} aktif, nominalnya nol, atau
+												 * {@code menggunakanDendaCustom} aktif — pada ketiga keadaan itu nominal
+												 * dipakai apa adanya. Bila {@code menggunakanDendaCustom} aktif, teks
+												 * {@code infoDenda} diisi keterangan besaran denda kustom;</li>
+												 * <li>jumlah yang sudah dibayar lewat
+												 * {@link VOMahasiswa#hitungTotalCicilan} ({@code null} dinormalkan
+												 * menjadi 0);</li>
+												 * <li>bila nominal nol tetapi ada pembayaran, nominal <b>disamakan</b>
+												 * dengan jumlah yang sudah dibayar — agar item yang tagihannya sudah
+												 * dihapus tidak tampak seperti kelebihan bayar;</li>
+												 * <li>nominal dinaikkan ke hasil denda bila denda lebih besar;</li>
+												 * <li>untuk item ber-{@code penghitungan}
+												 * {@link ItemBiaya#DIKALI_NILAI_MINUS} (potongan/pengurang), nominal dan
+												 * jumlah dibayar dijadikan <b>negatif</b> lewat {@code -Math.abs(...)}.</li>
+												 * </ol>
+												 * <p>
+												 * <b>Perbedaan penting antara kedua cabang</b> ada pada acuan tanggal
+												 * denda: cabang bulanan menelusuri cicilan yang cocok dan memakai tanggal
+												 * pembayaran sebenarnya, sedangkan cabang reguler selalu memakai hari ini.
+												 * Uraian lengkap beserta konsekuensinya ada pada Javadoc kelas, bagian
+												 * "Perbedaan nyata antara kedua cabang perakitan" dan "Catatan integritas
+												 * finansial". Pada penelusuran cicilan cabang bulanan, pencocokan
+												 * dilakukan berulang tanpa berhenti pada kecocokan pertama, sehingga bila
+												 * ada lebih dari satu cicilan yang cocok maka <b>yang terakhir</b> yang
+												 * menentukan tanggal acuan.
+												 * </p>
+												 *
+												 * <h4>Langkah 5 — akumulasi dan snapshot laporan</h4>
+												 * <p>
+												 * Ketiga total ({@code totalTagihan}, {@code totalDibayar},
+												 * {@code totalBelumDibayar}) diakumulasi sebagai {@code double} tanpa
+												 * pembulatan; pembulatan hanya terjadi saat pemformatan tampilan.
+												 * {@code belumDibayar} adalah selisih sederhana nominal dikurangi jumlah
+												 * dibayar, dan dapat bernilai negatif bila terjadi kelebihan bayar.
+												 * </p>
+												 * <p>
+												 * Sebuah baris dimasukkan ke {@code barisLaporan} — snapshot yang kelak
+												 * dibaca PDF — hanya bila {@code totalValid != 0} dan item biayanya
+												 * dikenali. Seperti diuraikan pada Javadoc kelas, {@code totalValid}
+												 * secara aljabar sama dengan dua kali nominal, jadi syarat itu sebenarnya
+												 * berarti "nominalnya bukan nol". Syarat yang sama juga dipakai untuk
+												 * menyembunyikan dan melepas baris dari grid. Nama item pada snapshot
+												 * diberi imbuhan ", Bulan X" untuk tagihan bulanan atau ", ke-N" untuk
+												 * tagihan yang dibayar bertahap.
+												 * </p>
+												 * <p>
+												 * Snapshot ini <b>sengaja</b> dipakai apa adanya oleh pencetakan PDF dan
+												 * tidak dihitung ulang lewat jalur atau cache lain — komentar di kode
+												 * mencatat bahwa perhitungan ulang pernah membuat layar menunjukkan lunas
+												 * sementara PDF masih menyisakan tagihan.
+												 * </p>
+												 *
+												 * <h4>Langkah 6 — perenderan</h4>
+												 * <p>
+												 * Bentuknya mengikuti bendera {@code vertical}: susunan groupbox bertumpuk
+												 * untuk tampilan sempit, atau baris tabel empat kolom untuk tampilan
+												 * lebar. Kedua bentuk menampilkan nominal sebelum diskon dengan coretan
+												 * bila nominal akhir lebih kecil, memasang tautan riwayat revisi untuk
+												 * jenis diskon yang berlaku (baik diskon kelompok mahasiswa maupun hingga
+												 * tiga diskon pada {@link DetailKegiatan}), dan menandai tagihan bertahap.
+												 * Persentase pelunasan dihitung {@code (dibayar * 100) / nominal} dengan
+												 * penjaga pembagi positif, sehingga item pengurang bernominal negatif
+												 * selalu menampilkan 0%.
+												 * </p>
+												 * <p>
+												 * Setiap baris grid dititipi atribut {@code pengaturanPembayaranBulanan},
+												 * {@code itemBiaya}, dan {@code detailBiaya} agar layar lain dapat
+												 * membacanya kembali dari komponen. Blok ditutup dengan baris total dan,
+												 * pada tampilan sempit, tombol aksi yang membuka halaman pembayaran.
+												 * Penyembunyian blok mengikuti label filter: "Belum Lunas" menyembunyikan
+												 * blok yang sisanya nol, sedangkan filter lain menyembunyikan blok yang
+												 * tagihan, dibayar, dan sisanya sama-sama nol.
+												 * </p>
+												 *
+												 * <h4>Sesi dan galat</h4>
+												 * <p>
+												 * Task ini membuka {@code childSession} mandiri beserta transaksinya,
+												 * meng-{@code commit} di akhir jalur normal, dan me-{@code rollback} pada
+												 * galat. Blok {@code finally} menutup sesi bertahap
+												 * ({@code clear}/{@code disconnect}/{@code close}) dengan pola yang sama
+												 * seperti {@link #closeOpenedSession(Session)}, hanya ditulis ulang secara
+												 * sebaris. Seluruh galat ditangkap di dalam sehingga satu kombinasi yang
+												 * bermasalah tidak menggagalkan kombinasi lain; akibatnya kombinasi
+												 * tersebut hilang dari layar <b>dan</b> dari laporan tanpa pesan kepada
+												 * pengguna.
+												 * </p>
+												 *
+												 * @return peta hasil berisi kunci {@code "semuaKey"} (teks
+												 *         {@code "<idJenisKegiatan>-<semester>"}), {@code "semuaVal"}
+												 *         ({@code Object[]} berisi daftar item biaya, data cicilan,
+												 *         {@link Kegiatan}, dan {@code barisLaporan}), serta {@code "ui"}
+												 *         (potongan {@link Div} siap tempel). Peta <b>kosong</b> bila tidak
+												 *         ada item biaya yang berlaku, bila tidak ada desktop hidup, atau
+												 *         bila terjadi galat
 												 */
 												@Override
 												public Map<String, Object> call() {
