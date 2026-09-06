@@ -32,13 +32,50 @@ import ais.database.model.LogHostToHost;
  * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
  * membuat salinan query dan validasi di action lain.</p>
  *
+ * <h4>Gerbang otentikasi/otorisasi (verifikasi 2026-09-07)</h4>
+ * <p>{@link #doGet} MEMANG memiliki gerbang, dua lapis, bukan anonim seperti servlet
+ * {@code Struk}/{@code AmbilLaporanDaftarPegawai} di paket yang sama:</p>
+ * <ol>
+ *   <li><b>Rahasia bersama {@code PassApp}</b> &mdash; badan JSON permintaan wajib memuat
+ *       {@code PassApp} yang sama persis dengan {@code Common.getKonfigurasi("BrivaPassApp",
+ *       "1234567890").getNilai()}. Nilai bawaan {@code "1234567890"} ini tertulis literal di
+ *       kode DAN ditampilkan apa adanya pada layar konfigurasi admin ({@code
+ *       KonfigurasiNewAction}); bila operator belum pernah mengubahnya di database, rahasia
+ *       ini bukan lagi rahasia.</li>
+ *   <li><b>Daftar putih IP pemanggil</b> &mdash; {@code action.pay(...)} meneruskan
+ *       {@code request} ke {@code PembayaranUtil.getBankHost(HttpServletRequest)}, yang
+ *       mencocokkan alamat IP pemanggil terhadap entitas {@code BankHost} tersimpan.</li>
+ * </ol>
+ * <p><b>Catatan:</b> {@code getBankHost(HttpServletRequest)} tidak memakai
+ * {@code request.getRemoteAddr()} apa adanya; ia lebih dulu menimpanya dengan header
+ * {@code Cf-Connecting-Ip}/{@code CF-Connecting-IP}/{@code X-Forwarded-For}/{@code X-Real-IP}
+ * bila ADA salah satunya pada permintaan &mdash; header-header ini bisa disetel bebas oleh
+ * pemanggil mana pun kecuali proxy di depan aplikasi menimpa/membersihkannya. Kombinasi ini
+ * (rahasia bawaan yang terdokumentasi + gerbang IP yang bisa dipengaruhi header pemanggil,
+ * ditambah entitas {@code BankHost} berIP {@code "0.0.0.0"} yang bila ada akan cocok dengan
+ * IP mana pun sebagai fallback) berada di luar cakupan file ini untuk ditambal; lihat
+ * {@code ais.action.ws.util.PembayaranUtil#getBankHost(HttpServletRequest)}.</p>
+ *
  * @see HttpServlet
  */
 public class Payment extends HttpServlet {
+	/**
+	 * Versi serialisasi bawaan {@link HttpServlet}; tidak dipakai secara fungsional karena
+	 * instance servlet tidak pernah diserialisasi oleh kontainer pada penyebaran AIS.
+	 */
 	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Layanan domain yang benar-benar memvalidasi rahasia {@code PassApp}, mencocokkan IP
+	 * pemanggil terhadap {@code BankHost}, dan memposting pembayaran; lihat
+	 * {@link ais.action.ws.PembayaranAction#pay}.
+	 */
 	private PembayaranAction action = new PembayaranAction();
 
 	/**
+	 * Konstruktor tanpa argumen yang diwajibkan kontainer servlet. Tidak melakukan
+	 * inisialisasi apa pun selain pembuatan {@link #action} pada deklarasi field.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Payment() {
@@ -47,6 +84,36 @@ public class Payment extends HttpServlet {
 	}
 
 	/**
+	 * Menangani notifikasi pembayaran host-to-host dari bank (kanal BRI Briva): membaca badan
+	 * permintaan sebagai JSON, memverifikasi {@code PassApp} (lihat bagian Keamanan pada
+	 * dokumentasi kelas), lalu meneruskan data pembayaran ke {@link #action}
+	 * ({@link ais.action.ws.PembayaranAction#pay}) dan menuliskan balasan JSON berisi status
+	 * bill.
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>badan permintaan dibaca baris demi baris lalu diurai sebagai {@link JSONObject};</li>
+	 *   <li>{@code PassApp} dicocokkan; gagal &rarr; {@code StatusBill=11}, tidak ada data lain
+	 *       yang diproses;</li>
+	 *   <li>berhasil &rarr; parameter {@code BrivaNum}, {@code TransaksiID},
+	 *       {@code TransmisiDateTime}, {@code TerminalID}, {@code PaymentAmount}, {@code BankID}
+	 *       dibaca; {@code BrivaNum} boleh dipotong dari depan sejumlah karakter yang ditentukan
+	 *       konfigurasi {@code substrBriOnline} (bawaan 0, tanpa pemotongan);</li>
+	 *   <li>{@link ais.database.model.LogHostToHost} diisi untuk audit lalu {@code action.pay(...)}
+	 *       dipanggil; hasilnya ({@code Response}) diterjemahkan menjadi {@code StatusPayment}
+	 *       ({@code ErrorDesc}/{@code ErrorCode}/{@code isError}) dan info tambahan (nama, prodi,
+	 *       fakultas, semester).</li>
+	 * </ol>
+	 * <p>Balasan selalu berupa {@code application/json} dengan header
+	 * {@code Access-Control-Allow-Origin: *} (CORS terbuka untuk semua origin), terlepas dari
+	 * hasil verifikasi {@code PassApp}.</p>
+	 *
+	 * @param request  permintaan masuk; badan (bukan parameter form) berisi JSON notifikasi bank
+	 * @param response balasan JSON status pembayaran
+	 * @throws ServletException tidak pernah dilempar keluar method ini; seluruh kegagalan
+	 *                          ditelan oleh blok {@code catch} internal
+	 * @throws IOException      dapat dilempar bila penulisan balasan ({@code writer.write})
+	 *                          gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -154,6 +221,13 @@ public class Payment extends HttpServlet {
 	}
 
 	/**
+	 * Menangani permintaan HTTP POST dengan perilaku identik {@link #doGet} &mdash; notifikasi
+	 * bank host-to-host dapat dikirim lewat metode HTTP apa pun karena keduanya diproses sama.
+	 *
+	 * @param request  permintaan masuk; badan berisi JSON notifikasi bank
+	 * @param response balasan JSON status pembayaran
+	 * @throws ServletException diteruskan apa adanya dari {@link #doGet}
+	 * @throws IOException      diteruskan apa adanya dari {@link #doGet}
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */

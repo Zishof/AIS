@@ -528,6 +528,85 @@ public class Common {
 
 	public static String CURRENT_URL = "";
 	public static String CURRENT_URL_SIMPLE = "";
+
+	/**
+	 * Memvalidasi bentuk nama host (dan porta) yang bersumber dari header {@code Host}
+	 * permintaan sebelum dipakai menyusun {@link #CURRENT_URL}/{@link #CURRENT_URL_SIMPLE} atau
+	 * URL absolut lain yang dikirim ke pihak ketiga (mis. {@code callbackUrl} virtual account
+	 * bank). Pola yang dicocokkan sama dengan yang sudah dipakai
+	 * {@code Repository.publicOrigin()}: nama domain/hostname biasa, atau alamat IPv6 telanjang
+	 * (tanpa kurung siku).
+	 *
+	 * <p><b>Batasan.</b> Ini hanya menolak isi yang secara format tidak mungkin merupakan nama
+	 * host yang sah (kosong, mengandung spasi/karakter kendali, dsb). Ini <b>tidak</b> mencegah
+	 * header {@code Host} dipalsukan ke nama host lain yang formatnya tetap valid (mis. domain
+	 * milik penyerang) -- untuk itu lihat {@link #isHostAllowedForCurrentUrl}.</p>
+	 *
+	 * @param host nilai {@code request.getServerName()}; boleh {@code null}
+	 * @param port nilai {@code request.getServerPort()}
+	 * @return {@code true} bila host dan porta berbentuk wajar
+	 */
+	public static boolean isValidRequestHostFormat(String host, int port) {
+		if (host == null) return false;
+		host = host.trim();
+		return host.length() > 0 && host.matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+") && port >= 1 && port <= 65535;
+	}
+
+	/**
+	 * Memeriksa nama host (yang sudah lolos {@link #isValidRequestHostFormat}) terhadap daftar
+	 * host yang diizinkan administrator, bila daftar itu disetel.
+	 *
+	 * <p>Konfigurasi {@code current_url_host_allowlist} berisi daftar host dipisah koma (mis.
+	 * {@code kampus-a.ac.id,kampus-b.ac.id}), dicocokkan tanpa membedakan huruf besar/kecil.
+	 * <b>Bila konfigurasi ini kosong atau belum disetel, seluruh host yang lolos validasi format
+	 * diizinkan</b> -- perilaku bawaan tidak berubah untuk instalasi yang belum mengisi daftar ini.
+	 * Kegagalan membaca konfigurasi (mis. basis data belum siap) juga meloloskan host, supaya
+	 * ketidaktersediaan basis data tidak mengunci seluruh aplikasi.</p>
+	 *
+	 * @param host nama host yang sudah divalidasi formatnya; boleh {@code null}
+	 * @return {@code true} bila host diizinkan (termasuk ketika daftar tidak disetel)
+	 */
+	public static boolean isHostAllowedForCurrentUrl(String host) {
+		if (host == null) return false;
+		try {
+			Konfigurasi konfigurasi = Common.getKonfigurasi("current_url_host_allowlist", "");
+			String allowlist = konfigurasi == null ? "" : safeTrim(konfigurasi.getNilai());
+			if (allowlist.isEmpty()) return true;
+			String[] allowedHosts = allowlist.split(",");
+			for (String allowedHost : allowedHosts) {
+				if (allowedHost.trim().equalsIgnoreCase(host)) return true;
+			}
+			return false;
+		} catch (Exception e) {
+			return true;
+		}
+	}
+
+	/**
+	 * Nama host permintaan yang sudah divalidasi ({@link #isValidRequestHostFormat}) dan diizinkan
+	 * ({@link #isHostAllowedForCurrentUrl}), untuk dipakai menyusun {@link #CURRENT_URL}/
+	 * {@link #CURRENT_URL_SIMPLE} dari permintaan yang sedang berjalan.
+	 *
+	 * <p>Dipakai titik-titik penulis {@code CURRENT_URL}/{@code CURRENT_URL_SIMPLE}
+	 * ({@code Main}, {@code Index}, {@code Login}, {@code Baru}, {@code Dashboard},
+	 * {@code Mobile}, {@code New}, {@code FilterJSP}) sebagai gerbang sebelum menimpa variabel
+	 * global tersebut -- bila hasilnya {@code null}, pemanggil harus membiarkan nilai lama apa
+	 * adanya, bukan menimpanya dengan nilai yang berasal dari header {@code Host} yang tidak
+	 * valid/tidak diizinkan.</p>
+	 *
+	 * @param request permintaan servlet; boleh {@code null}
+	 * @return nama host yang aman dipakai, atau {@code null} bila permintaan {@code null} atau
+	 *         host permintaan tidak valid/tidak diizinkan
+	 */
+	public static String sanitizedRequestHostForCurrentUrl(HttpServletRequest request) {
+		if (request == null) return null;
+		String host = request.getServerName();
+		int port = request.getServerPort();
+		if (!isValidRequestHostFormat(host, port)) return null;
+		host = host.trim();
+		return isHostAllowedForCurrentUrl(host) ? host : null;
+	}
+
 	// public static String CURRENT_LOCAL_URL = "";
 
 	public static File folder = null;
