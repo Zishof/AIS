@@ -278,6 +278,30 @@ public abstract class VOPembelajaran extends VoKunci {
 				: disposisiSop;
 	}
 
+	/**
+	 * Membaca berkas indeks pertemuan milik objek pembelajaran ini dan mengembalikan isinya sebagai
+	 * teks JSON.
+	 *
+	 * <p>Berkas berkunci {@code "pertemuan_" + getId()} di bawah lokasi berkas milik entity ini.
+	 * Isinya {@link org.json.JSONObject} yang memetakan id {@link Pertemuan} ke dirinya sendiri —
+	 * himpunan id yang disimpan sebagai peta, bukan data pertemuannya. Nilai berupa string kosong
+	 * menandai entri yang "dihapus" oleh {@link #removePertemuan(Serializable)}.</p>
+	 *
+	 * <p><b>Tidak null-safe terhadap id.</b> Berbeda dari padanannya di {@link VOMahasiswa} yang
+	 * memasang penjaga {@code getId() == null}, method ini langsung memanggil
+	 * {@code getId().toString()}. Memanggilnya pada objek pembelajaran yang belum tersimpan
+	 * melempar {@link NullPointerException} — dan karena pemanggilan itu berada <i>di luar</i> blok
+	 * {@code try}, kesalahannya tidak ditelan melainkan diteruskan ke pemanggil. Jangan memanggil
+	 * method ini (atau apa pun yang bergantung padanya, termasuk
+	 * {@link #ambilPertemuan(boolean)}) sebelum objek disimpan.</p>
+	 *
+	 * <p>Berkas yang belum ada atau gagal dibaca sama-sama menghasilkan {@link VOMahasiswa#dataJSON}
+	 * — sentinel JSON kosong milik {@link VOMahasiswa} yang dipinjam bersama oleh banyak entity.
+	 * Kegagalan pembacaan dicatat ke audit lalu ditelan, sehingga "tidak ada pertemuan" dan "gagal
+	 * membaca cache" tidak dapat dibedakan dari nilai baliknya.</p>
+	 *
+	 * @return teks JSON berisi himpunan id pertemuan; tidak pernah {@code null}
+	 */
 	public String ambilLokasiPertemuan() {
 		File file = Common.getFileLocation(this, "pertemuan_" + getId().toString());
 		try {
@@ -289,6 +313,27 @@ public abstract class VOPembelajaran extends VoKunci {
 		return VOMahasiswa.dataJSON;
 	}
 
+	/**
+	 * Menimpa berkas indeks pertemuan milik objek ini dengan teks JSON yang diberikan.
+	 *
+	 * <p>Pasangan tulis dari {@link #ambilLokasiPertemuan()}, memakai kunci berkas yang sama. Isi
+	 * lama dibuang seluruhnya; untuk menambah satu id ke indeks yang ada, pakai
+	 * {@link #populatePertemuan(Pertemuan)}.</p>
+	 *
+	 * <p>Dipanggil ketiga mesin {@code reInit...} untuk mengosongkan indeks sebelum membangunnya
+	 * kembali. Perhatikan bahwa pada {@link #reInitPertemuan(Session)} dan
+	 * {@link #reInitTugas(Session)}, pengosongan dilakukan <i>setelah</i> kueri berhasil dan
+	 * sebelum perulangan pengisian — sehingga bila proses gagal di tengah, indeks tertinggal dalam
+	 * keadaan sebagian. Pemanggilan berikutnya dengan {@code refresh} memperbaikinya.</p>
+	 *
+	 * <p><b>Tidak null-safe terhadap id</b>, sama seperti {@link #ambilLokasiPertemuan()}:
+	 * pemanggilan pada objek yang belum tersimpan melempar {@link NullPointerException} dari luar
+	 * blok {@code try}. Kegagalan penulisan itu sendiri dicatat ke audit lalu ditelan, sehingga
+	 * pemanggil tidak pernah tahu apakah berkas benar-benar tertulis.</p>
+	 *
+	 * @param data teks JSON pengganti; bentuknya tidak divalidasi dan JSON rusak baru akan
+	 *             ketahuan saat dibaca kembali
+	 */
 	public void tulisLokasiPertemuan(String data) {
 		File file = Common.getFileLocation(this, "pertemuan_" + getId().toString());
 		try {
@@ -299,6 +344,30 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menandai satu id {@link Pertemuan} sebagai terhapus pada berkas indeks milik objek ini.
+	 *
+	 * <p><b>Kuncinya tidak dibuang — nilainya disetel menjadi string kosong.</b> Pembaca indeks
+	 * ({@link #ambilPertemuan(boolean)}) melewati entri bernilai kosong, sehingga efeknya sama
+	 * dengan penghapusan dari sudut pandang tampilan. Konsekuensinya berkas indeks tumbuh secara
+	 * monoton: id yang pernah dihapus tetap menempati ruang sampai salah satu mesin
+	 * {@code reInit...} menulis ulang berkas dari nol. Konvensi yang sama dipakai
+	 * {@link VOMahasiswa#removeKegiatan(Serializable)}.</p>
+	 *
+	 * <p><b>Tidak menyentuh basis data.</b> Baris {@link Pertemuan} tetap ada; yang berubah hanya
+	 * cache. Pemanggilan {@link #ambilPertemuan(boolean)} dengan {@code refresh} akan memunculkan
+	 * kembali pertemuan tersebut selama ia masih aktif. Untuk benar-benar menghilangkan sebuah
+	 * pertemuan, setel penanda {@code aktif}-nya menjadi salah di basis data.</p>
+	 *
+	 * <p>Baca-ubah-tulis di sini tidak atomik; dua thread yang menghapus pertemuan berbeda pada
+	 * objek yang sama dapat saling menimpa. Seluruh kegagalan — termasuk
+	 * {@link NullPointerException} dari {@link #ambilLokasiPertemuan()} pada objek yang belum
+	 * tersimpan — ditelan dan dicatat ke audit, sehingga method ini tidak pernah melempar.</p>
+	 *
+	 * @param id id pertemuan yang ditandai terhapus; dipakai lewat {@code toString()} sehingga
+	 *           harus menghasilkan teks yang sama persis dengan kunci yang didaftarkan
+	 *           {@link #populatePertemuan(Pertemuan)}
+	 */
 	public void removePertemuan(Serializable id) {
 		try {
 			JSONObject c = new JSONObject(ambilLokasiPertemuan());
@@ -309,6 +378,29 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Mendaftarkan satu {@link Pertemuan} ke dalam berkas indeks milik objek ini.
+	 *
+	 * <p>Baca indeks yang ada, tambahkan pasangan {@code id -> id}, tulis kembali. Mendaftarkan id
+	 * yang sama dua kali hanya menimpa entri lama dengan nilai yang sama, sehingga pemanggilan
+	 * berulang tidak menggandakan apa pun — sifat yang diandalkan ketiga mesin
+	 * {@code reInit...} yang memanggil method ini di dalam perulangan.</p>
+	 *
+	 * <p>Argumen {@code null} ditolak dengan {@code return} lebih awal. Pertemuan yang belum punya
+	 * id akan memicu {@link NullPointerException} yang ditelan oleh penangkap di method ini,
+	 * sehingga tidak ada yang terdaftar dan tidak ada yang dilaporkan; kesalahannya tetap dicatat
+	 * ke audit.</p>
+	 *
+	 * <p><b>Tidak memeriksa kepemilikan.</b> Pertemuan milik objek pembelajaran lain akan
+	 * didaftarkan begitu saja ke indeks ini bila diberikan. Penyaringan kepemilikan sepenuhnya
+	 * berada pada pemanggil — pada ketiga mesin {@code reInit...} hal itu dijamin oleh restriksi
+	 * kueri, tetapi pemanggil di luar kelas ini harus memastikannya sendiri.</p>
+	 *
+	 * <p>Baca-ubah-tulis tidak atomik; pendaftaran bersamaan dari dua thread dapat menghilangkan
+	 * salah satu id dari indeks. Data di basis data tetap utuh.</p>
+	 *
+	 * @param pertemuan pertemuan yang didaftarkan; {@code null} diabaikan tanpa efek
+	 */
 	public void populatePertemuan(Pertemuan pertemuan) {
 		try {
 			if (pertemuan == null) {

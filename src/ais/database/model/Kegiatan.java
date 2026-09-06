@@ -342,6 +342,25 @@ public class Kegiatan extends GeneralValueObject {
 		this.id = id;
 	}
 
+	/**
+	 * {@link JenisKegiatan} yang ditagihkan header ini &mdash; menentukan jenis tagihan
+	 * (registrasi ulang, pendaftaran, wisuda, dan seterusnya) beserta seluruh aturannya:
+	 * rentang semester, boleh diangsur atau tidak, dan konfigurasi denda.
+	 *
+	 * <p>Relasi ini juga ikut membentuk kunci unik alami tagihan lewat
+	 * {@link #generateKodeUnik}, sehingga satu mahasiswa hanya boleh punya satu
+	 * {@code Kegiatan} per pasangan (jenis kegiatan, semester). Ia dibaca pula oleh
+	 * {@link #getSemster()} (yang memaksa semester nol untuk kegiatan pendaftaran calon
+	 * mahasiswa), {@link #getAktif()} (yang menonaktifkan header di luar rentang semester),
+	 * dan {@link #hitungTagihan()} (yang memakai
+	 * {@link JenisKegiatan#getHanyaBerupaAngsuran()} untuk memutuskan kunci JSON mana yang
+	 * dijumlahkan).</p>
+	 *
+	 * <p>Getter relasi lazy standar: {@code check(...)} memulihkan proxy yang mungkin sudah
+	 * terputus, tanpa mengubah nilai foreign key.</p>
+	 *
+	 * @return jenis kegiatan yang ditagihkan; {@code null} bila header belum lengkap
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jenis_kegiatan")
 	public JenisKegiatan getJenisKegiatan() {
@@ -349,14 +368,49 @@ public class Kegiatan extends GeneralValueObject {
 		return this.jenisKegiatan;
 	}
 
+	/**
+	 * Setter jenis kegiatan. Mengubahnya pada header yang sudah tersimpan tidak mengubah
+	 * {@link #getKodeunik()}, karena kunci unik alami sengaja dibekukan setelah entity punya
+	 * id.
+	 *
+	 * @param jenisKegiatan jenis kegiatan yang ditagihkan
+	 */
 	public void setJenisKegiatan(JenisKegiatan jenisKegiatan) {
 		this.jenisKegiatan = jenisKegiatan;
 	}
 
+	/**
+	 * Setter pemilik tagihan berupa mahasiswa aktif.
+	 *
+	 * @param mahasiswa pemilik tagihan; {@code null} bila tagihan milik calon mahasiswa
+	 */
 	public void setMahasiswa(Mahasiswa mahasiswa) {
 		this.mahasiswa = mahasiswa;
 	}
 
+	/**
+	 * Pemilik tagihan berupa {@link Mahasiswa} aktif (ber-NIM). Bersama
+	 * {@link #getCalonMahasiswa()} membentuk pasangan pemilik yang saling menggantikan.
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; dapat mengisi FOREIGN KEY.</b> Bila
+	 * {@link #getCalonMahasiswa()} terisi <i>dan</i> berkas calon itu sudah tertaut ke
+	 * seorang mahasiswa ({@code calonMahasiswa.getMahasiswa()}), field {@code mahasiswa}
+	 * <b>ditimpa</b> dengan mahasiswa tersebut. Karena property ini dipetakan ke kolom
+	 * {@code kegiatan.mahasiswa}, penimpaan itu tersimpan pada {@code flush} berikutnya.</p>
+	 *
+	 * <p>Secara semantik ini menjembatani transisi calon menjadi mahasiswa: tagihan
+	 * pendaftaran yang semula hanya menunjuk berkas calon otomatis ikut menunjuk NIM begitu
+	 * mahasiswanya terbentuk, sehingga tagihan lama muncul di riwayat pembayaran mahasiswa
+	 * yang bersangkutan. Yang perlu disadari adalah penimpaannya <b>tanpa syarat</b>: nilai
+	 * yang sengaja diisi berbeda tidak akan bertahan selama jalur calon-ke-mahasiswa dapat
+	 * ditelusuri. Bila cabang itu tidak berlaku, {@code check(...)} sekadar memulihkan
+	 * proxy.</p>
+	 *
+	 * <p>Perhatikan bahwa {@link #getCalonMahasiswa()} melakukan hal sebaliknya untuk dua
+	 * jenis kegiatan pendaftaran, sehingga kedua getter dapat saling mengisi.</p>
+	 *
+	 * @return pemilik tagihan berupa mahasiswa; {@code null} bila tagihan milik calon
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "mahasiswa", nullable = true)
 	public Mahasiswa getMahasiswa() {
@@ -369,10 +423,43 @@ public class Kegiatan extends GeneralValueObject {
 		return mahasiswa;
 	}
 
+	/**
+	 * Setter tahun akademik. Nilai yang diisi di sini akan ditimpa {@link #getTahunAkademik()}
+	 * pada pembacaan berikutnya bila pemilik dan semester tagihan diketahui.
+	 *
+	 * @param tahunAkademik tahun akademik, mis. {@code "2025/2026"}
+	 */
 	public void setTahunAkademik(String tahunAkademik) {
 		this.tahunAkademik = tahunAkademik;
 	}
 
+	/**
+	 * Tahun akademik tagihan ini, mis. {@code "2025/2026"}.
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; nilai diturunkan ulang setiap kali dibaca.</b> Kolom
+	 * {@code tahun_akademik} praktis bukan data mandiri: nilainya dihitung dari tahun
+	 * angkatan pemilik dan semester tagihan lewat {@code Common.getTahunAkademik(...)}, lalu
+	 * ditulis balik ke field. Tiga cabang dievaluasi berurutan:</p>
+	 * <ol>
+	 *   <li>Calon mahasiswa dengan semester {@code <= 1} &rarr; langsung memakai
+	 *       {@link BiodataCalonMahasiswa#getTahunAkademik()}.</li>
+	 *   <li>Mahasiswa &rarr; dihitung dari {@link Mahasiswa#getTahunangkatan()},
+	 *       {@link Mahasiswa#getPindahKeKampusIniMasukSemester()}, dan
+	 *       {@link Mahasiswa#getSemesterMulai()}; hasilnya diformat {@code "N/N+1"}.</li>
+	 *   <li>Calon mahasiswa pada semester lain &rarr; dihitung serupa dari
+	 *       {@link BiodataCalonMahasiswa#getTahun()} dengan semester mulai {@code 0}.</li>
+	 * </ol>
+	 *
+	 * <p>Penurunan ini memperhitungkan mahasiswa pindahan dan mahasiswa yang memulai kuliah
+	 * di semester genap &mdash; keduanya membuat pemetaan semester ke tahun akademik
+	 * bergeser, sehingga menyimpan nilai statis akan salah. Konsekuensinya: memperbaiki data
+	 * angkatan atau semester mulai seorang mahasiswa akan <b>menggeser tahun akademik seluruh
+	 * tagihan lamanya</b> secara surut, termasuk tagihan yang sudah lunas dan sudah
+	 * dilaporkan. Bila tidak satu pun cabang cocok (pemilik atau semester tidak diketahui),
+	 * nilai tersimpan dipertahankan.</p>
+	 *
+	 * @return tahun akademik tagihan; {@code null} bila tak dapat diturunkan maupun tersimpan
+	 */
 	@Column(name = "tahun_akademik", length = 20)
 	public String getTahunAkademik() {
 		mahasiswa = getMahasiswa();
@@ -396,10 +483,33 @@ public class Kegiatan extends GeneralValueObject {
 		return tahunAkademik;
 	}
 
+	/**
+	 * Setter program. Nilai yang diisi akan ditimpa {@link #getProgram()} pada pembacaan
+	 * berikutnya bila pemilik tagihan diketahui.
+	 *
+	 * @param program program studi/kelas, mis. reguler atau karyawan
+	 */
 	public void setProgram(String program) {
 		this.program = program;
 	}
 
+	/**
+	 * Program yang berlaku bagi tagihan ini (mis. reguler, karyawan).
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Untuk mahasiswa, nilainya diambil dari
+	 * {@link HistoryStatusMahasiswa#ambilProgram} &mdash; yaitu program yang berlaku
+	 * <i>pada semester tagihan ini</i>, bukan program mahasiswa saat ini. Ini penting dan
+	 * benar: mahasiswa yang pindah dari kelas reguler ke karyawan harus tetap ditagih menurut
+	 * program yang berlaku di semester bersangkutan. Untuk calon mahasiswa, nilainya diambil
+	 * langsung dari berkas calon. Hasilnya ditulis balik ke field yang dipetakan ke kolom.</p>
+	 *
+	 * <p>Perhatikan bahwa argumen ketiga {@code ambilProgram} memanggil
+	 * {@code getMahasiswa().getProgram()} sekali lagi, padahal {@code mahasiswa} sudah
+	 * tersedia di variabel lokal &mdash; pemanggilan ganda yang tidak perlu, dan yang pada
+	 * gilirannya kembali memicu getter destruktif {@link #getMahasiswa()}.</p>
+	 *
+	 * @return program yang berlaku; {@code null} bila pemilik tidak diketahui
+	 */
 	@Column(name = "program", length = 20)
 	public String getProgram() {
 		mahasiswa = getMahasiswa();
@@ -414,10 +524,36 @@ public class Kegiatan extends GeneralValueObject {
 		return program;
 	}
 
+	/**
+	 * Setter tanggal tagihan. <b>Nilai ini tidak akan pernah terbaca kembali</b>:
+	 * {@link #getTanggal()} selalu menimpanya dengan stempel waktu perubahan terakhir.
+	 *
+	 * @param tanggal tanggal tagihan
+	 */
 	public void setTanggal(Date tanggal) {
 		this.tanggal = tanggal;
 	}
 
+	/**
+	 * Tanggal tagihan.
+	 *
+	 * <p><b>GETTER DESTRUKTIF yang membuat kolom ini kehilangan maknanya sendiri.</b> Badan
+	 * method hanya berisi {@code tanggal = getTanggal_dirubah();} sebelum mengembalikan
+	 * nilainya &mdash; artinya kolom {@code kegiatan.tanggal} <b>selalu</b> ditimpa dengan
+	 * stempel waktu perubahan terakhir baris ini, dan penimpaan itu tersimpan karena property
+	 * dipetakan ke kolom.</p>
+	 *
+	 * <p>Akibatnya {@code tanggal} tidak lagi berarti &quot;tanggal tagihan diterbitkan&quot;
+	 * melainkan duplikat dari {@code tanggal_dirubah}. Setiap penyentuhan baris &mdash;
+	 * termasuk penyentuhan tak sengaja oleh getter destruktif lain di kelas ini &mdash;
+	 * menggeser tanggal tagihan ke waktu sekarang. Kode yang memerlukan tanggal terbit
+	 * sesungguhnya sebaiknya memakai {@link DetailBiaya#getDefaultTanggalTagihan()} atau
+	 * {@link JadwalPembayaran}, sedangkan riwayat pembayaran tersedia lewat
+	 * {@link #getTanggalBayarAwal()} dan {@link #getTanggalBayarTerakhir()} yang justru
+	 * merupakan getter murni.</p>
+	 *
+	 * @return stempel waktu perubahan terakhir baris ini
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "tanggal")
 	public Date getTanggal() {
@@ -425,10 +561,36 @@ public class Kegiatan extends GeneralValueObject {
 		return tanggal;
 	}
 
+	/**
+	 * Setter semester tagihan (perhatikan ejaan {@code semster} tanpa huruf {@code e},
+	 * mengikuti nama kolom bawaan).
+	 *
+	 * @param semster semester tagihan
+	 */
 	public void setSemster(Integer semster) {
 		this.semster = semster;
 	}
 
+	/**
+	 * Semester yang ditagihkan header ini. Perhatikan ejaan {@code semster} tanpa huruf
+	 * {@code e} &mdash; nama kolom bawaan yang dipertahankan demi kompatibilitas.
+	 *
+	 * <p><b>GETTER DESTRUKTIF terbatas.</b> Bila jenis kegiatannya adalah
+	 * {@code ConstantValues.PENDAFTARAN_CALON_MAHASISWA}, field dipaksa {@code 0} dan ditulis
+	 * balik &mdash; pendaftaran calon mahasiswa memang terjadi sebelum semester mana pun
+	 * dimulai. Di luar itu nilai tersimpan dipertahankan.</p>
+	 *
+	 * <p><b>Nilai kembalian dan field dapat berbeda.</b> Baris {@code return} memakai ternary
+	 * yang mengubah {@code null} menjadi {@code 0} <i>tanpa</i> menulis balik ke field. Jadi
+	 * untuk baris yang kolom {@code semster}-nya {@code NULL}, method ini mengembalikan
+	 * {@code 0} sementara field tetap {@code null}. Perbedaan itu terasa pada
+	 * {@link #generateKodeUnik}, yang membaca <b>field mentah</b> {@code semster} dan
+	 * memperlakukan {@code null} sebagai data prasyarat yang tidak lengkap sehingga
+	 * mengembalikan {@code null} &mdash; keadaan yang harus ditangani jalur fallback pada
+	 * {@link #getKodeunik()}.</p>
+	 *
+	 * @return semester tagihan; {@code 0} bila kolomnya kosong; tidak pernah {@code null}
+	 */
 	@Column(name = "semster", length = 20)
 	public Integer getSemster() {
 		jenisKegiatan = getJenisKegiatan();
@@ -439,19 +601,66 @@ public class Kegiatan extends GeneralValueObject {
 		return semster == null ? 0 : semster;
 	}
 
+	/**
+	 * Setter penanda validasi pembayaran.
+	 *
+	 * @param validated penanda validasi
+	 */
 	public void setValidated(Integer validated) {
 		this.validated = validated;
 	}
 
+	/**
+	 * Penanda bahwa pembayaran tagihan ini sudah divalidasi petugas, disimpan sebagai
+	 * {@link Integer} alih-alih {@code Boolean} (mengikuti bentuk kolom lama).
+	 *
+	 * <p>Getter murni tanpa penjaga ternary, sehingga dapat mengembalikan {@code null} untuk
+	 * baris yang belum pernah divalidasi &mdash; pemanggil perlu berjaga terhadap
+	 * {@code NullPointerException} saat auto-unboxing. Pendampingnya adalah
+	 * {@link #getValidator()} yang mencatat siapa yang memvalidasi.</p>
+	 *
+	 * @return penanda validasi; {@code null} bila belum divalidasi
+	 */
 	@Column(name = "validated")
 	public Integer getValidated() {
 		return validated;
 	}
 
+	/**
+	 * Setter pemilik tagihan berupa berkas calon mahasiswa.
+	 *
+	 * @param calonMahasiswa pemilik tagihan; {@code null} bila tagihan milik mahasiswa aktif
+	 */
 	public void setCalonMahasiswa(BiodataCalonMahasiswa calonMahasiswa) {
 		this.calonMahasiswa = calonMahasiswa;
 	}
 
+	/**
+	 * Pemilik tagihan berupa {@link BiodataCalonMahasiswa} (berkas pendaftar yang belum
+	 * ber-NIM). Pasangan dari {@link #getMahasiswa()}.
+	 *
+	 * <p><b>GETTER DESTRUKTIF &mdash; dapat mengisi FOREIGN KEY, kebalikan arah dari
+	 * {@link #getMahasiswa()}.</b> Bila {@code calonMahasiswa} kosong tetapi
+	 * {@code mahasiswa} terisi, <i>dan</i> jenis kegiatannya adalah salah satu dari
+	 * {@code PENDAFTARAN_CALON_MAHASISWA} atau {@code PENDAFTARAN_ULANG_MAHASISWA_BARU},
+	 * field diisi dengan {@code mahasiswa.getBiodataCalonMahasiswaData()}. Alasannya: kedua
+	 * jenis tagihan itu secara konseptual milik berkas calon, sehingga tautannya dipulihkan
+	 * walaupun yang tersimpan hanya NIM.</p>
+	 *
+	 * <p>Berbeda dari {@link #getMahasiswa()} yang menimpa tanpa syarat, pengisian di sini
+	 * hanya terjadi saat field kosong &mdash; bentuk auto-seed. Seluruh blok dibungkus
+	 * {@code try/catch} yang mencatat lewat {@code ErrorAuditUtil} dan melanjutkan, karena
+	 * {@code getBiodataCalonMahasiswaData()} dapat melempar pada data yang tidak utuh;
+	 * kegagalan berarti relasi tetap kosong, bukan pembatalan.</p>
+	 *
+	 * <p>Perhatikan bahwa method ini memanggil {@link #getJenisKegiatan()} di dalam blok
+	 * tersebut, sedangkan {@link #getMahasiswa()} memanggil {@code getCalonMahasiswa()} di
+	 * awalnya &mdash; keduanya saling memanggil, tetapi tidak sampai menjadi rekursi tak
+	 * berujung karena {@code getCalonMahasiswa()} memakai field {@code mahasiswa} yang sudah
+	 * dipulihkan {@code check(...)}, bukan getter-nya.</p>
+	 *
+	 * @return pemilik tagihan berupa berkas calon; {@code null} bila tagihan milik mahasiswa
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "calon_mahasiswa", nullable = true)
 	public BiodataCalonMahasiswa getCalonMahasiswa() {
@@ -474,10 +683,38 @@ public class Kegiatan extends GeneralValueObject {
 		return calonMahasiswa;
 	}
 
+	/**
+	 * Setter nomor referensi pembayaran. Nilai yang diisi di sini dihormati
+	 * {@link #getRefNumber()}, yang hanya membangkitkan nomor saat field masih kosong.
+	 *
+	 * @param refNumber nomor referensi
+	 */
 	public void setRefNumber(String refNumber) {
 		this.refNumber = refNumber;
 	}
 
+	/**
+	 * Nomor referensi pembayaran yang dipakai gateway bank untuk mengaitkan setoran dengan
+	 * tagihan ini.
+	 *
+	 * <p><b>GETTER DESTRUKTIF ber-auto-seed.</b> Bila field kosong, sebuah nomor dibangkitkan
+	 * lalu ditulis balik. Rumusnya adalah waktu sekarang dalam milidetik ditambah NIM (untuk
+	 * mahasiswa) atau nomor registrasi (untuk calon). Bila penjumlahan itu gagal &mdash;
+	 * lazimnya karena NIM/nomor registrasi memuat huruf sehingga {@code Long.parseLong}
+	 * melempar &mdash; dipakai bilangan acak besar ditambah waktu sekarang.</p>
+	 *
+	 * <p><b>Keunikan tidak dijamin.</b> Tidak ada pemeriksaan tabrakan ke basis data maupun
+	 * indeks unik pada kolom ini, sehingga keunikan hanya bersandar pada resolusi milidetik
+	 * dan keunikan NIM. Dua tagihan milik mahasiswa yang sama yang dibangkitkan dalam
+	 * milidetik yang sama akan menerima nomor identik; pada jalur acak, tabrakan bergantung
+	 * pada mutu {@link Math#random()}. Perhatikan pula bahwa kolomnya dibatasi 20 karakter
+	 * sedangkan nilai hasil penjumlahan dapat lebih panjang, dan bahwa kedua cabang membaca
+	 * <b>field mentah</b> {@code mahasiswa}/{@code calonMahasiswa} alih-alih getter-nya
+	 * &mdash; sehingga pada entity yang relasinya belum dipulihkan, keduanya dianggap kosong
+	 * dan jalur acak yang terpakai.</p>
+	 *
+	 * @return nomor referensi pembayaran; tidak pernah {@code null} setelah auto-seed
+	 */
 	@Column(name = "ref_number", length = 20)
 	public String getRefNumber() {
 		if (refNumber == null || refNumber.trim().isEmpty()) {
@@ -500,10 +737,30 @@ public class Kegiatan extends GeneralValueObject {
 		return refNumber;
 	}
 
+	/**
+	 * Setter jadwal pembayaran.
+	 *
+	 * @param jadwalPembayaran jadwal pembayaran yang berlaku; boleh {@code null}
+	 */
 	public void setJadwalPembayaran(JadwalPembayaran jadwalPembayaran) {
 		this.jadwalPembayaran = jadwalPembayaran;
 	}
 
+	/**
+	 * {@link JadwalPembayaran} yang berlaku bagi tagihan ini &mdash; menetapkan rentang
+	 * tanggal pembayaran dan, lewat {@link JadwalPembayaran#getEndDate()}, tenggat yang
+	 * dipakai perhitungan denda.
+	 *
+	 * <p>Perhatikan bahwa relasi ini tidak pernah dibaca dari sini oleh mesin denda:
+	 * {@link DetailBiaya#checkDenda} dan {@link DetailBiaya#checkDendaCicilan} menerima
+	 * jadwal sebagai <i>parameter</i> dari pemanggilnya, bukan mengambilnya dari header
+	 * tagihan. Untuk jalur angsuran, pemanggil produksinya mengoper {@code null} &mdash;
+	 * lihat catatan pada {@code checkDendaCicilan}.</p>
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)}.</p>
+	 *
+	 * @return jadwal pembayaran; {@code null} bila tidak ditetapkan
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "jadwal_pembayaran", nullable = true)
 	public JadwalPembayaran getJadwalPembayaran() {
@@ -511,18 +768,58 @@ public class Kegiatan extends GeneralValueObject {
 		return jadwalPembayaran;
 	}
 
+	/**
+	 * Setter nama petugas yang memvalidasi pembayaran.
+	 *
+	 * @param validator nama/identitas petugas validator
+	 */
 	public void setValidator(String validator) {
 		this.validator = validator;
 	}
 
+	/**
+	 * Nama petugas yang memvalidasi pembayaran tagihan ini; pendamping
+	 * {@link #getValidated()}.
+	 *
+	 * <p>Getter murni yang menampilkan tanda hubung untuk nilai kosong &mdash; bentuk
+	 * tampilan saja, tidak ditulis balik ke field, sehingga kolomnya tetap {@code NULL} di
+	 * database. Perhatikan bahwa pemanggil tidak dapat membedakan &quot;belum divalidasi&quot;
+	 * dari &quot;divalidasi oleh seseorang bernama tanda hubung&quot; hanya dari nilai
+	 * kembalian ini; pakai {@link #getValidated()} untuk memeriksa status validasi.</p>
+	 *
+	 * @return nama validator; {@code "-"} bila belum ada
+	 */
 	public String getValidator() {
 		return validator == null || validator.trim().isEmpty() ? "-" : validator;
 	}
 
+	/**
+	 * Setter nilai pengurang tagihan.
+	 *
+	 * @param pengurangan nominal pengurang
+	 */
 	public void setPengurangan(Double pengurangan) {
 		this.pengurangan = pengurangan;
 	}
 
+	/**
+	 * Nominal pengurang yang diterapkan pada tagihan ini di luar mekanisme diskon
+	 * ({@link JenisDiskonMahasiswa}/{@link DiskonMahasiswa}) &mdash; mis. keringanan yang
+	 * dicatat langsung pada header.
+	 *
+	 * <p><b>GETTER DESTRUKTIF ringan (auto-seed literal).</b> {@code null} diisi {@code 0.0}
+	 * lalu ditulis balik ke field yang dipetakan ke kolom, sehingga pembacaan pertama dapat
+	 * memicu {@code UPDATE} dan revisi Envers. Secara semantik nilainya setara, tetapi
+	 * pola penulisannya sama dengan yang lain di kelas ini.</p>
+	 *
+	 * <p>Perhatikan bahwa nilai ini <b>tidak</b> ikut diperhitungkan oleh
+	 * {@link #hitungTagihan()} maupun {@link #getAmountTerhutang()}; keduanya bekerja atas
+	 * snapshot JSON {@link #getTagihans()}. Pengurangan karenanya harus sudah tercermin di
+	 * dalam JSON tersebut agar berpengaruh pada total &mdash; kolom ini sendiri bersifat
+	 * pencatatan.</p>
+	 *
+	 * @return nominal pengurang; tidak pernah {@code null}
+	 */
 	public Double getPengurangan() {
 		if (pengurangan == null) {
 			pengurangan = 0.0;
@@ -530,28 +827,91 @@ public class Kegiatan extends GeneralValueObject {
 		return pengurangan;
 	}
 
+	/**
+	 * Setter keterangan bebas tagihan.
+	 *
+	 * <p>Perhatikan bahwa anotasi {@code @Column(columnDefinition = "text")} keliru
+	 * ditempatkan pada <b>setter</b> ini, bukan pada {@link #getKeterangan()}. Karena kelas
+	 * ini memakai <i>property access</i> (anotasi {@code @Id} berada di getter), Hibernate
+	 * hanya membaca anotasi pemetaan dari getter &mdash; anotasi di sini <b>diabaikan</b>.
+	 * Akibatnya kolom {@code keterangan} dipetakan dengan pengaturan bawaan
+	 * ({@code varchar(255)}), bukan sebagai {@code text}. Keterangan yang lebih panjang dari
+	 * itu akan ditolak database saat disimpan.</p>
+	 *
+	 * @param keterangan keterangan bebas
+	 */
 	@Column(columnDefinition = "text")
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Keterangan bebas yang menyertai tagihan ini.
+	 *
+	 * <p>Getter murni yang mengembalikan field apa adanya, termasuk {@code null}. Lihat
+	 * catatan pada {@link #setKeterangan(String)} mengenai anotasi {@code @Column} yang
+	 * salah tempat sehingga kolom ini tidak dipetakan sebagai {@code text}.</p>
+	 *
+	 * @return keterangan tagihan; {@code null} bila belum diisi
+	 */
 	public String getKeterangan() {
 		return keterangan;
 	}
 
+	/**
+	 * Setter nominal tagihan. <b>Nilai ini tidak akan pernah terbaca kembali</b>:
+	 * {@link #getAmount()} selalu menimpanya dengan {@link #getDibayar()}.
+	 *
+	 * @param amount nominal
+	 */
 	public void setAmount(Double amount) {
 		this.amount = amount;
 	}
 
+	/**
+	 * Nominal yang tercatat pada header tagihan.
+	 *
+	 * <p><b>GETTER DESTRUKTIF, dan namanya menyesatkan.</b> Badan method hanya berisi
+	 * {@code amount = getDibayar();} sebelum mengembalikannya &mdash; jadi kolom
+	 * {@code amount} <b>tidak</b> menyimpan besarnya tagihan, melainkan selalu ditimpa dengan
+	 * jumlah yang sudah <i>dibayar</i>. Penimpaan itu tersimpan karena property dipetakan ke
+	 * kolom.</p>
+	 *
+	 * <p>Ini pasangan dari {@link #getTanggal()}, yang juga membuang makna kolomnya sendiri.
+	 * Untuk memperoleh angka yang benar-benar dimaksud, pakai: {@link #getTagihan()} untuk
+	 * besarnya tagihan, {@link #getDibayar()} untuk yang sudah dibayar, dan
+	 * {@link #getAmountTerhutang()} untuk sisanya. Perlu diketahui pula bahwa
+	 * {@link #getDibayar()} sendiri membatasi nilainya agar tidak melebihi tagihan, sehingga
+	 * {@code amount} ikut terbatasi.</p>
+	 *
+	 * @return jumlah yang sudah dibayar (bukan nominal tagihan)
+	 */
 	public Double getAmount() {
 		amount = getDibayar();
 		return amount;
 	}
 
+	/**
+	 * Setter status mahasiswa pada saat tagihan ini berlaku.
+	 *
+	 * @param statusMahasiswa status mahasiswa; boleh {@code null}
+	 */
 	public void setStatusMahasiswa(StatusMahasiswa statusMahasiswa) {
 		this.statusMahasiswa = statusMahasiswa;
 	}
 
+	/**
+	 * {@link StatusMahasiswa} yang berlaku bagi pemilik tagihan pada semester ini (aktif,
+	 * cuti, dan seterusnya).
+	 *
+	 * <p>Getter relasi lazy standar dengan {@code check(...)} &mdash; <b>tidak destruktif</b>.
+	 * Patut dicatat bahwa ia berbeda dari saudaranya {@link #getStatusAwalMahasiswa()}, yang
+	 * justru menurunkan nilainya dari {@link HistoryStatusMahasiswa} dan menulisnya balik.
+	 * Status pada header ini karena itu merupakan data yang benar-benar tersimpan, bukan
+	 * turunan.</p>
+	 *
+	 * @return status mahasiswa; {@code null} bila tidak dicatat
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "status_mahasiswa", nullable = true)
 	public StatusMahasiswa getStatusMahasiswa() {
@@ -559,10 +919,41 @@ public class Kegiatan extends GeneralValueObject {
 		return statusMahasiswa;
 	}
 
+	/**
+	 * Setter sisa terhutang. <b>Nilai ini tidak akan pernah terbaca kembali</b>:
+	 * {@link #getAmountTerhutang()} selalu menghitung ulangnya.
+	 *
+	 * @param amountTerhutang sisa terhutang
+	 */
 	public void setAmountTerhutang(Double amountTerhutang) {
 		this.amountTerhutang = amountTerhutang;
 	}
 
+	/**
+	 * Sisa tagihan yang belum dibayar, yaitu {@link #getTagihan()} dikurangi
+	 * {@link #getDibayar()}.
+	 *
+	 * <p><b>GETTER DESTRUKTIF.</b> Nilainya dihitung ulang setiap kali dibaca dan ditulis
+	 * balik ke field yang dipetakan ke kolom {@code amount_terhutang}, sehingga kolom itu
+	 * merupakan nilai turunan yang di-<i>cache</i> ke basis data &mdash; berguna untuk
+	 * laporan tunggakan yang membaca langsung lewat SQL, tetapi hanya seakurat pembacaan
+	 * terakhirnya.</p>
+	 *
+	 * <p><b>Sifat perhitungannya.</b> Karena kedua operan berasal dari field {@code tagihan}
+	 * dan {@code dibayar} &mdash; yang merupakan hasil penguraian snapshot JSON oleh
+	 * {@link #hitungTagihan()}/{@link #hitungDibayar()} &mdash; nilai di sini ikut mewarisi
+	 * ketertinggalan snapshot itu terhadap keadaan {@link DetailKegiatan} yang sebenarnya.
+	 * Perhatikan pula bahwa {@link #getDibayar()} membatasi diri agar tidak melebihi
+	 * {@link #getTagihan()}, sehingga hasilnya <b>tidak pernah negatif</b>: kelebihan bayar
+	 * tidak akan tampak sebagai angka minus di sini, melainkan sebagai nol.</p>
+	 *
+	 * <p>Pengisian awal {@code 0.0} untuk field {@code null} dilakukan sebelum perhitungan,
+	 * dan seluruh perhitungan dibungkus {@code try/catch} yang mencatat lewat
+	 * {@code ErrorAuditUtil} lalu mempertahankan nilai yang ada &mdash; kegagalan berarti
+	 * nilai lama, bukan nol.</p>
+	 *
+	 * @return sisa terhutang; tidak pernah {@code null} dan tidak pernah negatif
+	 */
 	@Column(name = "amount_terhutang", nullable = true)
 	public Double getAmountTerhutang() {
 		if (amountTerhutang == null) {
