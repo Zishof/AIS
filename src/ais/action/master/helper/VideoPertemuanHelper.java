@@ -402,7 +402,7 @@ public class VideoPertemuanHelper implements DataLoader {
 									ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 								} else {
 									Clients.evalJavaScript(
-											"popupCenter({url: '" + link + "', title: 'data', w: 1200, h: 600});");
+											"popupCenter({url: '" + Common.jsEscape(link) + "', title: 'data', w: 1200, h: 600});");
 								}
 
 							}

@@ -6331,7 +6331,7 @@ public class DaftarUlangMahasiswaLamaAction extends AbstractDaftarUlangMahasiswa
 									if ("finpay".equals(bankGatewayId) || "otto".equals(bankGatewayId)) {
 										ExecutionsCtrl.getCurrent().sendRedirect(va.getLink(), "_blank");
 									} else {
-										Clients.evalJavaScript("popupCenter({url: '" + va.getLink()
+										Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(va.getLink())
 												+ "', title: 'Book', w: 1200, h: 600});");
 									}
 									return;

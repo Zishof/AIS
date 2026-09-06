@@ -921,7 +921,7 @@ public class GelombangPendaftaranAction extends GenericAutowireComposer implemen
 					ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
 				} else {
 					Clients.evalJavaScript(
-							"popupCenter({url: '" + url + "', title: 'Video Conference', w: 1200, h: 600});");
+							"popupCenter({url: '" + Common.jsEscape(url) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 				}
 			}

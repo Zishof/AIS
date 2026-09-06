@@ -4451,7 +4451,7 @@ public class AktifitasPerkuliahanHelper {
 				if (Common.isMobile()) {
 					ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
 				} else {
-					Clients.evalJavaScript("popupCenter({url: '" + link + "', title: 'Classroom', w: 1200, h: 600});");
+					Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(link) + "', title: 'Classroom', w: 1200, h: 600});");
 
 				}
 

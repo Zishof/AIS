@@ -500,7 +500,7 @@ public final class MahasiswaVirtualAccountHelper {
 			BiodataCalonMahasiswa calonMahasiswa, Double biayaAdministrasi, String fileZulPrefix,
 			String prefixBankLainKode) throws Exception {
 		if (va != null && va.getLink() != null && va.getLink().trim().length() > 0) {
-			Clients.evalJavaScript("popupCenter({url: '" + va.getLink() + "', title: 'Book', w: 1200, h: 600});");
+			Clients.evalJavaScript("popupCenter({url: '" + js(va.getLink()) + "', title: 'Book', w: 1200, h: 600});");
 			return;
 		}
 		String url = buatUrlNoVa(va, mahasiswa, calonMahasiswa, biayaAdministrasi, fileZulPrefix, prefixBankLainKode);

@@ -3924,18 +3924,115 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: dashboardDefaultMain.trim();
 	}
 
+	/**
+	 * Menetapkan dasbor bawaan yang ditampilkan di halaman utama.
+	 *
+	 * <p>Setter mentah tanpa penjagaan: tidak memangkas spasi dan tidak memvalidasi bahwa
+	 * pengenal dasbornya dikenali. Pemangkasan hanya terjadi di sisi baca
+	 * ({@link #getDashboardDefaultMain()}).</p>
+	 *
+	 * <p>Karena ini pemilihan tampilan, menetapkan nilai yang keliru menghasilkan dasbor
+	 * kosong atau halaman utama biasa, bukan celah keamanan.</p>
+	 *
+	 * @param dashboardDefaultMain pengenal dasbor bawaan; disimpan apa adanya
+	 * @see #getDashboardDefaultMain()
+	 */
 	public void setDashboardDefaultMain(String dashboardDefaultMain) {
 		this.dashboardDefaultMain = dashboardDefaultMain;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh <b>mengajukan pengajuan atas nama pegawai lain</b>
+	 * (cuti, izin, dan pengajuan kepegawaian sejenis).
+	 *
+	 * <p>Bawaan <i>fail-closed</i> tanpa syarat: bila kolomnya masih {@code null}, hasilnya
+	 * {@code false} untuk <b>seluruh peran, termasuk {@link #ADMINISTRATOR}</b>. Tidak ada
+	 * daftar-tolak, tidak ada penurunan berbasis nama, dan <b>getter murni</b> berbentuk
+	 * ternary tunggal. Bersama {@link #getBolehVerifikasiMemberMelebihiLimit()} dan
+	 * {@link #getBolehLihatSemuaToko()}, ini contoh pola yang benar di kelas ini.</p>
+	 *
+	 * <p>Sikap tersebut tepat: mengajukan sesuatu atas nama orang lain berarti bertindak
+	 * mewakili, sehingga harus merupakan pemberian kewenangan yang disengaja.</p>
+	 *
+	 * <p>Perlu dibedakan dari {@link #getMelihatDataPegawaiLain()} &mdash; flag itu soal
+	 * <i>melihat</i>, flag ini soal <i>bertindak</i>. Keduanya independen: peran dapat
+	 * memiliki salah satunya saja.</p>
+	 *
+	 * <p><b>Cakupan penegakannya terbatas.</b> Satu-satunya pemakainya di luar layar
+	 * administrasi dan proyeksi {@code HakAksesApi} adalah {@code CutiDanIzinAction}, yang
+	 * memakainya untuk meng-<i>enable</i>/<i>disable</i> komponen formulir &mdash; bukan
+	 * untuk menolak penyimpanan di sisi server. Jangan mengandalkannya sebagai kontrol akses
+	 * tunggal.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengajukan atas nama pegawai lain; tidak
+	 *         pernah {@code null}
+	 * @see #setMengajukanPengajuanPegawaiLain(Boolean)
+	 * @see #getMelihatDataPegawaiLain()
+	 */
 	public Boolean getMengajukanPengajuanPegawaiLain() {
 		return mengajukanPengajuanPegawaiLain == null ? false : mengajukanPengajuanPegawaiLain;
 	}
 
+	/**
+	 * Menetapkan hak mengajukan pengajuan atas nama pegawai lain.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan selalu dihormati &mdash; tidak
+	 * ada peran yang dipaksa menyala atau mati. Menyimpan {@code null} aman karena bawaannya
+	 * {@code false} tanpa syarat.</p>
+	 *
+	 * @param mengajukanPengajuanPegawaiLain hak mengajukan atas nama orang lain; {@code null}
+	 *                                       berarti kembali ke bawaan mati
+	 * @see #getMengajukanPengajuanPegawaiLain()
+	 */
 	public void setMengajukanPengajuanPegawaiLain(Boolean mengajukanPengajuanPegawaiLain) {
 		this.mengajukanPengajuanPegawaiLain = mengajukanPengajuanPegawaiLain;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melakukan <b>entri topup saldo</b> &mdash; menambah
+	 * saldo pada kartu/akun member e-Kantin.
+	 *
+	 * <p><b>Kombinasi paling berisiko di kelas ini.</b> Flag ini menggabungkan dua sifat yang
+	 * seharusnya tidak bertemu:</p>
+	 * <ol>
+	 *   <li>ia adalah <b>gerbang transaksional sungguhan</b> di sisi server &mdash;
+	 *   {@code KantinHelper}, {@code PenyesuaianSaldoHelper}, dan {@code PosApi}
+	 *   masing-masing menolak operasi topup bila nilainya {@code false}. Menyalakannya
+	 *   berarti memberi kewenangan <b>menciptakan saldo</b>, yang setara dengan kewenangan
+	 *   kas;</li>
+	 *   <li>nilai bawaannya diturunkan lewat <b>pencocokan substring</b>
+	 *   {@code roleId.toLowerCase().contains("keu") || roleId.equals(ADMINISTRATOR)} &mdash;
+	 *   sama persis dengan {@link #getKeuangan()} dan saudara-saudaranya.</li>
+	 * </ol>
+	 *
+	 * <p>Akibatnya, sebuah Grup Pengguna baru yang diberi pengenal mengandung {@code "keu"}
+	 * &mdash; termasuk yang justru dimaksudkan membatasi, seperti {@code "keu_lihat_saja"}
+	 * atau {@code "keu_readonly"} &mdash; akan <b>diam-diam memperoleh kewenangan menambah
+	 * saldo</b> selama kolom ini belum pernah diisi, tanpa pernah muncul sebagai centang yang
+	 * disengaja siapa pun. Ini satu-satunya tempat di kelas ini di mana penurunan berbasis
+	 * nama bertemu langsung dengan gerbang keuangan.</p>
+	 * <p><b>Anjuran:</b> isi kolom ini secara eksplisit untuk setiap peran, dan hindari
+	 * menaruh potongan huruf {@code "keu"} pada pengenal peran yang tidak dimaksudkan berhak
+	 * menambah saldo.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal, tanpa daftar-tolak maupun
+	 * tulis-balik ke field.</p>
+	 *
+	 * <p><b>Perhatikan keusangan cache.</b> Nilai yang dibaca lewat
+	 * {@link Tbmuser#hakAkses()} berasal dari cache peran yang tidak pernah kedaluwarsa,
+	 * sehingga perubahan flag ini oleh administrator tidak langsung berlaku bagi sesi yang
+	 * sedang berjalan. Karena itu {@link Tbmuser#bolehEntryTopupAktif()} sengaja memuat ulang
+	 * baris peran lewat {@link org.hibernate.Session} tersendiri dan memanggil
+	 * {@code session.refresh(...)} sebelum membaca flag ini &mdash; <b>gunakan method itu</b>,
+	 * bukan getter ini secara langsung, bila keputusan yang diambil bersifat transaksional.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melakukan entri topup; tidak pernah
+	 *         {@code null}
+	 * @see #setBolehEntryTopup(Boolean)
+	 * @see Tbmuser#bolehEntryTopupAktif()
+	 * @see #KEUANGAN
+	 * @see #getKeuangan()
+	 */
 	public Boolean getBolehEntryTopup() {
 		return bolehEntryTopup == null
 				? (getRoleId() != null
@@ -3943,14 +4040,71 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 				: bolehEntryTopup;
 	}
 
+	/**
+	 * Menetapkan hak melakukan entri topup saldo.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan selalu dihormati &mdash; tidak
+	 * ada peran yang dipaksa menyala atau mati.</p>
+	 *
+	 * <p><b>Menyimpan {@code null} bukan tindakan netral, dan di sini konsekuensinya paling
+	 * serius.</b> Ia mengembalikan flag ke penurunan berbasis substring {@code "keu"}, yang
+	 * untuk peran bernama demikian berarti kewenangan menambah saldo <b>menyala</b>. Lihat
+	 * peringatan lengkap pada {@link #getBolehEntryTopup()}. Untuk menutup akses, simpan
+	 * {@link Boolean#FALSE} secara eksplisit.</p>
+	 *
+	 * <p>Perubahan flag ini tidak langsung berlaku bagi sesi yang sedang berjalan karena
+	 * cache peran tidak kedaluwarsa; lihat {@link Tbmuser#bolehEntryTopupAktif()}.</p>
+	 *
+	 * @param bolehEntryTopup hak entri topup; {@code null} berarti kembali ke bawaan berbasis
+	 *                        nama
+	 * @see #getBolehEntryTopup()
+	 */
 	public void setBolehEntryTopup(Boolean bolehEntryTopup) {
 		this.bolehEntryTopup = bolehEntryTopup;
 	}
 
 	/**
+	 * Mengembalikan katalog izin menu <b>POS/e-Bisnis</b> sebagai JSON mentah.
+	 *
+	 * <p><b>Ini lapisan izin yang paling nyata di kelas ini.</b> Meski secara struktur hanya
+	 * sebuah kolom teks, isinya dibaca oleh <b>lebih dari seratus</b> titik pemeriksaan di
+	 * {@code ais.action.servlet.api} lewat {@code EbisnisMenuKatalog.bolehAksi(...)} dan
+	 * {@code bolehAksiAkuntansi(...)} &mdash; masing-masing menolak operasi CRUD yang tidak
+	 * diizinkan. Untuk modul POS, kasir, apotek, eMedik, inventory, dan akuntansi eBisnis,
+	 * <b>inilah yang sesungguhnya menegakkan otorisasi</b>, bukan flag Boolean seperti
+	 * {@link #getTampilPos()}, {@link #getEmedic()}, atau {@link #getAkunting()} yang hanya
+	 * mengatur visibilitas ikon.</p>
+	 * <p>Konsekuensi praktisnya penting bagi administrator: untuk benar-benar mencabut akses
+	 * seseorang ke modul-modul tersebut, <b>kolom inilah yang harus disunting</b>.
+	 * Mengosongkan centang modul di layar Grup Pengguna hanya menyembunyikan pintasannya.</p>
+	 *
+	 * <h3>PERHATIAN: satu-satunya kolom yang TIDAK diaudit</h3>
+	 * <p>Kolom ini beranotasi
+	 * {@link org.hibernate.envers.NotAudited @NotAudited}, sehingga <b>dikecualikan dari
+	 * riwayat versi Envers</b> yang berlaku bagi seluruh kolom lain di kelas ini. Perlu
+	 * disadari akibatnya: setiap perubahan pada kolom ini &mdash; yaitu perubahan pada
+	 * lapisan izin yang paling menentukan &mdash; <b>tidak meninggalkan jejak audit sama
+	 * sekali</b>, sementara perubahan pada flag kosmetik seperti {@link #getInfoKegiatan()}
+	 * terekam lengkap. Untuk pertanyaan "siapa yang memberi peran ini akses transaksi POS,
+	 * dan kapan", riwayat Envers tidak dapat menjawabnya. Ini perlu diperhitungkan saat
+	 * melakukan audit kepatuhan atau penelusuran insiden.</p>
+	 *
+	 * <h3>Cara memakainya</h3>
+	 * <p>Method ini mengembalikan <b>teks mentah</b>, bukan struktur terurai. Nilainya dapat
+	 * {@code null} (kolom kosong dinormalkan menjadi {@code null}), sehingga <b>jangan</b>
+	 * memanggil {@code new JSONObject(role.getEbisnisMenu())} secara langsung &mdash; itu
+	 * akan melempar exception untuk peran yang belum pernah dikonfigurasi, yang merupakan
+	 * keadaan normal. Selalu urai lewat {@code EbisnisMenuKatalog.urai(String)}, yang
+	 * mengembalikan nilai bawaan yang aman.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memangkas spasi tanpa menulis balik ke field.</p>
+	 *
 	 * @return JSON mentah (bisa {@code null}) -- pemanggil pakai {@link
 	 *         ais.common.EbisnisMenuKatalog#urai(String)} utk parse dgn default aman, JANGAN
 	 *         {@code new JSONObject(role.getEbisnisMenu())} langsung (meledak kalau null/kosong).
+	 * @see #setEbisnisMenu(String)
+	 * @see #getTokoAksesJson()
+	 * @see #getBolehLihatSemuaToko()
 	 */
 	@org.hibernate.envers.NotAudited
 	@Column(name = "ebisnis_menu", columnDefinition = "text")
@@ -3958,25 +4112,118 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return ebisnisMenu == null || ebisnisMenu.trim().isEmpty() ? null : ebisnisMenu.trim();
 	}
 
+	/**
+	 * Menetapkan katalog izin menu POS/e-Bisnis sebagai JSON mentah.
+	 *
+	 * <p>Setter mentah tanpa penjagaan: tidak memangkas spasi dan &mdash; yang lebih penting
+	 * &mdash; <b>tidak memvalidasi bahwa isinya JSON yang sah</b>. Menyimpan teks rusak di
+	 * sini tidak akan gagal saat penyimpanan; kegagalannya baru muncul saat penguraian, yang
+	 * ditangani {@code EbisnisMenuKatalog.urai(String)} dengan jatuh ke nilai bawaan. Artinya
+	 * isi yang rusak dapat <b>diam-diam mengubah izin</b> menjadi nilai bawaan, bukan
+	 * memunculkan kesalahan. Selalu bangun JSON-nya lewat katalog, jangan merangkai teks
+	 * sendiri.</p>
+	 *
+	 * <p><b>Perubahan di sini tidak terekam Envers</b> karena kolomnya {@code @NotAudited}
+	 * &mdash; lihat peringatan pada {@link #getEbisnisMenu()}. Bila jejak perubahan izin
+	 * diperlukan, catat secara terpisah.</p>
+	 *
+	 * @param ebisnisMenu JSON katalog izin; disimpan apa adanya, tanpa validasi
+	 * @see #getEbisnisMenu()
+	 */
 	public void setEbisnisMenu(String ebisnisMenu) {
 		this.ebisnisMenu = ebisnisMenu;
 	}
 
+	/**
+	 * Mengembalikan daftar <b>toko yang boleh diakses</b> peran ini, sebagai JSON mentah.
+	 *
+	 * <p>Menyebut toko satu per satu. Ini gerbang pembatas data yang nyata di sisi server:
+	 * {@code PosApi}, {@code KantinHelper}, dan {@code DashboardKantinAction} memakainya
+	 * untuk mempersempit data transaksi ke toko-toko yang tercantum. Pada instalasi
+	 * multi-toko, inilah pemisah data antar unit usaha.</p>
+	 *
+	 * <p>Bekerja berpasangan dengan {@link #getBolehLihatSemuaToko()}: flag itu berarti
+	 * "semua toko aktif, termasuk yang dibuat setelah peran ini disimpan", sedangkan daftar
+	 * di sini bersifat eksplisit dan <b>tidak</b> ikut mencakup toko baru. Untuk peran
+	 * pengawas yang harus selalu melihat seluruh toko, pakai flag tersebut &mdash; jangan
+	 * mengandalkan daftar ini yang akan tertinggal setiap kali toko baru dibuka.</p>
+	 *
+	 * <p>Berbeda dari {@link #getEbisnisMenu()}, kolom ini <b>ikut diaudit</b> Envers seperti
+	 * kolom lain di kelas ini.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memangkas spasi tanpa menulis balik ke field, dan
+	 * menormalkan string kosong menjadi {@code null}. Seperti pada {@link #getEbisnisMenu()},
+	 * nilai {@code null} adalah keadaan normal bagi peran yang belum dikonfigurasi, sehingga
+	 * pemanggil <b>tidak boleh</b> mengurainya secara langsung tanpa penjagaan.</p>
+	 *
+	 * @return JSON daftar toko, atau {@code null} bila belum dikonfigurasi
+	 * @see #setTokoAksesJson(String)
+	 * @see #getBolehLihatSemuaToko()
+	 * @see #getEbisnisMenu()
+	 */
 	@Column(name = "toko_akses_json", columnDefinition = "text")
 	public String getTokoAksesJson() {
 		return tokoAksesJson == null || tokoAksesJson.trim().isEmpty() ? null : tokoAksesJson.trim();
 	}
 
+	/**
+	 * Menetapkan daftar toko yang boleh diakses peran ini, sebagai JSON mentah.
+	 *
+	 * <p>Setter mentah tanpa penjagaan dan <b>tanpa validasi JSON</b>. Seluruh catatan pada
+	 * {@link #setEbisnisMenu(String)} berlaku sama: isi yang rusak tidak gagal saat
+	 * penyimpanan, melainkan diam-diam jatuh ke nilai bawaan saat penguraian.</p>
+	 *
+	 * <p>Karena nilainya menjadi gerbang pembatas data lintas toko, isi yang keliru
+	 * berdampak langsung pada data transaksi apa yang terlihat.</p>
+	 *
+	 * @param tokoAksesJson JSON daftar toko; disimpan apa adanya, tanpa validasi
+	 * @see #getTokoAksesJson()
+	 */
 	public void setTokoAksesJson(String tokoAksesJson) {
 		this.tokoAksesJson = tokoAksesJson;
 	}
 
-	/** Hak akses jurnal ilmiah; interpretasi hanya melalui JurnalAksesKatalog. */
+	/**
+	 * Hak akses jurnal ilmiah; interpretasi hanya melalui JurnalAksesKatalog.
+	 *
+	 * <p>Katalog izin modul Jurnal Ilmiah (OJS-like) dalam bentuk JSON mentah &mdash; pola
+	 * yang sama dengan {@link #getEbisnisMenu()} dan {@link #getTokoAksesJson()}: satu kolom
+	 * teks yang menampung banyak izin sekaligus, agar penambahan izin baru tidak memerlukan
+	 * {@code ALTER TABLE} beserta migrasi tabel audit Envers.</p>
+	 *
+	 * <p>Ditegakkan sungguhan di sisi server oleh {@code JurnalAuthorizationService} lewat
+	 * {@code bolehWorkflow()} dan {@code bolehMenu()}, yang mengatur peran editorial
+	 * (editor, reviewer, penulis) pada alur penerbitan.</p>
+	 *
+	 * <p>Sebagaimana ditegaskan pada baris pertama: <b>jangan menguraikan JSON ini
+	 * sendiri</b>. Seluruh penafsiran harus lewat {@code JurnalAksesKatalog}, yang memegang
+	 * definisi kunci dan nilai bawaan yang aman. Menguraikannya langsung berisiko melempar
+	 * exception untuk peran yang belum dikonfigurasi ({@code null} adalah keadaan normal) dan
+	 * membekukan asumsi tentang bentuk JSON yang dapat berubah.</p>
+	 *
+	 * <p>Berbeda dari {@link #getEbisnisMenu()}, kolom ini <b>ikut diaudit</b> Envers.</p>
+	 *
+	 * <p><b>Getter murni</b> &mdash; memangkas spasi tanpa menulis balik ke field.</p>
+	 *
+	 * @return JSON hak akses jurnal, atau {@code null} bila belum dikonfigurasi
+	 * @see #setJurnalAksesJson(String)
+	 * @see #getEbisnisMenu()
+	 */
 	@Column(name = "jurnal_akses_json", columnDefinition = "text")
 	public String getJurnalAksesJson() {
 		return jurnalAksesJson == null || jurnalAksesJson.trim().isEmpty() ? null : jurnalAksesJson.trim();
 	}
 
+	/**
+	 * Menetapkan hak akses modul Jurnal Ilmiah sebagai JSON mentah.
+	 *
+	 * <p>Setter mentah tanpa penjagaan dan <b>tanpa validasi JSON</b>. Bangun isinya lewat
+	 * {@code JurnalAksesKatalog}, jangan merangkai teks sendiri &mdash; seluruh catatan pada
+	 * {@link #setEbisnisMenu(String)} berlaku sama.</p>
+	 *
+	 * @param jurnalAksesJson JSON hak akses jurnal; disimpan apa adanya, tanpa validasi
+	 * @see #getJurnalAksesJson()
+	 */
 	public void setJurnalAksesJson(String jurnalAksesJson) {
 		this.jurnalAksesJson = jurnalAksesJson;
 	}
@@ -3993,12 +4240,42 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * <p>Default {@code false} -- sengaja: memberi akses lintas toko harus
 	 * keputusan sadar, bukan sesuatu yang menyala sendiri saat kolom baru
 	 * ditambahkan ke basis data.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal &mdash; tanpa daftar-tolak, tanpa
+	 * penurunan berbasis nama, dan tanpa tulis-balik ke field. Bersama
+	 * {@link #getBolehVerifikasiMemberMelebihiLimit()} dan
+	 * {@link #getMengajukanPengajuanPegawaiLain()}, ini contoh pola yang benar di kelas
+	 * ini.</p>
+	 *
+	 * <p>Ditegakkan sungguhan di sisi server oleh {@code PosApi}. Perhatikan bahwa
+	 * menyalakannya membuat {@link #getTokoAksesJson()} menjadi tidak relevan &mdash; daftar
+	 * eksplisit di sana tidak lagi membatasi apa pun.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melihat seluruh toko aktif; tidak pernah
+	 *         {@code null}
+	 * @see #setBolehLihatSemuaToko(Boolean)
+	 * @see #getTokoAksesJson()
 	 */
 	@Column(name = "boleh_lihat_semua_toko")
 	public Boolean getBolehLihatSemuaToko() {
 		return bolehLihatSemuaToko == null ? Boolean.FALSE : bolehLihatSemuaToko;
 	}
 
+	/**
+	 * Menetapkan izin melihat seluruh toko aktif.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan selalu dihormati. Menyimpan
+	 * {@code null} aman karena bawaannya {@link Boolean#FALSE} tanpa syarat.</p>
+	 *
+	 * <p><b>Menyalakan flag ini adalah keputusan berdampak luas</b>: ia membuka data lintas
+	 * toko di SEMUA menu &mdash; bukan hanya dashboard &mdash; dan otomatis mencakup toko
+	 * yang dibuka di kemudian hari. Untuk akses yang terbatas dan dapat ditinjau, pakai
+	 * {@link #setTokoAksesJson(String)}.</p>
+	 *
+	 * @param bolehLihatSemuaToko izin lintas toko; {@code null} berarti kembali ke bawaan
+	 *                            mati
+	 * @see #getBolehLihatSemuaToko()
+	 */
 	public void setBolehLihatSemuaToko(Boolean bolehLihatSemuaToko) {
 		this.bolehLihatSemuaToko = bolehLihatSemuaToko;
 	}
@@ -4009,58 +4286,321 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 	 * Bawaan MENYALA untuk semua grup: repository berisi artefak yang memang
 	 * sudah terpublikasi. Grup lama yang kolomnya masih null ikut menyala
 	 * tanpa perlu pembaruan data massal.
+	 *
+	 * <p>Salah satu dari sedikit flag yang <b>berdefault menyala tanpa syarat</b> &mdash;
+	 * tidak ada daftar-tolak {@link #KANTIN} maupun pengecualian peran apa pun. Alasannya
+	 * dinyatakan di atas: artefak yang ada di repository memang sudah dipublikasikan,
+	 * sehingga membacanya terbuka kecuali sengaja dimatikan.</p>
+	 *
+	 * <p>Perlu dibedakan dengan tegas dari {@link #getDasborRepository()}, yang merupakan
+	 * izin <b>MENGELOLA</b> dan berdefault hanya untuk {@link #ADMINISTRATOR}. Pemisahan
+	 * baca/kelola ini sengaja dibuat; jangan menyatukan keduanya.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal. Ditegakkan sungguhan di sisi server
+	 * oleh {@code RepositoryWorkflowService} dan {@code RepositoryPublikApi}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh membaca artefak repository; tidak pernah
+	 *         {@code null}
+	 * @see #setBacaRepository(Boolean)
+	 * @see #getDasborRepository()
 	 */
 	public Boolean getBacaRepository() {
 		return bacaRepository == null ? Boolean.TRUE : bacaRepository;
 	}
 
+	/**
+	 * Menetapkan izin membaca artefak repository.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} <b>tidak</b> mencabut izin
+	 * &mdash; ia mengembalikan flag ke bawaan yang bernilai {@link Boolean#TRUE}. Untuk
+	 * menutup akses baca, simpan {@link Boolean#FALSE} secara eksplisit.</p>
+	 *
+	 * @param bacaRepository izin membaca; {@code null} berarti kembali ke bawaan menyala
+	 * @see #getBacaRepository()
+	 */
 	public void setBacaRepository(Boolean bacaRepository) {
 		this.bacaRepository = bacaRepository;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh <b>MENGELOLA</b> repository (dasbor pengelolaan
+	 * artefak).
+	 *
+	 * <p>Izin tingkat pengelola, bukan pembaca &mdash; pasangan {@link #getBacaRepository()}
+	 * yang mengatur sisi baca. Bawaannya <i>fail-closed</i>: menyala hanya untuk
+	 * {@link #ADMINISTRATOR}, mati untuk seluruh peran lain.</p>
+	 *
+	 * <p>Nilai bawaan dihitung lewat {@link #isRole(String)}, sehingga perbandingannya
+	 * <b>tidak peka huruf besar-kecil</b> &mdash; berbeda dari mayoritas getter di kelas ini
+	 * yang memakai {@code equals}. Pola {@code Boolean.valueOf(isRole(ADMINISTRATOR))} yang
+	 * sama dipakai juga oleh {@link #getDasboardAntarJemput()},
+	 * {@link #getTampilkanSpmi()}, {@link #getTampilkanGaji()}, dan
+	 * {@link #getMelihatSemuaSop()} &mdash; kelompok getter yang ditulis belakangan dan
+	 * konsisten satu sama lain.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal. Ditegakkan sungguhan di sisi server
+	 * oleh {@code RepositoryWorkflowService}.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh mengelola repository; tidak pernah
+	 *         {@code null}
+	 * @see #setDasborRepository(Boolean)
+	 * @see #getBacaRepository()
+	 */
 	public Boolean getDasborRepository() {
 		return dasborRepository == null ? Boolean.valueOf(isRole(ADMINISTRATOR)) : dasborRepository;
 	}
 
+	/**
+	 * Menetapkan izin mengelola repository.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i> untuk seluruh peran selain {@link #ADMINISTRATOR}.</p>
+	 *
+	 * @param dasborRepository izin mengelola; {@code null} berarti kembali ke bawaan
+	 *                         fail-closed
+	 * @see #getDasborRepository()
+	 */
 	public void setDasborRepository(Boolean dasborRepository) {
 		this.dasborRepository = dasborRepository;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat dasbor <b>Antar Jemput</b> (layanan
+	 * antar-jemput peserta didik) &mdash; kolom {@code antar_jemput}.
+	 *
+	 * <p>Bawaan <i>fail-closed</i> yang menyala hanya untuk {@link #ADMINISTRATOR}, memakai
+	 * pola {@code Boolean.valueOf(isRole(ADMINISTRATOR))} yang tidak peka huruf besar-kecil
+	 * &mdash; sama dengan {@link #getDasborRepository()}, {@link #getTampilkanSpmi()}, dan
+	 * {@link #getTampilkanGaji()}.</p>
+	 *
+	 * <p>Perhatikan <b>salah eja historis</b> pada nama method: {@code Dasboard}, bukan
+	 * {@code Dashboard}. Nama itu sudah terlanjur dipakai pemanggil dan pemetaan komponen ZK,
+	 * sehingga jangan diperbaiki tanpa menyisir seluruhnya. Nama kolomnya sendiri
+	 * ({@code antar_jemput}) tidak terpengaruh.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal. Dipakai sebagai gerbang render
+	 * halaman di {@code modul/antarjemput/index.jsp} &mdash; gerbang per-halaman yang nyata,
+	 * namun tidak melindungi endpoint layanan di belakangnya.</p>
+	 *
+	 * @return {@code true} bila dasbor Antar Jemput boleh ditampilkan; tidak pernah
+	 *         {@code null}
+	 * @see #setDasboardAntarJemput(Boolean)
+	 */
 	@Column(name = "antar_jemput")
 	public Boolean getDasboardAntarJemput() {
 		return dasboardAntarJemput == null ? Boolean.valueOf(isRole(ADMINISTRATOR)) : dasboardAntarJemput;
 	}
 
+	/**
+	 * Menetapkan izin melihat dasbor Antar Jemput.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i>. Perhatikan salah eja historis {@code Dasboard} pada nama method
+	 * &mdash; lihat {@link #getDasboardAntarJemput()}.</p>
+	 *
+	 * @param dasboardAntarJemput izin melihat dasbor; {@code null} berarti kembali ke bawaan
+	 *                            fail-closed
+	 * @see #getDasboardAntarJemput()
+	 */
 	public void setDasboardAntarJemput(Boolean dasboardAntarJemput) {
 		this.dasboardAntarJemput = dasboardAntarJemput;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat modul <b>SPMI</b> (Sistem Penjaminan Mutu
+	 * Internal) &mdash; kolom {@code spmi}.
+	 *
+	 * <p>Bawaan <i>fail-closed</i> yang menyala hanya untuk {@link #ADMINISTRATOR}, memakai
+	 * pola {@link #isRole(String)} yang tidak peka huruf besar-kecil.</p>
+	 *
+	 * <p>Perhatikan bahwa SPMI adalah fungsi penjaminan mutu, yang secara kelembagaan
+	 * berbeda dari fungsi audit internal {@link #SPI}. Keduanya sengaja dipisah: {@link #SPI}
+	 * adalah <i>peran</i> tersendiri, sedangkan SPMI adalah <i>flag modul</i> yang dapat
+	 * dilekatkan pada peran mana pun.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal. Dipakai sebagai gerbang render
+	 * halaman di {@code modul/spmi/index.jsp} dan oleh {@code MenuHelper} &mdash; gerbang
+	 * per-halaman yang nyata, namun tidak melindungi endpoint layanan di belakangnya.</p>
+	 *
+	 * @return {@code true} bila modul SPMI boleh ditampilkan; tidak pernah {@code null}
+	 * @see #setTampilkanSpmi(Boolean)
+	 * @see #SPI
+	 */
 	@Column(name = "spmi")
 	public Boolean getTampilkanSpmi() {
 		return tampilkanSpmi == null ? Boolean.valueOf(isRole(ADMINISTRATOR)) : tampilkanSpmi;
 	}
 
+	/**
+	 * Menetapkan izin melihat modul SPMI.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i> untuk seluruh peran selain {@link #ADMINISTRATOR}.</p>
+	 *
+	 * @param tampilkanSpmi izin melihat modul SPMI; {@code null} berarti kembali ke bawaan
+	 *                      fail-closed
+	 * @see #getTampilkanSpmi()
+	 */
 	public void setTampilkanSpmi(Boolean tampilkanSpmi) {
 		this.tampilkanSpmi = tampilkanSpmi;
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat modul <b>Gaji</b> &mdash; kolom
+	 * {@code gaji}.
+	 *
+	 * <p>Bawaan <i>fail-closed</i> yang menyala hanya untuk {@link #ADMINISTRATOR}, memakai
+	 * pola {@link #isRole(String)} yang tidak peka huruf besar-kecil. Sikap fail-closed itu
+	 * tepat mengingat data penggajian termasuk informasi pribadi yang paling sensitif di
+	 * AIS.</p>
+	 *
+	 * <p><b>Perhatikan batas cakupannya.</b> Flag ini menentukan apakah <i>modul</i>-nya
+	 * terlihat, bukan <i>data siapa</i> yang terlihat di dalamnya. Pembatasan data
+	 * penggajian per pegawai dan per unit berasal dari {@link #getMelihatDataPegawaiLain()}
+	 * dan {@link #getMelihatDataSatkerLain()}, yang memang dibaca seluruh laporan penggajian.
+	 * Menyalakan flag ini tanpa membatasi kedua flag tersebut berarti membuka data gaji
+	 * seluruh institusi.</p>
+	 *
+	 * <p><b>Getter murni</b> berbentuk ternary tunggal. Dipakai sebagai gerbang render
+	 * halaman di {@code modul/gaji/index.jsp} &mdash; gerbang per-halaman yang nyata, namun
+	 * tidak melindungi endpoint layanan di belakangnya.</p>
+	 *
+	 * @return {@code true} bila modul Gaji boleh ditampilkan; tidak pernah {@code null}
+	 * @see #setTampilkanGaji(Boolean)
+	 * @see #getMelihatDataPegawaiLain()
+	 * @see #getMelihatDataSatkerLain()
+	 */
 	@Column(name = "gaji")
 	public Boolean getTampilkanGaji() {
 		return tampilkanGaji == null ? Boolean.valueOf(isRole(ADMINISTRATOR)) : tampilkanGaji;
 	}
 
+	/**
+	 * Menetapkan izin melihat modul Gaji.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i>. Ingat bahwa menyalakannya perlu disertai pembatasan
+	 * {@link #setMelihatDataPegawaiLain(Boolean)} dan
+	 * {@link #setMelihatDataSatkerLain(Boolean)} agar cakupan datanya ikut terbatas.</p>
+	 *
+	 * @param tampilkanGaji izin melihat modul Gaji; {@code null} berarti kembali ke bawaan
+	 *                      fail-closed
+	 * @see #getTampilkanGaji()
+	 */
 	public void setTampilkanGaji(Boolean tampilkanGaji) {
 		this.tampilkanGaji = tampilkanGaji;
 	}
 
+	/**
+	 * Memeriksa apakah pengenal peran ini sama dengan {@code role}, <b>tanpa memedulikan
+	 * huruf besar-kecil</b>.
+	 *
+	 * <p>Pembantu internal yang menggantikan pola berulang
+	 * {@code getRoleId() != null && getRoleId().equals(...)} yang tersebar di sepanjang kelas
+	 * ini. Aman terhadap {@code null} di kedua sisi: mengembalikan {@code false} bila
+	 * {@link #getRoleId()} atau argumennya {@code null}.</p>
+	 *
+	 * <h3>PENTING: tidak setara dengan pemeriksaan harfiah di getter lama</h3>
+	 * <p>Perbedaan yang halus namun berkonsekuensi: method ini memakai
+	 * {@code equalsIgnoreCase}, sedangkan pemeriksaan yang ditulis harfiah di getter-getter
+	 * lama memakai {@code equals} yang <b>peka huruf besar-kecil</b>. Akibatnya baris peran
+	 * yang tersimpan dengan huruf berbeda dari konstantanya &mdash; misalnya {@code "kantin"}
+	 * alih-alih {@code "Kantin"}, atau {@code "dosen"} alih-alih {@code "Dosen"} &mdash;
+	 * akan <b>diperlakukan berbeda</b> oleh kedua kelompok getter itu:</p>
+	 * <ul>
+	 *   <li>getter yang memakai method ini ({@link #getMelihatSemuaSop()},
+	 *   {@link #getAksesGerbangPesantren()}, dan kelompok
+	 *   {@code Boolean.valueOf(isRole(ADMINISTRATOR))}) <b>mengenalinya</b>;</li>
+	 *   <li>getter yang menulis perbandingannya harfiah ({@link #getMelihatDataPegawaiLain()},
+	 *   {@link #getKeuangan()}, dan sebagian besar lainnya) <b>tidak</b>.</li>
+	 * </ul>
+	 * <p>Method ini diperkenalkan belakangan dan merupakan bentuk yang lebih benar; getter
+	 * lama belum dimigrasikan. Bila menyunting getter lama, mengganti pemeriksaan harfiahnya
+	 * dengan method ini adalah perbaikan &mdash; namun perlu disadari bahwa itu
+	 * <b>mengubah perilaku</b> untuk baris peran yang huruf besar-kecilnya menyimpang, jadi
+	 * periksa data yang ada lebih dulu.</p>
+	 *
+	 * @param role pengenal peran pembanding; {@code null} menghasilkan {@code false}
+	 * @return {@code true} bila pengenal peran ini sama dengan {@code role} tanpa memedulikan
+	 *         huruf besar-kecil
+	 * @see #getRoleId()
+	 * @see #roleEndUser()
+	 */
 	private boolean isRole(String role) {
 		return getRoleId() != null && role != null && getRoleId().equalsIgnoreCase(role);
 	}
 
+	/**
+	 * Memeriksa apakah peran ini termasuk kelompok <b>"pengguna akhir"</b> &mdash;
+	 * {@link #DOSEN}, {@link #PEGAWAI}, {@link #GURU}, {@link #SISWA}, atau
+	 * {@link #MAHASISWA}.
+	 *
+	 * <p>Kelompok ini mewakili orang yang <i>memakai</i> sistem untuk urusannya sendiri,
+	 * sebagai lawan dari peran pengelola yang mengurus data orang lain. Karena itu ia dipakai
+	 * untuk menolak hak-hak berlingkup luas.</p>
+	 *
+	 * <p>Dibangun di atas {@link #isRole(String)}, sehingga perbandingannya <b>tidak peka
+	 * huruf besar-kecil</b> &mdash; lihat peringatan pada method tersebut mengenai
+	 * ketidaksetaraan dengan pemeriksaan harfiah di getter lama.</p>
+	 *
+	 * <h3>Hanya dipakai satu tempat</h3>
+	 * <p>Meski merangkum pola yang berulang, method ini <b>hanya dipanggil oleh
+	 * {@link #getMelihatSemuaSop()}</b>. Getter lain yang menolak kelompok yang sama
+	 * &mdash; {@link #getMelihatDataPegawaiLain()}, {@link #getMelihatDataSatkerLain()}, dan
+	 * {@link #getMelihatSemuaSurat()} &mdash; masih menuliskan kelima pemeriksaannya secara
+	 * harfiah dengan {@code equals}. Ketiganya adalah kandidat migrasi yang jelas, dengan
+	 * catatan perubahan perilaku pada baris peran yang huruf besar-kecilnya menyimpang.</p>
+	 *
+	 * <p><b>Jangan menganggapnya daftar tolak universal.</b> Beberapa getter sengaja hanya
+	 * menolak sebagian anggotanya: {@link #getKinerja()} menolak dua dari lima (dosen, guru,
+	 * dan pegawai justru subjek penilaian kinerja), sedangkan
+	 * {@link #getPresensiKehadiran()} bahkan <b>memaksa menyala</b> untuk tiga di antaranya.
+	 * Keanggotaan di sini tidak berarti "selalu ditolak".</p>
+	 *
+	 * @return {@code true} bila peran ini salah satu dari kelima peran pengguna akhir
+	 * @see #isRole(String)
+	 * @see #getMelihatSemuaSop()
+	 */
 	private boolean roleEndUser() {
 		return isRole(DOSEN) || isRole(PEGAWAI) || isRole(GURU) || isRole(SISWA) || isRole(MAHASISWA);
 	}
 
+	/**
+	 * Menentukan apakah peran ini boleh melihat <b>seluruh SOP</b>, bukan hanya SOP yang
+	 * berkaitan dengannya.
+	 *
+	 * <p>Gerbang pembatas data yang <b>benar-benar ditegakkan di sisi server</b>: entity
+	 * {@code AktorSop} memakainya untuk mempersempit SOP yang tampil ke aktor yang
+	 * bersangkutan. Setara peranannya dengan {@link #getMelihatSemuaSurat()} di modul
+	 * persuratan.</p>
+	 *
+	 * <p>Struktur keputusannya:</p>
+	 * <ol>
+	 *   <li>{@link #KANTIN} atau salah satu anggota {@link #roleEndUser()} &mdash;
+	 *   {@code false} mutlak, tanpa membaca kolom;</li>
+	 *   <li>bawaan <i>fail-closed</i> yang menyala hanya untuk {@link #ADMINISTRATOR}.</li>
+	 * </ol>
+	 *
+	 * <h3>Getter paling "modern" di kelas ini</h3>
+	 * <p>Ini satu-satunya getter yang memakai <b>kedua</b> pembantu internal
+	 * ({@link #isRole(String)} dan {@link #roleEndUser()}) alih-alih menuliskan
+	 * perbandingannya secara harfiah. Bentuknya jauh lebih ringkas daripada
+	 * {@link #getMelihatDataPegawaiLain()} dan {@link #getMelihatSemuaSurat()} yang secara
+	 * perilaku hampir sama, dan merupakan bentuk yang sebaiknya diikuti.</p>
+	 * <p>Konsekuensi yang perlu diketahui: karena kedua pembantu itu memakai
+	 * {@code equalsIgnoreCase}, penolakan di sini <b>lebih ketat</b> daripada di ketiga
+	 * getter sejenis yang memakai {@code equals}. Baris peran yang tersimpan sebagai
+	 * {@code "dosen"} huruf kecil akan tertolak di sini namun lolos di sana &mdash;
+	 * ketidakkonsistenan nyata antar-getter yang seharusnya setara.</p>
+	 *
+	 * <p><b>Getter murni</b> tanpa tulis-balik ke field.</p>
+	 *
+	 * @return {@code true} bila peran ini boleh melihat seluruh SOP; tidak pernah
+	 *         {@code null}
+	 * @see #setMelihatSemuaSop(Boolean)
+	 * @see #getMelihatSemuaSurat()
+	 * @see #roleEndUser()
+	 */
 	public Boolean getMelihatSemuaSop() {
 		if (isRole(KANTIN) || roleEndUser()) {
 			return false;
@@ -4068,6 +4608,18 @@ public class Tbmrole extends GeneralValueObject implements Comparable<GeneralVal
 		return melihatSemuaSop == null ? Boolean.valueOf(isRole(ADMINISTRATOR)) : melihatSemuaSop;
 	}
 
+	/**
+	 * Menetapkan hak melihat seluruh SOP.
+	 *
+	 * <p>Setter mentah tanpa penjagaan. Nilai yang disimpan <b>tidak berlaku</b> bagi
+	 * {@link #KANTIN} maupun kelima peran {@link #roleEndUser()} &mdash; lihat
+	 * {@link #getMelihatSemuaSop()}. Menyimpan {@code null} aman karena bawaannya
+	 * <i>fail-closed</i> untuk seluruh peran selain {@link #ADMINISTRATOR}.</p>
+	 *
+	 * @param melihatSemuaSop hak melihat semua SOP; {@code null} berarti kembali ke bawaan
+	 *                        fail-closed
+	 * @see #getMelihatSemuaSop()
+	 */
 	public void setMelihatSemuaSop(Boolean melihatSemuaSop) {
 		this.melihatSemuaSop = melihatSemuaSop;
 	}

@@ -957,7 +957,7 @@ public class AbsensiHelper {
 						ExecutionsCtrl.getCurrent().sendRedirect(url, "_blank");
 					} else {
 						Clients.evalJavaScript(
-								"popupCenter({url: '" + url + "', title: 'Video Conference', w: 1200, h: 600});");
+								"popupCenter({url: '" + Common.jsEscape(url) + "', title: 'Video Conference', w: 1200, h: 600});");
 
 					}
 				}
@@ -3506,7 +3506,7 @@ public class AbsensiHelper {
 
 							@Override
 							public void onEvent(Event arg0) throws Exception {
-								Clients.evalJavaScript("popupCenter({url: '" + ((A) arg0.getTarget()).getLabel()
+								Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(((A) arg0.getTarget()).getLabel())
 										+ "', title: 'Data', w: 1200, h: 600});");
 							}
 						});
@@ -3518,7 +3518,7 @@ public class AbsensiHelper {
 
 							@Override
 							public void onEvent(Event arg0) throws Exception {
-								Clients.evalJavaScript("popupCenter({url: '" + ((A) arg0.getTarget()).getLabel()
+								Clients.evalJavaScript("popupCenter({url: '" + Common.jsEscape(((A) arg0.getTarget()).getLabel())
 										+ "', title: 'Data', w: 1200, h: 600});");
 							}
 						});

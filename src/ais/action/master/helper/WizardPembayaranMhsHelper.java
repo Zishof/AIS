@@ -1390,7 +1390,7 @@ public class WizardPembayaranMhsHelper {
                     PerguruanTinggiUtil.getPerguruanTinggi(), bankHost, param, null);
 
             if (va != null && va.getLink() != null && !va.getLink().trim().isEmpty()) {
-                String link = va.getLink().replace("'", "%27");
+                String link = Common.jsEscape(va.getLink());
                 Clients.evalJavaScript("window.open('" + link + "','_blank');");
                 langkah = 5;
                 render();
@@ -1931,7 +1931,7 @@ public class WizardPembayaranMhsHelper {
             }
 
             if (va != null && va.getLink() != null && !va.getLink().trim().isEmpty()) {
-                String link = va.getLink().replace("'", "%27");
+                String link = Common.jsEscape(va.getLink());
                 Clients.evalJavaScript("window.open('" + link + "','_blank');");
                 langkah = 5;
                 render();
@@ -2102,15 +2102,15 @@ public class WizardPembayaranMhsHelper {
             if (va != null && va.getLink() != null && !va.getLink().trim().isEmpty()) {
                 // Saluran bertautan: finpay/otto di-redirect tab baru (paritas DaftarUlang),
                 // lainnya dibuka sebagai popup.
-                String link = va.getLink().replace("'", "%27");
+                String link = va.getLink();
                 if ("bank_finpay".equals(g.id) || "otto".equals(g.id)) {
                     try {
                         ExecutionsCtrl.getCurrent().sendRedirect(link, "_blank");
                     } catch (Exception ex) {
-                        Clients.evalJavaScript("window.open('" + link + "','_blank');");
+                        Clients.evalJavaScript("window.open('" + Common.jsEscape(link) + "','_blank');");
                     }
                 } else {
-                    Clients.evalJavaScript("window.open('" + link + "','_blank');");
+                    Clients.evalJavaScript("window.open('" + Common.jsEscape(link) + "','_blank');");
                 }
                 langkah = 5;
                 render();
