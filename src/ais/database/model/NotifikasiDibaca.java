@@ -55,14 +55,30 @@ public class NotifikasiDibaca extends GeneralValueObject {
 	private String userId;
 	private Date waktu = WaktuUtil.getDate();
 
+	/**
+	 * Konstruktor kosong (dipakai Hibernate untuk instansiasi via reflection).
+	 */
 	public NotifikasiDibaca() {
 	}
 
+	/**
+	 * Membuat baris status-baca baru untuk pasangan (notifikasi, pengguna).
+	 * Pemanggil WAJIB mengisi {@code userId} dengan id pengguna yang sedang login
+	 * di sesi aktif (bukan dari input klien yang tak diverifikasi) — lihat
+	 * {@code ais.common.NotifikasiCache#tandaiSudahDibaca(Long, String)} yang selalu
+	 * dipanggil dengan userId milik sesi sendiri.
+	 *
+	 * @param notifikasiId id {@link Notifikasi} yang dibaca
+	 * @param userId       id pengguna (penerima) yang membacanya
+	 */
 	public NotifikasiDibaca(Long notifikasiId, String userId) {
 		this.notifikasiId = notifikasiId;
 		this.userId = userId;
 	}
 
+	/**
+	 * @return id unik baris status-baca ini (surrogate key, auto-increment).
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -70,38 +86,69 @@ public class NotifikasiDibaca extends GeneralValueObject {
 		return id;
 	}
 
+	/**
+	 * @param id id unik baris (biasanya diisi Hibernate saat load, jarang di-set manual).
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * @return id {@link Notifikasi} yang statusnya dicatat oleh baris ini. Disimpan
+	 *         sebagai id polos (bukan relasi {@code @ManyToOne}) demi efisiensi.
+	 */
 	@Column(name = "notifikasi_id")
 	public Long getNotifikasiId() {
 		return notifikasiId;
 	}
 
+	/**
+	 * @param notifikasiId id {@link Notifikasi} terkait.
+	 */
 	public void setNotifikasiId(Long notifikasiId) {
 		this.notifikasiId = notifikasiId;
 	}
 
+	/**
+	 * @return id pengguna (penerima) yang telah membaca notifikasi ini. Inilah
+	 *         kunci filter kepemilikan: satu baris hanya berlaku untuk SATU
+	 *         pengguna, sehingga status baca tidak bocor ke penerima lain.
+	 */
 	@Column(name = "user_id", columnDefinition = "text")
 	public String getUserId() {
 		return userId;
 	}
 
+	/**
+	 * @param userId id pengguna (penerima) pemilik status baca ini.
+	 */
 	public void setUserId(String userId) {
 		this.userId = userId;
 	}
 
+	/**
+	 * @return waktu notifikasi ini ditandai sudah dibaca; tidak pernah null —
+	 *         bila field belum terisi (mis. objek baru sebelum di-persist),
+	 *         mengembalikan waktu saat ini sebagai fallback.
+	 */
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name = "waktu")
 	public Date getWaktu() {
 		return waktu == null ? WaktuUtil.getDate() : waktu;
 	}
 
+	/**
+	 * @param waktu waktu baca yang akan disimpan.
+	 */
 	public void setWaktu(Date waktu) {
 		this.waktu = waktu;
 	}
 
+	/**
+	 * Tidak melakukan apa pun: kolom {@code waktu} hanya diisi sekali saat
+	 * penyisipan (lihat inisialisasi field {@link #waktu}), baris status-baca
+	 * ini tidak pernah di-update setelah dibuat.
+	 */
 	@Override
 	protected void onUpdate() {
 		// Tidak ada aksi khusus; kolom waktu diisi sekali saat penyisipan.
