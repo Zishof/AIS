@@ -1373,6 +1373,32 @@ public abstract class Tugas extends GeneralValueObject {
 	    return treemapBaru;
 	}
 
+	/**
+	 * Memotong satu jendela dari peta pengumpulan yang sudah dimuat menjadi sebuah daftar berurut.
+	 *
+	 * <p>Pembantu paging murni di memori: memindai peta menurut urutan kuncinya dan mengumpulkan
+	 * elemen pada posisi {@code [mulai, mulai + banyak)}. Tidak menyentuh basis data, tidak menyentuh
+	 * berkas indeks, dan tidak mengubah objek apa pun — berbeda dengan sebagian besar method lain
+	 * pada kelas ini.</p>
+	 *
+	 * <p>Meskipun namanya sama dengan {@link #ambilTugasFileContent(Mahasiswa)} dan
+	 * {@link #ambilTugasFileContent(Siswa)}, perannya sama sekali berbeda: kedua overload itu mencari
+	 * pengumpulan milik seseorang, sedangkan yang ini sekadar memotong daftar yang sudah ada.</p>
+	 *
+	 * <p>Seluruh peta tetap dipindai sampai habis walaupun jendela yang diminta sudah terpenuhi;
+	 * tidak ada penghentian dini. Urutan hasil mengikuti urutan kunci peta yang diberikan — bila
+	 * peta itu berasal dari
+	 * {@link #ambilTugasFileContentTotal(TreeMap, String, Paging, int, boolean)}, kuncinya adalah id
+	 * peserta didik, sehingga urutannya adalah urutan id peserta, bukan urutan waktu pengumpulan.</p>
+	 *
+	 * <p>Peta {@code null} tidak dijaga dan akan melempar {@code NullPointerException}.</p>
+	 *
+	 * @param tugasFileContentsa peta pengumpulan yang sudah dimuat; tidak boleh {@code null}
+	 * @param mulai indeks awal jendela, berbasis nol
+	 * @param banyak jumlah maksimum elemen yang diambil
+	 * @return daftar baru berisi elemen pada jendela yang diminta; kosong bila jendela di luar
+	 *         jangkauan
+	 */
 	public List<TugasFileContent> ambilTugasFileContent(TreeMap<Long, TugasFileContent> tugasFileContentsa, int mulai,
 			int banyak) {
 
@@ -1391,6 +1417,42 @@ public abstract class Tugas extends GeneralValueObject {
 		return tugasFileContents;
 	}
 
+	/**
+	 * Menurunkan tautan yang dapat dibuka untuk sebuah berkas pengumpulan, memilih jalur yang sesuai
+	 * dengan tempat berkas itu sebenarnya disimpan.
+	 *
+	 * <p>Pengumpulan dapat berada di tiga tempat berbeda dan masing-masing memerlukan bentuk tautan
+	 * yang berbeda pula. Urutan pemeriksaannya:</p>
+	 * <ol>
+	 *   <li><b>Google Drive</b> — bila kolom {@code gdrive} terisi, tautan diambil dari
+	 *       {@code exportGDriveUrl()} dan pemeriksaan berikutnya dilewati sama sekali.</li>
+	 *   <li><b>Dropbox</b> — bila tautan yang tersimpan memuat kata {@code "dropbox"} (tidak peka
+	 *       huruf besar-kecil), dikembalikan bentuk mentahnya lewat {@code dropboxLinkRaw()} agar
+	 *       berkas terunduh alih-alih membuka halaman pratinjau Dropbox.</li>
+	 *   <li><b>Penyimpanan sendiri</b> — bila tautan kosong atau tidak diawali {@code "http"},
+	 *       dibuatkan lewat {@code createLinkUri(false)}.</li>
+	 * </ol>
+	 *
+	 * <p>Pengenalan Dropbox dilakukan dengan mencari potongan kata di mana pun pada tautan, bukan
+	 * dengan memeriksa nama host. Tautan ke domain lain yang kebetulan memuat kata itu — misalnya
+	 * pada bagian query — akan salah dikenali dan diteruskan ke penangan Dropbox.</p>
+	 *
+	 * <p>Kegagalan pembuatan tautan pada langkah ketiga ditelan dan dicatat ke audit; yang
+	 * dikembalikan adalah tautan sebelum percobaan itu, yang bisa jadi kosong. Nilai balik dijamin
+	 * bukan {@code null} — paling buruk string kosong — sehingga penyaji dapat menuliskannya tanpa
+	 * penjagaan tambahan, tetapi <b>harus tetap memeriksa apakah kosong</b> sebelum membuat tautan
+	 * yang dapat diklik.</p>
+	 *
+	 * <p><b>Tidak ada pemeriksaan hak akses.</b> Method ini menyusun tautan untuk berkas mana pun yang
+	 * diberikan kepadanya, termasuk pengumpulan peserta lain. Karena tautan yang dihasilkan dapat
+	 * berupa URL Google Drive atau Dropbox yang berlaku bagi siapa saja yang memilikinya, penyaji
+	 * bertanggung jawab memastikan pengguna memang berhak melihat berkas itu sebelum tautannya
+	 * ditampilkan.</p>
+	 *
+	 * @param tugasFileContent baris pengumpulan yang tautannya diminta; {@code null} menghasilkan
+	 *        string kosong
+	 * @return tautan yang dapat dibuka, atau string kosong; tidak pernah {@code null}
+	 */
 	public String ambilLink(TugasFileContent tugasFileContent) {
 
 		if (tugasFileContent != null && tugasFileContent.getGdrive() != null) {
@@ -1416,6 +1478,59 @@ public abstract class Tugas extends GeneralValueObject {
 		return link == null ? "" : link.trim();
 	}
 
+	/**
+	 * Membangun panel penyunting prasyarat akses — tiga daftar berisi tugas, ujian, dan materi yang
+	 * dapat dicentang sebagai prasyarat — lalu menempelkannya ke baris tabel ZK yang diberikan.
+	 *
+	 * <h3>Satu method, lima jenis objek pembelajaran</h3>
+	 * <p>Enam parameter pertama membentuk pilihan bergaya "salah satu saja": {@code pertemuan}
+	 * menentukan konteks pembelajaran, sedangkan tepat satu di antara {@code tugas}, {@code ujian},
+	 * {@code pertemuanFileContent}, {@code audioPertemuan}, dan {@code videoPertemuan} harus terisi
+	 * untuk menyatakan objek mana yang sedang disunting prasyaratnya. Tidak ada pemeriksaan yang
+	 * menegakkan aturan itu: bila dua terisi sekaligus, yang menang adalah yang lebih dulu pada
+	 * rantai {@code if}-{@code else} (tugas, lalu ujian, materi, audio, video) dan sisanya diabaikan
+	 * diam-diam. Bila semuanya {@code null}, panel tetap dibangun tetapi tidak ada daftar yang
+	 * terisi.</p>
+	 * <p>Bila {@code pertemuan} bernilai {@code null} atau pembelajarannya tidak dapat diturunkan,
+	 * method langsung selesai tanpa membangun apa pun dan tanpa memberi tahu pemanggil.</p>
+	 *
+	 * <h3>Penyimpanan langsung saat dicentang</h3>
+	 * <p>Setiap centang memicu listener yang bekerja tanpa tombol simpan: objek yang sedang disunting
+	 * disegarkan dari basis data, dokumen JSON {@code syaratAkses}-nya diurai, entri berkunci
+	 * {@code "<id>_<NamaKelasSingkat>"} ditambahkan atau dihapus, lalu dokumen ditulis balik dan
+	 * disimpan seketika. Tidak ada pembatalan; mencentang berarti langsung mengubah data.</p>
+	 * <p>Pengelolaan session berbeda antar cabang dan perbedaan itu disengaja: cabang {@code tugas}
+	 * dan {@code ujian} memakai {@code HibernateUtil.currentSession()} lalu {@code flush()} tanpa
+	 * mengurus transaksi sendiri — mereka menumpang transaksi yang sudah berjalan pada permintaan ZK.
+	 * Cabang materi, audio, dan video memakai session streaming, membuka dan menutup transaksinya
+	 * sendiri, lalu menutup session. Menyalin pola dari cabang yang salah akan menghasilkan
+	 * transaksi yang menggantung atau session yang tertutup di bawah kaki pemanggil.</p>
+	 *
+	 * <h3>Tanpa otorisasi</h3>
+	 * <p>Listener menyimpan perubahan tanpa memeriksa apakah pengguna berhak menyunting objek
+	 * pembelajaran tersebut. Yang membatasi hanyalah apakah panel ini pernah dibangun untuk pengguna
+	 * itu. Untuk tampilan yang memang tidak boleh disunting, gunakan
+	 * {@link #tampilanSyaratReadonly} yang sama sekali tidak memasang listener, jangan menonaktifkan
+	 * komponen di sisi tampilan saja.</p>
+	 *
+	 * <p>Perbedaan dengan {@link #tampilanLain}: method ini menyusun panel <i>prasyarat</i> — dengan
+	 * penanda peringatan lewat {@code syaratAlert} — sedangkan {@link #tampilanLain} menyusun daftar
+	 * penjelajahan materi lain tanpa penanda itu. Keduanya berbagi hampir seluruh badan kode.</p>
+	 *
+	 * @param pertemuan pertemuan yang menjadi konteks pembelajaran; {@code null} membuat method
+	 *        selesai tanpa melakukan apa pun
+	 * @param tugas tugas yang prasyaratnya disunting, atau {@code null}
+	 * @param ujian ujian yang prasyaratnya disunting, atau {@code null}
+	 * @param pertemuanFileContent materi yang prasyaratnya disunting, atau {@code null}
+	 * @param audioPertemuan audio yang prasyaratnya disunting, atau {@code null}
+	 * @param videoPertemuan video yang prasyaratnya disunting, atau {@code null}
+	 * @param rows wadah baris ZK tempat panel ditempelkan
+	 * @param syaratAlert himpunan penampung pesan peringatan "belum memenuhi prasyarat"; diisi oleh
+	 *        penyaji daftar
+	 * @param buttonRefreshSyarat tombol yang dipakai untuk menyegarkan tampilan prasyarat
+	 * @see #tampilanLain
+	 * @see #tampilanSyaratReadonly
+	 */
 	@SuppressWarnings("deprecation")
 	public static void tampilanSyarat(Pertemuan pertemuan, final Tugas tugas, final Ujian ujian,
 			final PertemuanFileContent pertemuanFileContent, final AudioPertemuan audioPertemuan,
@@ -1687,6 +1802,40 @@ public abstract class Tugas extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membangun panel penjelajahan objek pembelajaran lain — tugas, ujian, dan materi pada pertemuan
+	 * yang sama — lalu menempelkannya ke baris tabel ZK yang diberikan.
+	 *
+	 * <p>Kembaran dekat {@link #tampilanSyarat} dengan dua perbedaan yang menentukan:</p>
+	 * <ul>
+	 *   <li>Judul tiap kelompok berbunyi "Tugas lain-nya", "Daftar ujian", dan seterusnya — bingkai
+	 *       penjelajahan, bukan bingkai prasyarat.</li>
+	 *   <li>Pemanggilan ke penyaji daftar dilakukan dengan penanda kedua bernilai {@code false} dan
+	 *       himpunan peringatan {@code null}, sehingga tidak ada pesan "belum memenuhi prasyarat"
+	 *       yang dimunculkan.</li>
+	 * </ul>
+	 *
+	 * <p><b>Meskipun bingkainya penjelajahan, listener yang dipasang tetap menulis ke
+	 * {@code syaratAkses}.</b> Mencentang sebuah baris di panel ini mengubah prasyarat objek yang
+	 * sedang dibuka, persis seperti pada {@link #tampilanSyarat}, dan langsung disimpan tanpa tombol
+	 * simpan. Perbedaan judul membuat akibatnya tidak terduga bagi pengguna; siapa pun yang mengubah
+	 * salah satu dari kedua method ini harus mengubah keduanya agar tidak berbeda perilaku.</p>
+	 *
+	 * <p>Aturan "salah satu saja" pada enam parameter pertama, urutan kemenangan rantai
+	 * {@code if}-{@code else}, perbedaan pengelolaan session antar cabang, dan tiadanya pemeriksaan
+	 * otorisasi seluruhnya sama dengan {@link #tampilanSyarat} — lihat uraian di sana.</p>
+	 *
+	 * @param pertemuan pertemuan yang menjadi konteks pembelajaran; {@code null} membuat method
+	 *        selesai tanpa melakukan apa pun
+	 * @param tugas tugas yang sedang dibuka, atau {@code null}
+	 * @param ujian ujian yang sedang dibuka, atau {@code null}
+	 * @param pertemuanFileContent materi yang sedang dibuka, atau {@code null}
+	 * @param audioPertemuan audio yang sedang dibuka, atau {@code null}
+	 * @param videoPertemuan video yang sedang dibuka, atau {@code null}
+	 * @param rows wadah baris ZK tempat panel ditempelkan
+	 * @param buttonRefreshSyarat tombol yang dipakai untuk menyegarkan tampilan
+	 * @see #tampilanSyarat
+	 */
 	@SuppressWarnings("deprecation")
 	public static void tampilanLain(Pertemuan pertemuan, final Tugas tugas, final Ujian ujian,
 			final PertemuanFileContent pertemuanFileContent, final AudioPertemuan audioPertemuan,
@@ -1942,6 +2091,40 @@ public abstract class Tugas extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Membangun panel prasyarat akses dalam mode baca-saja, untuk ditampilkan kepada pihak yang boleh
+	 * melihat prasyarat tetapi tidak boleh mengubahnya.
+	 *
+	 * <p>Varian baca-saja dari {@link #tampilanSyarat}. Perbedaannya terletak pada dua argumen yang
+	 * diteruskan ke penyaji daftar: penanda "dapat dipilih" bernilai {@code false} dan listener
+	 * centang bernilai {@code null}. Karena listener sama sekali tidak dipasang — bukan sekadar
+	 * dinonaktifkan tampilannya — tidak ada jalur penulisan ke {@code syaratAkses} dari panel ini.
+	 * Ini bentuk penjagaan yang benar: tidak ada kode penyimpanan yang bisa dipicu ulang lewat
+	 * peristiwa ZK buatan dari sisi klien.</p>
+	 *
+	 * <p>Himpunan {@code syaratAlert} tetap diteruskan, sehingga pesan "belum memenuhi prasyarat"
+	 * tetap dimunculkan seperti pada {@link #tampilanSyarat} — mode baca-saja hanya mencabut
+	 * kemampuan menyunting, bukan penandaan prasyarat.</p>
+	 *
+	 * <p>Beda kecil lain yang mudah terlewat: batas jumlah baris yang ditampilkan per kelompok di
+	 * sini 100, sedangkan pada {@link #tampilanSyarat} dan {@link #tampilanLain} bernilai 25. Panel
+	 * baca-saja karenanya menampilkan lebih banyak baris sekaligus.</p>
+	 *
+	 * <p>Aturan "salah satu saja" pada enam parameter pertama dan urutan kemenangan rantai
+	 * {@code if}-{@code else} sama dengan {@link #tampilanSyarat}.</p>
+	 *
+	 * @param pertemuan pertemuan yang menjadi konteks pembelajaran; {@code null} membuat method
+	 *        selesai tanpa melakukan apa pun
+	 * @param tugas tugas yang prasyaratnya ditampilkan, atau {@code null}
+	 * @param ujian ujian yang prasyaratnya ditampilkan, atau {@code null}
+	 * @param pertemuanFileContent materi yang prasyaratnya ditampilkan, atau {@code null}
+	 * @param audioPertemuan audio yang prasyaratnya ditampilkan, atau {@code null}
+	 * @param videoPertemuan video yang prasyaratnya ditampilkan, atau {@code null}
+	 * @param rows wadah baris ZK tempat panel ditempelkan
+	 * @param syaratAlert himpunan penampung pesan peringatan "belum memenuhi prasyarat"
+	 * @param buttonRefreshSyarat tombol yang dipakai untuk menyegarkan tampilan prasyarat
+	 * @see #tampilanSyarat
+	 */
 	@SuppressWarnings("deprecation")
 	public static void tampilanSyaratReadonly(Pertemuan pertemuan, final Tugas tugas, final Ujian ujian,
 			final PertemuanFileContent pertemuanFileContent, final AudioPertemuan audioPertemuan,
@@ -2084,6 +2267,54 @@ public abstract class Tugas extends GeneralValueObject {
 		}
 	}
 
+	/**
+	 * Memeriksa apakah seseorang tercatat pernah mengakses sebuah objek pembelajaran, dipakai sebagai
+	 * gerbang prasyarat "harus membuka materi ini dulu".
+	 *
+	 * <p>Membaca jejak aktivitas milik {@code pertemuan} untuk jenis {@code akses} yang diminta —
+	 * berbentuk {@code "bahan_perkulaiahan_<id>"}, {@code "audio_<id>"}, atau {@code "video_<id>"} —
+	 * lalu memeriksa apakah ada entri yang cocok dengan {@code id}. Jejak itu ditulis oleh
+	 * {@code masukkanData(...)} setiap kali seseorang membuka materi yang bersangkutan.</p>
+	 *
+	 * <h3>Kunci jejak membawa jenis orang, tetapi pemeriksaan ini membuangnya</h3>
+	 * <p>Kunci jejak aktivitas berbentuk tiga bagian dipisahkan tanda hubung:
+	 * {@code "<nama>-<id>-<JenisOrang>"}, dengan bagian ketiga bernilai {@code Mahasiswa},
+	 * {@code Siswa}, {@code CalonSiswa}, {@code CalonMahasiswa}, {@code Dosen}, {@code Guru}, atau
+	 * {@code Pegawai}. Method ini memecah kunci itu lalu <b>hanya membandingkan bagian kedua</b> —
+	 * angka id — dan mengabaikan bagian ketiga sepenuhnya.</p>
+	 * <p>Karena setiap jenis orang berada di tabel berbeda dengan urutan id yang berdiri sendiri,
+	 * angka id yang sama menunjuk orang yang berbeda pada tabel yang berbeda. Akibatnya:</p>
+	 * <ul>
+	 *   <li>Seorang mahasiswa ber-id 30 dianggap sudah mengakses materi hanya karena seorang siswa,
+	 *       dosen, atau pegawai ber-id 30 pernah membukanya.</li>
+	 *   <li>Dosen pengampu yang meninjau materinya sendiri mencatatkan jejak ber-id rendah, sehingga
+	 *       peserta didik ber-id rendah otomatis lolos gerbang prasyarat.</li>
+	 *   <li>Pengguna yang tidak tertaut ke data orang mana pun dicatat dengan id harfiah
+	 *       {@code "1"} oleh {@code masukkanData(...)}, sehingga peserta ber-id 1 lolos begitu ada
+	 *       satu pengguna semacam itu yang membuka materi.</li>
+	 * </ul>
+	 * <p>Yang dilonggarkan di sini adalah gerbang urutan belajar — "buka materi dulu sebelum
+	 * mengumpulkan tugas" — bukan gerbang kerahasiaan data: method ini tidak membuka akses ke berkas
+	 * atau nilai siapa pun. Meski begitu, gerbangnya tidak dapat diandalkan. Perbaikannya sederhana
+	 * dan tidak memerlukan perubahan skema: bandingkan juga bagian ketiga kunci dengan jenis orang
+	 * pemanggil, sebagaimana {@link #getKeteranganNilai()} sudah melakukannya lewat akhiran
+	 * {@code _mhs}/{@code _siswa}/{@code _cal_mhs}/{@code _cal_siswa}.</p>
+	 *
+	 * <h3>Kegagalan berarti "tidak cocok", bukan "gagal"</h3>
+	 * <p>Kunci yang tidak memuat tanda hubung, atau yang bagian keduanya bukan angka, memicu
+	 * pengecualian yang ditelan dan perulangan berlanjut ke entri berikutnya. Method tidak pernah
+	 * melempar. Ini menjadikannya <i>gagal-tertutup</i> untuk entri yang rusak — aman untuk sebuah
+	 * gerbang — tetapi juga menyembunyikan kerusakan data jejak dari operator.</p>
+	 *
+	 * <p>{@code pertemuan} bernilai {@code null} tidak dijaga dan akan melempar
+	 * {@code NullPointerException}. {@code id} bernilai {@code null} membuat perbandingan selalu
+	 * gagal, sehingga hasilnya {@code false}.</p>
+	 *
+	 * @param pertemuan pertemuan pemilik jejak aktivitas; tidak boleh {@code null}
+	 * @param akses jenis jejak yang diperiksa, misalnya {@code "bahan_perkulaiahan_12"}
+	 * @param id id orang yang diperiksa — perhatikan bahwa jenis orangnya tidak ikut diperiksa
+	 * @return {@code true} bila ada entri jejak dengan angka id yang sama, jenis orang apa pun
+	 */
 	public static boolean apakahAkses(Pertemuan pertemuan, String akses, Long id) {
 		TreeMap<String, String> d = pertemuan.ambilData(akses, null);
 //		System.out.println("id " + id + " d -> " + d);
