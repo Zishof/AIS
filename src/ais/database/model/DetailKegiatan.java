@@ -1300,6 +1300,10 @@ public class DetailKegiatan extends GeneralValueObject {
 									/ 100.0))
 					: kegiatan.getMahasiswa().getKelompokMahasiswa().getJenisDiskonMahasiswa().getDiskon());
 
+			if (diskon > jumlahDiskon) {
+				diskon = jumlahDiskon;
+			}
+
 		} else {
 
 			if (kegiatan != null && kegiatan.getCalonMahasiswa() != null
@@ -1345,6 +1349,10 @@ public class DetailKegiatan extends GeneralValueObject {
 										/ 100.0))
 						: kegiatan.getCalonMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().getDiskon());
 
+				if (diskon > jumlahDiskon) {
+					diskon = jumlahDiskon;
+				}
+
 			}
 
 			else if (kegiatan != null && kegiatan.getMahasiswa() != null
@@ -1389,6 +1397,10 @@ public class DetailKegiatan extends GeneralValueObject {
 										/ 100.0))
 						: kegiatan.getMahasiswa().getJenisSeleksi().getJenisDiskonMahasiswa().getDiskon());
 
+				if (diskon > jumlahDiskon) {
+					diskon = jumlahDiskon;
+				}
+
 			}
 
 			else {
@@ -1418,24 +1430,42 @@ public class DetailKegiatan extends GeneralValueObject {
 
 				try {
 
+					// Setiap slot dihitung dari SISA nominal (bukan jumlahDiskon penuh) dan dibatasi
+					// tidak melebihi sisa itu, agar akumulasi tiga slot per-orang tidak pernah
+					// melampaui nominal baris ini. Lihat pola sama di Kegiatan.hitungDiskon.
 					if (diskonMahasiswaData != null && diskonCocok(diskonMahasiswaData)) {
-						diskon += (diskonMahasiswaData.getJenisDiskonMahasiswa().getBerupaPersen()
+						double deltaDiskon = diskonMahasiswaData.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon() / 100.0))
-								: diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon());
+								: diskonMahasiswaData.getJenisDiskonMahasiswa().getDiskon();
+						if (deltaDiskon > jumlahDiskon) {
+							deltaDiskon = jumlahDiskon;
+						}
+						diskon += deltaDiskon;
+						jumlahDiskon = jumlahDiskon - deltaDiskon;
 
 					}
 
 					if (diskonMahasiswaData2 != null && diskonCocok(diskonMahasiswaData2)) {
-						diskon += (diskonMahasiswaData2.getJenisDiskonMahasiswa().getBerupaPersen()
+						double deltaDiskon = diskonMahasiswaData2.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData2.getJenisDiskonMahasiswa().getDiskon() / 100.0))
-								: diskonMahasiswaData2.getJenisDiskonMahasiswa().getDiskon());
+								: diskonMahasiswaData2.getJenisDiskonMahasiswa().getDiskon();
+						if (deltaDiskon > jumlahDiskon) {
+							deltaDiskon = jumlahDiskon;
+						}
+						diskon += deltaDiskon;
+						jumlahDiskon = jumlahDiskon - deltaDiskon;
 
 					}
 
 					if (diskonMahasiswaData3 != null && diskonCocok(diskonMahasiswaData3)) {
-						diskon += (diskonMahasiswaData3.getJenisDiskonMahasiswa().getBerupaPersen()
+						double deltaDiskon = diskonMahasiswaData3.getJenisDiskonMahasiswa().getBerupaPersen()
 								? (jumlahDiskon * (diskonMahasiswaData3.getJenisDiskonMahasiswa().getDiskon() / 100.0))
-								: diskonMahasiswaData3.getJenisDiskonMahasiswa().getDiskon());
+								: diskonMahasiswaData3.getJenisDiskonMahasiswa().getDiskon();
+						if (deltaDiskon > jumlahDiskon) {
+							deltaDiskon = jumlahDiskon;
+						}
+						diskon += deltaDiskon;
+						jumlahDiskon = jumlahDiskon - deltaDiskon;
 
 					}
 
