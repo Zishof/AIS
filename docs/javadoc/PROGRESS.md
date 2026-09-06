@@ -1,5 +1,55 @@
 # Progres Javadoc Menyeluruh
 
+## Batch 124 — `kkn`+`pkl` (14 file, kembar), `antarjemput` (8 file), `radius`+`sirkulasisurat`+`temp`+`biometric` (18 file) TUNTAS 100%; 3 task baru (6 Sep 2026)
+
+**`kkn`+`pkl`** (14 file, dua modul kembar KKN/PKL, r85285-r85328).
+Empat pasangan terverifikasi IDENTIK sempurna. **Dua divergensi BARU**
+ditemukan (kasus PERTAMA bug kembar yang TIDAK identik di kedua sisi,
+sebelumnya semua bug kembar simetris): **`task_bde40c32`** —
+`KknPunyaPersyaratan.getNama()` fallback ke nama induk saat null,
+`PklPunyaPersyaratan.getNama()` TIDAK (kembalikan null polos).
+**`task_3fcf3528`** — `KelompokKkn` punya helper
+`amanJadikanJSONObject()` (pelindung data legacy rusak),
+`KelompokPkl` TIDAK punya pengaman setara di 5 method paralel.
+Dikonfirmasi ulang: bug SKS/IPK "Syarat Lain" (dari kombinasi
+`getNilaiDataInputan()` default `""` + `getStatus()` fail-open `true`)
+dan dead-code `reload...PunyaKomponenPenilaian...` (nol pemanggil,
+field yang disaring memang tak ada di entity) — keduanya SUDAH tercatat,
+diperkuat bukan diulang jadi task baru. `KelompokPkl` field tambahan
+`sekolah`/`kerjasamaAntarInstansi` dikonfirmasi perluasan disengaja
+(peserta didik sekolah), bukan penyimpangan salin-tempel.
+
+**`antarjemput`** (8 file, layanan antar-jemput siswa, r85289-r85314).
+**Temuan positif penting**: `KartuPenjemputAntarJemput` (verifikasi
+penjemput — domain keselamatan anak) TERNYATA KUAT — identifikasi
+QR/RFID/barcode dicocokkan DB (bukan pencatatan manual bebas),
+fail-closed pada kartu nonaktif/kedaluwarsa (selalu ditolak+tercatat),
+FK wajib ke peserta terdaftar aktif. Dua celah desain MINOR (bukan
+kerentanan baru, tidak di-task-kan): konfirmasi serah-terima final
+tidak scan ulang kartu; kartu tanpa foto pembanding. `LogNotifikasiAntarJemput`
+— belum ada portal orang tua yang membacanya (jalur eksploitasi belum
+ada, dicatat sebagai peringatan untuk pengembangan mendatang).
+
+**`radius`+`sirkulasisurat`+`temp`+`biometric`** (18 file, r85284-r85323,
+agent penutup). **`biometric.BiometricCredential` TERKONFIRMASI AMAN**
+(prioritas investigasi tertinggi) — template SELALU dienkripsi
+(`BiometricCrypto.encrypt` dengan AAD mengikat ciphertext ke
+subjek/modalitas/format), `templateHash` cuma kolom lookup terpisah
+bukan pengganti enkripsi, nol jalur plaintext. `radius` password WiFi
+plaintext DIKONFIRMASI BUKAN temuan baru (sudah tercatat mendalam di
+`RadiusProcessor.java` sesi sebelumnya). **Task baru `task_9ee1dbbd`**:
+race condition double-booking dokumen `sirkulasisurat`
+(`AmbilDataSuratMasukBanyak.onSearchDefault()`/
+`PeminjamanSuratItemDetailAction.loadBarcode()` nol cek peminjaman
+aktif + nol unique constraint) — INSTANCE KEEMPAT keluarga TOCTOU
+(asset lending [ditambal], hotel check-in `task_b718f355`, redemption
+poin apotik `task_a7d4741a`). Paket `temp` dikonfirmasi TOTAL DORMAN
+(nol referensi Action/Helper/API di seluruh codebase).
+
+**3 task baru batch ini**: `task_bde40c32`, `task_3fcf3528`,
+`task_9ee1dbbd`. Total akumulasi domain-batched: **1541+ file** (basis
+lama + 40 file batch ini).
+
 ## Batch 123 — 5 paket kecil TUNTAS 100%: `spi`/`lkp`/`spmi`/`obe`/`crm` (42 file, 5 agent paralel, 1 task baru, 6 Sep 2026)
 
 **`spi`** (9 file, Satuan Pengawasan Internal/audit internal, r85240-85281).
