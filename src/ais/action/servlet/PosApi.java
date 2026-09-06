@@ -246,17 +246,6 @@ public class PosApi extends HttpServlet {
 	 * lihat catatan pada {@code mutasi_stok_simpan}, yang kontraknya 3 keadaan
 	 * ("92" = butuh pilih manual) sehingga sengaja tidak lewat normalisasi standar.</p>
 	 *
-	 * <h3>CATATAN CACAT YANG DIKETAHUI -- {@code return} tanpa {@code tulisJson}</h3>
-	 * <p>Penolakan hak pada cabang {@code sesi_kas_buka} dan {@code pedagang_ubah}
-	 * memakai {@code return} polos di dalam blok {@code try}. Karena
-	 * {@link #tulisJson} baru dipanggil SETELAH {@code catch} di ujung method,
-	 * kedua penolakan itu mengirim {@code 200} dengan BODY KOSONG -- alasan
-	 * penolakannya ("tidak memiliki hak membuka sesi kas" / "mengubah akun pengguna")
-	 * tidak pernah sampai ke kasir, yang hanya melihat galat generik. Aksinya sendiri
-	 * TETAP TERBLOKIR (helper tidak pernah dipanggil), jadi ini cacat keterbacaan
-	 * pesan, BUKAN celah otorisasi. Seluruh {@code return} awal lain di method ini
-	 * memanggil {@code tulisJson} lebih dulu -- dua ini yang menyimpang.</p>
-	 *
 	 * <h3>Amplop galat</h3>
 	 * <p>{@code catch} terluar membungkus SELURUH badan method -- termasuk
 	 * {@link #bacaJsonBody} dan aksi {@code login} yang belum terautentikasi -- lalu
@@ -439,6 +428,7 @@ public class PosApi extends HttpServlet {
 				if (!bolehAksiCrudMenu(tbmuser, "kasir", "create")) {
 					hasil.put("status", "99");
 					hasil.put("description", "Grup pengguna Anda tidak memiliki hak membuka sesi kas.");
+					tulisJson(response, hasil);
 					return;
 				}
 				KantinHelper.sesiKasBuka(tbmuser, payload, hasil);
@@ -485,6 +475,7 @@ public class PosApi extends HttpServlet {
 				if (!bolehAksiCrudMenu(tbmuser, "konfigurasi", "update")) {
 					hasil.put("status", "99");
 					hasil.put("description", "Grup pengguna Anda tidak memiliki hak mengubah akun pengguna.");
+					tulisJson(response, hasil);
 					return;
 				}
 				KantinHelper.pedagangUbah(tbmuser, payload, hasil);

@@ -67,11 +67,10 @@ import ais.ui.util.WaktuUtil;
  * Waktu transaksi tidak dikirim penyedia ini, sehingga {@link #doProses} meneruskan
  * {@code tanggalP} bernilai {@code null} dan {@link #doProcess} jatuh ke waktu server saat ini.</p>
  *
- * <p><b>Satu penanda milik BMS masih tertinggal</b>: {@link #process} menetapkan label bank
- * {@code "BMS"}. Karena label itulah yang disimpan sebagai {@code validator} pada {@link Kegiatan}
- * dan {@link CicilanPembayaran}, pembayaran lewat kanal ini tercatat atas nama BMS. Bahwa URI dan
- * kunci konfigurasi sudah bernama Otto sementara label bank belum menunjukkan penyesuaian yang
- * belum tuntas. Dicatat apa adanya; perbaikannya di luar cakupan berkas ini.</p>
+ * <p>Label bank {@code "BMS"} yang sebelumnya ditetapkan {@link #process} sudah diganti menjadi
+ * {@code "Otto"}, sehingga nilai {@code validator} yang tersimpan pada {@link Kegiatan} dan
+ * {@link CicilanPembayaran} kini benar-benar merujuk gateway OTTO, selaras dengan URI dan kunci
+ * konfigurasi yang sudah lebih dulu bernama Otto.</p>
  *
  * <h4>Model autentikasi (tidak ada tanda tangan digital)</h4>
  * <p>Sama seperti {@link BMS}, {@link Nagari}, dan {@link BSI}, kanal ini <b>tidak memverifikasi
@@ -965,8 +964,14 @@ public class Otto extends HttpServlet {
 	}
 
 	/**
-	 * Mengurai payload permintaan penyedia menjadi parameter terpisah, memanggil
-	 * {@link #doProcess}, dan menentukan mode inquiry maupun reversal.
+	 * Mengurai payload permintaan penyedia menjadi parameter terpisah, menentukan mode inquiry
+	 * maupun reversal, lalu memanggil {@link #doProcess}.
+	 *
+	 * <p>Diawali <b>pemeriksaan bentuk payload</b>: badan yang kosong atau tidak diawali
+	 * <code>{</code> langsung ditolak dengan {@code errorCode=30} "Format request tidak valid",
+	 * sebelum {@code new JSONObject(data)} sempat melempar exception. Setiap pembacaan field
+	 * selanjutnya memakai pola {@code req == null || req.isNull(...)} sehingga aman terhadap
+	 * {@code null} — pola yang sama dengan {@link BMS#doProses}.</p>
 	 *
 	 * <p>Penanda transaksi diambil dari field {@code trxRef} dan nominal dari {@code amount},
 	 * masing-masing dengan cadangan berupa parameter query bernama sama. <b>Ketiadaan</b>
@@ -975,35 +980,38 @@ public class Otto extends HttpServlet {
 	 * berakhiran {@code "OttoReversal"}. Waktu transaksi tidak dikirim penyedia, sehingga
 	 * {@code tanggalP} sengaja diteruskan sebagai {@code null}.</p>
 	 *
+	 * <h4>Simulasi timeout dan alasan urutannya</h4>
+	 * <p>Simulasi timeout menuntut <b>dua</b> syarat sekaligus: JVM flag
+	 * {@code -Dais.otto.allowTimeoutSimulation=true} dan konfigurasi {@code otto_va_sleep}. Gerbang
+	 * ganda ini mencegah konfigurasi basis data yang tidak sengaja aktif di produksi menjalankan
+	 * simulasi dengan sendirinya.</p>
+	 * <p>Yang lebih penting, balasan {@code errorCode=68} dikembalikan <b>sebelum</b>
+	 * {@link #doProcess} dipanggil, meniru urutan aman {@link BMS#doProses}: implementasi lama
+	 * mencatat pembayaran lebih dulu baru mengirim kode 68; penyedia lalu me-refund transaksi
+	 * sementara eCampus telanjur mencatatnya lunas.</p>
+	 *
 	 * <p>Bila {@link #doProcess} melempar exception, balasan diganti {@link #errorDb} sehingga
 	 * penyedia menerima {@code errorCode=91} "Link Down" dan tidak menganggap tagihan lunas.</p>
-	 *
-	 * <p><b>Perbedaan dengan {@link BMS#doProses}.</b> Dua pengaman yang sudah ada di {@link BMS}
-	 * belum tersalin ke sini:</p>
-	 * <ul>
-	 *   <li>tidak ada pemeriksaan bentuk payload di awal ({@link BMS} menolak badan kosong atau
-	 *       yang tidak diawali <code>{</code> dengan {@code errorCode=30}), dan {@code req} yang
-	 *       bernilai {@code null} langsung dipakai memanggil {@code req.isNull(...)};</li>
-	 *   <li>simulasi timeout di bawah masih dijalankan <b>setelah</b> {@link #doProcess} selesai
-	 *       dan pembayaran tercatat, serta cukup diaktifkan lewat konfigurasi
-	 *       {@code otto_va_sleep} saja — sedangkan {@link BMS} kini mengembalikan balasan timeout
-	 *       <b>sebelum</b> pembayaran dicatat dan mensyaratkan JVM flag
-	 *       {@code ais.bms.allowTimeoutSimulation}.</li>
-	 * </ul>
-	 * <p>Kedua hal itu dicatat apa adanya; perbaikannya di luar cakupan berkas ini.</p>
 	 *
 	 * @param data     badan permintaan mentah
 	 * @param request  permintaan asli, sumber cadangan parameter dan penentu mode reversal
 	 * @param bankHost host hasil pencocokan IP; boleh {@code null}
 	 * @param bank     label bank yang akan tercatat sebagai {@code validator}
-	 * @param chek     mode pemeriksaan internal, diteruskan ke {@link #doProcess}
+	 * @param chek     mode pemeriksaan internal; nilai {@code true} juga mematikan simulasi
+	 *                 timeout
 	 * @return teks JSON balasan
 	 * @throws Exception bila payload bukan JSON yang sah, atau {@link Thread#sleep} pada simulasi
 	 *                   timeout terinterupsi
 	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
-		JSONObject req = data == null ? null : new JSONObject(data);
+		if (data == null || data.trim().length() == 0 || !data.trim().startsWith("{")) {
+			JSONObject response = new JSONObject();
+			response.put("errorCode", "30");
+			response.put("statusDescription", "Format request tidak valid");
+			return response.toString();
+		}
+		JSONObject req = new JSONObject(data);
 
 		String va = req == null || req.isNull("trxRef") ? (request == null ? "" : request.getParameter("trxRef"))
 				: req.getString("trxRef");
@@ -1022,20 +1030,37 @@ public class Otto extends HttpServlet {
 
 		String tanggalP = null;
 
+		/*
+		 * Simulasi timeout tidak boleh berjalan hanya karena konfigurasi database
+		 * tidak sengaja aktif di produksi. Selain harus diaktifkan lewat konfigurasi,
+		 * operator pengujian wajib memberi JVM flag berikut:
+		 * -Dais.otto.allowTimeoutSimulation=true
+		 *
+		 * Yang paling penting, timeout dikembalikan SEBELUM doProcess dipanggil.
+		 * Implementasi lama meng-commit pembayaran terlebih dahulu lalu mengirim kode
+		 * 68. Penyedia kemudian me-refund transaksi, tetapi eCampus telanjur mencatat lunas.
+		 */
+		boolean simulasiTimeout = !chek && Boolean.getBoolean("ais.otto.allowTimeoutSimulation")
+				&& Common.bolehKonfigurasi("otto_va_sleep", Konfigurasi.TIDAK_AKTIF);
+		if (simulasiTimeout) {
+			Thread.sleep(3 * 1000);
+			String bodyTimeout = timeoutDb(req == null || req.isNull("amount"), data);
+			ais.action.ws.util.PembayaranGatewayHelper.catatLogHostToHost(request, bankHost, data, va, va, "",
+					"Connection Timeout (simulasi aman sebelum pencatatan pembayaran)", nominalP, "[]", null,
+					data, bodyTimeout, "68", null);
+			System.out.println("response->" + bodyTimeout);
+			return bodyTimeout;
+		}
+
 		String body;
 		try {
 			// 05, request tidak diizinkan
-			body = Otto.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, true, req.isNull("amount"),
-					reversal, chek).toString();
+			body = Otto.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, true,
+					req == null || req.isNull("amount"), reversal, chek).toString();
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Otto.java:822");
-			body = errorDb(req.isNull("amount"), data);
+			body = errorDb(req == null || req.isNull("amount"), data);
 
-		}
-
-		if (Common.bolehKonfigurasi("otto_va_sleep", Konfigurasi.TIDAK_AKTIF)) {
-			Thread.sleep(3 * 1000);
-			body = timeoutDb(req.isNull("amount"), data);
 		}
 
 		System.out.println("response->" + body);
@@ -1055,10 +1080,9 @@ public class Otto extends HttpServlet {
 	 * dipalsukan klien. Hasilnya hanya dilekatkan pada log dan pencarian VA; ia <b>tidak</b>
 	 * dipakai untuk menolak permintaan.</p>
 	 *
-	 * <p>Label bank yang ditetapkan di sini adalah {@code "BMS"} — penanda warisan salinan
-	 * {@link BMS} yang belum diganti menjadi Otto, padahal nilainya tersimpan sebagai
-	 * {@code validator} pada Kegiatan dan CicilanPembayaran (lihat javadoc
-	 * {@link Otto kelas ini}).</p>
+	 * <p>Label bank yang ditetapkan di sini adalah {@code "Otto"}, tersimpan sebagai
+	 * {@code validator} pada {@link Kegiatan} dan {@link CicilanPembayaran} sehingga rekonsiliasi
+	 * terhadap catatan gateway OTTO tidak lagi salah atribusi ke {@link BMS}.</p>
 	 *
 	 * <p>Berbeda dari {@link BMS#process} dan {@link Nagari#process}, tidak ada penanganan
 	 * exception tambahan di sini: kegagalan {@link #doProses} merambat ke {@link #doPost} yang
@@ -1085,7 +1109,7 @@ public class Otto extends HttpServlet {
 		System.out.println("==> VA data => " + data);
 		System.out.println("==> VA querystring => " + querystring);
 
-		String bank = "BMS";
+		String bank = "Otto";
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), bank);
 
 		String body = doProses(data, request, bankHost, bank, false);
@@ -1105,10 +1129,9 @@ public class Otto extends HttpServlet {
 	 * <p>Balasan dibangun dari payload permintaan itu sendiri, sehingga seluruh field yang dikirim
 	 * penyedia tetap ada dan hanya status yang diganti.</p>
 	 *
-	 * <p><b>Peringatan.</b> Pada berkas ini pemanggilnya di {@link #doProses} berjalan
-	 * <b>setelah</b> {@link #doProcess} selesai mencatat pembayaran, sehingga balasan timeout ini
-	 * dapat terkirim untuk transaksi yang sebenarnya sudah tersimpan lunas. {@link BMS} sudah
-	 * mengubah urutan ini; lihat javadoc {@link #doProses}.</p>
+	 * <p>Pada berkas ini pemanggilnya di {@link #doProses} berjalan <b>sebelum</b>
+	 * {@link #doProcess}, sehingga balasan timeout ini tidak pernah mewakili transaksi yang sudah
+	 * telanjur tercatat lunas — lihat pembahasan urutan pada javadoc {@link #doProses}.</p>
 	 *
 	 * @param inquery penanda mode inquiry; saat ini tidak memengaruhi hasil
 	 * @param data    badan permintaan mentah yang dipakai sebagai kerangka balasan

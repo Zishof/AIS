@@ -79,8 +79,8 @@ import ais.database.model.VirtualAccountBank;
  * gateway {@code OcbcNisp} dan {@link Briva}, kelas ini <b>benar-benar memverifikasi tanda tangan
  * pada cabang transaksi</b>, bukan hanya pada cabang penerbitan token. Urutannya:</p>
  * <ol>
- *   <li><b>Format {@code X-TIMESTAMP}</b> — {@link #process} baris ~1278; gagal parse membalas
- *       {@code 4007301}. (Catatan: hanya <i>format</i>, bukan kesegaran/skew — lihat batasan.)</li>
+ *   <li><b>Format dan kesegaran {@code X-TIMESTAMP}</b> — {@link #process} baris ~1278; gagal parse
+ *       atau selisih lebih dari 5 menit dari jam server membalas {@code 4007301}.</li>
  *   <li><b>Cabang token</b>: {@code grantType} harus {@code client_credentials}, {@code X-CLIENT-KEY}
  *       harus sama dengan konfigurasi {@code strClientId_bca}, lalu {@link #sign(String, String)}
  *       memverifikasi tanda tangan <b>RSA SHA256withRSA</b> atas {@code clientId|timestamp}. Baru
@@ -100,18 +100,19 @@ import ais.database.model.VirtualAccountBank;
  *
  * <h3>Batasan yang tetap perlu diketahui</h3>
  * <ul>
- *   <li><b>Kesegaran timestamp tidak diperiksa.</b> {@code X-TIMESTAMP} hanya divalidasi formatnya;
- *       tidak ada jendela toleransi. Perlindungan ulang-kirim bertumpu pada {@link #unikId}
- *       (dedupe {@code X-EXTERNAL-ID}) yang hanya di memori dan hilang saat restart.</li>
- *   <li><b>Rahasia HMAC punya nilai bawaan di kode.</b> {@code strClientScret_bca} dibaca lewat
- *       {@code Common.getKonfigurasi} dengan literal bawaan; karena helper itu menuliskan nilai
- *       bawaan ke basis data saat kunci belum ada, instalasi yang tak pernah menggantinya memakai
- *       rahasia yang diketahui publik dari kode sumber.</li>
+ *   <li><b>Jendela kesegaran timestamp longgar (5 menit) dan penangkalan ulang-kirim di dalam
+ *       jendela itu bertumpu pada {@link #unikId}</b> (dedupe {@code X-EXTERNAL-ID}) yang hanya
+ *       di memori dan hilang saat restart — bukan pada ketunggalan {@code X-TIMESTAMP} itu
+ *       sendiri.</li>
+ *   <li><b>Rahasia HMAC tidak lagi punya nilai bawaan rahasia di kode.</b> {@code strClientScret_bca}
+ *       dibaca lewat {@code Common.getKonfigurasi} dengan cadangan string kosong; instalasi yang
+ *       belum pernah mengisi konfigurasi ini akan gagal-tertutup (tanda tangan HMAC selalu ditolak,
+ *       bukan dihitung dengan kunci kosong yang bisa ditebak) sampai admin mengisi nilai asli dari
+ *       BCA lewat menu Konfigurasi.</li>
  *   <li><b>Penyaringan IP bersifat pencatatan, bukan gerbang.</b> {@link BankHost} dicari dari
  *       {@code request.getRemoteAddr()} (bukan header {@code X-Forwarded-For}/{@code CF-Connecting-IP}
  *       yang bisa dipalsukan — ini pilihan yang benar), tetapi {@code bankHost == null} <b>tidak</b>
  *       menghentikan pemrosesan; ia hanya membuat jenis pembayaran jatuh ke {@code TUNAI}.</li>
- *   <li><b>Perbandingan tanda tangan tidak <i>constant-time</i></b> ({@code equalsIgnoreCase}).</li>
  * </ul>
  *
  * <h3>Kontrak balasan</h3>
@@ -1641,9 +1642,9 @@ public class BCA extends HttpServlet {
 	 * <p>Berbeda dengan gateway {@code OcbcNisp} dan {@link Briva}, <b>cabang transaksi kelas ini
 	 * benar-benar memverifikasi identitas pemanggil</b>. Urutan lengkapnya:</p>
 	 * <ol>
-	 *   <li><b>Semua cabang</b> — {@code X-TIMESTAMP} wajib terurai oleh {@link #dateFormat1};
-	 *       gagal berarti {@code 4007301}. Yang diperiksa hanya <i>format</i>, bukan kesegaran,
-	 *       sehingga stempel waktu lama tetap diterima.</li>
+	 *   <li><b>Semua cabang</b> — {@code X-TIMESTAMP} wajib terurai oleh {@link #dateFormat1} DAN
+	 *       berada dalam jendela toleransi 5 menit dari jam server; gagal salah satunya berarti
+	 *       {@code 4007301}.</li>
 	 *   <li><b>Cabang penerbitan token</b> ({@code grantType != null}) — {@code grantType} wajib
 	 *       {@code client_credentials}; {@code X-CLIENT-KEY} wajib sama dengan konfigurasi
 	 *       {@code strClientId_bca}; lalu {@link #sign(String, String)} memverifikasi tanda tangan
@@ -1660,9 +1661,11 @@ public class BCA extends HttpServlet {
 	 *           gerbang, bukan sekadar field yang ditulis lalu dilupakan;</li>
 	 *       <li>tanda tangan <b>HMAC-SHA512</b> dihitung ulang atas
 	 *           {@code "POST:<requestPath>:<token>:<sha256 heksadesimal huruf kecil dari body
-	 *           terminifikasi>:<timestamp>"} memakai rahasia {@code strClientScret_bca}, lalu
-	 *           dibandingkan dengan {@code X-SIGNATURE}. Tidak cocok berarti {@code 401
-	 *           Unauthorized [Signature]}.</li>
+	 *           terminifikasi>:<timestamp>"} memakai rahasia {@code strClientScret_bca} (tanpa nilai
+	 *           bawaan rahasia; kosong berarti langsung ditolak, bukan dihitung dengan kunci kosong
+	 *           yang bisa ditebak), lalu dibandingkan dengan {@code X-SIGNATURE} secara waktu-tetap
+	 *           ({@link java.security.MessageDigest#isEqual(byte[], byte[])}). Tidak cocok berarti
+	 *           {@code 401 Unauthorized [Signature]}.</li>
 	 *     </ul>
 	 *     Barulah setelah keempatnya lolos, field transaksi diurai dan {@link #doProcess doProcess}
 	 *     dipanggil.</li>
@@ -1672,15 +1675,9 @@ public class BCA extends HttpServlet {
 	 *
 	 * <h3>Kelemahan yang tersisa</h3>
 	 * <ul>
-	 *   <li><b>Rahasia HMAC punya nilai bawaan di kode.</b> {@code strClientScret_bca} dibaca lewat
-	 *       {@code Common.getKonfigurasi} dengan literal rahasia sebagai cadangan; karena helper
-	 *       tersebut menuliskan nilai bawaan ke basis data saat kunci belum ada, instalasi yang tak
-	 *       pernah menggantinya memakai kunci yang dapat dibaca dari kode sumber. Kunci simetris
-	 *       yang bocor berarti tanda tangan transaksi dapat dipalsukan.</li>
-	 *   <li><b>Pembandingan tanda tangan memakai {@code equalsIgnoreCase}</b>, sehingga tidak
-	 *       <i>constant-time</i> dan secara teori terbuka terhadap serangan pewaktuan.</li>
-	 *   <li><b>Tidak ada jendela kesegaran</b> pada {@code X-TIMESTAMP}; penangkalan pengulangan
-	 *       sepenuhnya bergantung pada {@link #unikId} yang hanya di memori.</li>
+	 *   <li><b>Jendela kesegaran 5 menit masih longgar dibanding penangkalan ulang-kirim sesungguhnya.</b>
+	 *       Selama masih di dalam jendela itu, penangkalan pengulangan tetap sepenuhnya bergantung pada
+	 *       {@link #unikId} yang hanya di memori dan hilang saat restart.</li>
 	 *   <li><b>Penyaringan IP bersifat informasional.</b> {@link BankHost} dipetakan dari
 	 *       {@code request.getRemoteAddr()} — pilihan yang tepat karena tidak memercayai header
 	 *       {@code X-Forwarded-For} atau {@code CF-Connecting-IP} yang dapat dipalsukan — tetapi
@@ -1797,12 +1794,13 @@ public class BCA extends HttpServlet {
 		String strClientId_bca = Common.getKonfigurasi("strClientId_bca", "68533592-83d5-462f-9335-9283d5a62f2d")
 				.getNilai();
 		String strClientScret_bca = Common
-				.getKonfigurasi("strClientScret_bca", "YQegLaFKEzCU8c1kAefEGWm2scOsoA6LRO_EFZCjGvc").getNilai();
+				.getKonfigurasi("strClientScret_bca", "").getNilai();
 
 		boolean berhasil = false;
 		try {
-			dateFormat1.get().parse(strISOTimeStamp.replaceAll("\\+07:00", ""));
-			berhasil = true;
+			Date tanggalTimestamp = dateFormat1.get().parse(strISOTimeStamp.replaceAll("\\+07:00", ""));
+			long TOLERANSI_TIMESTAMP_MS = 5 * 60 * 1000L;
+			berhasil = Math.abs(System.currentTimeMillis() - tanggalTimestamp.getTime()) <= TOLERANSI_TIMESTAMP_MS;
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/BCA.java:1260");
 		}
 
@@ -1920,15 +1918,23 @@ public class BCA extends HttpServlet {
 //								String signature = Hashing.hmacSha512(strClientScret_bca.getBytes()).newHasher()
 //										.putString(payload, StandardCharsets.UTF_8).hash().toString();
 
-								Mac HmacSHA512 = Mac.getInstance("HmacSHA512");
-								SecretKeySpec secret_key = new SecretKeySpec(strClientScret_bca.getBytes(),
-										"HmacSHA512");
-								HmacSHA512.init(secret_key);
+								boolean validateSignature;
+								String signature = null;
+								if (StringUtils.isEmpty(strClientScret_bca) || strSignature == null) {
+									validateSignature = false;
+								} else {
+									Mac HmacSHA512 = Mac.getInstance("HmacSHA512");
+									SecretKeySpec secret_key = new SecretKeySpec(strClientScret_bca.getBytes(),
+											"HmacSHA512");
+									HmacSHA512.init(secret_key);
 
-								String signature = org.apache.commons.codec.binary.Base64
-										.encodeBase64String(HmacSHA512.doFinal(payload.getBytes()));
+									signature = org.apache.commons.codec.binary.Base64
+											.encodeBase64String(HmacSHA512.doFinal(payload.getBytes()));
 
-								boolean validateSignature = strSignature.equalsIgnoreCase(signature);
+									validateSignature = java.security.MessageDigest.isEqual(
+											strSignature.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+											signature.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+								}
 
 								System.out.println("strSignature " + strSignature + " signature " + signature
 										+ " validateSignature " + validateSignature);

@@ -58,12 +58,11 @@ import ais.ui.util.WaktuUtil;
  * {@link #doProcess}. Selebihnya alur, nama field JSON ({@code nim}, {@code paymentAmount},
  * {@code trxDateTime}), dan kode galat identik dengan {@link BMS}.</p>
  *
- * <p><b>Beberapa penanda milik BMS ikut tersalin dan belum diganti</b>: {@link #process}
- * menetapkan label bank {@code "BMS"}, deteksi reversal mencocokkan URI berakhiran
- * {@code "BMSReversal"}, dan simulasi timeout memakai kunci konfigurasi {@code bms_va_sleep}.
- * Karena label itulah yang disimpan sebagai {@code validator} pada {@link Kegiatan} dan
- * {@link CicilanPembayaran}, pembayaran lewat kanal ini tercatat atas nama BMS. Hal ini
- * didokumentasikan apa adanya; perbaikannya berada di luar cakupan berkas ini.</p>
+ * <p><b>Satu penanda milik BMS masih tersisa</b>: deteksi reversal mencocokkan URI berakhiran
+ * {@code "BMSReversal"} (bukan {@code "NagariReversal"}) — kelas ini tidak terdaftar di
+ * {@code web.xml} sehingga URI itu belum pernah diuji nyata. Label bank yang ditetapkan
+ * {@link #process} dan kunci konfigurasi simulasi timeout sudah masing-masing menjadi
+ * {@code "Nagari"} dan {@code nagari_va_sleep}, tidak lagi berbagi saklar dengan {@link BMS}.</p>
  *
  * <h4>Status pemasangan</h4>
  * <p>Berbeda dari {@link BMS} dan {@link Otto}, kelas ini <b>tidak terdaftar di
@@ -931,45 +930,55 @@ public class Nagari extends HttpServlet {
 	}
 
 	/**
-	 * Mengurai payload permintaan bank menjadi parameter terpisah, memanggil {@link #doProcess},
-	 * dan menentukan mode inquiry maupun reversal.
+	 * Mengurai payload permintaan bank menjadi parameter terpisah, menentukan mode inquiry maupun
+	 * reversal, lalu memanggil {@link #doProcess}.
+	 *
+	 * <p>Diawali <b>pemeriksaan bentuk payload</b>: badan yang kosong atau tidak diawali
+	 * <code>{</code> langsung ditolak dengan {@code errorCode=30} "Format request tidak valid",
+	 * sebelum {@code new JSONObject(data)} sempat melempar exception. Setiap pembacaan field
+	 * selanjutnya memakai pola {@code req == null || req.isNull(...)} sehingga aman terhadap
+	 * {@code null} — pola yang sama dengan {@link BMS#doProses}.</p>
 	 *
 	 * <p>Nomor VA diambil dari field {@code nim} dan nominal dari {@code paymentAmount}, masing-
 	 * masing dengan cadangan berupa parameter query bernama sama. <b>Ketiadaan</b>
 	 * {@code paymentAmount} itu sendiri yang menandai permintaan sebagai inquiry — bank
 	 * mengirimkannya hanya saat benar-benar menyetor. Mode reversal ditentukan dari URI yang
-	 * berakhiran {@code "BMSReversal"} (penanda warisan salinan {@link BMS}).</p>
+	 * berakhiran {@code "BMSReversal"} (penanda warisan salinan {@link BMS} yang belum diganti;
+	 * lihat javadoc {@link Nagari kelas ini}).</p>
+	 *
+	 * <h4>Simulasi timeout dan alasan urutannya</h4>
+	 * <p>Simulasi timeout menuntut <b>dua</b> syarat sekaligus: JVM flag
+	 * {@code -Dais.nagari.allowTimeoutSimulation=true} dan konfigurasi {@code nagari_va_sleep} —
+	 * kunci sendiri, tidak lagi berbagi saklar dengan {@link BMS#doProses}. Gerbang ganda ini
+	 * mencegah konfigurasi basis data yang tidak sengaja aktif di produksi menjalankan simulasi
+	 * dengan sendirinya.</p>
+	 * <p>Yang lebih penting, balasan {@code errorCode=68} dikembalikan <b>sebelum</b>
+	 * {@link #doProcess} dipanggil, meniru urutan aman {@link BMS#doProses}: implementasi lama
+	 * mencatat pembayaran lebih dulu baru mengirim kode 68; bank lalu me-refund transaksi
+	 * sementara eCampus telanjur mencatatnya lunas.</p>
 	 *
 	 * <p>Bila {@link #doProcess} melempar exception, balasan diganti {@link #errorDb} sehingga
 	 * bank menerima {@code errorCode=91} "Link Down" dan tidak menganggap tagihan lunas.</p>
-	 *
-	 * <p><b>Perbedaan dengan {@link BMS#doProses}.</b> Dua pengaman yang sudah ada di {@link BMS}
-	 * belum tersalin ke sini:</p>
-	 * <ul>
-	 *   <li>tidak ada pemeriksaan bentuk payload di awal ({@link BMS} menolak badan kosong atau
-	 *       yang tidak diawali <code>{</code> dengan {@code errorCode=30}), dan {@code req} yang
-	 *       bernilai {@code null} langsung dipakai memanggil {@code req.isNull(...)};</li>
-	 *   <li>simulasi timeout di bawah masih dijalankan <b>setelah</b> {@link #doProcess} selesai
-	 *       dan pembayaran tercatat, serta cukup diaktifkan lewat konfigurasi
-	 *       {@code bms_va_sleep} saja — sedangkan {@link BMS} kini mengembalikan balasan timeout
-	 *       <b>sebelum</b> pembayaran dicatat dan mensyaratkan JVM flag
-	 *       {@code ais.bms.allowTimeoutSimulation}. Perlu diperhatikan bahwa kunci konfigurasi
-	 *       {@code bms_va_sleep} dipakai bersama dengan {@link BMS}.</li>
-	 * </ul>
-	 * <p>Kedua hal itu dicatat apa adanya; perbaikannya di luar cakupan berkas ini.</p>
 	 *
 	 * @param data     badan permintaan mentah
 	 * @param request  permintaan asli, sumber cadangan parameter dan penentu mode reversal
 	 * @param bankHost host bank hasil pencocokan IP; boleh {@code null}
 	 * @param bank     label bank yang akan tercatat sebagai {@code validator}
-	 * @param chek     mode pemeriksaan internal, diteruskan ke {@link #doProcess}
+	 * @param chek     mode pemeriksaan internal; nilai {@code true} juga mematikan simulasi
+	 *                 timeout
 	 * @return teks JSON balasan
 	 * @throws Exception bila payload bukan JSON yang sah, atau {@link Thread#sleep} pada simulasi
 	 *                   timeout terinterupsi
 	 */
 	public static String doProses(String data, HttpServletRequest request, BankHost bankHost, String bank, boolean chek)
 			throws Exception {
-		JSONObject req = data == null ? null : new JSONObject(data);
+		if (data == null || data.trim().length() == 0 || !data.trim().startsWith("{")) {
+			JSONObject response = new JSONObject();
+			response.put("errorCode", "30");
+			response.put("statusDescription", "Format request tidak valid");
+			return response.toString();
+		}
+		JSONObject req = new JSONObject(data);
 
 		String va = req == null || req.isNull("nim") ? (request == null ? "" : request.getParameter("nim"))
 				: req.getString("nim");
@@ -990,20 +999,37 @@ public class Nagari extends HttpServlet {
 		String tanggalP = req == null || req.isNull("trxDateTime") ? dateFormat.get().format(new Date())
 				: req.getString("trxDateTime");
 
+		/*
+		 * Simulasi timeout tidak boleh berjalan hanya karena konfigurasi database
+		 * tidak sengaja aktif di produksi. Selain harus diaktifkan lewat konfigurasi,
+		 * operator pengujian wajib memberi JVM flag berikut:
+		 * -Dais.nagari.allowTimeoutSimulation=true
+		 *
+		 * Yang paling penting, timeout dikembalikan SEBELUM doProcess dipanggil.
+		 * Implementasi lama meng-commit pembayaran terlebih dahulu lalu mengirim kode
+		 * 68. Bank kemudian me-refund transaksi, tetapi eCampus telanjur mencatat lunas.
+		 */
+		boolean simulasiTimeout = !chek && Boolean.getBoolean("ais.nagari.allowTimeoutSimulation")
+				&& Common.bolehKonfigurasi("nagari_va_sleep", Konfigurasi.TIDAK_AKTIF);
+		if (simulasiTimeout) {
+			Thread.sleep(3 * 1000);
+			String bodyTimeout = timeoutDb(req == null || req.isNull("paymentAmount"), data);
+			ais.action.ws.util.PembayaranGatewayHelper.catatLogHostToHost(request, bankHost, data, va, va, "",
+					"Connection Timeout (simulasi aman sebelum pencatatan pembayaran)", nominalP, "[]", null,
+					data, bodyTimeout, "68", null);
+			System.out.println("response->" + bodyTimeout);
+			return bodyTimeout;
+		}
+
 		String body;
 		try {
 			// 05, request tidak diizinkan
 			body = Nagari.doProcess(nominalP, tanggalP, va, bank, bankHost, request, data, true,
-					req.isNull("paymentAmount"), reversal, chek).toString();
+					req == null || req.isNull("paymentAmount"), reversal, chek).toString();
 		} catch (Exception e) {
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/servlet/Nagari.java:817");
-			body = errorDb(req.isNull("paymentAmount"), data);
+			body = errorDb(req == null || req.isNull("paymentAmount"), data);
 
-		}
-
-		if (Common.bolehKonfigurasi("bms_va_sleep", Konfigurasi.TIDAK_AKTIF)) {
-			Thread.sleep(3 * 1000);
-			body = timeoutDb(req.isNull("paymentAmount"), data);
 		}
 
 		System.out.println("response->" + body);
@@ -1023,10 +1049,9 @@ public class Nagari extends HttpServlet {
 	 * dipalsukan klien. Hasilnya hanya dilekatkan pada log dan pencarian VA; ia <b>tidak</b>
 	 * dipakai untuk menolak permintaan.</p>
 	 *
-	 * <p>Label bank yang ditetapkan di sini adalah {@code "BMS"} — penanda warisan salinan
-	 * {@link BMS} yang belum diganti menjadi Nagari, padahal nilainya tersimpan sebagai
-	 * {@code validator} pada Kegiatan dan CicilanPembayaran (lihat javadoc
-	 * {@link Nagari kelas ini}).</p>
+	 * <p>Label bank yang ditetapkan di sini adalah {@code "Nagari"}, tersimpan sebagai
+	 * {@code validator} pada {@link Kegiatan} dan {@link CicilanPembayaran} sehingga rekonsiliasi
+	 * terhadap rekening koran Bank Nagari tidak lagi salah atribusi ke {@link BMS}.</p>
 	 *
 	 * @param request  permintaan dari sisi bank
 	 * @param response tujuan penulisan balasan JSON
@@ -1049,7 +1074,7 @@ public class Nagari extends HttpServlet {
 		System.out.println("==> VA data => " + data);
 		System.out.println("==> VA querystring => " + querystring);
 
-		String bank = "BMS";
+		String bank = "Nagari";
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), bank);
 
 		String body = doProses(data, request, bankHost, bank, false);
@@ -1069,10 +1094,9 @@ public class Nagari extends HttpServlet {
 	 * <p>Balasan dibangun dari payload permintaan itu sendiri, sehingga seluruh field yang
 	 * dikirim bank tetap ada dan hanya status yang diganti.</p>
 	 *
-	 * <p><b>Peringatan.</b> Pada berkas ini pemanggilnya di {@link #doProses} berjalan
-	 * <b>setelah</b> {@link #doProcess} selesai mencatat pembayaran, sehingga balasan timeout ini
-	 * dapat terkirim untuk transaksi yang sebenarnya sudah tersimpan lunas. {@link BMS} sudah
-	 * mengubah urutan ini; lihat javadoc {@link #doProses}.</p>
+	 * <p>Pada berkas ini pemanggilnya di {@link #doProses} berjalan <b>sebelum</b>
+	 * {@link #doProcess}, sehingga balasan timeout ini tidak pernah mewakili transaksi yang sudah
+	 * telanjur tercatat lunas — lihat pembahasan urutan pada javadoc {@link #doProses}.</p>
 	 *
 	 * @param inquery penanda mode inquiry; saat ini tidak memengaruhi hasil
 	 * @param data    badan permintaan mentah yang dipakai sebagai kerangka balasan
