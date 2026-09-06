@@ -110,6 +110,71 @@ import ais.ui.util.WaktuUtil;
  * {@code Common.refreshUpdate(...)} atau transaksi Hibernate manual sehingga tersimpan seketika
  * tanpa tombol "Simpan" terpisah — pola auto-save per perubahan field, khas modul penilaian AIS
  * lain (bandingkan {@code PenilaianSkripsiHelper}).</p>
+ *
+ * <h3>Penamaan slot dosen: BERSIH, tidak terkena "bug slot tertukar" modul sidang</h3>
+ * <p>
+ * Modul sidang akhir ({@link ais.database.model.Skripsi} +
+ * {@link ais.database.model.FormatNilaiSkripsi} + {@code PenilaianSkripsiHelper}) mengidap penamaan
+ * tertukar: di sana slot {@code dosen1} yang <i>orang</i>-nya diambil dari kolom {@code pembimbing}
+ * dipasangkan dengan <i>nilai</i> {@code nilai_ketua_sidang}, dan sebaliknya untuk slot 2. <b>Modul
+ * proposal ini tidak demikian.</b> Seluruh rantainya bernomor lurus dan sudah diperiksa satu per
+ * satu:
+ * </p>
+ * <table border="1" summary="Pemetaan slot dosen pada modul proposal skripsi">
+ * <tr><th>Slot</th><th>Orang</th><th>Nilai</th><th>Bobot</th></tr>
+ * <tr><td>{@code dosen1}</td><td>{@code getDosen1()}</td><td>{@code getNilaiDosen1()}</td><td>{@code getProsentasiNilaiPembimbing1()}</td></tr>
+ * <tr><td>{@code dosen2}</td><td>{@code getDosen2()}</td><td>{@code getNilaiDosen2()}</td><td>{@code getProsentasiNilaiPembimbing2()}</td></tr>
+ * <tr><td>{@code dosen3}</td><td>{@code getDosen3()}</td><td>{@code getNilaiDosen3()}</td><td>{@code getProsentasiNilaiPembimbing3()}</td></tr>
+ * <tr><td>{@code dosen4}</td><td>{@code getDosen4()}</td><td>{@code getNilaiDosen4()}</td><td>{@code getProsentasiNilaiPenguji1()}</td></tr>
+ * <tr><td>{@code dosen5}</td><td>{@code getDosen5()}</td><td>{@code getNilaiDosen5()}</td><td>{@code getProsentasiNilaiPenguji2()}</td></tr>
+ * <tr><td>{@code dosen6}</td><td>{@code getDosen6()}</td><td>{@code getNilaiDosen6()}</td><td>{@code getProsentasiNilaiPenguji3()}</td></tr>
+ * </table>
+ * <p>
+ * Pergeseran nomor pada kolom bobot ({@code dosen4} &rarr; {@code Penguji1}) <b>bukan</b> pertukaran,
+ * melainkan konsekuensi pembagian yang memang disengaja: tiga slot pertama adalah pembimbing 1-3 dan
+ * tiga slot berikutnya penguji 1-3. Pemetaan itu dipakai seragam di seluruh titik yang sudah
+ * diperiksa: {@link DetailKelompokKknRenderer#render(Row, Object)}, {@link #dashNilaiDosen},
+ * {@link #dashPersenDosen}, pembangun parameter "Berita Acara" di dalam
+ * {@link #display(MahasiswaRequestTugasAkhir, Component)}, {@link #populateKomponen(String)}, serta
+ * {@code MahasiswaRequestTugasAkhir.dataDosen(boolean)} dan
+ * {@code MahasiswaRequestTugasAkhir.cariNilaiDariDosen(...)} di sisi entity. <b>Jangan menyalin
+ * asumsi penamaan dari modul sidang ke modul ini, atau sebaliknya.</b>
+ * </p>
+ * <p>
+ * Berbeda pula dari kembarannya, {@link #populateKomponen(String)} di sini mengenali <b>seluruh</b>
+ * enam slot — tidak ada slot yang jatuh diam-diam ke nilai awal {@code "dosen1"} seperti yang
+ * terjadi pada label {@code dosen21} (Pembimbing III) di modul sidang. Modul proposal memang tidak
+ * punya slot sisipan semacam itu.
+ * </p>
+ *
+ * <h3>Ringkasan gerbang hak akses</h3>
+ * <p>
+ * Sama seperti kembarannya, semua pembatasan dilakukan saat <b>membangun komponen</b> — kontrol yang
+ * tidak boleh dipakai tidak dipasang ke halaman (diganti label), sehingga ZK tidak pernah
+ * mengirimkan event kepadanya. Tidak ada listener yang memeriksa ulang hak di dalam dirinya sendiri.
+ * </p>
+ * <ul>
+ * <li><b>Entri nilai per komponen</b> ({@link #init(Dosen, String)}) hanya editable bila pengguna
+ * bukan mahasiswa <i>dan</i> (bukan dosen sama sekali <i>atau</i> dosen yang identik dengan pemilik
+ * baris). Artinya setiap staf/admin non-dosen dapat mengisi nilai atas nama dosen mana pun, dan
+ * tidak ada jejak yang membedakan nilai yang diisi dosen sendiri dari yang diisi staf. Dosen hanya
+ * bisa menilai perannya sendiri. Syaratnya hanya menyebut mahasiswa, tidak menyebut siswa.</li>
+ * <li><b>Data "Hasil Seminar"</b> memakai syarat seragam "bukan mahasiswa" — lebih longgar dari
+ * kembarannya, sehingga pengguna yang tertaut data siswa diperlakukan seperti staf.</li>
+ * <li><b>Memilih KRS tujuan, format nilai, dan sinkronisasi nilai kelas</b> menuntut bukan-mahasiswa,
+ * bukan-siswa, dan bukan-dosen.</li>
+ * <li><b>"Reset" seluruh nilai</b> hanya <i>disembunyikan</i> dari non-admin lewat
+ * {@code setVisible}, tanpa pemeriksaan ulang di listener.</li>
+ * <li><b>Tidak ada pembatasan cakupan</b> program studi/fakultas/satuan kerja: siapa pun yang bisa
+ * membuka layar suatu pengajuan memperoleh hak yang sama atasnya. Tidak ada pula pengecekan bahwa
+ * dosen yang login benar-benar terdaftar sebagai pembimbing/penguji pengajuan ini selain lewat
+ * perbandingan id terhadap baris yang sedang dirender.</li>
+ * <li><b>Kekokohan terhadap {@code null}:</b> berbeda dari kembarannya yang konsisten menulis
+ * {@code tbmuser != null && ...}, kelas ini beberapa kali mendereferensi {@link #tbmuser} langsung
+ * (mis. {@code tbmuser.ambilDosen()} di awal {@link #init(Dosen, String)} dan
+ * {@code tbmuser.getMahasiswa()} di {@link #display(MahasiswaRequestTugasAkhir, Component)}), jadi
+ * layar ini mengandaikan selalu ada sesi pengguna.</li>
+ * </ul>
  */
 public class PenilaianProposalSkripsiHelper implements DataLoader {
 
@@ -326,6 +391,22 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 	 * {@link LampiranLain#createDownloadUploadFileLain}. Tombol "Hitung Ulang" pada toolbar dialog
 	 * memaksa penghitungan ulang total dari seluruh baris nilai yang sedang tampil; tombol "Selesai"
 	 * menutup window lalu memuat ulang grid utama ({@link #loadData(Object)}) via timer.
+	 *
+	 * <p><b>Gerbang hak edit.</b> Kotak isian hanya dibuat bila pengguna login BUKAN mahasiswa DAN
+	 * (bukan dosen sama sekali ATAU dosen yang id-nya sama dengan {@code dosen} baris ini). Pengguna
+	 * non-mahasiswa yang tidak tertaut data dosen — yaitu seluruh staf/admin — lolos syarat kedua,
+	 * sehingga dapat mengisi nilai atas nama dosen mana pun tanpa apa pun yang mencatat bahwa nilai
+	 * itu bukan diisi dosennya. Method ini sendiri tidak memeriksa apa pun sebelum membuka dialog;
+	 * pembatasan sepenuhnya berupa "kotak isian tidak dibuat". Nilai yang diketik juga tidak
+	 * divalidasi terhadap batas 0-100 maupun terhadap bobot komponen.</p>
+	 *
+	 * <p><b>Cacat yang dicatat, belum diperbaiki:</b> pada cabang baris SUB-KOMPONEN, atribut
+	 * {@code "komponen"} yang dititipkan ke baris berisi objek komponen INDUK, bukan sub-komponennya
+	 * sendiri (kembarannya di {@code PenilaianSkripsiHelper} menitipkan komponen anak yang benar).
+	 * Jalur pengetikan nilai biasa tidak terpengaruh karena listener {@code onChange} memakai
+	 * variabel yang benar, tetapi tombol "Hitung Ulang" — yang menyapu seluruh baris lewat atribut
+	 * tersebut — akan menulis nilai anak ke slot induk pada format nilai berkomponen berjenjang.
+	 * Lihat komentar di titik kejadiannya dan pada Javadoc tombol "Hitung Ulang".</p>
 	 *
 	 * @param dosen dosen penilai yang dialognya dibuka (pemilik nilai/catatan yang ditampilkan).
 	 * @param jenis nama peran dosen ini pada format nilai (nilai dari

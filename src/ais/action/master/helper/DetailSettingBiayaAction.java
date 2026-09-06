@@ -1155,6 +1155,20 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		/** Bila true, reset tagihan ke default billing saat resolusi (dipakai tombol Reset). */
 		private boolean rst;
 
+		/**
+		 * Bangun renderer baris untuk mode "daftar mahasiswa reguler" dengan menyimpan kedua
+		 * bendera resolusi tagihan. Instance baru dibuat setiap kali
+		 * {@link DetailSettingBiayaAction#loadData(Object, boolean)} berjalan, sehingga kedua
+		 * bendera berlaku untuk satu siklus pemuatan grid saja.
+		 *
+		 * @param refresh {@code true} untuk memaksa resolusi Kegiatan/tagihan membaca ulang dari
+		 *                basis data alih-alih memakai cache — dipakai tombol Refresh dan listener
+		 *                {@link DetailSettingBiayaAction#refrsh}
+		 * @param rst     {@code true} untuk mereset tagihan ke default billing saat resolusi —
+		 *                dipakai tombol Reset. Karena resolusi memang menulis ke basis data,
+		 *                bendera ini membuat proses render mengubah nominal tagihan yang sudah
+		 *                pernah diubah manual, bukan sekadar menampilkannya
+		 */
 		public MahasiswaRenderer(boolean refresh, boolean rst) {
 			this.refresh = refresh;
 			this.rst = rst;
@@ -1250,6 +1264,17 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		/** Bila true, reset tagihan ke default billing saat resolusi. */
 		private boolean rst;
 
+		/**
+		 * Bangun renderer baris untuk mode "khusus per mahasiswa", yaitu ketika sumber baris
+		 * adalah {@link SettingBiayaDetail} (template kuota per orang) alih-alih daftar
+		 * {@link Mahasiswa} reguler. Kedua bendera diteruskan ke
+		 * {@link DetailSettingBiayaAction#resolveKegiatanMahasiswa} yang sama persis dengan yang
+		 * dipakai {@link MahasiswaRenderer}, sehingga kolom nominal tagihan aktif identik di
+		 * kedua mode.
+		 *
+		 * @param refresh {@code true} untuk memaksa pembacaan ulang dari basis data
+		 * @param rst     {@code true} untuk mereset tagihan ke default billing saat resolusi
+		 */
 		public MahasiswaSettingRenderer(boolean refresh, boolean rst) {
 			this.refresh = refresh;
 			this.rst = rst;
@@ -1429,6 +1454,15 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		/** Bila true, reset tagihan ke default billing saat resolusi. */
 		private boolean rst;
 
+		/**
+		 * Bangun renderer baris untuk mode "khusus per calon mahasiswa" — padanan
+		 * {@link MahasiswaSettingRenderer} bagi {@link BiodataCalonMahasiswa}, dengan sumber
+		 * baris {@link SettingBiayaDetail} dan resolusi tagihan lewat
+		 * {@link DetailSettingBiayaAction#resolveKegiatanCalonMahasiswa}.
+		 *
+		 * @param refresh {@code true} untuk memaksa pembacaan ulang dari basis data
+		 * @param rst     {@code true} untuk mereset tagihan ke default billing saat resolusi
+		 */
 		public CalonMahasiswaSettingRenderer(boolean refresh, boolean rst) {
 			this.refresh = refresh;
 			this.rst = rst;
@@ -1694,6 +1728,14 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 		/** Bila true, reset tagihan ke default billing saat resolusi. */
 		private boolean rst;
 
+		/**
+		 * Bangun renderer baris untuk mode "daftar calon mahasiswa reguler", yaitu ketika sumber
+		 * baris adalah {@link BiodataCalonMahasiswa} yang disaring
+		 * {@link DetailSettingBiayaAction#initCriteria}.
+		 *
+		 * @param refresh {@code true} untuk memaksa pembacaan ulang dari basis data
+		 * @param rst     {@code true} untuk mereset tagihan ke default billing saat resolusi
+		 */
 		public CalonMahasiswaRenderer(boolean refresh, boolean rst) {
 			this.refresh = refresh;
 			this.rst = rst;

@@ -3971,6 +3971,34 @@ public class TugasKelompokHelper implements DataLoader {
 		grid.setSclass("fgrid ais-data-grid");
 	}
 
+	/**
+	 * <h3>Titik masuk generik &mdash; menerima wadah pembelajaran apa pun</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membuka layar Tugas Kelompok ketika pemanggil belum tahu
+	 * jenis wadah pembelajaran yang sedang dibuka. Wadah itu bisa berupa perkuliahan, kelompok KKN,
+	 * kelompok PKL, atau jadwal pelajaran sekolah; metode ini mengenali jenisnya sendiri lalu mengisi
+	 * field cakupan yang sesuai. Dipakai oleh menu generik yang menampilkan tab e-learning tanpa
+	 * bercabang menurut modul.</p>
+	 *
+	 * <p>Pengenalan jenis memakai {@code instanceof} berurutan, dan wadah yang tidak dikenali dibiarkan
+	 * tanpa cakupan sama sekali &mdash; tidak ada galat yang dilempar. Perhatikan akibatnya: cakupan
+	 * yang kosong TIDAK menghasilkan daftar kosong, melainkan daftar tanpa penyaring (lihat
+	 * {@link #initCriteria(boolean)}).</p>
+	 *
+	 * <p><b>Cacat yang diketahui pada cabang jadwal pelajaran.</b> Metode ini meneruskan pekerjaannya ke
+	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)}, yang pada gilirannya
+	 * meneruskan {@code null} sebagai jadwal pelajaran ke varian kanonik &mdash; dan varian kanonik
+	 * menugaskan nilai itu kembali ke field. Akibatnya, cakupan jadwal pelajaran yang baru saja disetel
+	 * di sini <b>terhapus lagi</b> sebelum data dimuat. Ketiga jenis wadah lainnya selamat karena
+	 * diteruskan kembali sebagai argumen eksplisit. Pemanggil yang membuka jadwal pelajaran sebaiknya
+	 * memakai {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)} secara
+	 * langsung sampai rantai delegasi ini diperbaiki.</p>
+	 *
+	 * @param voPembelajaran wadah pembelajaran yang sedang dibuka; boleh {@code null} atau bertipe lain
+	 *                       (cakupan tidak diisi)
+	 * @param component      komponen induk tempat layar dirakit
+	 * @see #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)
+	 */
 	public void display(VOPembelajaran voPembelajaran, final Component component) {
 
 		if (voPembelajaran != null && (voPembelajaran instanceof Perkuliahan)) {
@@ -3986,16 +4014,82 @@ public class TugasKelompokHelper implements DataLoader {
 		display(perkuliahan, kelompokKkn, kelompokPkl, component);
 	}
 
+	/**
+	 * <h3>Titik masuk jalur SEKOLAH &mdash; daftar tugas kelompok satu jadwal pelajaran</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membuka daftar tugas kelompok milik satu mata pelajaran di
+	 * satu kelas. Selain membatasi daftar, cakupan ini juga menentukan bahwa penilaian memakai rantai
+	 * penilaian sekolah, bukan format nilai perkuliahan.</p>
+	 *
+	 * <p><b>Cacat yang diketahui: cakupan hilang sebelum data dimuat.</b> Metode ini menyimpan jadwal
+	 * pelajaran ke field, lalu meneruskan pekerjaannya ke
+	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, Component)} <b>tanpa menyertakannya</b>.
+	 * Varian itu meneruskan {@code null} ke varian kanonik, dan varian kanonik menugaskan {@code null}
+	 * tersebut kembali ke field &mdash; sehingga cakupan yang baru disetel terhapus. Karena pemanggil
+	 * biasanya membangun helper yang masih baru (keempat field cakupan {@code null}), hasilnya adalah
+	 * kriteria tanpa penyaring apa pun: daftar menampilkan seluruh tugas kelompok lintas kelas dan
+	 * lintas program studi, dan kartu ringkasan ikut menghitung seluruh tabel.</p>
+	 *
+	 * <p>Sampai rantai delegasi diperbaiki, pemanggil dianjurkan memakai varian kanonik
+	 * {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)} secara
+	 * langsung &mdash; itulah yang dilakukan modul e-learning sekolah dan jalur tersebut tidak terkena.</p>
+	 *
+	 * @param jadwalPelajaran jadwal pelajaran (mata pelajaran pada satu kelas) yang menjadi cakupan
+	 * @param component       komponen induk tempat layar dirakit
+	 * @see #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)
+	 */
 	public void display(JadwalPelajaran jadwalPelajaran, final Component component) {
 		this.jadwalPelajaran = jadwalPelajaran;
 		display(perkuliahan, kelompokKkn, kelompokPkl, component);
 	}
 
+	/**
+	 * <h3>Titik masuk dengan penyaring SQL bebas &mdash; tidak dipakai pada revisi ini</h3>
+	 *
+	 * <p>Menyetel {@code sqlTambahan} lalu membuka layar seperti biasa. Potongan SQL itu ditempelkan apa
+	 * adanya ke klausa WHERE oleh {@link #initCriteria(boolean)}, sehingga menjadi SATU-SATUNYA pembatas
+	 * daftar bila tidak ada cakupan lain yang terisi.</p>
+	 *
+	 * <p><b>Peringatan keamanan.</b> Isi {@code sqlTambahan} TIDAK diparameterkan dan TIDAK divalidasi.
+	 * Metode ini hanya boleh dipanggil dengan potongan SQL yang ditulis tetap di dalam kode &mdash;
+	 * TIDAK PERNAH dengan nilai yang berasal dari masukan pengguna, parameter URL, atau isi basis data,
+	 * karena hal itu membuka celah penyisipan perintah SQL. Penelusuran seluruh kode sumber pada revisi
+	 * ini tidak menemukan satu pun pemanggil, jadi jalur ini praktis tidak aktif; sebelum menghidupkannya
+	 * kembali, pertimbangkan mengganti pendekatannya dengan kriteria Hibernate yang terparameter.</p>
+	 *
+	 * <p>Sama seperti saudara-saudaranya, metode ini meneruskan pekerjaan lewat varian berargumen empat
+	 * sehingga cakupan jadwal pelajaran yang mungkin sudah terisi akan ikut terhapus.</p>
+	 *
+	 * @param sqlTambahan potongan SQL literal untuk klausa WHERE; harus berasal dari kode, bukan pengguna
+	 * @param component   komponen induk tempat layar dirakit
+	 */
 	public void display(String sqlTambahan, final Component component) {
 		this.sqlTambahan = sqlTambahan;
 		display(perkuliahan, kelompokKkn, kelompokPkl, component);
 	}
 
+	/**
+	 * <h3>Titik masuk GABUNGAN &mdash; banyak kelas sekaligus dalam satu daftar</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> menampilkan tugas kelompok dari beberapa kelas sekaligus
+	 * dalam satu daftar &mdash; misalnya seluruh kelas yang diampu seorang dosen, atau seluruh kelompok
+	 * KKN dan PKL yang dibimbingnya &mdash; sehingga ia tidak perlu membuka kelasnya satu per satu.</p>
+	 *
+	 * <p>Ketiga daftar bersifat saling melengkapi dan boleh diisi bersamaan; masing-masing menjadi
+	 * penyaring {@code IN} tersendiri di {@link #initCriteria(boolean)}. Daftar yang {@code null} atau
+	 * kosong tidak menyaring apa pun. Karena seluruh penyaring digabung dengan AND, mengisi dua daftar
+	 * sekaligus akan mempersempit hasil, bukan menggabungkan keduanya &mdash; perilaku yang perlu
+	 * diperhatikan bila kelak diinginkan tampilan gabungan lintas modul yang sesungguhnya.</p>
+	 *
+	 * <p>Parameter induknya sengaja bertipe {@link Tabpanel}, bukan {@link Component} umum, karena mode
+	 * gabungan memang ditujukan untuk tampilan tab penuh: hanya induk bertipe {@code Tabpanel} yang
+	 * memicu perakitan header modul, kartu ringkasan, toolbar, dan paging pada varian kanonik.</p>
+	 *
+	 * @param perkuliahans daftar perkuliahan yang digabungkan; boleh {@code null} atau kosong
+	 * @param kelompokKkns daftar kelompok KKN yang digabungkan; boleh {@code null} atau kosong
+	 * @param kelompokPkls daftar kelompok PKL yang digabungkan; boleh {@code null} atau kosong
+	 * @param component    panel tab tempat layar dirakit
+	 */
 	public void display(final List<Perkuliahan> perkuliahans, final List<KelompokKkn> kelompokKkns,
 			final List<KelompokPkl> kelompokPkls, final Tabpanel component) {
 		this.perkuliahans = perkuliahans;
@@ -4004,6 +4098,25 @@ public class TugasKelompokHelper implements DataLoader {
 		display(perkuliahan, kelompokKkn, kelompokPkl, component);
 	}
 
+	/**
+	 * <h3>Varian ringkas tanpa jadwal pelajaran (jalur perguruan tinggi)</h3>
+	 *
+	 * <p>Kemudahan bagi pemanggil jalur perguruan tinggi (perkuliahan, KKN, PKL) yang tidak berurusan
+	 * dengan modul sekolah, sehingga tidak perlu menuliskan argumen jadwal pelajaran. Seluruh pekerjaan
+	 * diteruskan ke {@link #display(Perkuliahan, KelompokKkn, KelompokPkl, JadwalPelajaran, Component)}.</p>
+	 *
+	 * <p><b>Perhatikan: {@code null} di sini bersifat MENGHAPUS, bukan sekadar "tidak diisi".</b> Varian
+	 * kanonik menugaskan setiap argumennya ke field yang bersesuaian, termasuk menugaskan {@code null}
+	 * ke {@code jadwalPelajaran}. Jadi memanggil metode ini akan membersihkan cakupan jadwal pelajaran
+	 * yang mungkin sudah terisi sebelumnya. Itulah sebab keempat varian perantara yang bermuara ke sini
+	 * kehilangan cakupan sekolahnya; pemanggil yang memerlukan cakupan jadwal pelajaran harus memakai
+	 * varian kanonik secara langsung.</p>
+	 *
+	 * @param perkuliahan  cakupan perkuliahan, atau {@code null}
+	 * @param kelompokKkn  cakupan kelompok KKN, atau {@code null}
+	 * @param kelompokPkl  cakupan kelompok PKL, atau {@code null}
+	 * @param component    komponen induk tempat layar dirakit
+	 */
 	public void display(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn, final KelompokPkl kelompokPkl,
 			final Component component) {
 		display(perkuliahan, kelompokKkn, kelompokPkl, null, component);
