@@ -1,5 +1,133 @@
 # Progres Javadoc Menyeluruh
 
+## 🎉🚨 Batch 128 — mega-file PALING SERING DIRUJUK seluruh inisiatif akhirnya didokumentasikan sendiri (5 agent `opus`, ~30rb+ baris, 6 task baru, 6 Sep 2026)
+
+Selama inisiatif ini, puluhan agent menyinggung method-method di
+`Tbmuser`/`ParameterTambahanAstract`/`Kegiatan`/`VOMahasiswa`/
+`LogHostToHost` sebagai konteks entity LAIN — tapi class-class ITU
+SENDIRI belum pernah didokumentasikan lengkap. Batch ini menutup gap
+itu dengan 5 agent `opus` khusus.
+
+**`Tbmuser.java`** (2301→5027 baris, r85444-r85497). Verifikasi presisi
+`hakAkses()` (baris 4163) mengungkap **5 anomali cache**, bukan 1 seperti
+dugaan lama dari temuan `MasterKeuanganApiHelper`: (1) `getUserRole()`
+bisa `null` tanpa guard di cabang `penyediaAsset` — cabang lain di
+bawahnya DIJAGA, ini tidak; (2) `null` ikut ter-cache (tapi cek
+`d==null` bukan `containsKey`, jadi tidak mengunci selamanya); (3)
+**kunci cache bisa `null`** — akun yang `getUserId()`-nya sesaat tak
+tentu SEMUA BERBAGI SATU SLOT CACHE, belum pernah tercatat sebelumnya;
+(4) get/put tanpa sinkronisasi sementara method lain mengunci map yang
+sama; (5) entity ter-detach lolos sebagai "sah" sampai `getMenus()`
+melempar exception yang ditelan pemanggil — tak bisa dibedakan dari
+`null` di lapisan atas. **Task baru `task_5736d323`** (SUDAH
+DIEKSEKUSI USER): bypass blokir akun — `getAktif()` ambil status dari
+`AnggotaKoperasi`/`Pedagang` terkait via jalur pintas SEBELUM cek field
+`aktif` milik akun sendiri; fix disertakan agent (r85494) karena belum
+ter-commit WC bersama saat itu. `getUserPassword()` mengonfirmasi
+`AnggotaKoperasi`/`Pedagang.getPass()` simpan password POLOS (didekripsi
+di tempat, plus ciphertext DES hardcoded untuk akun demo). Getter salah
+field: cabang guru `getYayasan()` menulis ke field `sekolah`. Tiga
+jalur privilese terpisah dikonfirmasi: role (`hakAkses()`), `getRoot()`
+(`ROLE_SUPERVISOR`), `getSuperadmin()` ("admin lain", pintas sebelum
+semua cek peran). `RoleAccess`/`UserAccess`/`UserRole`/`RoleHasDashboard`
+dikonfirmasi TERPISAH TOTAL dari `Tbmuser`/`Tbmrole` (nol FK/jembatan).
+
+**`ParameterTambahan.java`+`ParameterTambahanAstract.java`** (74+21
+anggota, r85442-r85492) — akar `task_484d4bd0`. **Referensi definitif**:
+`initComponent()` (dulu ~baris 476) TIDAK membangun kunci `jenis`
+sendiri — pemanggil yang membangunnya (`kelompokX.getId()+"->"
++parameterTambahan.getId()`), lalu dipakai di 3 titik penyimpanan
+lampiran, SELALU tanpa diskriminator kelas pemilik. Ironisnya kelas
+INI SENDIRI sudah punya pola AMAN beberapa baris di bawah (namespace
+via `ParameterTambahanAstract.class.getName()`) — inkonsistensi
+internal inilah yang membuat cacat ini lolos lama. Tambalan yang SUDAH
+ada: `LampiranLain.resolveJenisParameterTambahan()` (`ownerClass.getName()
++"#"+jenisMentah`, coba-namespace→coba-mentah→kembalikan-namespace,
+tanpa migrasi DB). **Peta LENGKAP pemanggil ditulis**: 22 AMAN
+(mayoritas `ParameterTambahan*Listener`) vs BELUM AMAN
+(`TampilanPengumumanAkademisAction` — jalur `BiodataCalonMahasiswa`
+terlewat padahal jalur `CalonSiswa` sudah ditambal;
+`IsiAngketParameterUmumListener` CAMPURAN — hanya cabang UMUM
+dinormalkan; **`SopService.java` menerbitkan kunci MENTAH ke klien
+seluler** padahal jalur ZK pemilik sama sudah ber-namespace). Relasi:
+SATU hierarki (`ParameterTambahan extends ParameterTambahanAstract`),
+bukan abstract-vs-nilai — nilai jawaban sendiri disimpan di kolom teks
+`parameterTambahanInds` milik entity PEMAKAI, bukan di kedua kelas
+ini. **Task baru: TIDAK ADA** — semua memperluas-presisi
+`task_484d4bd0`. Temuan lain: `getKodeAdminYgBoleh()` getter DESTRUKTIF
+menghapus PERMANEN kode admin tersimpan saat dibaca (bukan sekadar
+default, benar-benar hilang); `CUSTOM_PILIHAN` `public static` tanpa
+`unmodifiableList` (bisa diubah siapa pun, global lintas tenant).
+
+**`Kegiatan.java`+`JenisKegiatan.java`+`DetailBiaya.java`** (billing
+pusat, 2267+1242+1068 baris, r85446-r85530). Total `Kegiatan` BUKAN
+dijumlah dari `DetailKegiatan` — dibaca dari 2 kolom JSON snapshot
+(`tagihans`/`bulans`), TIGA sumber kebenaran (FK `DetailKegiatan`,
+daftar string hapus-lunak, snapshot JSON) tak saling jaga konsistensi.
+`DetailBiaya.getNilaiBiaya()` DIKONFIRMASI ULANG getter destruktif
+(baris 382-423) — plus PRESISI BARU: `getStatusMahasiswa()`/
+`getStatusAwalMahasiswa()` menimpa FK DIMENSI PENYARING tanpa syarat,
+diam-diam memindahkan baris nominal ke kelompok sasaran lain. **4 task
+baru — bug kalkulasi finansial NYATA di mesin billing PUSAT (dampak
+potensial luas)**: `task_7d9b27d8` (denda angsuran tak pernah
+terpakai — satu-satunya pemanggil produksi kirim `null`, plus 2 saklar
+berlawanan default yang akan salah 2 arah begitu ditambal);
+`task_0b015148` (diskon rupiah bisa melebihi nominal baris → baris
+NEGATIF, cuma 1 dari 6 rute punya penjaga); `task_c44cd75c`
+(`hitungTagihan` pilih kunci dijumlah pakai tebakan `b>a` — bisa
+berpindah cabang & double-count); `task_7738e786` (`Kegiatan.mappingId`
+HashMap statis publik tanpa lock/batas/pembersihan).
+
+**`VOPembelajaran.java`+`VOMahasiswa.java`+`CommonVO.java`+
+`VOMahasiswaDosen.java`** (186 anggota total, r85449-r85541). **Peta
+hierarki definitif**: `CommonVO` independen total (nol subclass, 472
+titik pakai sebagai baris tabel serbaguna); `VOMahasiswaDosen` interface
+murni (4 implementer lintas cabang berbeda: `Mahasiswa`/`Dosen`/
+`sekolah.Siswa`/`sekolah.Guru`); `VOMahasiswa` (3 subclass: `Mahasiswa`/
+`BiodataCalonMahasiswa`/`kursus.PesertaKursus`) SEJAJAR `VOPembelajaran`
+(17 subclass termasuk `Perkuliahan`/`Skripsi`/`kkn.KelompokKkn`/
+`pkl.KelompokPkl`) — TIDAK saling mewarisi, `Mahasiswa` TIDAK extends
+`VOPembelajaran`. Dikonfirmasi `kursus.PesertaKursus` (batch 110)
+mewarisi mesin `ambilKegiatans`/`ambilCicilan` yang MEMANG mati
+untuknya (cabang query cuma Mahasiswa-vs-selainnya). **0 task baru**
+tapi ≥13 bug korektnes didokumentasikan detail: `getDisposisiSop()`/
+`hitungTotalCicilan()` MENULIS DB dari method bernama "hitung" (bulan
+diproses lebih dulu ambil SELURUH pembayaran warisan, permanen);
+cabang `KelompokPkl` di `populateDosenBuNama()` cek slot dosen ke-5 DUA
+KALI (salin-tempel dari `KelompokKkn` yang benar) → `getOrganizer()`
+kirim undangan kalender GANDA; 3 subclass (`GrupPertemuan`/
+`JadwalPertemuanPSB`/`KelasLesSiswa`) tak terjangkau mesin `reInit*` —
+indeksnya DIKOSONGKAN tiap refresh; pemetaan peran Skripsi
+bertentangan antara `populateDosen()` dan `infoDosen()`.
+
+**`StatuskehadiranKaryawanHarian.java`+`GelombangPendaftaran.java`+
+`LogHostToHost.java`+`DspaceInformation.java`** (3066+1499+539+450
+baris, r85445-r85531, agent penutup). **Perluasan BESAR
+`task_a1e32ff3`** (bukan task baru): `LogHostToHost.info0` simpan
+SEMUA header HTTP termasuk Authorization/signature (dibenarkan
+komentar kode sebagai "audit internal" — padahal ADA UI penampilnya);
+pembaca BUKAN cuma `LogHostToHostAction` — termasuk
+`KegiatanAction`/`KegiatanPerMahasiswaAction` yang render `keterangan`
+mentah TANPA ESCAPING (**stored XSS dari payload bank**); generic-CRUD
+JSP nol `canRead`; nol isolasi tenant; `finpay`/`jatelindo` DIKONFIRMASI
+menulis ke tabel sama, bergabung daftar panjang bank/gateway lain
+(BCA/BNI/BRI/BSI/BMS/Bjb/Otto/Nagari/MncBank/Maja/Flip/FasPay/
+Esmartlink/Jaring/Bankaltimtara). **Task baru `task_e4d37b9b`**:
+bypass gerbang gelombang pendaftaran PMB via parameter URL (status
+buka/tutup cuma dicek di render) — sesi PARALEL LAIN SUDAH mulai
+menambal mid-kerja (terdeteksi via `svn status` WIP tak terkomit),
+agent menunggu commit mereka dulu sebelum menyentuh file (tidak
+menyapu WIP orang lain). `GelombangPendaftaran` dikonfirmasi TOTAL
+TERPISAH dari `recruitment.GelombangPendaftaranPegawai` (tabel beda,
+tenant beda, nol import silang). `DspaceInformation` independen/paralel
+dari paket `repository` (klien DSpace eksternal vs repositori native
+AIS) — jembatan HANYA aktif via tombol manual, bukan scheduler otomatis.
+
+**6 task baru batch mega-file** (1 sudah dieksekusi): `task_5736d323`
+(SELESAI), `task_7d9b27d8`, `task_0b015148`, `task_c44cd75c`,
+`task_7738e786`, `task_e4d37b9b`. Total akumulasi: **1657+ file** dari
+7.401 — sisa **371 file lepas root murni** untuk batch berikutnya.
+
 ## Batch 127 (penomoran orkestrator ini — CATATAN: sesi paralel lain independen kebetulan juga memakai label "Batch 126" untuk `streaming` di atas, isi berbeda total, bukan tabrakan kerja) — mulai backlog 485 file lepas ROOT `ais.database.model`, 100 file pertama, 5 task baru (6 Sep 2026)
 
 **PIVOT BESAR**: paket besar (>10 file) dan puluhan sub-paket kecil kini
