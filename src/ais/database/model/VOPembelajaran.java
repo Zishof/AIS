@@ -4223,6 +4223,30 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "";
 	}
 
+	/**
+	 * Mengambil nama kelas yang terkait objek pembelajaran ini, sudah dipangkas spasinya.
+	 *
+	 * <p>Empat cabang dikenali, dengan dua asal yang berbeda: {@link Perkuliahan} membacanya dari
+	 * kolomnya sendiri, sedangkan {@link KrsMahasiswa}, {@link Skripsi}, dan
+	 * {@link MahasiswaRequestTugasAkhir} membacanya dari <b>kelas mahasiswanya</b>. Perbedaan itu
+	 * berarti nilai yang dikembalikan tidak selalu punya arti yang sama: pada perkuliahan ia
+	 * menyatakan kelas paralel penyelenggaraan, sedangkan pada ketiga wadah lain ia menyatakan
+	 * kelas asal mahasiswa yang bersangkutan.</p>
+	 *
+	 * <p><b>Tidak null-safe pada tiga titik sekaligus.</b> Pemangkasan spasi dipanggil langsung
+	 * atas nilai kolom tanpa memeriksanya, dan pada tiga cabang terakhir relasi mahasiswanya juga
+	 * dibaca tanpa penjaga. Method ini tidak punya penangkap kesalahan, sehingga kelas yang belum
+	 * diisi maupun relasi mahasiswa yang kosong sama-sama melempar
+	 * {@link NullPointerException} ke pemanggil. Bandingkan dengan {@link #ambilTahunAjaran()}
+	 * yang dibungkus dan berujung pada {@code "-"}.</p>
+	 *
+	 * <p>Subclass yang tidak dikenali mengembalikan {@code ""} — bukan {@code "-"} seperti
+	 * {@link #ambilJenis()}, dan bukan {@code null} seperti {@link #ambilHari()}. Ketiga nilai
+	 * bawaan yang berbeda itu ada pada kelas yang sama dan harus diperiksa satu per satu oleh
+	 * pemanggil.</p>
+	 *
+	 * @return nama kelas yang sudah dipangkas, atau {@code ""} bila wadahnya tidak dikenali
+	 */
 	public String ambilKelas() {
 
 		if (this instanceof Perkuliahan) {
@@ -4241,6 +4265,23 @@ public abstract class VOPembelajaran extends VoKunci {
 		return "";
 	}
 
+	/**
+	 * Mengambil hari penyelenggaraan objek pembelajaran ini.
+	 *
+	 * <p>Hanya {@link Perkuliahan} yang punya jadwal harian tetap; seluruh subclass lain
+	 * mengembalikan {@code null}. Perhatikan pilihan nilai bawaan itu — {@code null}, bukan
+	 * {@code "-"} seperti {@link #ambilJenis()} maupun {@code ""} seperti {@link #ambilKelas()}.
+	 * Pemanggil yang menampilkan nilainya langsung akan mencetak teks {@code "null"} untuk wadah
+	 * selain perkuliahan.</p>
+	 *
+	 * <p>Nilai yang dikembalikan adalah isi kolom apa adanya, tanpa normalisasi maupun
+	 * pemangkasan; perkuliahan yang harinya belum diisi juga menghasilkan {@code null}, sehingga
+	 * "bukan perkuliahan" dan "perkuliahan tanpa hari" tidak dapat dibedakan. Nama hari inilah
+	 * yang dicocokkan {@link #compareTo(GeneralValueObject)} terhadap daftar hari untuk menentukan
+	 * indeks urutannya, dengan pembandingan yang tidak peka huruf besar/kecil.</p>
+	 *
+	 * @return nama hari, atau {@code null} bila bukan perkuliahan atau harinya belum diisi
+	 */
 	public String ambilHari() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -4250,6 +4291,34 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah objek pembelajaran ini merupakan kegiatan ekstrakurikuler, dalam bentuk
+	 * penanda bertipe angka.
+	 *
+	 * <p>Nilainya bukan benar/salah melainkan konstanta {@code Perkuliahan.EKSTRA} bila
+	 * ekstrakurikuler, dan {@code null} bila tidak. Bentuk "penanda sebagai angka atau
+	 * {@code null}" ini dipakai agar nilainya dapat langsung diteruskan ke kolom dan parameter
+	 * kueri yang mengharapkan angka, tanpa perlu penerjemahan. Konsekuensinya, memeriksanya harus
+	 * dilakukan dengan membandingkan terhadap {@code null} atau terhadap konstanta tersebut —
+	 * bukan dengan menganggapnya nilai kebenaran.</p>
+	 *
+	 * <p>Statusnya diturunkan dari <b>mata kuliahnya</b>, bukan dari perkuliahannya: satu mata
+	 * kuliah yang ditandai ekstrakurikuler membuat seluruh kelas penyelenggaraannya ikut
+	 * ekstrakurikuler.</p>
+	 *
+	 * <p><b>Tidak null-safe.</b> Rantai {@code getMatakuliah().getExtraKulikuler()} dibaca tanpa
+	 * penjaga, dan hasilnya dipakai langsung sebagai kondisi sehingga bungkus {@link Boolean}-nya
+	 * dibuka secara otomatis. Perkuliahan tanpa mata kuliah, atau mata kuliah yang penanda
+	 * ekstrakurikulernya belum diisi, sama-sama melempar {@link NullPointerException} ke
+	 * pemanggil — tidak ada penangkap kesalahan di method ini.</p>
+	 *
+	 * <p>Subclass selain {@link Perkuliahan} mengembalikan {@code null}, yang berarti "bukan
+	 * ekstrakurikuler" dan sekaligus "pertanyaannya tidak berlaku"; keduanya tidak dapat
+	 * dibedakan.</p>
+	 *
+	 * @return {@code Perkuliahan.EKSTRA} bila ekstrakurikuler, {@code null} bila tidak atau bila
+	 *         wadahnya bukan perkuliahan
+	 */
 	public Integer ambilExtraKulikuler() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -4259,6 +4328,25 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah objek pembelajaran ini merupakan pra-perkuliahan — kegiatan pembekalan
+	 * yang berlangsung sebelum perkuliahan reguler dimulai.
+	 *
+	 * <p>Hanya {@link Perkuliahan} yang memodelkan penanda ini; subclass lain menjawab
+	 * {@code false} secara tetap. Untuk perkuliahan, nilainya diteruskan apa adanya dari kolomnya,
+	 * <b>termasuk bila kolom itu kosong</b> — sehingga meskipun cabang lain selalu mengembalikan
+	 * nilai, method ini secara keseluruhan tetap dapat mengembalikan {@code null}. Pemanggil yang
+	 * memakai hasilnya sebagai kondisi langsung berisiko melempar
+	 * {@link NullPointerException} saat bungkusnya dibuka.</p>
+	 *
+	 * <p>Penanda ini ikut menentukan pengurutan: {@link #compareTo(GeneralValueObject)}
+	 * menyisipkan penanda {@code _0_pra} pada kunci pengurutan perkuliahan pra-perkuliahan,
+	 * sehingga kelompoknya terpisah dari perkuliahan biasa pada semester yang sama. Perhatikan
+	 * bahwa method pembanding itu membaca kolomnya langsung, bukan lewat method ini.</p>
+	 *
+	 * @return {@code true} bila pra-perkuliahan, {@code false} bila bukan perkuliahan; dapat
+	 *         {@code null} bila kolomnya kosong
+	 */
 	public Boolean ambilMerupakanPraPerkuliahan() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -4268,6 +4356,22 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah objek pembelajaran ini merupakan kelas remedial — penyelenggaraan ulang
+	 * bagi mahasiswa yang belum memenuhi syarat kelulusan mata kuliahnya.
+	 *
+	 * <p>Sejalan dengan {@link #ambilMerupakanPraPerkuliahan()}: hanya {@link Perkuliahan} yang
+	 * memodelkannya, subclass lain menjawab {@code false} secara tetap, dan nilai untuk
+	 * perkuliahan diteruskan apa adanya sehingga <b>dapat berupa {@code null}</b> bila kolomnya
+	 * kosong.</p>
+	 *
+	 * <p>Berbeda dari pra-perkuliahan, penanda remedial tidak ikut menentukan pengurutan —
+	 * {@link #compareTo(GeneralValueObject)} tidak menyisipkan penanda apa pun untuknya, sehingga
+	 * kelas remedial bercampur dengan kelas biasa pada daftar terurut.</p>
+	 *
+	 * @return {@code true} bila remedial, {@code false} bila bukan perkuliahan; dapat {@code null}
+	 *         bila kolomnya kosong
+	 */
 	public Boolean ambilMerupakanRemedial() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
@@ -4277,6 +4381,31 @@ public abstract class VOPembelajaran extends VoKunci {
 		}
 	}
 
+	/**
+	 * Menyatakan apakah objek pembelajaran ini merupakan kelas paralel — kelas tambahan yang
+	 * menyelenggarakan mata kuliah yang sama berdampingan dengan kelas utamanya.
+	 *
+	 * <p><b>Dua sumber yang digabungkan dengan "atau".</b> Yang pertama adalah kolom paralel yang
+	 * tersimpan di basis data. Yang kedua adalah {@code Perkuliahan.flagParalel}, sebuah
+	 * <b>field publik bertanda {@code transient}</b> — penanda yang hanya hidup di memori, tidak
+	 * pernah tersimpan, dan disetel oleh kode yang membangun daftar kelas paralel secara dinamis
+	 * agar pemanggil dapat membedakan baris tersebut dari kelas biasa.</p>
+	 * <p>Konsekuensinya perlu dipahami dengan jelas: <b>objek yang sama dapat menjawab berbeda
+	 * pada dua tempat</b>. Instance yang baru saja ditandai oleh pembangun daftar menjawab
+	 * {@code true}, sementara instance yang sama dimuat ulang dari basis data menjawab
+	 * {@code false} bila kolomnya memang tidak menyatakan paralel. Jangan menyimpan hasil method
+	 * ini sebagai fakta yang bertahan, dan jangan menuliskannya kembali ke basis data.</p>
+	 *
+	 * <p><b>Tidak null-safe.</b> Operator "atau" membuka bungkus kedua nilai, sehingga kolom
+	 * paralel yang kosong melempar {@link NullPointerException}. Tidak ada penangkap kesalahan di
+	 * method ini. Field {@code flagParalel} sendiri bertipe primitif dan berdefault salah,
+	 * sehingga bukan sumber masalah.</p>
+	 *
+	 * <p>Subclass selain {@link Perkuliahan} menjawab {@code false} secara tetap.</p>
+	 *
+	 * @return {@code true} bila kelas paralel menurut kolom tersimpan maupun penanda sementara di
+	 *         memori; {@code false} bila bukan perkuliahan
+	 */
 	public Boolean ambilMerupakanParalel() {
 		if (this instanceof Perkuliahan) {
 			Perkuliahan perkuliahan = (Perkuliahan) this;
