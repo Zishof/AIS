@@ -2,6 +2,7 @@ package ais.action.master.helper;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -1093,22 +1094,29 @@ public class ProsesUjianHelper extends MyWindow {
 	 *   <li>Menyesuaikan {@code jmlDiujikan}: jika {@code ujianPunyaSoals.size() < jumlahDiujikan}
 	 *       atau {@code jumlahDiujikan <= 0}, pakai seluruh soal yang tersedia.</li>
 	 *   <li>Membuat {@code MyArrayList<Long>} dengan kapasitas awal {@code jmlDiujikan}.</li>
-	 *   <li>Mengisi daftar dalam loop {@code while(true)} yang berhenti ketika ukuran daftar
-	 *       mencapai {@code jmlDiujikan}:</li>
-	 *   <ul>
-	 *     <li>Bila {@code rand=true}: pilih posisi acak via {@code Random.nextInt(jml)}.</li>
-	 *     <li>Bila {@code rand=false}: pilih soal berurutan dari indeks 0, 1, 2, ...</li>
-	 *   </ul>
-	 *   <li>Catatan: implementasi saat ini mengizinkan duplikat soal bila pool lebih kecil dari
-	 *       kuota (duplikat dicegah di level {@link #chekPosisitonJikaKurang}). Ini adalah
-	 *       perilaku yang diketahui dan diterima pada konfigurasi soal sangat sedikit.</li>
+	 *   <li>Bila {@code rand=true}: menyalin {@code ujianPunyaSoals} ke list sementara,
+	 *       mengacaknya dengan {@code Collections.shuffle}, lalu mengambil {@code jmlDiujikan}
+	 *       elemen pertama — pengambilan sampel TANPA pengembalian, sehingga satu soal tidak
+	 *       bisa terpilih dua kali.</li>
+	 *   <li>Bila {@code rand=false}: memilih soal berurutan dari indeks 0, 1, 2, ....</li>
+	 *   <li>Karena {@code jmlDiujikan} sudah dijamin {@code <= ujianPunyaSoals.size()} (lihat
+	 *       langkah penyesuaian di atas), kedua cabang selalu menghasilkan tepat
+	 *       {@code jmlDiujikan} soal BERBEDA tanpa risiko loop tak berhenti.</li>
 	 *   <li>Update label ZK ("harap tunggu.. Sedang menyiapkan soal") dipanggil setiap iterasi
 	 *       agar UI loading-bar tidak membeku.</li>
 	 * </ol>
 	 *
-	 * <p><b>Penanganan error:</b> Exception per iterasi ditangkap dan dicetak ke stderr; loop
-	 * tetap berjalan hingga kuota terpenuhi. Ini menghindari ujian yang tidak bisa dimulai
-	 * hanya karena satu soal rusak di cache.</p>
+	 * <p><b>Riwayat:</b> sebelum perbaikan ini, cabang {@code rand=true} memilih posisi acak
+	 * dengan {@code Random.nextInt(jml)} pada setiap iterasi TANPA memeriksa apakah soal itu
+	 * sudah terpilih (sampling DENGAN pengembalian). Akibatnya soal yang sama bisa terpilih
+	 * lebih dari sekali walau pool jauh lebih besar dari kuota (paradoks ulang tahun) — peserta
+	 * melihat soal ganda dan kehilangan satu soal berbeda, sementara {@code jumlahSoal} pada
+	 * {@link #generateHasilUjian} tetap menjumlah skor soal yang duplikat (menggelembungkan
+	 * penyebut) karena daftar itu tidak dideduplikasi.</p>
+	 *
+	 * <p><b>Penanganan error:</b> Exception per iterasi ditangkap dan dicetak ke stderr; iterasi
+	 * lain tetap berjalan. Ini menghindari ujian yang tidak bisa dimulai hanya karena satu soal
+	 * rusak di cache.</p>
 	 *
 	 * <p><b>Thread-safety:</b> Dipanggil dari thread latar ({@link #init()} memanggil
 	 * {@link #initSoal} di thread baru). {@code label.setValue()} dibungkus dalam try-catch
@@ -1121,7 +1129,7 @@ public class ProsesUjianHelper extends MyWindow {
 	 * @param label           ZK Label untuk menampilkan pesan loading (boleh null = tidak diupdate)
 	 * @param jumlahDiujikan  target jumlah soal yang harus dipilih
 	 * @return {@code MyArrayList<Long>} berisi tepat {@code jmlDiujikan} ID {@code UjianPunyaSoal}
-	 *         (atau semua soal bila pool lebih kecil dari kuota)
+	 *         yang SALING BERBEDA (atau semua soal bila pool lebih kecil dari kuota)
 	 */
 	public static MyArrayList<Long> randomPosisiton(List<Long> ujianPunyaSoals, boolean rand, Label label,
 			Integer jumlahDiujikan) {
@@ -1131,18 +1139,17 @@ public class ProsesUjianHelper extends MyWindow {
 			jmlDiujikan = ujianPunyaSoals.size();
 		}
 
-		Random random = new Random();
 		MyArrayList<Long> ujianPunyaSoalsHasil = new MyArrayList<Long>(jmlDiujikan);
-		int jml = ujianPunyaSoals.size();
-		int index = 0;
-		while (true) {
+
+		List<Long> sumberSoal = ujianPunyaSoals;
+		if (rand) {
+			sumberSoal = new ArrayList<Long>(ujianPunyaSoals);
+			Collections.shuffle(sumberSoal, new Random());
+		}
+
+		for (int index = 0; index < jmlDiujikan; index++) {
 			try {
-				index++;
-				if (ujianPunyaSoalsHasil.size() >= jmlDiujikan) {
-					break;
-				}
-				int randomPosition = rand ? random.nextInt(jml) : index - 1;
-				Long temp = ujianPunyaSoals.get(randomPosition);
+				Long temp = sumberSoal.get(index);
 				ujianPunyaSoalsHasil.add(temp);
 				if (label != null)
 					label.setValue("harap tunggu.. Sedang menyiapkan soal");
