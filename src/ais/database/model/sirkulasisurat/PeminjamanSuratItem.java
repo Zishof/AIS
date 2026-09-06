@@ -41,13 +41,13 @@ import ais.ui.util.WaktuUtil;
  * memuat banyak dokumen), dan pengembaliannya dicatat lewat {@link KembaliSuratItem}.
  *
  * <p>
- * <b>WASPADAI — tidak ada penjaga anti-tabrakan (double-booking) di level entitas ini</b>:
- * tidak ada constraint unik atau pengecekan status "sedang dipinjam" pada dokumen surat masuk
- * ({@code SuratMasuk}) yang dipilih di {@link PeminjamanSuratItemDetail}; dua transaksi
- * peminjaman aktif berbeda berpotensi memuat dokumen surat yang sama secara bersamaan bila
- * pemanggil (Action/Helper) tidak melakukan pengecekan sendiri sebelum menyimpan detail — pola
- * kerentanan yang sama sudah ditemukan dan diperbaiki pada modul peminjaman aset dan beberapa
- * modul lain di luar sirkulasi surat.
+ * <b>Penjaga anti-tabrakan (double-booking)</b>: tidak ada constraint unik di level tabel pada
+ * dokumen surat masuk ({@code SuratMasuk}) yang dipilih di {@link PeminjamanSuratItemDetail},
+ * tetapi setiap titik simpan detail baru (picker massal, scan barcode, maupun commit form) WAJIB
+ * memanggil gerbang aplikatif {@link PeminjamanSuratItemDetail#sedangDipinjamAktif} terlebih
+ * dahulu (pola sama dengan {@code PeminjamanMasterAssetHelper.sedangDipinjamAktif} pada modul
+ * peminjaman aset) sehingga satu dokumen fisik tidak bisa dipinjam pada dua transaksi aktif
+ * sekaligus. Jangan menambah jalur simpan detail baru tanpa memanggil gerbang ini.
  * </p>
  */
 @Entity

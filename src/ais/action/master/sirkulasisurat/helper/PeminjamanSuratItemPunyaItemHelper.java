@@ -126,7 +126,7 @@ public class PeminjamanSuratItemPunyaItemHelper {
 									.add(Restrictions.eq("peminjamanSuratItem", peminjamanSuratItem)).list();
 
 					AmbilDataSuratMasukBanyak ambilDataItemBanyak = new AmbilDataSuratMasukBanyak(suratMasuks, tipe,
-							true, (SatuanKerja) kepadaSatuanKerja.getAttribute("satuanKerja"));
+							true, (SatuanKerja) kepadaSatuanKerja.getAttribute("satuanKerja"), true);
 					ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(ambilDataItemBanyak);
 					ambilDataItemBanyak.setEventListener(new EventListener() {
 
@@ -139,7 +139,12 @@ public class PeminjamanSuratItemPunyaItemHelper {
 							if (peminjamanSuratItem != null && peminjamanSuratItem.getId() != null) {
 
 								Session session = HibernateUtil.currentSession();
+								List<String> ditolak = new ArrayList<String>();
 								for (SuratMasuk suratMasuk : items) {
+									if (PeminjamanSuratItemDetail.sedangDipinjamAktif(suratMasuk, peminjamanSuratItem)) {
+										ditolak.add(suratMasuk.getNoSurat());
+										continue;
+									}
 									PeminjamanSuratItemDetail peminjamanSuratItemDetail = new PeminjamanSuratItemDetail();
 									peminjamanSuratItemDetail.setSuratMasuk(suratMasuk);
 									peminjamanSuratItemDetail.setJumlah(1.0);
@@ -149,6 +154,13 @@ public class PeminjamanSuratItemPunyaItemHelper {
 								}
 
 								loadDataDetail(peminjamanSuratItem, gridItem);
+
+								if (!ditolak.isEmpty()) {
+									MyMessageboxConfig.show(
+											"Dokumen surat berikut tidak ditambahkan karena sedang dipinjam aktif pada transaksi peminjaman lain yang belum dikembalikan: "
+													+ Common.join(ditolak, ", "),
+											"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+								}
 							} else {
 
 								Rows rows = gridItem.getRows() == null ? new Rows() : gridItem.getRows();

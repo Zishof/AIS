@@ -23,9 +23,11 @@ import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
+import org.hibernate.criterion.Restrictions;
 import org.hibernate.envers.Audited;
 
 import ais.common.Common;
+import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
 import ais.database.model.Konfigurasi;
 import ais.database.model.surat.SuratMasuk;
@@ -39,10 +41,10 @@ import ais.database.model.surat.SuratMasuk;
  * dikonfigurasi (akhir pekan/libur nasional geser batas waktu).
  *
  * <p>
- * <b>WASPADAI</b>: tidak ada unique constraint pada kolom {@code surat_masuk} — kelas ini
- * (bersama {@link PeminjamanSuratItem}) tidak mencegah dokumen {@link SuratMasuk} yang sama
- * disimpan di lebih dari satu baris detail aktif (lihat catatan double-booking pada javadoc kelas
- * {@link PeminjamanSuratItem}).
+ * <b>Penjaga anti-tabrakan (double-booking)</b>: tidak ada unique constraint pada kolom
+ * {@code surat_masuk} — kelas ini (bersama {@link PeminjamanSuratItem}) mengandalkan gerbang
+ * aplikatif {@link #sedangDipinjamAktif} yang WAJIB dipanggil sebelum baris detail baru disimpan
+ * (lihat catatan pada javadoc kelas {@link PeminjamanSuratItem}).
  * </p>
  */
 @Entity
@@ -437,6 +439,44 @@ public class PeminjamanSuratItemDetail extends GeneralValueObject {
 	/** @param tanggalKembali tanggal pengembalian yang akan diset. */
 	public void setTanggalKembali(Date tanggalKembali) {
 		this.tanggalKembali = tanggalKembali;
+	}
+
+	/**
+	 * Penjaga double-booking (lihat catatan pada javadoc kelas ini dan {@link PeminjamanSuratItem}):
+	 * {@code true} bila {@code suratMasuk} sedang dipinjam aktif (belum dikembalikan, yaitu ada
+	 * baris {@link PeminjamanSuratItemDetail} LAIN dengan {@code kembaliSuratItemDetail} masih
+	 * {@code null}) pada header {@link PeminjamanSuratItem} yang berbeda dari
+	 * {@code kecualiHeader}. Panggil sebelum baris detail baru disimpan agar satu dokumen fisik
+	 * tidak bisa dipinjam pada dua transaksi aktif sekaligus (pola sama dengan
+	 * {@code PeminjamanMasterAssetHelper.sedangDipinjamAktif}).
+	 *
+	 * @param suratMasuk    dokumen yang akan diperiksa; {@code null}/belum tersimpan selalu mengembalikan {@code false}
+	 * @param kecualiHeader header peminjaman yang dikecualikan dari pengecekan (mis. header yang sedang diedit/dibuat), boleh {@code null}/belum tersimpan
+	 * @return {@code true} bila dokumen sedang dipinjam aktif pada header lain
+	 */
+	@SuppressWarnings("unchecked")
+	public static boolean sedangDipinjamAktif(SuratMasuk suratMasuk, PeminjamanSuratItem kecualiHeader) {
+		if (suratMasuk == null || suratMasuk.getId() == null) {
+			return false;
+		}
+
+		List<PeminjamanSuratItemDetail> aktifDiTransaksiLain = HibernateUtil.currentSession()
+				.createCriteria(PeminjamanSuratItemDetail.class)
+				.add(Restrictions.eq("suratMasuk", suratMasuk))
+				.add(Restrictions.isNull("kembaliSuratItemDetail")).list();
+
+		for (PeminjamanSuratItemDetail baris : aktifDiTransaksiLain) {
+			PeminjamanSuratItem header = baris.getPeminjamanSuratItem();
+			if (header == null) {
+				continue;
+			}
+			boolean headerBerbeda = kecualiHeader == null || kecualiHeader.getId() == null
+					|| !kecualiHeader.getId().equals(header.getId());
+			if (headerBerbeda) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }

@@ -314,7 +314,8 @@ public class PeminjamanSuratItemDetailAction extends MyDetail {
 								.setProjection(Projections.groupProperty("suratMasuk"))
 								.add(Restrictions.eq("peminjamanSuratItem", peminjamanSuratItem)).list();
 
-				AmbilDataSuratMasukBanyak ambilDataItemBanyak = new AmbilDataSuratMasukBanyak(suratMasuks, tipe);
+				AmbilDataSuratMasukBanyak ambilDataItemBanyak = new AmbilDataSuratMasukBanyak(suratMasuks, tipe, false,
+						null, true);
 				ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot().appendChild(ambilDataItemBanyak);
 				ambilDataItemBanyak.setEventListener(new EventListener() {
 
@@ -323,7 +324,12 @@ public class PeminjamanSuratItemDetailAction extends MyDetail {
 						List<SuratMasuk> items = (List<SuratMasuk>) arg0.getData();
 
 						Session session = HibernateUtil.currentSession();
+						List<String> ditolak = new ArrayList<String>();
 						for (SuratMasuk suratMasuk : items) {
+							if (PeminjamanSuratItemDetail.sedangDipinjamAktif(suratMasuk, peminjamanSuratItem)) {
+								ditolak.add(suratMasuk.getNoSurat());
+								continue;
+							}
 							PeminjamanSuratItemDetail peminjamanSuratItemDetail = new PeminjamanSuratItemDetail();
 							peminjamanSuratItemDetail.setSuratMasuk(suratMasuk);
 							peminjamanSuratItemDetail.setJumlah(1.0);
@@ -333,6 +339,13 @@ public class PeminjamanSuratItemDetailAction extends MyDetail {
 						}
 
 						loadData(null);
+
+						if (!ditolak.isEmpty()) {
+							MyMessageboxConfig.show(
+									"Dokumen surat berikut tidak ditambahkan karena sedang dipinjam aktif pada transaksi peminjaman lain yang belum dikembalikan: "
+											+ Common.join(ditolak, ", "),
+									"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+						}
 					}
 				});
 				ambilDataItemBanyak.setWidth("97%");
@@ -431,6 +444,16 @@ public class PeminjamanSuratItemDetailAction extends MyDetail {
 		if (suratMasuk == null) {
 			MyMessageboxConfig.show("Kode surat " + barcode + " tidak ditemukan", "Peringatan", MyMessageboxConfig.OK,
 					MyMessageboxConfig.EXCLAMATION);
+			return;
+		}
+
+		if (PeminjamanSuratItemDetail.sedangDipinjamAktif(suratMasuk, peminjamanSuratItem)) {
+			MyMessageboxConfig.show(
+					"Mohon maaf, dokumen surat " + barcode
+							+ " sedang dipinjam aktif pada transaksi peminjaman lain dan belum dikembalikan. Langkah yang dapat dilakukan: (1) pastikan dokumen sudah dikembalikan pada transaksi sebelumnya; (2) hubungi peminjam sebelumnya atau Administrator bila diperlukan.",
+					"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+			this.barcode.focus();
+			this.barcode.select();
 			return;
 		}
 

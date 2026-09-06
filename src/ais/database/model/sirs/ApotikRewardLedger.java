@@ -31,14 +31,15 @@ import ais.database.model.GeneralValueObject;
  * bebas, bukan enum/FK ke katalog) dan {@code provisionDemo()} (baris saldo-awal untuk data
  * sampel/UAT, jenis {@code "PEROLEHAN"} dengan {@link #getReferensi()} {@code "SEED-UAT"}).</p>
  *
- * <p><b>Peringatan konkurensi</b> (lihat detail lengkap di javadoc kelas
- * {@link ApotikCustomerMembership}): penulisan baris ini SELALU didahului baca-hitung-tulis
- * `poin_saldo` pada membership induk TANPA row-lock/versi optimistik — dua mutasi bersamaan
- * pada membership yang sama berisiko menghasilkan dua baris ledger dengan
+ * <p><b>Konkurensi (DITAMBAL)</b> (lihat detail lengkap di javadoc kelas
+ * {@link ApotikCustomerMembership}): penulisan baris ini didahului baca-hitung-tulis
+ * `poin_saldo` pada membership induk, yang dulu TANPA row-lock/versi optimistik — dua mutasi
+ * bersamaan pada membership yang sama berisiko menghasilkan dua baris ledger dengan
  * {@link #getSaldoSetelah()} yang SAMA-SAMA dihitung dari saldo lama yang sama (bukan
  * berurutan), sehingga rantai saldo ledger bisa tidak konsisten dengan urutan commit
- * sebenarnya. Dicatat sebagai temuan arsitektur, belum ditambal (kategori sama dengan bug
- * check-in ganda kamar hotel {@code task_b718f355}, subsistem berbeda).</p>
+ * sebenarnya. Ditambal dengan {@code LockMode.UPGRADE} pada pemuatan membership induk di
+ * {@code mutasiPoin()}, yang menyerialkan mutasi bersamaan pada membership yang sama sehingga
+ * rantai {@link #getSaldoSetelah()} kini konsisten dengan urutan commit sesungguhnya.</p>
  *
  * @see ApotikCustomerMembership
  */

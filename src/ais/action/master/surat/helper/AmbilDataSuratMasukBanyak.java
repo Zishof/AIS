@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Set;
 
 import org.hibernate.Session;
+import org.hibernate.criterion.DetachedCriteria;
 import org.hibernate.criterion.MatchMode;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
+import org.hibernate.criterion.Subqueries;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
 import org.zkoss.zk.ui.event.Events;
@@ -35,6 +38,7 @@ import ais.action.master.rab.util.SatuanKerjaTreeModel;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.rab.SatuanKerja;
+import ais.database.model.sirkulasisurat.PeminjamanSuratItemDetail;
 import ais.database.model.surat.SuratMasuk;
 import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyGrid;
@@ -88,6 +92,8 @@ public class AmbilDataSuratMasukBanyak extends MyWindow {
 	private String tipe;
 	private Boolean hanyaYangBolehDipinjam = false;
 	private SatuanKerja satker = null;
+	/** Bila {@code true}, {@link #onSearchDefault(Event)} mengecualikan surat yang sedang dipinjam aktif (belum dikembalikan) pada transaksi peminjaman lain manapun — lihat {@link PeminjamanSuratItemDetail#sedangDipinjamAktif}. Default {@code false} agar pemanggil non-peminjaman (mis. lampiran surat keluar) tidak terpengaruh. */
+	private boolean kecualikanSedangDipinjamAktif = false;
 
 	public AmbilDataSuratMasukBanyak(List<SuratMasuk> suratMasuks, String tipe) {
 		this(suratMasuks, tipe, false);
@@ -121,6 +127,29 @@ public class AmbilDataSuratMasukBanyak extends MyWindow {
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/surat/helper/AmbilDataSuratMasukBanyak.java:101");
+		}
+		onSearchDefault(null);
+	}
+
+	/**
+	 * Konstruktor untuk pemanggil peminjaman surat: sama seperti konstruktor {@code (suratMasuks,
+	 * tipe, hanyaYangBolehDipinjam, satker)}, ditambah {@code kecualikanSedangDipinjamAktif} untuk
+	 * mengecualikan surat yang sedang dipinjam aktif di transaksi lain (lihat javadoc field
+	 * {@link #kecualikanSedangDipinjamAktif}).
+	 */
+	public AmbilDataSuratMasukBanyak(List<SuratMasuk> suratMasuks, String tipe, Boolean hanyaYangBolehDipinjam,
+			SatuanKerja satker, boolean kecualikanSedangDipinjamAktif) {
+		super();
+		this.suratMasuks = suratMasuks;
+		this.tipe = tipe;
+		this.satker = satker;
+		this.kecualikanSedangDipinjamAktif = kecualikanSedangDipinjamAktif;
+		satuanKerjaTreeModel = new SatuanKerjaTreeModel(false);
+		this.hanyaYangBolehDipinjam = hanyaYangBolehDipinjam;
+		try {
+			display();
+		} catch (Exception e) {
+			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/surat/helper/AmbilDataSuratMasukBanyak.java:kecualikanSedangDipinjamAktif");
 		}
 		onSearchDefault(null);
 	}
@@ -415,6 +444,12 @@ public class AmbilDataSuratMasukBanyak extends MyWindow {
 				.add(Restrictions.or(Restrictions.isNull("tipe"), Restrictions.eq("tipe", tipe)))
 
 				.add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+
+				.add(!kecualikanSedangDipinjamAktif ? Restrictions.sqlRestriction("true")
+						: Subqueries.propertyNotIn("id",
+								DetachedCriteria.forClass(PeminjamanSuratItemDetail.class)
+										.add(Restrictions.isNull("kembaliSuratItemDetail"))
+										.setProjection(Projections.property("suratMasuk"))))
 
 				.add(notIn.size() == 0 ? Restrictions.sqlRestriction("1=1")
 						: Restrictions.not(Restrictions.in("id", notIn)))

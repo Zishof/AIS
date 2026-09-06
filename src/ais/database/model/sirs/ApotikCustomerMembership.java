@@ -31,17 +31,20 @@ import ais.database.model.GeneralValueObject;
  * BUKAN dari layar CRUD generik. Anggota TIDAK harus terkait {@link Pasien} (FK nullable,
  * membership bisa dibuat untuk pelanggan umum yang belum pernah jadi pasien rawat).</p>
  *
- * <p><b>Peringatan konkurensi:</b> {@code ApotikMembershipHelper.mutasiPoin()} membaca
+ * <p><b>Konkurensi (DITAMBAL):</b> {@code ApotikMembershipHelper.mutasiPoin()} membaca
  * {@link #getPoinSaldo()}, menghitung saldo baru di memori, memvalidasi tidak negatif, LALU
- * menulis balik — pola baca-hitung-tulis TANPA row-lock (`session.update` biasa, tanpa
- * {@code LockMode}/{@code FOR UPDATE}) maupun versi optimistik ({@code @Version}) pada entity
- * ini. Dua permintaan penukaran poin (`PENUKARAN`) bersamaan untuk membership yang sama dapat
- * kedua-duanya membaca saldo lama yang sama, kedua-duanya lolos validasi "tidak boleh
- * negatif", dan kedua-duanya commit — poin bisa ditukar melebihi saldo sesungguhnya
- * (double-spend), pola race condition yang SAMA PERSIS dengan bug check-in ganda kamar hotel
- * ({@code task_b718f355}) dan bug double-booking peminjaman aset yang sudah ditambal
- * ({@code PeminjamanMasterAssetHelper.sedangDipinjamAktif()}) — TAPI di subsistem berbeda
- * (loyalitas apotik, bukan finansial riil), jadi dicatat sebagai instance terpisah.</p>
+ * menulis balik — pola baca-hitung-tulis yang dulu TANPA row-lock, sehingga dua permintaan
+ * penukaran poin (`PENUKARAN`) bersamaan untuk membership yang sama bisa kedua-duanya membaca
+ * saldo lama yang sama, kedua-duanya lolos validasi "tidak boleh negatif", dan kedua-duanya
+ * commit — poin ditukar melebihi saldo sesungguhnya (double-spend), pola race condition yang
+ * SAMA PERSIS dengan bug check-in ganda kamar hotel ({@code task_b718f355}) dan bug
+ * double-booking peminjaman aset ({@code PeminjamanMasterAssetHelper.sedangDipinjamAktif()}),
+ * hanya beda subsistem (loyalitas apotik, bukan finansial riil). Ditambal dengan mengambil
+ * {@code LockMode.UPGRADE} (pessimistic write lock / {@code SELECT ... FOR UPDATE}) saat memuat
+ * baris ini di {@code mutasiPoin()}, sehingga permintaan kedua menunggu commit permintaan
+ * pertama dan membaca saldo yang sudah termutakhirkan sebelum validasi — bukan
+ * {@code @Version} optimistik, karena pola retry-on-conflict tidak cocok dengan alur
+ * request/response sinkron API ini.</p>
  *
  * @see ApotikRewardLedger
  * @see Pasien

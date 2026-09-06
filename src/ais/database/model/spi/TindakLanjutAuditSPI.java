@@ -21,6 +21,7 @@ import javax.persistence.TemporalType;
 import org.hibernate.envers.Audited;
 
 import ais.database.model.GeneralValueObject;
+import ais.database.model.Tbmuser;
 
 /**
  * <h2>TindakLanjutAuditSPI &mdash; Realisasi Tindak Lanjut Auditee atas Satu Temuan</h2>
@@ -44,27 +45,37 @@ import ais.database.model.GeneralValueObject;
  * internal maupun audit mutu akademik.
  * </p>
  *
- * <h3>PENTING: kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop</h3>
+ * <h3>Kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop</h3>
  * <p>
  * Berbeda dari {@link PenugasanAuditSPI} (yang extends {@code DataSop} dan otomatis mendapat alur
  * persetujuan berjenjang lewat mesin SOP/Disposisi), kelas ini extends {@link GeneralValueObject}
- * BIASA &mdash; TIDAK ada relasi apapun ke {@code DisposisiSop}/{@code AlurSop}. Ini BUKAN
- * perluasan celah bypass-persetujuan mesin SOP generik (berbeda kasus dari isu itu): di sini
- * memang SEJAK AWAL tidak ada mesin persetujuan yang dilewati, karena memang tidak ada mesin
- * persetujuan sama sekali untuk field {@link #getStatus()}. Lihat
- * {@link ais.action.master.spi.TindakLanjutAuditSPIAction#buildAddForm} &mdash; satu form tunggal
- * memungkinkan siapapun yang punya akses ke modul SPI (gerbangnya hanya pemeriksaan keamanan
+ * BIASA &mdash; TIDAK ada relasi apapun ke {@code DisposisiSop}/{@code AlurSop}. Ini BUKAN celah
+ * bypass-persetujuan mesin SOP generik (berbeda kasus dari isu itu): di sini memang SEJAK AWAL
+ * tidak ada mesin persetujuan berjenjang yang dilewati &mdash; kebutuhannya jauh lebih ringan
+ * (satu langkah verifikasi independen, bukan alur berjenjang penuh), sehingga ditangani lewat
+ * pasangan field {@link #getDiverifikasiOleh()}/{@link #getTanggalVerifikasi()} di bawah, BUKAN
+ * dengan menyeret seluruh mesin AlurSop/DisposisiSop untuk kasus sesederhana ini.
+ * </p>
+ *
+ * <h3>FIX (task_fcc03cad): verifikasi independen SPI sebelum status SELESAI final</h3>
+ * <p>
+ * Sebelum perbaikan ini, {@link ais.action.master.spi.TindakLanjutAuditSPIAction#buildAddForm}
+ * memungkinkan SIAPAPUN yang punya akses ke modul SPI (gerbangnya hanya pemeriksaan keamanan
  * generik di level menu, TANPA scoping peran auditor vs auditee) untuk langsung mencatat status
  * {@link #SELESAI} pada satu tindak lanjut TANPA ada langkah verifikasi terpisah oleh auditor/SPI
- * yang menyatakan perbaikan tersebut benar-benar memadai &mdash; berbeda dari
- * {@link PenugasanAuditSPI#getDisetujuiOleh()} yang mensyaratkan pihak KEDUA (bukan pembuat
- * dokumen) untuk menyetujui. Konsekuensinya: auditee (atau siapapun yang mengisi form ini atas
- * nama mereka) bisa menyatakan sendiri bahwa temuan sudah selesai ditindaklanjuti tanpa tanda
- * tangan/verifikasi independen dari SPI, sesuatu yang berlawanan dengan semangat Three Lines Model
- * yang justru menjadi prinsip dasar {@link PenugasanAuditSPI}. Temuan ini telah dilaporkan sebagai
- * task terpisah (BUKAN bagian dari isu bypass-persetujuan AlurSop/DisposisiSop generik, karena
- * mesin itu memang tidak dipakai di sini sama sekali) untuk dipertimbangkan penambahan langkah
- * verifikasi auditor sebelum status ini bisa dianggap final.
+ * yang menyatakan perbaikan tersebut benar-benar memadai &mdash; berlawanan dengan semangat Three
+ * Lines Model yang menjadi prinsip dasar {@link PenugasanAuditSPI}. Perbaikannya: field
+ * {@link #getStatus()} tetap bisa diisi bebas oleh siapapun yang mencatat progres (klaim auditee
+ * TETAP terekam apa adanya sebagai riwayat, lihat javadoc kelas bagian "riwayat progresif" di
+ * atas), NAMUN status {@link #SELESAI} baru dianggap FINAL/terverifikasi bila
+ * {@link #getDiverifikasiOleh()} bukan {@code null} &mdash; lihat {@link #isSelesaiTerverifikasi()}.
+ * Pengisian {@code diverifikasiOleh}/{@code tanggalVerifikasi} dibatasi pada method
+ * {@code TindakLanjutAuditSPIAction#onVerifikasi} kepada anggota {@link TimAuditSPI} aktif pada
+ * {@link TemuanAuditSPI#getPenugasanAuditSPI() penugasan} yang menaungi temuan ini (atau admin
+ * lain), BUKAN sembarang pengguna bermodul SPI &mdash; pola yang lebih ringan dari
+ * {@link PenugasanAuditSPI#getDisetujuiOleh()} (yang mensyaratkan pihak KEDUA lewat mesin SOP
+ * penuh) tapi tetap menjaga independensi pihak yang menyatakan "selesai" dari pihak yang
+ * ditindaklanjuti.
  * </p>
  *
  * @author e-Campus SPI Team
@@ -83,9 +94,10 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 	 * TIDAK dihitung/disetel otomatis oleh sistem berdasarkan perbandingan {@link #getTargetDate()}
 	 * dengan tanggal berjalan &mdash; harus dipilih manual oleh pengisi form. */
 	public static final String TERLAMBAT = "Terlambat";
-	/** Kode status "tindakan perbaikan dinyatakan tuntas". PERHATIAN: lihat javadoc kelas bagian
-	 * "PENTING: kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop" &mdash; status ini
-	 * bisa disetel langsung oleh siapapun yang mengisi form, tanpa verifikasi independen auditor. */
+	/** Kode status "tindakan perbaikan dinyatakan tuntas" &mdash; klaim ini bisa disetel langsung
+	 * oleh siapapun yang mengisi form (riwayat progresif tetap terekam apa adanya), NAMUN baru
+	 * dianggap FINAL setelah diverifikasi independen; lihat {@link #isSelesaiTerverifikasi()} dan
+	 * javadoc kelas bagian "FIX (task_fcc03cad)". */
 	public static final String SELESAI = "Selesai";
 
 	/** Peta kode status &rarr; label bahasa manusia (di sini kode dan label sengaja identik),
@@ -98,6 +110,16 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 		statusLabel.put(SELESAI, SELESAI);
 	}
 
+	/*
+	 * Kolom BARU pada tabel LAMA yang sudah ber-@Audited (tindak_lanjut_audit_spi). Kolom utama
+	 * (public.tindak_lanjut_audit_spi) diserahkan ke Hibernate hbm2ddl=update, TAPI tabel audit
+	 * Envers (new_audit.tindak_lanjut_audit_spi__audit) TIDAK ikut otomatis -- jalankan manual
+	 * sekali sebelum baris pertama dengan field ini tersimpan:
+	 *   ALTER TABLE public.tindak_lanjut_audit_spi ADD COLUMN diverifikasi_oleh bigint;
+	 *   ALTER TABLE public.tindak_lanjut_audit_spi ADD COLUMN tanggal_verifikasi timestamp;
+	 *   ALTER TABLE new_audit.tindak_lanjut_audit_spi__audit ADD COLUMN diverifikasi_oleh bigint;
+	 *   ALTER TABLE new_audit.tindak_lanjut_audit_spi__audit ADD COLUMN tanggal_verifikasi timestamp;
+	 */
 	private static final long serialVersionUID = 1L;
 	private Long id;
 	private TemuanAuditSPI temuanAuditSPI;
@@ -108,6 +130,8 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 	private int progressPersen;
 	private String status;
 	private String keterangan;
+	private Tbmuser diverifikasiOleh;
+	private Date tanggalVerifikasi;
 	private Boolean aktif;
 	private String oleh;
 	private String olehId;
@@ -304,10 +328,11 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 
 	/**
 	 * Status pelaksanaan tindak lanjut ini, salah satu dari {@link #BELUM_DIMULAI}/
-	 * {@link #SEDANG_BERJALAN}/{@link #TERLAMBAT}/{@link #SELESAI}. PERHATIAN: lihat javadoc kelas
-	 * bagian "PENTING: kelas ini TIDAK memakai mesin persetujuan AlurSop/DisposisiSop" &mdash;
-	 * TIDAK ada verifikasi independen sebelum status bisa disetel ke {@link #SELESAI}. Default
-	 * {@link #BELUM_DIMULAI} bila belum diisi.
+	 * {@link #SEDANG_BERJALAN}/{@link #TERLAMBAT}/{@link #SELESAI}. CATATAN: nilai {@link #SELESAI}
+	 * di sini adalah KLAIM (siapapun yang mencatat progres boleh mengisinya) &mdash; gunakan
+	 * {@link #isSelesaiTerverifikasi()}, bukan {@code SELESAI.equals(getStatus())}, untuk memeriksa
+	 * apakah klaim tersebut sudah diverifikasi independen. Default {@link #BELUM_DIMULAI} bila
+	 * belum diisi.
 	 *
 	 * @return kode status; {@link #BELUM_DIMULAI} bila nilai tersimpan {@code null}, selalu
 	 *         di-{@code trim()} bila ada isinya.
@@ -328,6 +353,72 @@ public class TindakLanjutAuditSPI extends GeneralValueObject {
 	 */
 	public void setStatus(String status) {
 		this.status = status;
+	}
+
+	/**
+	 * Menentukan apakah status {@link #SELESAI} pada baris ini sudah FINAL/terverifikasi &mdash;
+	 * lihat javadoc kelas bagian "FIX (task_fcc03cad)". {@code true} hanya bila
+	 * {@link #getStatus()} bernilai {@link #SELESAI} DAN {@link #getDiverifikasiOleh()} bukan
+	 * {@code null}. Status {@link #SELESAI} tanpa verifikasi (klaim sepihak auditee) SENGAJA
+	 * dianggap belum final oleh method ini, meski nilai mentah {@link #getStatus()} sendiri sudah
+	 * berbunyi "Selesai" &mdash; kode tampilan yang perlu membedakan "diklaim selesai" vs "benar
+	 * -benar tuntas" WAJIB memakai method ini, bukan membandingkan {@link #getStatus()} secara
+	 * langsung dengan {@link #SELESAI}.
+	 *
+	 * @return {@code true} bila status {@link #SELESAI} DAN sudah diverifikasi.
+	 */
+	@javax.persistence.Transient
+	public boolean isSelesaiTerverifikasi() {
+		return SELESAI.equals(getStatus()) && getDiverifikasiOleh() != null;
+	}
+
+	/**
+	 * Pengguna SPI/auditor yang memverifikasi independen bahwa tindak lanjut ini benar-benar
+	 * memadai, atau {@code null} bila belum ada verifikasi. Lihat javadoc kelas bagian "FIX
+	 * (task_fcc03cad)" untuk alasan lengkap keberadaan field ini dan {@link #isSelesaiTerverifikasi()}
+	 * untuk cara memeriksa apakah status {@link #SELESAI} baris ini sudah final. Pengisian field ini
+	 * DIBATASI oleh {@code TindakLanjutAuditSPIAction#onVerifikasi} kepada anggota aktif
+	 * {@link TimAuditSPI} pada penugasan yang menaungi temuan ini (atau admin lain) &mdash; entity
+	 * ini sendiri tidak memvalidasi siapa yang berhak, murni penyimpanan nilai.
+	 *
+	 * @return pengguna yang melakukan verifikasi, atau {@code null} bila belum diverifikasi.
+	 */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "diverifikasi_oleh", nullable = true)
+	public Tbmuser getDiverifikasiOleh() {
+		return diverifikasiOleh;
+	}
+
+	/**
+	 * Mengisi pengguna yang melakukan verifikasi independen tindak lanjut ini. Pemanggil (bukan
+	 * entity ini) bertanggung jawab memastikan pengguna yang diisikan berhak melakukannya &mdash;
+	 * lihat javadoc {@link #getDiverifikasiOleh()}.
+	 *
+	 * @param diverifikasiOleh pengguna verifikator baru; {@code null} untuk mencabut verifikasi
+	 *        (mis. bila baris tindak lanjut ini direvisi/dibuka kembali).
+	 */
+	public void setDiverifikasiOleh(Tbmuser diverifikasiOleh) {
+		this.diverifikasiOleh = diverifikasiOleh;
+	}
+
+	/**
+	 * Tanggal/waktu verifikasi independen dilakukan, atau {@code null} bila belum diverifikasi.
+	 *
+	 * @return tanggal verifikasi, atau {@code null} bila belum diverifikasi.
+	 */
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name = "tanggal_verifikasi")
+	public Date getTanggalVerifikasi() {
+		return tanggalVerifikasi;
+	}
+
+	/**
+	 * Mengisi tanggal/waktu verifikasi independen tindak lanjut ini.
+	 *
+	 * @param tanggalVerifikasi tanggal verifikasi baru.
+	 */
+	public void setTanggalVerifikasi(Date tanggalVerifikasi) {
+		this.tanggalVerifikasi = tanggalVerifikasi;
 	}
 
 	/**

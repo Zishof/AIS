@@ -5,6 +5,7 @@ import java.util.List;
 import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.criterion.Order;
+import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
 import org.zkoss.zk.ui.event.Event;
@@ -20,8 +21,12 @@ import org.zkoss.zul.Textbox;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
 import ais.database.model.GeneralValueObject;
+import ais.database.model.Tbmuser;
+import ais.database.model.spi.PenugasanAuditSPI;
 import ais.database.model.spi.TemuanAuditSPI;
+import ais.database.model.spi.TimAuditSPI;
 import ais.database.model.spi.TindakLanjutAuditSPI;
+import ais.ui.util.MyColumnConfig;
 import ais.ui.util.MyDatebox;
 import ais.ui.util.MyIntbox;
 import ais.ui.util.MyMessageboxConfig;
@@ -41,6 +46,20 @@ import ais.ui.util.MyWindow;
  * {@code ais.action.master.spmi.TindakLanjutSPMIAction} yang sudah production-proven, tanpa bagian
  * "Rapat Tinjauan Manajemen (RTM)" milik modul tersebut &mdash; RTM adalah istilah spesifik siklus
  * PPEPP penjaminan mutu akademik yang tidak relevan bagi audit internal umum.
+ * </p>
+ *
+ * <h3>FIX (task_fcc03cad): tombol Verifikasi dibatasi ke Tim Audit/admin</h3>
+ * <p>
+ * Sebelumnya, status {@link TindakLanjutAuditSPI#SELESAI} bisa dianggap final hanya dari klaim di
+ * kolom Status pada {@link #buildAddForm} &mdash; siapapun yang punya akses ke modul SPI bisa
+ * menyatakan sendiri satu tindak lanjut sudah tuntas, tanpa verifikasi independen. Perbaikannya:
+ * {@link #buildRiwayatGrid} sekarang merender tombol "Verifikasi" pada baris berstatus
+ * {@link TindakLanjutAuditSPI#SELESAI} yang belum {@link TindakLanjutAuditSPI#isSelesaiTerverifikasi()
+ * terverifikasi}, TAPI hanya bila {@link #bolehVerifikasi(TemuanAuditSPI)} true untuk pengguna yang
+ * sedang login (anggota aktif {@link TimAuditSPI} pada penugasan yang menaungi temuan ini, atau
+ * admin lain) &mdash; lihat {@link #onVerifikasi}. Kolom Status pada {@link #buildAddForm} SENGAJA
+ * tetap terbuka untuk siapapun (klaim progres auditee tetap harus bisa dicatat apa adanya sebagai
+ * riwayat), independensi dijaga pada LANGKAH VERIFIKASI-nya, bukan pada langkah pencatatannya.
  * </p>
  *
  * @author e-Campus SPI Team
@@ -97,19 +116,10 @@ public class TindakLanjutAuditSPIAction extends BaseSPIAction {
 
         if (!list.isEmpty()) {
             appendHtml(container,
-                "<div style='padding:0 14px 8px;'>"
+                "<div style='padding:0 14px 4px;'>"
                 + "<div style='font-size:12px; font-weight:700; color:#0f172a; margin-bottom:6px;'>"
-                + "Riwayat Tindak Lanjut</div>"
-                + "<table style='width:100%; border-collapse:collapse; font-size:11px;'>"
-                + "<tr style='background:#f8fafc;'>"
-                + "<th style='padding:6px 8px; text-align:left; border-bottom:2px solid #e2e8f0;'>Deskripsi</th>"
-                + "<th style='padding:6px 8px; text-align:left; border-bottom:2px solid #e2e8f0;'>PIC</th>"
-                + "<th style='padding:6px 8px; text-align:left; border-bottom:2px solid #e2e8f0;'>Target</th>"
-                + "<th style='padding:6px 8px; text-align:left; border-bottom:2px solid #e2e8f0;'>Progress</th>"
-                + "<th style='padding:6px 8px; text-align:left; border-bottom:2px solid #e2e8f0;'>Status</th>"
-                + "</tr>"
-                + buildRows(list)
-                + "</table></div>");
+                + "Riwayat Tindak Lanjut</div></div>");
+            buildRiwayatGrid(list, temuan, container);
         } else {
             appendHtml(container,
                 "<div style='padding:12px 14px; color:#94a3b8; font-size:12px;'>"
@@ -273,10 +283,34 @@ public class TindakLanjutAuditSPIAction extends BaseSPIAction {
     // HTML helpers
     // =====================================================================
 
-    private static String buildRows(List<TindakLanjutAuditSPI> list) {
-        StringBuilder sb = new StringBuilder();
-        for (TindakLanjutAuditSPI tl : list) {
+    /**
+     * Membangun grid riwayat tindak lanjut sebagai komponen ZK sungguhan (bukan tabel HTML statis
+     * seperti sebelumnya) agar kolom Status bisa menampilkan tombol "Verifikasi" yang benar-benar
+     * interaktif pada baris yang memenuhi syarat. Lihat javadoc kelas bagian "FIX (task_fcc03cad)".
+     */
+    @SuppressWarnings("unchecked")
+    private static void buildRiwayatGrid(List<TindakLanjutAuditSPI> list, final TemuanAuditSPI temuan,
+            final Component container) {
+        final boolean bolehVerifikasi = bolehVerifikasi(temuan);
+
+        org.zkoss.zul.Grid grid = new org.zkoss.zul.Grid();
+        grid.setSclass("dgrid");
+        grid.setWidth("100%");
+        org.zkoss.zul.Columns cols = new org.zkoss.zul.Columns();
+        cols.setParent(grid);
+        new MyColumnConfig("Deskripsi").setParent(cols);
+        new MyColumnConfig("PIC").setParent(cols);
+        new MyColumnConfig("Target").setParent(cols);
+        new MyColumnConfig("Progress").setParent(cols);
+        new MyColumnConfig("Status & Verifikasi").setParent(cols);
+
+        Rows rows = new Rows();
+        rows.setParent(grid);
+
+        for (final TindakLanjutAuditSPI tl : list) {
             String st = tl.getStatus();
+            int pct = tl.getProgressPersen();
+            String barColor = pct >= 100 ? "#22c55e" : (pct >= 50 ? "#3b82f6" : "#f97316");
             String sBg = TindakLanjutAuditSPI.SELESAI.equals(st) ? "#dcfce7"
                     : TindakLanjutAuditSPI.TERLAMBAT.equals(st) ? "#fee2e2"
                     : TindakLanjutAuditSPI.SEDANG_BERJALAN.equals(st) ? "#dbeafe"
@@ -285,28 +319,104 @@ public class TindakLanjutAuditSPIAction extends BaseSPIAction {
                     : TindakLanjutAuditSPI.TERLAMBAT.equals(st) ? "#991b1b"
                     : TindakLanjutAuditSPI.SEDANG_BERJALAN.equals(st) ? "#1e40af"
                     : "#64748b";
-            int pct = tl.getProgressPersen();
-            String barColor = pct >= 100 ? "#22c55e" : (pct >= 50 ? "#3b82f6" : "#f97316");
 
-            sb.append("<tr style='border-bottom:1px solid #f1f5f9;'>")
-              .append("<td style='padding:7px 8px; color:#1e293b;'>").append(esc(tl.getDeskripsi())).append("</td>")
-              .append("<td style='padding:7px 8px; color:#475569;'>")
-                .append(esc(tl.getPicNama() != null ? tl.getPicNama() : "—")).append("</td>")
-              .append("<td style='padding:7px 8px; color:#475569; white-space:nowrap;'>")
-                .append(tl.getTargetDate() != null ? Common.dateFormat3.get().format(tl.getTargetDate()) : "—")
-                .append("</td>")
-              .append("<td style='padding:7px 8px; min-width:90px;'>")
-                .append("<div style='font-size:10px; color:#64748b; margin-bottom:2px;'>").append(pct).append("%</div>")
-                .append("<div style='height:6px; border-radius:3px; background:#e2e8f0;'>")
-                .append("<div style='height:6px; border-radius:3px; background:").append(barColor)
-                .append("; width:").append(Math.min(100, pct)).append("%;'></div></div></td>")
-              .append("<td style='padding:7px 8px;'>")
-                .append("<span style='border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700;")
-                .append(" background:").append(sBg).append("; color:").append(sClr).append(";'>")
-                .append(esc(st)).append("</span></td>")
-              .append("</tr>");
+            Row row = new Row();
+            row.setValign("top");
+            row.setParent(rows);
+
+            new Label(tl.getDeskripsi()).setParent(row);
+            new Label(tl.getPicNama() != null ? tl.getPicNama() : "—").setParent(row);
+            new Label(tl.getTargetDate() != null ? Common.dateFormat3.get().format(tl.getTargetDate()) : "—")
+                    .setParent(row);
+
+            appendHtml(row, "<div style='font-size:10px; color:#64748b; margin-bottom:2px;'>" + pct + "%</div>"
+                    + "<div style='height:6px; border-radius:3px; background:#e2e8f0; min-width:70px;'>"
+                    + "<div style='height:6px; border-radius:3px; background:" + barColor
+                    + "; width:" + Math.min(100, pct) + "%;'></div></div>");
+
+            Div statusCell = new Div();
+            statusCell.setParent(row);
+            appendHtml(statusCell, "<span style='border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700;"
+                    + " background:" + sBg + "; color:" + sClr + ";'>" + esc(st) + "</span>");
+
+            if (TindakLanjutAuditSPI.SELESAI.equals(st)) {
+                if (tl.isSelesaiTerverifikasi()) {
+                    appendHtml(statusCell, "<div style='font-size:10px; color:#166534; margin-top:4px;'>"
+                            + "&#x2713; Terverifikasi oleh " + esc(tl.getDiverifikasiOleh().getUserNama()) + "<br/>"
+                            + Common.dateFormat3.get().format(tl.getTanggalVerifikasi()) + "</div>");
+                } else if (bolehVerifikasi) {
+                    MyToolbarbuttonConfig btnVerifikasi = new MyToolbarbuttonConfig("Verifikasi", "/img/ok.gif");
+                    btnVerifikasi.setTooltiptext("Verifikasi independen bahwa tindak lanjut ini benar-benar memadai");
+                    btnVerifikasi.addEventListener("onClick", new EventListener() {
+                        @Override
+                        public void onEvent(Event e) throws Exception {
+                            onVerifikasi(tl, temuan, container);
+                        }
+                    });
+                    btnVerifikasi.setStyle("margin-top:4px;");
+                    btnVerifikasi.setParent(statusCell);
+                } else {
+                    appendHtml(statusCell, "<div style='font-size:10px; color:#b45309; margin-top:4px;'>"
+                            + "Menunggu verifikasi SPI</div>");
+                }
+            }
         }
-        return sb.toString();
+
+        grid.setParent(container);
+    }
+
+    /**
+     * Menyimpan verifikasi independen: hanya dieksekusi setelah {@link #bolehVerifikasi(TemuanAuditSPI)}
+     * dicek ULANG di sini (bukan hanya mengandalkan tombol yang disembunyikan di sisi tampilan) agar
+     * event yang terlanjur terpasang di sisi client tidak bisa dipakai memverifikasi tanpa hak.
+     */
+    private static void onVerifikasi(TindakLanjutAuditSPI tl, TemuanAuditSPI temuan, Component container)
+            throws Exception {
+        Tbmuser user = Common.getCurrentUser();
+        if (!bolehVerifikasi(temuan)) {
+            MyMessageboxConfig.show("Mohon maaf, Anda tidak berhak melakukan verifikasi independen untuk tindak"
+                    + " lanjut ini. Langkah yang dapat dilakukan:"
+                    + " (1) verifikasi hanya boleh dilakukan oleh anggota Tim Audit pada penugasan terkait atau Administrator;"
+                    + " (2) hubungi Ketua Tim Audit penugasan ini bila Anda seharusnya berhak namun belum terdaftar"
+                    + " sebagai anggota tim;"
+                    + " (3) hubungi Administrator atau tim teknis bila masih mengalami kendala.", "Peringatan",
+                    MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+            return;
+        }
+
+        Session session = HibernateUtil.currentSession();
+        TindakLanjutAuditSPI fresh = (TindakLanjutAuditSPI) session.load(TindakLanjutAuditSPI.class, tl.getId());
+        fresh.setDiverifikasiOleh(user);
+        fresh.setTanggalVerifikasi(ais.ui.util.WaktuUtil.getDate());
+        Common.refreshSaveOrUpdate(fresh);
+
+        buildPanel(temuan, container);
+    }
+
+    /**
+     * Menentukan apakah pengguna yang sedang login berhak memverifikasi independen tindak lanjut
+     * pada temuan ini &mdash; anggota aktif {@link TimAuditSPI} pada
+     * {@link TemuanAuditSPI#getPenugasanAuditSPI() penugasan} yang menaungi temuan ini, atau admin
+     * lain. SENGAJA TIDAK memakai pemeriksaan keamanan generik menu SPI ({@link BaseSPIAction#doBeforeCompose})
+     * saja &mdash; itulah gerbang yang terbukti terlalu longgar (lihat javadoc kelas), harus
+     * di-scope ke tim auditor penugasan yang bersangkutan.
+     */
+    private static boolean bolehVerifikasi(TemuanAuditSPI temuan) {
+        Tbmuser user = Common.getCurrentUser();
+        if (user == null || temuan == null) return false;
+        if (Common.getApakahAdminLain(user)) return true;
+
+        PenugasanAuditSPI penugasan = temuan.getPenugasanAuditSPI();
+        if (penugasan == null || penugasan.getId() == null) return false;
+
+        Session session = HibernateUtil.currentSession();
+        Long count = (Long) session.createCriteria(TimAuditSPI.class)
+                .add(Restrictions.eq("penugasanAuditSPI", penugasan))
+                .add(Restrictions.eq("anggota", user))
+                .add(Restrictions.or(Restrictions.isNull("aktif"), Restrictions.eq("aktif", true)))
+                .setProjection(Projections.rowCount())
+                .uniqueResult();
+        return count != null && count > 0;
     }
 
     private static void addRow(Rows rows, String label, Component input) {

@@ -905,6 +905,15 @@ public class PeminjamanSuratItemAction extends GenericAutowireComposer implement
 						MyMessageboxConfig.EXCLAMATION);
 				return false;
 			}
+			if (peminjamanSuratItemDetail.getId() == null
+					&& PeminjamanSuratItemDetail.sedangDipinjamAktif(peminjamanSuratItemDetail.getSuratMasuk(),
+							peminjamanSuratItem)) {
+				MyMessageboxConfig.show(
+						"Mohon maaf, dokumen surat " + peminjamanSuratItemDetail.getSuratMasuk().getNoSurat()
+								+ " sedang dipinjam aktif pada transaksi peminjaman lain dan belum dikembalikan. Langkah yang dapat dilakukan: (1) hapus baris dokumen tersebut dari daftar; (2) pastikan dokumen sudah dikembalikan pada transaksi sebelumnya sebelum meminjam ulang; (3) ulangi proses simpan. Jika masih mengalami kendala, hubungi Administrator atau tim teknis.",
+						"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
+				return false;
+			}
 		}
 
 		Session session = HibernateUtil.currentSession();

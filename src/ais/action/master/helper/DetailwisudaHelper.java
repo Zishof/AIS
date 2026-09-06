@@ -19,10 +19,12 @@ import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Projections;
 import org.hibernate.criterion.Restrictions;
 import org.hibernate.metadata.ClassMetadata;
+import org.zkoss.poi.ss.usermodel.Hyperlink;
 import org.zkoss.poi.xssf.usermodel.XSSFCell;
 import org.zkoss.poi.xssf.usermodel.XSSFCellStyle;
 import org.zkoss.poi.xssf.usermodel.XSSFColor;
 import org.zkoss.poi.xssf.usermodel.XSSFFont;
+import org.zkoss.poi.xssf.usermodel.XSSFHyperlink;
 import org.zkoss.poi.xssf.usermodel.XSSFRow;
 import org.zkoss.poi.xssf.usermodel.XSSFSheet;
 import org.zkoss.poi.xssf.usermodel.XSSFWorkbook;
@@ -78,6 +80,8 @@ import ais.database.model.Skripsi;
 import ais.database.model.StatusKeluar;
 import ais.database.model.StatusMahasiswa;
 import ais.database.model.Wisuda;
+import ais.database.model.file.FileFotoLain;
+import ais.database.model.file.FotoMahasiswa;
 import ais.ui.util.DataCriteria;
 import ais.ui.util.MyToolbarbutton;
 import ais.ui.util.MyCaptionStyled;
@@ -132,6 +136,37 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 	public static String[] contentsBaru = new String[] { "id", "mahasiswa.nim", "mahasiswa.nama",
 			"mahasiswa.jurusan.fakultas.nama", "mahasiswa.jurusan.nama", "mahasiswa.kelamin", "mahasiswa.tempatlahir",
 			"mahasiswa.tanggallahir" };
+
+	/** Menambahkan tautan foto mahasiswa ke sel Excel tanpa menggagalkan ekspor bila foto tidak tersedia. */
+	private static void tambahLinkFoto(XSSFRow row, int cellIndex, XSSFCellStyle hyperlinkStyle,
+			Mahasiswa mahasiswa) {
+		XSSFCell cell = row.createCell(cellIndex);
+		try {
+			FileFotoLain foto = FileFotoLain.ambil(mahasiswa.getId(), FotoMahasiswa.DEFAULT_JENIS,
+					FotoMahasiswa.class);
+			if (foto == null) {
+				cell.setCellValue("");
+				return;
+			}
+
+			String url = foto.createLinkUri();
+			if (url == null || url.trim().isEmpty()) {
+				cell.setCellValue("");
+				return;
+			}
+
+			cell.setCellValue("Lihat Foto");
+			cell.setCellStyle(hyperlinkStyle);
+			XSSFHyperlink link = row.getSheet().getWorkbook().getCreationHelper()
+					.createHyperlink(Hyperlink.LINK_URL);
+			link.setAddress(url);
+			cell.setHyperlink(link);
+		} catch (Exception e) {
+			cell.setCellValue("");
+			ais.common.ErrorAuditUtil.record(e,
+					"Gagal menambahkan link foto pada download peserta/wisudawan");
+		}
+	}
 
 	/** Menyiapkan combobox filter fakultas/jurusan dan hak edit/hapus pengguna saat ini. */
 	public DetailwisudaHelper() {
@@ -611,6 +646,7 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		columnHeadersAdding.add("Masa Studi Bulan");
 		columnHeadersAdding.add("Masa Studi Hari");
 		columnHeadersAdding.add("Masa Studi Deskripsi");
+		columnHeadersAdding.add("Link Foto");
 
 		EventListener dataAdding = new EventListener() {
 
@@ -680,6 +716,7 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 				row.createCell(contents.length + 6).setCellValue(period.getMonths());
 				row.createCell(contents.length + 7).setCellValue(period.getDays());
 				row.createCell(contents.length + 8).setCellValue(mahasiswa.ambilMasaStudi());
+				tambahLinkFoto(row, contents.length + 9, hlink_style, mahasiswa);
 
 			}
 		};
@@ -1052,6 +1089,7 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 		columnHeadersAdding.add("Email");
 		columnHeadersAdding.add("Toga");
 		columnHeadersAdding.add("Alamat");
+		columnHeadersAdding.add("Link Foto");
 
 		dataAdding = new EventListener() {
 
@@ -1189,6 +1227,8 @@ public class DetailwisudaHelper implements DataLoader, DataCriteria {
 
 				cell = row.createCell(contentsBaru.length + 17);
 				cell.setCellValue(alamat);
+
+				tambahLinkFoto(row, contentsBaru.length + 18, hlink_style, mahasiswa);
 
 			}
 		};

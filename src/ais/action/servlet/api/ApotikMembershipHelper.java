@@ -5,6 +5,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import org.hibernate.LockMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.Order;
@@ -112,7 +113,7 @@ public final class ApotikMembershipHelper {
 		Session session = HibernateUtil.getSessionFactory().openSession(); Transaction tx = null;
 		try {
 			tx = session.beginTransaction();
-			ApotikCustomerMembership m = (ApotikCustomerMembership) session.get(ApotikCustomerMembership.class, id);
+			ApotikCustomerMembership m = (ApotikCustomerMembership) session.get(ApotikCustomerMembership.class, id, LockMode.UPGRADE);
 			if (m == null) { tolak(hasil, "Membership tidak ditemukan."); tx.rollback(); return; }
 			long saldo = m.getPoinSaldo().longValue() + poin;
 			if (saldo < 0) { tolak(hasil, "Saldo poin tidak mencukupi."); tx.rollback(); return; }
