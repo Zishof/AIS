@@ -237,7 +237,7 @@ public final class PemetaanAkunHelper {
                 MasterAsset ma = pr.getMasterAsset();
                 if (ma == null) {
                     produkTanpaMaster++;
-                } else if (!formulaPunyaAkunDefault(ma.akunTransaksiEfektif())) {
+                } else if (!formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif())) {
                     produkTanpaPersediaan++;
                 }
             }
@@ -308,7 +308,7 @@ public final class PemetaanAkunHelper {
                         pr.setMasterAsset(ma);
                         session.saveOrUpdate(pr);
                     }
-                    if (timpa || !formulaPunyaAkunDefault(ma.akunTransaksiEfektif())) {
+                    if (timpa || !formulaPunyaAkunDefault(session, ma.akunTransaksiEfektif())) {
                         ma.setAkunTransaksi(timpa ? formulaAkun(persediaan)
                                 : formulaTambahDefault(ma.akunTransaksiEfektif(), persediaan));
                         session.saveOrUpdate(ma);
@@ -460,13 +460,15 @@ public final class PemetaanAkunHelper {
     }
 
     /** Akun default wajib tersedia agar posting tetap bekerja untuk satuan kerja mana pun. */
-    private static boolean formulaPunyaAkunDefault(String teks) {
+    private static boolean formulaPunyaAkunDefault(Session session, String teks) {
         try {
             JSONArray a = teks == null || teks.trim().isEmpty() ? new JSONArray() : new JSONArray(teks);
             for (int i = 0; i < a.length(); i++) {
                 JSONObject j = a.optJSONObject(i);
-                if (j != null && !j.isNull("akun") && j.optLong("akun", 0) > 0
-                        && (j.isNull("satuanKerja") || j.optLong("satuanKerja", 0) <= 0)) {
+                long akunId = j == null || j.isNull("akun") ? 0 : j.optLong("akun", 0);
+                if (akunId > 0
+                        && (j.isNull("satuanKerja") || j.optLong("satuanKerja", 0) <= 0)
+                        && session.get(Akun.class, Long.valueOf(akunId)) != null) {
                     return true;
                 }
             }

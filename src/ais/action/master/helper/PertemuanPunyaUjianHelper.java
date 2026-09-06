@@ -1275,6 +1275,28 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * tanpa tombol aksi.</li>
 	 * </ol>
 	 *
+	 * <p><b>Method inilah penegak jatah percobaan ujian.</b> {@code ProsesUjianHelper.ikut(...)}
+	 * yang dipanggil dari sini TIDAK memeriksa {@code getJumlahBolehIkut()} sebagai gerbang; di
+	 * sana angkanya hanya ditampilkan sebagai teks informasi pada jendela tata tertib. Jadi
+	 * seluruh penegakan batas percobaan bergantung pada percabangan di method ini.
+	 *
+	 * <p><b>Kuirk: pembanding jatah tidak konsisten antara label tombol dan aksi klik.</b>
+	 * Variabel {@code masihBolehIkut} memakai {@code jumlahIkut < jumlahBolehIkut} dan menentukan
+	 * label tombol ("Ikut Ujian" bila masih boleh, "Lihat Hasil" bila tidak). Namun
+	 * {@code eventListenerData} — listener {@code onClick} tombol yang sama — memakai
+	 * {@code jumlahBolehIkut >= jumlahIkut} untuk memutuskan memanggil
+	 * {@code ProsesUjianHelper.ikut(...)}. Pada kasus jatah terpakai PERSIS habis
+	 * ({@code jumlahIkut == jumlahBolehIkut}), kedua ekspresi berbeda hasil: tombol berlabel
+	 * "Lihat Hasil" tetapi kliknya memulai percobaan baru, dan cabang
+	 * {@code else if (!masihBolehIkut)} yang seharusnya memanggil
+	 * {@code ProsesUjianHelper.tampil(...)} tidak pernah tercapai karena cabang pertama sudah
+	 * {@code return}. Tombolnya tetap aktif bila {@code getLihatJawabanSetelahUjian()} atau
+	 * {@code getLihatNilaiSetelahUjian()} bernilai true, karena hanya di luar kondisi itulah
+	 * {@code button.setDisabled(true)} dijalankan. Bandingkan pula dengan cabang label
+	 * "Ubah/Perbaiki Jawaban" di bawahnya yang untuk maksud serupa memakai {@code >}, bukan
+	 * {@code >=}. Perbaikannya ditangani terpisah lewat {@code task_72b24378}; jangan menyamakan
+	 * operator di sini tanpa lebih dulu menelusuri jalur yang menaikkan {@code jumlahIkut}.
+	 *
 	 * <p><b>Efek samping:</b> tidak melakukan mutasi database — murni membangun komponen ZK dan,
 	 * bila {@code eventListeners} diisi, menambahkan {@link EventListener} popup peringatan yang
 	 * BELUM dijalankan (pemanggil yang memutuskan kapan menjalankannya, mis. saat klik baris grid).
@@ -4097,6 +4119,19 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * perlu ikut", kartu menampilkan pesan bahwa peserta tidak diizinkan ikut — sama
 	 * seperti perilaku sebelumnya, hanya divisualisasikan sebagai kartu.
 	 *
+	 * <p><b>Kedua penjaga di atas bersifat TAMPILAN, bukan penegakan.</b> Keduanya hanya
+	 * memutuskan kartu mana yang digambar lalu {@code return} — tidak ada satu pun pemeriksaan di
+	 * sini yang menghalangi pemanggilan {@code ProsesUjianHelper}. Penegakan yang sesungguhnya
+	 * berada di {@link #tampilBolekIkutUjianAtauTidak} yang dipanggil di akhir method untuk
+	 * mengisi area aksi kartu. Perhatikan juga bahwa identitas peserta ({@code idPeserta}) yang
+	 * dipakai penjaga kedua hanya menengok {@link #mahasiswa}, {@link #biodataCalonMahasiswa},
+	 * {@code tbmuser.getSiswa()}, dan {@code tbmuser.getCalonSiswa()} — TIDAK
+	 * {@code tbmuser.getPesertaKursus()}. Akibatnya, untuk akun peserta kursus {@code idPeserta}
+	 * bernilai {@code null} sehingga daftar "tidak perlu ikut ujian"
+	 * ({@code ppu.getMhsYgTidakIkut()}) maupun pemeriksaan ujian non-aktif tidak pernah berlaku
+	 * bagi mereka pada lapis kartu ini; yang tersisa hanyalah pemeriksaan di
+	 * {@link #tampilBolekIkutUjianAtauTidak}, yang memakai daftar identitas berbeda lagi.
+	 *
 	 * @param ppu ujian pada pertemuan yang akan dibuatkan kartu peserta
 	 * @param tbmuser pengguna aktif (untuk menentukan identitas peserta)
 	 * @param refresh listener untuk memuat ulang daftar setelah selesai/ubah ujian
@@ -5562,6 +5597,26 @@ public class PertemuanPunyaUjianHelper implements DataLoader {
 	 * <li><b>Refresh</b> — {@link #loadData(Object)} dengan {@code true} lalu memanggil ulang
 	 * {@link #display(Pertemuan, Component)} sendiri (re-render toolbar &amp; kartu dari awal).</li>
 	 * </ul>
+	 *
+	 * <p><b>Sifat gerbang toolbar: UI-only, dan tidak seragam.</b> Semua pembatasan tombol di atas
+	 * dilakukan lewat {@code setVisible(...)} saja; TIDAK ada listener {@code onClick} di method
+	 * ini yang memeriksa ulang peran pengguna sebelum menjalankan aksinya. Predikat perannya pun
+	 * dieja ulang manual di tiap tombol dengan varian yang menghilangkan
+	 * {@code tbmuser.getMahasiswa()}/{@code getBiodataCalonMahasiswa()} dan justru menulis
+	 * {@code tbmuser.getSiswa() == null} dua kali (lihat Javadoc kelas dan
+	 * {@code task_d45feed7}). Perlu dicatat pula dua tombol yang SAMA SEKALI tanpa gerbang
+	 * visibilitas sehingga tampil untuk semua peran termasuk peserta: <b>Lihat Peserta Ujian</b>
+	 * (membuka {@code /pages/master/hasil_ujian_mahasiswa.zul}, yang penjagaannya diserahkan
+	 * sepenuhnya ke halaman tujuan) dan <b>Refresh</b>. Tombol <b>Format Nilai</b> memakai
+	 * varian predikat yang lebih pendek lagi — tanpa {@code getPesertaKursus()} — namun ditambah
+	 * syarat {@code perkuliahan.getDikunci() == null}.
+	 *
+	 * <p><b>Cakupan data tidak diperiksa di sini.</b> {@code display} tidak menyaring berdasarkan
+	 * satuan kerja maupun berdasarkan mata kuliah yang diampu pengguna; ia menerima
+	 * {@code pertemuan} apa adanya dari pemanggil. Penyaringan daftar ujian sepenuhnya berada di
+	 * {@code pertemuan.ambilPertemuanPunyaUjianTotal(tbmuser)} yang dipanggil
+	 * {@link #loadData(Object)}, sedangkan kelayakan pengguna membuka pertemuan itu sendiri
+	 * dijaga oleh halaman pemanggil (mis. {@code CommonPrivilages} pada {@code JadwalUjianAction}).
 	 *
 	 * <p><b>Efek pada state instance:</b> meng-set {@link #pertemuan}, membuat {@link #kartuWrap}
 	 * baru, dan meng-set {@link #grid} ke {@code null} secara eksplisit di akhir method (lihat
