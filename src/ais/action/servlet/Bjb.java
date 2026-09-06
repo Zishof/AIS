@@ -166,6 +166,56 @@ public class Bjb extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Memproses satu notifikasi pembayaran Virtual Account BJB: menyelesaikan baris VA, memverifikasi
+	 * nominal, membentuk/memutakhirkan {@link Kegiatan}, membukukan cicilan per token, lalu menandai VA
+	 * lunas.
+	 *
+	 * <p>VA dicari lewat {@link VirtualAccountBank#ambilVa(String, Double, BankHost)}. VA yang tidak
+	 * ditemukan, atau totalnya tidak lebih dari 0,1, membuat method berakhir dengan respons default
+	 * {@code response_code=0005} tanpa membukukan apa pun. VA yang sudah lunas dijawab dengan
+	 * {@code response_code=0014}.</p>
+	 *
+	 * <h4>Verifikasi nominal</h4>
+	 * <p>Satu-satunya pemeriksaan sebelum pembukuan adalah kecocokan persis antara {@code nominalP}
+	 * (dibulatkan ke {@code int}) dan {@link VirtualAccountBank#totalBiaya()}; ketidakcocokan dijawab
+	 * {@code response_code=0013} ("Invalid Amount") tanpa mengubah data apa pun. Ini <b>bukan</b>
+	 * verifikasi tanda tangan/token &mdash; lihat peringatan pada Javadoc kelas.</p>
+	 *
+	 * <h4>Token cicilan</h4>
+	 * <p>Daftar {@code cicilan} pada VA diurai per token yang dipisah koma: angka murni dan awalan
+	 * {@code Bulanan-} menunjuk {@link PengaturanPembayaranBulanan}, awalan {@code Item-} menunjuk
+	 * {@link ItemBiaya}, dan awalan {@code Keranjang-} diserahkan ke
+	 * {@code PembayaranGatewayHelper.prosesSatuTokenKeranjang}. Tiap token menghasilkan satu
+	 * {@link CicilanPembayaran} yang di-<i>upsert</i> lewat kolom {@code ref} (idempoten terhadap
+	 * notifikasi berulang), sekaligus satu entri rincian pada larik JSON yang ikut disimpan ke log H2H.</p>
+	 *
+	 * <p>Setelah semua token selesai, total dan denda dihitung ulang lewat
+	 * {@link PembayaranUtil#getTotalDanDendaFromCicilan}, {@link Kegiatan} disimpan, dan VA ditandai
+	 * lunas lewat {@link VirtualAccountBank#updateVa}.</p>
+	 *
+	 * <p><b>Keamanan:</b> method ini menerima {@code bankHost} bernilai {@code null} dan tetap
+	 * memproses &mdash; nilai itu hanya memengaruhi jenis pembayaran cicilan (jatuh ke
+	 * {@code ConstantValues.TUNAI} bila kosong), bukan gerbang penolakan. Lihat peringatan pada Javadoc
+	 * kelas untuk konsekuensi lengkapnya.</p>
+	 *
+	 * <p>Apa pun hasilnya, satu baris {@link ais.database.model.LogHostToHost} selalu ditulis di blok
+	 * {@code finally} lewat {@code PembayaranGatewayHelper.catatLogHostToHost} &mdash; termasuk jejak
+	 * <i>stack trace</i> bila terjadi galat.</p>
+	 *
+	 * @param nominalP  nominal setoran yang dilaporkan BJB
+	 * @param tanggalP  tanggal transaksi dalam format {@code Common.databaseDateFormat1}; bila gagal
+	 *                  diurai dipakai waktu server saat ini
+	 * @param va        nomor VA yang dinotifikasikan
+	 * @param bank      label bank yang disimpan sebagai {@code validator} pada data pembayaran (selalu
+	 *                  {@code "BJB"} dari pemanggil {@link #process})
+	 * @param bankHost  host bank hasil pemetaan IP; boleh {@code null} dan tidak menjadi gerbang
+	 * @param request   permintaan asal, diteruskan ke pencatat log H2H
+	 * @param data      payload mentah permintaan, disimpan apa adanya pada log H2H
+	 * @param chekLagi  penanda warisan; saat ini tidak dipakai di badan method
+	 * @return objek JSON balasan berisi {@code response_code} dan {@code response_message} BJB
+	 * @throws Exception bila kegagalan terjadi di luar jangkauan penanganan internal
+	 */
 	@SuppressWarnings("unchecked")
 	public static JSONObject doProcess(double nominalP, String tanggalP, String va, String bank, BankHost bankHost,
 			HttpServletRequest request, String data, boolean chekLagi) throws Exception {
@@ -545,6 +595,24 @@ public class Bjb extends HttpServlet {
 		return jsonObjectResponse;
 	}
 
+	/**
+	 * Membaca notifikasi BJB dari badan permintaan, memetakan IP pemanggil ke {@link BankHost}, lalu
+	 * memanggil {@link #doProcess} dan menuliskan balasan JSON.
+	 *
+	 * <p>Badan permintaan dibaca baris demi baris menjadi satu string JSON (pemisah baris dibuang).
+	 * Nomor VA dan tanggal transaksi diambil dari badan JSON, dengan jatuh ke parameter query bila
+	 * medan JSON kosong; nominal ({@code transaction_amount}) hanya diambil dari badan JSON &mdash;
+	 * bila badan bukan JSON yang sah, pemanggilan {@code req.getDouble(...)} melempar
+	 * {@link Exception} sebelum satu pun baris log H2H sempat ditulis (lihat catatan pada
+	 * {@link #doGet}).</p>
+	 *
+	 * <p>Label bank selalu {@code "BJB"}. Balasan ditulis dengan header {@code Content-Type:
+	 * application/json} dan header non-standar {@code length} berisi panjang badan.</p>
+	 *
+	 * @param request  permintaan dari BJB
+	 * @param response respons yang akan diisi JSON hasil {@link #doProcess}
+	 * @throws Exception bila pembacaan permintaan, penguraian JSON, atau penulisan balasan gagal
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
