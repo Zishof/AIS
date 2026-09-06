@@ -42,31 +42,117 @@ import ais.database.model.DokumenAkreditasi;
 import ais.database.model.file.LampiranLain;
 
 /**
- * Servlet publik Portal Dokumen Manajemen Sistem.
+ * Servlet Portal Dokumen Manajemen Sistem (DMS) — penjelajah katalog dokumen berbasis
+ * {@link Akreditasi} sebagai ruang arsip dan {@link DokumenAkreditasi} sebagai pohon isinya.
  *
- * Sumber katalog:
- * - Akreditasi sebagai kategori/ruang dokumen utama.
- * - DokumenAkreditasi sebagai struktur isi dokumen bertingkat.
- * - LampiranLain sebagai file download.
+ * <h3>Sumber katalog</h3>
+ * <ul>
+ *   <li>{@link Akreditasi} — kategori atau ruang dokumen tingkat teratas;</li>
+ *   <li>{@link DokumenAkreditasi} — struktur isi bertingkat; simpul yang punya anak diperlakukan
+ *       sebagai "Sub Ruang", simpul tanpa anak sebagai "Dokumen";</li>
+ *   <li>{@link LampiranLain} — berkas yang dapat diunduh, ditautkan ke dokumen lewat pasangan
+ *       (id pemilik, nama kelas pemilik).</li>
+ * </ul>
  *
- * Catatan session Hibernate:
- * - Servlet ini memakai HibernateUtil.currentSession(), TETAPI di konteks servlet (non-ZK)
- *   currentSession() bisa mengembalikan sesi ZK sisa thread pool yang sudah ditutup. Karena itu
- *   setiap pemakaian dijaga: bila sesi null/closed, re-acquire HibernateUtil.currentNativeSession()
- *   yang dijamin open (membuka ulang bila stale). Mencegah "Session is closed!".
- * - currentSession() tidak ditutup manual karena dikelola lifecycle aplikasi.
- * - Tidak memakai pengaturan character encoding langsung pada object response.
+ * <h3>Tiga mode permintaan</h3>
+ * <ol>
+ *   <li>{@code action=download&id=<id>} — menstrim isi lampiran; <b>mewajibkan pengguna sudah
+ *       login</b>;</li>
+ *   <li>{@code service=1}, {@code service=true}, atau {@code action=list} — menyertakan
+ *       ({@code include}) potongan JSP layanan untuk pemuatan AJAX;</li>
+ *   <li>tanpa keduanya — meneruskan ({@code forward}) ke halaman utuh portal.</li>
+ * </ol>
+ *
+ * <h3>Batas akses — fakta yang perlu dipahami</h3>
+ * <p>Aturan {@code intercept-url pattern="/**"} pada {@code applicationContext-security.xml}
+ * bernilai {@code IS_AUTHENTICATED_ANONYMOUSLY}, sehingga endpoint ini <b>terbuka untuk pengunjung
+ * anonim</b>. Pembatasan yang nyata dilakukan di dalam kelas ini sendiri, berlapis:</p>
+ * <ul>
+ *   <li><b>Penjelajahan katalog</b> boleh dilakukan anonim. Yang tampak disaring oleh
+ *       {@link #addAkreditasiRoleCriterion(Criteria, Object)}: pengunjung tanpa role hanya melihat
+ *       ruang arsip yang {@code kodeGrupPengguna}-nya kosong atau {@code null}. Judul, kode,
+ *       keterangan, dan jumlah isi ruang publik karenanya memang dapat dibaca tanpa login — itu
+ *       perilaku yang disengaja untuk portal ini.</li>
+ *   <li><b>Pengunduhan berkas</b> ditolak dengan HTTP 401 bila
+ *       {@link #getLoggedUser(HttpServletRequest)} mengembalikan {@code null}, lalu diperiksa
+ *       ulang lewat {@link #isDokumenAktif(DokumenAkreditasi)} dan
+ *       {@link #isAkreditasiVisible(Akreditasi, Object)} sehingga id dokumen yang ditebak tidak
+ *       menembus batas ruang arsip.</li>
+ * </ul>
+ * <p>Perlu dicatat bahwa {@link #isSatuanKerjaVisible(Object)} bersifat <b>fail-open</b>: bila
+ * refleksi gagal atau kolom satuan kerja kosong, isi dianggap boleh tampil. Demikian pula
+ * {@link #addSatuanKerjaCriterion(Criteria)} yang melewatkan penyaringan ketika daftar satuan
+ * kerja kosong. Keduanya didokumentasikan apa adanya sebagai perilaku yang berlaku sekarang.</p>
+ *
+ * <h3>Tidak ada penjelajahan direktori</h3>
+ * <p>Servlet ini tidak pernah menyusun jalur berkas dari masukan pengguna. Parameter
+ * {@code id}, {@code akreditasi}, dan {@code induk} diurai sebagai {@link Long} lewat
+ * {@link #parseLong(String)} — masukan non-numerik menjadi {@code null}. Isi berkas diperoleh dari
+ * {@link LampiranLain#ambilFile()}, dan nama berkas untuk header {@code Content-Disposition}
+ * dibersihkan oleh {@link #safeDownloadName(String)} sehingga garis miring maupun karakter baris
+ * baru tidak dapat menyuntik header.</p>
+ *
+ * <h3>Catatan session Hibernate</h3>
+ * <ul>
+ *   <li>{@link #buildDmsContentData(HttpServletRequest)} membuka session sendiri lewat
+ *       {@code HibernateUtil.getSessionFactory().openSession()} dan menutupnya di {@code finally}
+ *       (clear, disconnect, close).</li>
+ *   <li>{@link #downloadDocument(HttpServletRequest, HttpServletResponse)} memakai
+ *       {@code HibernateUtil.currentSession()}. Di konteks servlet (non-ZK), pemanggilan itu bisa
+ *       mengembalikan sesi ZK sisa thread pool yang sudah ditutup; karena itu bila sesi
+ *       {@code null} atau sudah tertutup, sesi native diambil ulang lewat
+ *       {@code currentNativeSession()} yang dijamin terbuka. Ini mencegah galat
+ *       "Session is closed!".</li>
+ *   <li>Sesi hasil {@code currentSession()} tidak ditutup manual karena dikelola lifecycle
+ *       aplikasi — penutupan terpusat dilakukan di {@link FilterJSP}.</li>
+ *   <li>Kelas ini tidak mengatur character encoding langsung pada object response.</li>
+ * </ul>
+ *
+ * @see Akreditasi
+ * @see DokumenAkreditasi
+ * @see LampiranLain
  */
 public class Document extends HttpServlet {
+    /** Versi serial standar {@link java.io.Serializable} untuk kontrak servlet. */
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Halaman utuh portal DMS yang dipakai lewat {@code forward} ketika permintaan bukan
+     * permintaan layanan maupun unduhan. Berada di bawah {@code /WEB-INF/} sehingga tidak dapat
+     * dijangkau langsung lewat URL dan hanya terakses melalui servlet ini.
+     */
     private static final String JSP_LANDING = "/WEB-INF/baru/modul/dms/landing_page.jsp";
+
+    /**
+     * Potongan JSP layanan yang dipakai lewat {@code include} untuk permintaan AJAX daftar isi
+     * ({@code service=1}/{@code service=true}/{@code action=list}). Menghasilkan penggalan HTML,
+     * bukan halaman penuh.
+     */
     private static final String JSP_SERVICE = "/WEB-INF/baru/modul/dms/_dms_service.jsp";
+
+    /**
+     * Potongan JSP isi katalog. Tidak pernah dipanggil langsung oleh servlet, melainkan diberikan
+     * ke halaman lewat atribut {@code DMS_CONTENT_JSP} agar JSP induk yang menyertakannya.
+     */
     private static final String JSP_CONTENT = "/WEB-INF/baru/modul/dms/_dms_content.jsp";
 
+    /**
+     * Batas keras jumlah baris yang diambil per tampilan katalog, berlaku untuk daftar
+     * {@link Akreditasi} maupun {@link DokumenAkreditasi}.
+     *
+     * <p>Tidak ada penomoran halaman, sehingga isi di atas batas ini tidak akan pernah tampil.
+     * Batas ini juga menjadi pelindung sederhana agar satu permintaan tidak menarik seluruh
+     * tabel.</p>
+     */
     private static final int MAX_LIST_ITEM = 300;
+
+    /** Ukuran penyangga penyalinan saat menstrim isi lampiran ke klien, dalam byte. */
     private static final int STREAM_BUFFER_SIZE = 16 * 1024;
 
+    /**
+     * Konstruktor default yang dibutuhkan container servlet; tidak melakukan inisialisasi apa pun
+     * selain memanggil konstruktor {@link HttpServlet}. Seluruh state bersifat per-permintaan.
+     */
     public Document() {
         super();
     }

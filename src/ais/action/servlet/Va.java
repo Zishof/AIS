@@ -61,17 +61,131 @@ import org.hibernate.envers.query.AuditEntity;
 import org.hibernate.envers.query.criteria.AuditCriterion;
 
 /**
- * Servlet implementation class Va
+ * Servlet Host-to-Host (H2H) Virtual Account: satu-satunya pintu masuk HTTP mentah tempat host
+ * bank menanyakan tagihan, mengonfirmasi setoran, dan membatalkan setoran mahasiswa/siswa.
+ *
+ * <h2>Pemetaan URL</h2>
+ * <p>Kelas ini terdaftar dua kali di {@code WEB-INF/web.xml}: sebagai servlet {@code Va} yang
+ * dipetakan ke {@code /Va}, dan sebagai servlet {@code notif} (display-name {@code Va/notif}).
+ * Kedua entri menunjuk kelas yang sama sehingga perilakunya identik.</p>
+ *
+ * <h2>Kontrak protokol</h2>
+ * <p>Permintaan boleh datang sebagai badan JSON (dibaca utuh di {@link #process}) atau sebagai
+ * parameter query biasa; {@link #getSafeParam} membaca JSON lebih dulu lalu jatuh ke parameter
+ * request. Kunci yang dikenali: {@code action}, {@code va}, {@code kode}, {@code smt},
+ * {@code bank}, {@code nominal}, {@code tanggal}, dan array {@code bayar}. Nilai {@code action}
+ * yang didukung:</p>
+ * <ul>
+ *   <li>{@code tagihan} &mdash; kembalikan seluruh rincian tagihan satu NIM/no-registrasi pada
+ *       satu semester (BLOK 1 di {@link #doProses});</li>
+ *   <li>{@code simpan_tagihan} &mdash; buat/perbarui baris {@link VirtualAccountBank} dari
+ *       keranjang item yang dikirim pemanggil, lalu kembalikan nomor VA-nya (BLOK 2);</li>
+ *   <li>{@code inquiry}, {@code payment}, {@code reversal} &mdash; alur H2H standar atas satu
+ *       nomor VA (BLOK 3).</li>
+ * </ul>
+ *
+ * <p>Dua bank memakai skema payload sendiri yang dideteksi dari bentuk JSON-nya, bukan dari
+ * field {@code bank}: kehadiran {@code revflag}/{@code reserve} menandai <b>Bank BTN</b>, dan
+ * kehadiran {@code va_acc_no} menandai <b>Bank BJBS</b>. Untuk kedua bank ini badan balasan
+ * ditulis ulang di akhir {@link #doProses} memakai format respons khas bank tersebut
+ * ({@code ref}/{@code rsp}/{@code spdesc} untuk BTN, {@code rc}/{@code rm} untuk BJBS).</p>
+ *
+ * <h2>Kode status balasan</h2>
+ * <table border="1" summary="Arti kode status pada JSON balasan">
+ *   <tr><th>status</th><th>arti</th></tr>
+ *   <tr><td>{@code 00}</td><td>sukses (inquiry/payment/reversal berhasil, atau tagihan ditemukan)</td></tr>
+ *   <tr><td>{@code 01}</td><td>nomor pembayaran tidak ditemukan (nilai awal sebelum diproses)</td></tr>
+ *   <tr><td>{@code 02}</td><td>gagal / tagihan belum dibayar / data mahasiswa pada VA tidak ada</td></tr>
+ *   <tr><td>{@code 03}</td><td>request salah ({@code action} tidak dikenali)</td></tr>
+ *   <tr><td>{@code 04}</td><td>nominal pembayaran tidak sesuai total tagihan</td></tr>
+ *   <tr><td>{@code 05}</td><td>tagihan telah dibayar / kadaluarsa / sistem sedang sibuk</td></tr>
+ *   <tr><td>{@code 06}</td><td>tagihan tidak ditemukan</td></tr>
+ *   <tr><td>{@code 08}</td><td>kesalahan tak terduga (pesan exception disertakan)</td></tr>
+ * </table>
+ *
+ * <h2>Jejak audit</h2>
+ * <p>Setiap permintaan yang masuk BLOK 3 dicatat ke {@link LogHostToHost} dari blok
+ * {@code finally} &mdash; lihat {@link #doProses} &mdash; sehingga tercatat walau prosesnya
+ * gagal. Kelas ini mengisi {@code keterangan} (badan permintaan mentah), {@code ip},
+ * {@code bankHost}, {@code nim}, {@code kode}, {@code nama}, {@code tanggal},
+ * {@code responseDescription}, {@code nominal}, dan {@code item}; penyimpanannya didelegasikan
+ * ke {@code PembayaranGatewayHelper.simpanLogHostToHost} yang memakai session terdedikasi
+ * berikut commit dan retry sendiri. Perlu dicatat bahwa {@code LogHostToHost} juga punya kolom
+ * penampung header HTTP (termasuk {@code Authorization}); kolom-kolom itu <b>tidak</b> diisi
+ * dari kelas ini, melainkan dari jalur pencatatan lain.</p>
+ *
+ * <h2>Catatan keamanan (FAKTA arsitektur, sudah terdaftar sebagai temuan)</h2>
+ * <p><b>Endpoint ini tidak punya gerbang otentikasi sama sekali.</b> Tidak ada
+ * {@code doCheckSecurity()}, tidak ada pemeriksaan Basic/Bearer, tidak ada verifikasi tanda
+ * tangan payload, dan tidak ada pemeriksaan sesi. {@code applicationContext-security.xml}
+ * memetakan pola penadah {@code /**} ke {@code IS_AUTHENTICATED_ANONYMOUSLY} dan {@code /Va}
+ * tidak muncul di satu pun pola yang mensyaratkan otentikasi, sehingga siapa pun di jaringan
+ * yang bisa menjangkau aplikasi dapat memanggilnya.</p>
+ *
+ * <p>Satu-satunya kontrol yang tersisa adalah pencocokan IP: {@link #process} memanggil
+ * {@code PembayaranUtil.getBankHost(request.getRemoteAddr(), bank)} untuk mencari baris
+ * {@link BankHost} yang IP-nya sama dengan alamat pemanggil. Kontrol itu <b>lunak</b>, bukan
+ * gerbang: bila tidak ada yang cocok, helper tersebut mencoba membuat {@link BankHost} baru
+ * secara otomatis (bila konfigurasi
+ * {@code apabila_bank_host_tidak_ditemukan_buat_data_bank_otomatis} aktif) lalu jatuh ke baris
+ * wildcard ber-IP {@code 0.0.0.0}; dan bila akhirnya tetap {@code null}, {@link #doProses}
+ * tetap berjalan karena {@code VirtualAccountBank.ambilVa} mencocokkan VA "netral"
+ * ({@code bankHost IS NULL}) untuk host apa pun. Jadi {@code bankHost} yang kosong <b>tidak</b>
+ * menolak permintaan.</p>
+ *
+ * <p>Konsekuensi yang perlu diketahui pembaca kode ini:</p>
+ * <ul>
+ *   <li>{@code action=tagihan} adalah <b>orakel data</b>: cukup satu NIM/no-registrasi dan
+ *       nomor semester untuk memperoleh nama, fakultas, program studi, dan seluruh rincian
+ *       tagihan beserta nominalnya, tanpa syarat apa pun;</li>
+ *   <li>{@code action=inquiry} melakukan hal serupa berdasarkan nomor VA;</li>
+ *   <li>{@code action=simpan_tagihan} adalah jalur <b>tulis</b> anonim &mdash; pemanggil dapat
+ *       membuat baris {@link VirtualAccountBank} baru untuk mahasiswa mana pun;</li>
+ *   <li>{@code action=payment} dan {@code action=reversal} mengubah status keuangan: yang
+ *       pertama membuat {@link Kegiatan} tervalidasi berikut {@link CicilanPembayaran}, yang
+ *       kedua menghapus baris {@code cicilan_pembayaran} milik VA tersebut.</li>
+ * </ul>
+ *
+ * <p>Karena itu perlindungan nyata endpoint ini bergantung sepenuhnya pada pembatasan jaringan
+ * di depan aplikasi (firewall/allowlist IP host bank). Jangan menambah cabang baru di kelas ini
+ * dengan asumsi pemanggilnya sudah tepercaya.</p>
+ *
+ * @see VirtualAccountBank
+ * @see LogHostToHost
+ * @see BankHost
+ * @see PembayaranUtil
  */
 public class Va extends HttpServlet {
+	/** Versi serial standar {@link HttpServlet}; tidak dipakai untuk logika apa pun. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Singleton util pembayaran, dipakai untuk memetakan IP pemanggil menjadi {@link BankHost}
+	 * dan untuk menghitung total serta denda dari daftar {@link CicilanPembayaran}.
+	 */
 	private static PembayaranUtil pembayaranUtil = PembayaranUtil.getInstance();
 
+	/** Konstruktor bawaan kontainer servlet; tidak melakukan inisialisasi tambahan. */
 	public Va() {
 		super();
 	}
 
+	/**
+	 * Menangani permintaan GET dengan mendelegasikannya ke {@link #process}.
+	 *
+	 * <p>GET dan POST diperlakukan <b>sama persis</b> &mdash; keduanya membaca badan permintaan
+	 * dan parameter query lalu memanggil {@link #doProses}. Tidak ada pemeriksaan otentikasi di
+	 * sini; lihat catatan keamanan pada dokumentasi kelas.</p>
+	 *
+	 * <p>Semua exception ditelan dan hanya ditampilkan kepada admin lewat
+	 * {@code Common.tampilErrorJikaAdmin}, sehingga kegagalan tidak pernah bocor sebagai HTTP
+	 * 500 ke host bank.</p>
+	 *
+	 * @param request  permintaan HTTP masuk
+	 * @param response balasan HTTP yang akan diisi JSON hasil proses
+	 * @throws ServletException tidak pernah dilempar oleh implementasi ini
+	 * @throws IOException      bila penulisan balasan gagal
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {
@@ -81,6 +195,18 @@ public class Va extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menangani permintaan POST &mdash; jalur yang sesungguhnya dipakai host bank &mdash; dengan
+	 * mendelegasikannya ke {@link #process}.
+	 *
+	 * <p>Implementasinya identik dengan {@link #doGet}: tanpa otentikasi, tanpa verifikasi
+	 * tanda tangan payload, dan menelan seluruh exception.</p>
+	 *
+	 * @param request  permintaan HTTP masuk; badannya berisi JSON dari host bank
+	 * @param response balasan HTTP yang akan diisi JSON hasil proses
+	 * @throws ServletException tidak pernah dilempar oleh implementasi ini
+	 * @throws IOException      bila penulisan balasan gagal
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		try {

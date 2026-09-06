@@ -368,28 +368,74 @@ public class DaftarUlangMahasiswaBaruAction extends AbstractDaftarUlangMahasiswa
 		}
 
 		String idBiodataCalonMahasiswa = execution.getParameter("biodataCalonMahasiswa");
-		if (idBiodataCalonMahasiswa != null) {
-			biodataCalonMahasiswaAktif = (BiodataCalonMahasiswa) ConstantValues
+		BiodataCalonMahasiswa biodataDariUrl = null;
+		if (idBiodataCalonMahasiswa != null && !idBiodataCalonMahasiswa.trim().isEmpty()) {
+			biodataDariUrl = (BiodataCalonMahasiswa) ConstantValues
 					.simpleObject(
 							HibernateUtil.currentSession().createCriteria(BiodataCalonMahasiswa.class)
 									.add(Restrictions.idEq(Long.parseLong(idBiodataCalonMahasiswa))),
 							BiodataCalonMahasiswa.class);
 		}
 
+		boolean aksesSendiri = false;
 		if (tbmuser != null && tbmuser.getBiodataCalonMahasiswa() != null) {
+			// Pengguna login sebagai calon mahasiswa: SELALU pakai data miliknya sendiri;
+			// parameter URL (bila ada & berbeda) diabaikan dan dicatat sebagai percobaan
+			// akses tak sah, bukan diam-diam di-fallback.
+			if (biodataDariUrl != null
+					&& !biodataDariUrl.getId().equals(tbmuser.getBiodataCalonMahasiswa().getId())) {
+				ais.common.ErrorAuditUtil.record(
+						new SecurityException(
+								"Percobaan akses id biodata calon mahasiswa lain via parameter URL: biodataCalonMahasiswa="
+										+ idBiodataCalonMahasiswa + " oleh userId=" + tbmuser.getId() + " userNama="
+										+ tbmuser.getUserNama()),
+						"SECURITY DaftarUlangMahasiswaBaruAction.doAfterCompose - akses lintas kepemilikan via parameter URL ditolak");
+			}
 			biodataCalonMahasiswaAktif = tbmuser.getBiodataCalonMahasiswa();
+			aksesSendiri = true;
+		} else if (tbmuser != null && tbmuser.getMahasiswa() != null
+				&& tbmuser.getMahasiswa().getBiodataCalonMahasiswa() != null) {
+			// Pengguna login sebagai mahasiswa yang berasal dari PMB: SELALU pakai biodata
+			// calon miliknya sendiri (link Mahasiswa#biodataCalonMahasiswa), bukan hasil
+			// query bebas atas id dari URL.
+			if (biodataDariUrl != null
+					&& !biodataDariUrl.getId().equals(tbmuser.getMahasiswa().getBiodataCalonMahasiswa())) {
+				ais.common.ErrorAuditUtil.record(
+						new SecurityException(
+								"Percobaan akses id biodata calon mahasiswa lain via parameter URL: biodataCalonMahasiswa="
+										+ idBiodataCalonMahasiswa + " oleh userId=" + tbmuser.getId() + " userNama="
+										+ tbmuser.getUserNama()),
+						"SECURITY DaftarUlangMahasiswaBaruAction.doAfterCompose - akses lintas kepemilikan via parameter URL ditolak");
+			}
+			biodataCalonMahasiswaAktif = tbmuser.getMahasiswa().getBiodataCalonMahasiswaData();
+			aksesSendiri = true;
 		}
 
 		if (tombolRefresh != null) {
 			tombolRefresh.setAttribute("janganDisabled", true);
 		}
 
-		if (biodataCalonMahasiswaAktif == null) {
+		if (!aksesSendiri) {
+			// Bukan akses milik sendiri (staf/admin/peran lain): parameter URL
+			// biodataCalonMahasiswa=<id> HANYA boleh dipakai bila pengguna terverifikasi
+			// berhak (READ) -- gerbang ini WAJIB dievaluasi baik ketika id diisi (mis.
+			// dibuka staf dari TampilanPengumumanAkademisAction/TampilanPaymentGateway)
+			// maupun ketika kosong (staf mencari manual lewat kotak pilih calon).
 			if (session.getAttribute("usersTemp") == null || !CommonPrivilages.checkPrevilages(CommonPrivilages.READ)) {
+				if (biodataDariUrl != null) {
+					ais.common.ErrorAuditUtil.record(
+							new SecurityException(
+									"Percobaan akses id biodata calon mahasiswa lain via parameter URL tanpa hak READ: biodataCalonMahasiswa="
+											+ idBiodataCalonMahasiswa + " oleh userId="
+											+ (tbmuser != null ? tbmuser.getId() : null) + " userNama="
+											+ (tbmuser != null ? tbmuser.getUserNama() : null)),
+							"SECURITY DaftarUlangMahasiswaBaruAction.doAfterCompose - akses lintas kepemilikan via parameter URL ditolak");
+				}
 				session.removeAttribute("usersTemp");
 				Common.goLogoff();
 				return;
 			}
+			biodataCalonMahasiswaAktif = biodataDariUrl;
 		}
 
 		tampilkanTanggalKwitansi = Common.bolehKonfigurasi("tampilkan_tanggal_kwitansi_di_pembayaran", Konfigurasi.TIDAK_AKTIF);

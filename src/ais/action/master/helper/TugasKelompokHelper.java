@@ -3295,9 +3295,11 @@ public class TugasKelompokHelper implements DataLoader {
 			uploadNilaiKel.setParent(toolbar);
 
 			// (D) Kelola Kelompok: Daftar Kelompok (Tambah/Download/Upload + grid anggota) dipindah
-			// ke dalam Popup Window agar kartu tetap ringkas. Terlihat untuk semua peran (mahasiswa/
+			// ke dalam Popup Window agar kartu tetap ringkas. HANYA terlihat bagi pelajar (mahasiswa/
 			// siswa memakainya untuk melihat & bergabung kelompok; kontrol Tambah/Upload otomatis
-			// disembunyikan bagi mereka di dalam NamaTugasKelompokHelper).
+			// disembunyikan bagi mereka di dalam NamaTugasKelompokHelper). Pengelola tidak butuh tombol
+			// ini di sini karena sudah mendapat aksi setara ("Kelola Kelompok & Anggota") di panel
+			// "Pengaturan Tugas Kelompok" (lihat pasangAksiPengaturan) yang ditempel di atas kartu.
 			button = new MyToolbarbutton("fa-users", "Kelola Kelompok");
 			button.setVisible(!bolehKelola(tbmuser));
 			button.setTooltiptext("Kelola daftar kelompok & anggota");
