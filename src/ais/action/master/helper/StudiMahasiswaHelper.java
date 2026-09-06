@@ -2077,9 +2077,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 			MyToolbarbuttonConfig buttonFeeder = new MyToolbarbuttonConfig("Kirim ke Feeder", "/img/Finance-Invoice-icon.png");
 			buttonFeeder.setOrient("vertical");
 			buttonFeeder.addEventListener("onClick", new EventListener() {
+				/** Meminta konfirmasi sebelum mengirim SELURUH baris KRS/nilai semester ini ke Neo Feeder (PDDikti). Seluruh blok tombol Feeder hanya dibangun bila integrasi aktif, pengguna berhak mengaksesnya, dan mahasiswa sudah memiliki {@code idRegPd}. */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin mengirim data ini ke Feeder? Proses pengiriman akan dilakukan sesuai data yang tersedia.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+						/** Bila pengguna memilih OK: mengambil kredensial Feeder dari konfigurasi, memastikan alamat server merespons, menyiapkan penampung galat dan bilah proses, lalu menjalankan pengiriman pada thread terpisah. */
 						@Override
 						public void onEvent(Event event) throws Exception {
 							int i = Integer.parseInt(event.getData().toString());
@@ -2098,6 +2100,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 								final List<String> errorLog = new ArrayList<String>();
 								final Label myLabelProsesDetail = Common.displayLoadBar(new EventListener() {
+									/** Callback penutup bilah proses: menampilkan pesan akhir bila ada, lalu bila {@code errorLog} tidak kosong menampilkan pemberitahuan dan menuliskan seluruh galat ke berkas untuk diunduh. Perhatikan bahwa direktori berkas galat pada cabang ini ditulis tetap ({@code /opt/ecampus}), berbeda dari cabang lain yang memakai {@code Common.REAL_PATH}. Diakhiri penyegaran grid. */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 										if (arg0 != null && !arg0.getName().isEmpty()) {
@@ -2126,6 +2129,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 								});
 
 								new Thread(new Runnable() {
+									/** Mengirim seluruh baris ke Neo Feeder di luar event thread: login untuk memperoleh token, lalu tiap baris dikirim sebagai nilai perkuliahan atau nilai transfer sambil memperbarui persentase kemajuan pada bilah proses. Penanda sukses sengaja berada di akhir blok {@code try} agar kegagalan tidak terlaporkan sebagai berhasil. */
 									@Override
 									public void run() {
 										try {
@@ -2181,9 +2185,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 			MyToolbarbuttonConfig buttonKirimAKM = new MyToolbarbuttonConfig("Kirim AKM ke Feeder", "/img/Finance-Invoice-icon.png");
 			buttonKirimAKM.setOrient("vertical");
 			buttonKirimAKM.addEventListener("onClick", new EventListener() {
+				/** Meminta konfirmasi sebelum mengirim data AKM (Aktivitas Kuliah Mahasiswa — rekap per semester: status, IPS/IPK, SKS) ke Neo Feeder. Berbeda dari tombol di atasnya yang mengirim rincian per mata kuliah, tombol ini mengirim header {@link KrsMahasiswa}. */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin mengirim data ini ke Feeder? Proses pengiriman akan dilakukan sesuai data yang tersedia.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+						/** Bila pengguna memilih OK: menyiapkan kredensial, memastikan server merespons, lalu menjalankan pengiriman AKM pada thread terpisah. */
 						@Override
 						public void onEvent(Event event) throws Exception {
 							int i = Integer.parseInt(event.getData().toString());
@@ -2202,6 +2208,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 								final List<String> errorLog = new ArrayList<String>();
 								final Label myLabelProsesDetail = Common.displayLoadBar(new EventListener() {
+									/** Callback penutup bilah proses AKM: menampilkan seluruh isi {@code errorLog} apa adanya dan menuliskannya ke berkas di direktori {@code tmp} aplikasi untuk diunduh, lalu menyegarkan grid. */
 									@Override
 									public void onEvent(Event arg0) throws Exception {
 										if (arg0 != null && !arg0.getName().isEmpty()) {
@@ -2230,6 +2237,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 								});
 
 								new Thread(new Runnable() {
+									/** Mengirim rekap AKM ke Neo Feeder di luar event thread lewat {@link MonitorKRSMahasiswaAction#kirimKeFeeder}; penanda sukses berada di akhir blok {@code try}. */
 									@Override
 									public void run() {
 										try {
@@ -2272,10 +2280,12 @@ public class StudiMahasiswaHelper implements DataLoader {
 				MyToolbarbuttonConfig buttonAmbilNilai = new MyToolbarbuttonConfig("Ambil Nilai", "/img/Finance-Invoice-icon.png");
 				buttonAmbilNilai.setOrient("vertical");
 				buttonAmbilNilai.addEventListener("onClick", new EventListener() {
+					/** Mengambil nilai dari Neo Feeder ke sistem (arah berlawanan dengan tombol-tombol di atas). Konfirmasi menegaskan aturannya: baris yang sudah bernilai di sistem TIDAK ditimpa — hanya perkuliahan yang belum dinilai yang diisi dari Feeder. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						MyMessageboxConfig.show("Data nilai yang sudah diinputkan di sistem atau nilai mahasiswa lebih dari 0 tidak dapat diambil dari Feeder. Hanya perkuliahan yang belum dinilai yang dapat diambil dari Feeder.\nApakah Bapak/Ibu yakin ingin melanjutkan?",
 								"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+									/** Bila pengguna memilih OK: menyiapkan kredensial dan bilah proses, lalu menjalankan pengambilan nilai pada thread terpisah. */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										int i = Integer.parseInt(event.getData().toString());
@@ -2294,6 +2304,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 											final List<String> errorLog = new ArrayList<String>();
 											final Label myLabelProsesDetail = Common.displayLoadBar(new EventListener() {
+												/** Callback penutup bilah proses: menuliskan galat ke berkas untuk diunduh bila ada, lalu menjadwalkan penyegaran grid lewat timer (bukan langsung) karena data nilai baru saja ditulis oleh thread lain. */
 												@Override
 												public void onEvent(Event arg0) throws Exception {
 													if (arg0 != null && !arg0.getName().isEmpty()) {
@@ -2319,6 +2330,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 													}
 													Common.createDefaultTimer(new EventListener() {
 														/** Dipanggil saat bilah proses selesai: menampilkan pesan akhir bila ada, dan bila {@code errorLog} tidak kosong, merangkai seluruh galat menjadi satu berkas teks di direktori {@code tmp} aplikasi lalu menawarkannya untuk diunduh. Diakhiri dengan penyegaran grid. */
+														/** Menyegarkan grid dengan hitung ulang ekivalensi setelah nilai dari Feeder tersimpan. */
 														@Override
 														public void onEvent(Event arg0) throws Exception {
 															loadData(true);
@@ -2328,6 +2340,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 											});
 
 											new Thread(new Runnable() {
+												/**
+												 * Mengambil nilai mahasiswa dari Neo Feeder di luar event thread. Kode semester Feeder
+												 * ({@code idSmt}) dirakit dari tahun awal tahun akademik ditambah digit periode:
+												 * {@code 3} untuk semester pendek, {@code 2} untuk semester genap, {@code 1} untuk ganjil.
+												 * Bila perakitan gagal, {@code idSmt} tetap {@code null} dan proses tetap berlanjut.
+												 * Penanda sukses berada di akhir blok {@code try}; {@code catch} perantara yang dahulu
+												 * menelan exception dari pengambilan nilai sudah dihapus.
+												 */
 												@Override
 												public void run() {
 													try {
@@ -2374,6 +2394,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		buttonRefresh.setOrient("vertical");
 		buttonRefresh.setTooltiptext("Refresh");
 		buttonRefresh.addEventListener("onClick", new EventListener() {
+			/** Memuat ulang grid dengan memaksa hitung ulang ekivalensi mata kuliah ({@code loadData(true)}), tanpa membangun ulang seluruh layar. */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				loadData(true);
@@ -2547,6 +2568,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 			try {
 				if (!tbmuser.hakAkses().getRoleId().equalsIgnoreCase(Tbmrole.ADMINISTRATOR)) {
 					Common.createDefaultTimer(new EventListener() {
+						/** Mengunci (freeze) seluruh panel setelah layar selesai dirakit. Dipakai saat konfigurasi {@code selain_admin_tidak_boleh_merubah_konversi} aktif pada mode konversi dan pengguna bukan {@link Tbmrole#ADMINISTRATOR}. Ini penguncian di sisi tampilan; gerbang sesungguhnya tetap harus ada pada layar pemanggil. */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							Common.freeze(groupbox, true);
@@ -2572,6 +2594,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		ListModel strset = new SimpleListModel(komentars);
 
 		gridKomentar.setRowRenderer(new Common.KomentarRenderer(new EventListener() {
+			/** Callback penyegaran yang diserahkan ke {@link Common.KomentarRenderer}: memanggil kembali {@link StudiMahasiswaHelper#loadDataKomentar()} setelah sebuah komentar diubah atau dihapus dari dalam baris grid. */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadDataKomentar();
