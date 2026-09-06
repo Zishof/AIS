@@ -796,11 +796,102 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 		this.waLink = waLink;
 	}
 
+	/**
+	 * Membuat tombol pertemuan daring untuk sesi, memakai bentuk {@code Toolbarbutton}.
+	 *
+	 * <p>Jalan pintas ke
+	 * {@link #createVideoConrefrence(InterviewCalonMahasiswa, Component, boolean, boolean,
+	 * EventListener)} dengan {@code button = false}. Ejaan nama method ini memuat salah ketik
+	 * ("Conrefrence") yang dipertahankan demi kompatibilitas pemanggil.</p>
+	 *
+	 * @param interviewCalonMahasiswa sesi yang tombolnya dibuat; tidak boleh {@code null}
+	 * @param hbox                    komponen induk tempat tombol dipasang; boleh {@code null}
+	 *                                untuk sebagian mode
+	 * @param vertical                {@code true} untuk menyusun ikon dan label secara vertikal
+	 * @param eventListener           aksi lanjutan setelah pertemuan dibuka; boleh {@code null}
+	 * @return tombol yang sudah dirakit (tersembunyi bila sesi tidak digelar daring)
+	 * @throws Exception bila perakitan tombol atau pembangkitan tautan gagal
+	 */
 	public static Button createVideoConrefrence(final InterviewCalonMahasiswa interviewCalonMahasiswa, Component hbox,
 			boolean vertical, final EventListener eventListener) throws Exception {
 		return createVideoConrefrence(interviewCalonMahasiswa, hbox, vertical, false, eventListener);
 	}
 
+	/**
+	 * Merakit tombol pembuka pertemuan daring yang sesuai dengan kanal yang dipilih sesi.
+	 *
+	 * <p>Method ini adalah <b>satu-satunya titik perakitan</b> tombol pertemuan untuk sesi
+	 * interview: ia membaca {@link #getOnlineMenggunakan()} lalu memilih satu dari delapan cabang,
+	 * masing-masing menentukan ikon, sumber tautan, dan pesan peringatan bila tautannya belum
+	 * diisi.</p>
+	 *
+	 * <table border="1" summary="Perilaku per mode kanal">
+	 *   <tr><th>Mode</th><th>Ikon</th><th>Sumber tautan</th></tr>
+	 *   <tr><td>{@link #JITSI}</td><td>ikon grup, berubah merah bila ada yang sedang daring</td>
+	 *       <td>{@link #generateJitsiLink()} (dibangkitkan)</td></tr>
+	 *   <tr><td>{@link #GOOGLE_MEET}</td><td>{@code meet-google.png}</td>
+	 *       <td>cache {@code hangoutLink} hasil sinkronisasi Google Calendar</td></tr>
+	 *   <tr><td>{@link #ZOOM}</td><td>{@code zoom.png}</td><td>{@link #getZoomLink()}</td></tr>
+	 *   <tr><td>{@link #BBB}</td><td>{@code bbb.png}</td><td>{@link #getBbbLink()}</td></tr>
+	 *   <tr><td>{@link #SKYPE}</td><td>{@code Skype-icon.png}</td><td>{@link #getSkypeLink()}</td></tr>
+	 *   <tr><td>{@link #WA}</td><td>{@code whats.svg}</td><td>{@link #getWaLink()}</td></tr>
+	 *   <tr><td>{@link #LAIN}</td><td>{@code online-red-icon.png}</td><td>{@link #getLainLink()}</td></tr>
+	 *   <tr><td>{@link #TIDAK_AKTIF} atau nilai tak dikenal</td><td colspan="2">tombol disembunyikan
+	 *       ({@code setVisible(false)})</td></tr>
+	 * </table>
+	 *
+	 * <h3>Penanda kehadiran</h3>
+	 * <p>Setiap cabang memanggil {@code ambilData("online", ...)} untuk menyusun daftar pengguna
+	 * yang tercatat sedang daring beserta jamnya, lalu menaruhnya di tooltip tombol. Saat tombol
+	 * diklik, {@code masukkanData("online")} mencatat pengguna saat ini sebagai hadir. Hanya cabang
+	 * {@link #JITSI} yang mengubah ikon menjadi merah ketika sudah ada peserta daring; cabang lain
+	 * mengisi tooltip tetapi tidak memberi isyarat visual serupa.</p>
+	 *
+	 * <h3>Catatan implementasi dan jebakan</h3>
+	 * <ul>
+	 *   <li><b>Perbandingan mode memakai {@code equals()}</b>, bukan {@code ==}. Ini memang yang
+	 *       benar karena konstanta modenya bertipe {@code Integer}; jangan "disederhanakan" menjadi
+	 *       {@code ==} saat menyunting.</li>
+	 *   <li><b>Ketujuh cabang adalah salin-tempel</b> dengan blok pengumpulan daftar daring yang
+	 *       nyaris identik. Perbaikan pada satu cabang perlu diterapkan ke seluruhnya. Satu sisa
+	 *       salin-tempel sudah terlihat: cabang {@link #LAIN} membuka jendela dengan judul
+	 *       {@code "Grup Whatsapp"}, terbawa dari cabang {@link #WA}.</li>
+	 *   <li><b>Pemasangan ke induk tidak konsisten.</b> Cabang {@link #JITSI} memanggil
+	 *       {@code setParent(hbox)} tanpa memeriksa {@code null}, sedangkan enam cabang lain
+	 *       menjaganya dengan {@code if (hbox != null)}. Memanggil method ini dengan {@code hbox}
+	 *       {@code null} pada sesi bermode Jitsi karena itu berisiko gagal.</li>
+	 *   <li><b>Callback {@code eventListener} hanya dipanggil di cabang {@link #JITSI}.</b> Untuk
+	 *       enam kanal lainnya argumen tersebut diterima tetapi diabaikan — pemanggil yang
+	 *       mengandalkannya untuk menyegarkan tampilan tidak akan pernah dipanggil balik.</li>
+	 *   <li><b>Galat saat menyusun daftar daring ditelan</b> per-elemen (hanya dicatat ke audit
+	 *       galat), jadi tooltip bisa tampil tidak lengkap tanpa tanda apa pun.</li>
+	 * </ul>
+	 *
+	 * <h3>Catatan keamanan</h3>
+	 * <p>Tautan pertemuan disisipkan <b>langsung ke dalam literal string JavaScript</b> lewat
+	 * {@code Clients.evalJavaScript("popupCenter({url: '" + server + "', ...})")} tanpa pelolosan
+	 * karakter. Tautan itu berasal dari kolom yang disunting operator PMB
+	 * ({@code zoomLink}, {@code bbbLink}, {@code skypeLink}, {@code waLink}, {@code lainLink}) atau
+	 * dari konfigurasi server video conference. Nilai yang memuat tanda kutip tunggal dapat keluar
+	 * dari literal tersebut dan menjalankan skrip pilihan penyerang pada sesi peninjau — yaitu XSS
+	 * tersimpan yang dipicu operator. Pembersihan pada getter tautan <b>tidak</b> menutup celah ini:
+	 * pemungutan URL hanya berjalan bila nilainya mengandung spasi, sehingga muatan tanpa spasi
+	 * lolos utuh. Bila menambah kanal baru, lakukan pelolosan pada {@code server} sebelum
+	 * menyisipkannya, atau serahkan nilainya sebagai argumen data alih-alih menyambung string.
+	 * Pola penyambungan yang sama dipakai di sekitar 150 tempat lain pada basis kode ini, jadi
+	 * perbaikannya bersifat menyeluruh, bukan lokal.</p>
+	 *
+	 * @param interviewCalonMahasiswa sesi yang tombolnya dibuat; tidak boleh {@code null}
+	 * @param hbox                    komponen induk tempat tombol dipasang (lihat catatan
+	 *                                ketidakkonsistenan {@code null} di atas)
+	 * @param vertical                {@code true} untuk menyusun ikon dan label secara vertikal
+	 * @param button                  {@code true} menghasilkan {@code MyButtonConfig},
+	 *                                {@code false} menghasilkan {@code MyToolbarbuttonConfig}
+	 * @param eventListener           aksi lanjutan setelah pertemuan dibuka; hanya dipanggil pada
+	 *                                mode {@link #JITSI}, boleh {@code null}
+	 * @return tombol yang sudah dirakit; tersembunyi bila sesi tidak digelar daring
+	 * @throws Exception bila perakitan tombol atau pembangkitan tautan gagal
+	 */
 	public static Button createVideoConrefrence(final InterviewCalonMahasiswa interviewCalonMahasiswa, Component hbox,
 			boolean vertical, boolean button, final EventListener eventListener) throws Exception {
 
@@ -836,6 +927,16 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#JITSI}: mencatat
+				 * pengguna sebagai hadir, memerahkan ikon tombol, membangkitkan URL ruang Jitsi,
+				 * lalu membukanya — sebagai pengalihan halaman pada perangkat bergerak atau sebagai
+				 * jendela pop-up pada peramban desktop. Ini satu-satunya cabang yang memanggil
+				 * balik {@code eventListener} milik pemanggil.
+				 *
+				 * @param a peristiwa klik ZK; targetnya dipakai untuk mengganti ikon tombol
+				 * @throws Exception bila pembangkitan tautan atau callback pemanggil gagal
+				 */
 				@Override
 				public void onEvent(Event a) throws Exception {
 
@@ -885,6 +986,19 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
 				@Override
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#GOOGLE_MEET}.
+				 *
+				 * <p>Tautan Meet tidak disimpan di kolom mana pun melainkan diambil dari cache
+				 * {@code hangoutLink} yang baru terisi setelah sesi disinkronkan ke Google Calendar;
+				 * bila belum ada, pengguna diberi peringatan untuk melakukan sinkronisasi lebih
+				 * dulu dan tidak ada yang dicatat sebagai hadir. Parameter kueri
+				 * {@code ?hs=122&ijlm=...} yang ditempelkan adalah nilai tetap peninggalan yang
+				 * tidak berkaitan dengan sesi ini.</p>
+				 *
+				 * @param arg0 peristiwa klik ZK; tidak dipakai
+				 * @throws Exception bila pembukaan jendela pertemuan gagal
+				 */
 				public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 
 					String linkcalendar = interviewCalonMahasiswa.retreive("hangoutLink");
@@ -936,6 +1050,15 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#ZOOM}: mengambil
+				 * tautan dari {@link InterviewCalonMahasiswa#getZoomLink()}, menolak dengan
+				 * peringatan bila belum diisi, mencatat pengguna sebagai hadir, lalu membuka
+				 * pertemuan (pengalihan pada perangkat bergerak, jendela pop-up pada desktop).
+				 *
+				 * @param arg0 peristiwa klik ZK; tidak dipakai
+				 * @throws Exception bila pembukaan jendela pertemuan gagal
+				 */
 				@Override
 				public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 
@@ -986,6 +1109,15 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#BBB}: mengambil
+				 * tautan dari {@link InterviewCalonMahasiswa#getBbbLink()}, menolak dengan
+				 * peringatan bila belum diisi, mencatat pengguna sebagai hadir, lalu membuka
+				 * pertemuan Big Blue Button.
+				 *
+				 * @param arg0 peristiwa klik ZK; tidak dipakai
+				 * @throws Exception bila pembukaan jendela pertemuan gagal
+				 */
 				@Override
 				public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 
@@ -1036,6 +1168,15 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#SKYPE}: mengambil
+				 * tautan dari {@link InterviewCalonMahasiswa#getSkypeLink()}, menolak dengan
+				 * peringatan bila belum diisi, mencatat pengguna sebagai hadir, lalu membuka
+				 * panggilan Skype.
+				 *
+				 * @param arg0 peristiwa klik ZK; tidak dipakai
+				 * @throws Exception bila pembukaan jendela pertemuan gagal
+				 */
 				@Override
 				public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 
@@ -1086,6 +1227,15 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#WA}: mengambil
+				 * tautan undangan dari {@link InterviewCalonMahasiswa#getWaLink()}, menolak dengan
+				 * peringatan bila belum diisi, mencatat pengguna sebagai hadir, lalu membuka grup
+				 * WhatsApp.
+				 *
+				 * @param arg0 peristiwa klik ZK; tidak dipakai
+				 * @throws Exception bila pembukaan jendela grup gagal
+				 */
 				@Override
 				public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 
@@ -1136,6 +1286,18 @@ public class InterviewCalonMahasiswa extends GeneralValueObject {
 
 			toolbarbutton.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menangani klik tombol pada mode {@link InterviewCalonMahasiswa#LAIN}: mengambil
+				 * tautan bebas dari {@link InterviewCalonMahasiswa#getLainLink()}, menolak dengan
+				 * peringatan bila belum diisi, mencatat pengguna sebagai hadir, lalu membukanya.
+				 *
+				 * <p>Judul jendela pop-up yang dipakai di sini masih {@code "Grup Whatsapp"} —
+				 * sisa salin-tempel dari cabang {@link InterviewCalonMahasiswa#WA} yang tidak
+				 * disesuaikan.</p>
+				 *
+				 * @param arg0 peristiwa klik ZK; tidak dipakai
+				 * @throws Exception bila pembukaan jendela pertemuan gagal
+				 */
 				@Override
 				public void onEvent(org.zkoss.zk.ui.event.Event arg0) throws Exception {
 
