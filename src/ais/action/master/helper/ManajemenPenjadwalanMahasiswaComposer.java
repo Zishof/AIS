@@ -508,6 +508,15 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		PenjadwalanUtil penjadwalanUtil;
 		(penjadwalanUtil = new PenjadwalanUtil(new OnSearchDefaultListener() {
 
+			/**
+			 * Callback yang dipasang ke {@link PenjadwalanUtil}: dipanggil saat dialog detail slot jadwal
+			 * ditutup dengan perubahan, dan memicu render ulang kalender lewat {@code onRefresh(null)}.
+			 *
+			 * <p>Argumen {@code null} disengaja — {@link #onRefresh(Event)} tidak membaca event-nya, dan
+			 * {@code null} membuat refresh berjalan lewat jalur yang sama dengan render awal.</p>
+			 *
+			 * @param event event dari dialog; isinya tidak dipakai.
+			 */
 			@Override
 			public void onSearchDefault(Event event) {
 				onRefresh(null);
@@ -662,10 +671,33 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		return super.doBeforeCompose(page, parent, compInfo);
 	}
 
+	/**
+	 * Konfigurasi {@code tampilkan_minggu_perkuliahan} (default AKTIF) yang menentukan apakah
+	 * penanda {@code minggu1}..{@code minggu5} ditampilkan pada dialog detail jadwal. Dibaca sekali
+	 * di {@link #doAfterCompose(Component)}.
+	 *
+	 * <p>Karena dibaca sekali per pembukaan halaman, perubahan konfigurasi ini baru berlaku setelah
+	 * halaman dimuat ulang.</p>
+	 */
 	protected Konfigurasi tampilkanMingguPerkuliahan;
+	/**
+	 * Grid roster mahasiswa terjadwal (mold {@code paging}, 10 baris per halaman). Dibuat
+	 * terprogram oleh {@code initDataMahasiswa()} dan diisi ulang oleh
+	 * {@code loadDataMahasiswa(...)} dengan {@link DetailKelasRenderer} sebagai penggambar barisnya.
+	 */
 	private MyGrid grid;
+	/**
+	 * Kotak pencarian NIM pada toolbar roster; menekan Enter ({@code Events.ON_OK}) memicu
+	 * pemuatan ulang daftar.
+	 */
 	private Textbox nim;
+	/**
+	 * Kotak pencarian nama mahasiswa pada toolbar roster; menekan Enter memicu pemuatan ulang.
+	 */
 	private Textbox nama;
+	/**
+	 * Kotak pencarian tahun angkatan pada toolbar roster; menekan Enter memicu pemuatan ulang.
+	 */
 	private Intbox angkatan;
 
 	/**
@@ -698,6 +730,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 		kelas.setEventListener(new EventListener() {
 
+			/**
+			 * Listener perubahan nilai filter {@link #kelas}: meneruskan langsung ke
+			 * {@link #onRefresh(Event)} sehingga kalender dan roster mengikuti kelas yang dipilih.
+			 *
+			 * @param arg0 event perubahan dari banbox kelas.
+			 * @throws Exception diteruskan dari proses refresh.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				onRefresh(arg0);
@@ -708,6 +747,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		ruang = new AmbilDataRuangBanbox();
 		ruang.setEventListener(new EventListener() {
 
+			/**
+			 * Listener perubahan nilai filter {@link #ruang}: meneruskan langsung ke
+			 * {@link #onRefresh(Event)}.
+			 *
+			 * @param arg0 event perubahan dari banbox ruang.
+			 * @throws Exception diteruskan dari proses refresh.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				onRefresh(arg0);
@@ -785,6 +831,18 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		 */
 		class FakultasEventListener implements EventListener {
 
+			/**
+			 * Menyinkronkan isi combobox {@link #jurusan} mengikuti {@link #fakultas} yang baru dipilih,
+			 * lalu memicu {@link #onRefresh(Event)}.
+			 *
+			 * <p>Selama pengisian ulang berlangsung, {@link #sedangSinkronFilter} ditahan bernilai
+			 * {@code true} (dipulihkan lewat {@code finally}) agar pengosongan-lalu-pengisian combobox tidak
+			 * memicu refresh di tengah keadaan filter yang belum konsisten. Bila tidak ada fakultas
+			 * terpilih, seluruh jurusan aktif dimuat; bila ada, jurusan disaring ke fakultas tersebut.</p>
+			 *
+			 * @param event event {@code onChange} dari combobox fakultas.
+			 * @throws Exception diteruskan dari pengisian combobox atau proses refresh.
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				sedangSinkronFilter = true;
@@ -853,6 +911,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 
 		calendars.addEventListener(Events.ON_CHANGE, new EventListener() {
 
+			/**
+			 * Listener {@code onChange} pada komponen kalender. Saat ini hanya mencetak penanda ke
+			 * {@code System.out} — sisa jejak pengembangan yang tidak melakukan pekerjaan apa pun.
+			 * Dipertahankan apa adanya agar perilaku existing tidak berubah.
+			 *
+			 * @param arg0 event perubahan dari kalender; isinya tidak dipakai.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				System.out.println(
@@ -863,6 +928,13 @@ public class ManajemenPenjadwalanMahasiswaComposer extends GenericForwardCompose
 		paging = new Paging();
 		Common.initPaging(paging, new EventListener() {
 
+			/**
+			 * Listener paging roster: memuat ulang halaman daftar mahasiswa lewat
+			 * {@code loadDataMahasiswa(null)} setiap kali pengguna berpindah halaman.
+			 *
+			 * @param arg0 event paging; isinya tidak dipakai.
+			 * @throws Exception diteruskan dari pemuatan data.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				loadDataMahasiswa(null);
