@@ -657,10 +657,12 @@ public class StudiMahasiswaHelper implements DataLoader {
 			buttonPindah.setTooltiptext("Pindah Data");
 			buttonPindah.setVisible(detailperkuliahan.getPerkuliahan() != null && Common.getCurrentUser().getDosen() == null && edit);
 			buttonPindah.addEventListener("onClick", new EventListener() {
+				/** Menampilkan konfirmasi berparameter (nama mahasiswa dan nama mata kuliah) sebelum memindahkan data KRS baris ini ke perkuliahan lain. Tombol ini hanya tampil untuk baris yang punya {@link Perkuliahan} (bukan konversi) dan untuk pengguna non-dosen dalam mode {@code edit}. */
 				@Override
 				public void onEvent(Event event) throws Exception {
 					MyMessageboxConfig.showFormatCb("Apakah Bapak/Ibu yakin ingin memindahkan KRS mahasiswa {V1} untuk mata kuliah {V2}? Data perkuliahan mahasiswa tersebut akan dipindahkan sesuai tujuan yang dipilih.",
 							"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+								/** Bila pengguna memilih OK, membuka {@link TransferDataMahasiswaHelper} pada jendela modal baru dengan {@link StudiMahasiswaHelper} ini sebagai {@link DataLoader} penyegar. Kegagalan membuka jendela dilaporkan lewat {@link PesanFormalHelper} beserta saran langkah pemulihan, bukan sekadar ditelan. */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
@@ -690,9 +692,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 				MyToolbarbuttonConfig buttonHapus = new MyToolbarbuttonConfig("", "/img/svg/trash.svg");
 				buttonHapus.setTooltiptext("Hapus Data");
 				buttonHapus.addEventListener("onClick", new EventListener() {
+					/** Meminta konfirmasi penghapusan baris KRS. Cabang ini dipakai saat {@link StudiMahasiswaHelper#tampilHapus} aktif, yaitu hak hapus langsung yang diberikan konfigurasi kepada admin (atau peran pada daftar {@code admin_lain_bisa_menghapus_langsung_data_nilai_mahasiswa_di_menu_krs}); karena itu ia TIDAK memeriksa apakah baris sudah bernilai. */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus data ini? Data yang telah dihapus tidak dapat dikembalikan.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+									/** Bila pengguna memilih OK, menghapus lebih dulu seluruh {@link Komentar} yang menunjuk baris ini (relasi disimpan sebagai id, bukan FK, sehingga tidak ada cascade) lalu menghapus {@link Detailperkuliahan}-nya, kemudian menyegarkan grid lewat timer. Kegagalan karena relasi lain ditampilkan sebagai pesan berisi langkah pemulihan. */
 									@SuppressWarnings("unchecked")
 									@Override
 									public void onEvent(Event event) throws Exception {
@@ -709,6 +713,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 												Common.refreshDelete(session, detailperkuliahan);
 
 												Common.createDefaultTimer(new EventListener() {
+													/** Menyegarkan grid setelah transaksi penghapusan selesai; dijalankan lewat timer agar berjalan pada request berikutnya, bukan di tengah transaksi yang baru saja menghapus. */
 													@Override
 													public void onEvent(Event arg0) throws Exception {
 														loadData(true);
@@ -735,9 +740,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 					buttonTagihan.setOrient("vertical");
 					buttonTagihan.setStyle("font-size:8px;");
 					buttonTagihan.addEventListener("onClick", new EventListener() {
+						/** Meminta konfirmasi sebelum mengirim SATU baris KRS/nilai ini ke server Neo Feeder (PDDikti). Tombol ini hanya dibangun bila integrasi Feeder aktif, pengguna berhak mengaksesnya, dan mahasiswa sudah memiliki {@code idRegPd}. */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin mengirim data ini ke Feeder? Proses pengiriman akan dilakukan sesuai data yang tersedia.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+										/** Bila pengguna memilih OK, mengambil kredensial Feeder dari konfigurasi ({@code EksporFromFeederAction.koneksi()} — bukan tertanam di kode), memastikan alamat server merespons, menyiapkan penampung log error dan bilah proses, lalu menjalankan pengiriman pada thread terpisah. */
 										@Override
 										public void onEvent(Event event) throws Exception {
 											int i = Integer.parseInt(event.getData().toString());
@@ -784,6 +791,16 @@ public class StudiMahasiswaHelper implements DataLoader {
 														});
 
 												new Thread(new Runnable() {
+													/**
+													 * Pengiriman satu baris ke Neo Feeder di luar event thread agar UI tidak membeku:
+													 * login untuk memperoleh token, lalu — bergantung jenis baris — mengirim nilai
+													 * perkuliahan ({@code PerkuliahanAction.kirimKeFeeder}) atau nilai transfer
+													 * ({@code FeederExporter.nilaiTransfer}).
+													 *
+													 * <p>Penanda sukses ({@code setValue("")}) sengaja diletakkan di AKHIR blok {@code try}
+													 * agar exception yang terjadi di tengah proses tidak terlaporkan sebagai berhasil —
+													 * perbaikan atas pola "gagal diam-diam". Jangan memindahkannya kembali ke atas.</p>
+													 */
 													@Override
 													public void run() {
 														try {
@@ -837,9 +854,11 @@ public class StudiMahasiswaHelper implements DataLoader {
 				buttonHapus.setVisible(delete);
 				buttonHapus.setTooltiptext("Hapus Data");
 				buttonHapus.addEventListener("onClick", new EventListener() {
+					/** Meminta konfirmasi penghapusan baris KRS. Cabang ini dipakai saat {@link StudiMahasiswaHelper#tampilHapus} TIDAK aktif tetapi baris memang boleh dihapus (mode konversi, atau baris konversi yang belum disetujui); visibilitasnya mengikuti hak {@link CommonPrivilages#DELETE} dan disembunyikan bagi mahasiswa pada mode konversi. */
 					@Override
 					public void onEvent(Event event) throws Exception {
 						MyMessageboxConfig.show("Apakah Bapak/Ibu yakin ingin menghapus data ini? Data yang telah dihapus tidak dapat dikembalikan.", "Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION, new EventListener() {
+									/** Bila pengguna memilih OK: saat konfigurasi {@code batalkan_persetujuan_harus_memiliki_nilai_nol} aktif, baris yang sudah disetujui DAN sudah bernilai (&gt; 1.0) ditolak — nilai yang telanjur diinput mengunci baris. Setelah lolos, komentar terkait dihapus lebih dulu, lalu baris KRS-nya, dan grid disegarkan lewat timer. */
 									@SuppressWarnings("unchecked")
 									@Override
 									public void onEvent(Event event) throws Exception {
@@ -861,6 +880,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 
 												Common.refreshDelete(session, detailperkuliahan);
 												Common.createDefaultTimer(new EventListener() {
+													/** Menyegarkan grid setelah transaksi penghapusan selesai; dijalankan lewat timer agar berjalan pada request berikutnya. */
 													@Override
 													public void onEvent(Event arg0) throws Exception {
 														loadData(true);
@@ -2163,6 +2183,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 														Filedownload.save(file, "text/plain");
 													}
 													Common.createDefaultTimer(new EventListener() {
+														/** Dipanggil saat bilah proses selesai: menampilkan pesan akhir bila ada, dan bila {@code errorLog} tidak kosong, merangkai seluruh galat menjadi satu berkas teks di direktori {@code tmp} aplikasi lalu menawarkannya untuk diunduh. Diakhiri dengan penyegaran grid. */
 														@Override
 														public void onEvent(Event arg0) throws Exception {
 															loadData(true);

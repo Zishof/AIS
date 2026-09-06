@@ -2821,6 +2821,23 @@ public class ProsesUjianHelper extends MyWindow {
 		cancel = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup jendela CBT lewat tombol "Tutup".
+			 *
+			 * <p>Menghentikan timer ZK dan thread countdown ({@code waktuTimer.stop = true}), lalu melepas
+			 * jendela. Untuk pengguna tamu / calon mahasiswa, konfirmasi bawaan browser dimatikan lebih
+			 * dahulu agar tidak muncul dialog ganda.</p>
+			 *
+			 * <p><b>Penting:</b> tombol ini TIDAK menyimpan maupun memfinalisasi nilai — jawaban yang
+			 * sudah tersimpan tetap ada, tetapi {@code telahIkutUjian} tidak diset dan
+			 * {@link ProsesUjianHelper#generateHasilUjian(List,HasilUjianMahasiswa,PertemuanPunyaUjian,Map)}
+			 * tidak dipanggil. Karena itu tombol dinonaktifkan ({@code cancel.setDisabled(true)}) begitu
+			 * peserta sungguhan mulai mengerjakan; ia hanya tersisa aktif pada mode pratinjau
+			 * ({@code hasilUjianMahasiswa} null) dan mode lihat-saja.</p>
+			 *
+			 * @param event event {@code onClick} ZK dari tombol "Tutup"
+			 * @throws Exception bila operasi ZK gagal
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 
@@ -2841,6 +2858,29 @@ public class ProsesUjianHelper extends MyWindow {
 //		save.setVisible(hasilUjianMahasiswa != null);
 		save.setTooltiptext("Simpan");
 		save.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menangani tombol "Selesaikan Ujian" (berlabel "Selesai" pada mode lihat-saja).
+			 *
+			 * <p><b>Alur:</b></p>
+			 * <ol>
+			 *   <li>Pada mode lihat-saja, jendela langsung dilepas tanpa perhitungan apa pun.</li>
+			 *   <li>Bila konfigurasi {@code mahasiswa_harus_melengkapi_jawaban_soal} aktif DAN ujian bukan
+			 *       bermode "tiap soal" serta tombol kembali tidak dimatikan, seluruh soal diperiksa:
+			 *       setiap soal yang id {@code BankSoal}-nya belum ada di daftar terjawab dihitung. Bila
+			 *       masih ada yang kosong, tab "Belum terjawab" diaktifkan, peringatan berisi jumlahnya
+			 *       ditampilkan, dan penyelesaian DIBATALKAN.</li>
+			 *   <li>Bila lolos, muncul dialog konfirmasi. Menekan OK menjadwalkan
+			 *       {@link ProsesUjianHelper#onSelesai()} lewat {@code Common.createDefaultTimer}.</li>
+			 * </ol>
+			 *
+			 * <p><b>Catatan integritas:</b> kelengkapan jawaban hanya dipaksakan pada ujian yang
+			 * mengizinkan peserta mundur. Pada ujian bermode "tiap soal" atau ujian satu-arah,
+			 * kelengkapan sudah dijaga per soal oleh tombol "Lanjut", sehingga pemeriksaan di sini
+			 * sengaja dilewati.</p>
+			 *
+			 * @param event event {@code onClick} ZK dari tombol "Selesaikan Ujian"
+			 * @throws Exception bila operasi ZK atau Hibernate gagal
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 
@@ -2886,12 +2926,32 @@ public class ProsesUjianHelper extends MyWindow {
 				"Pertanyaan", MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 				new EventListener() {
 
+								/**
+								 * Menerima pilihan peserta pada dialog konfirmasi "Apakah Bapak/Ibu yakin ingin menyelesaikan
+								 * ujian ini?".
+								 *
+								 * <p>Kode tombol dibaca dari {@code event.getData()}. Hanya bila nilainya
+								 * {@code MyMessageboxConfig.OK} penyelesaian dilanjutkan — itu pun tidak langsung, melainkan
+								 * dijadwalkan lewat {@code Common.createDefaultTimer} supaya dialog sempat tertutup sebelum
+								 * proses perhitungan nilai yang berat dimulai. Pilihan Batal tidak melakukan apa pun sehingga
+								 * peserta kembali mengerjakan.</p>
+								 *
+								 * @param event event ZK dari messagebox; {@code getData()} berisi kode tombol yang ditekan
+								 * @throws Exception bila penjadwalan timer ZK gagal
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
 									if (i == MyMessageboxConfig.OK) {
 										Common.createDefaultTimer(new EventListener() {
 
+											/**
+											 * Menjalankan {@link ProsesUjianHelper#onSelesai()} pada siklus event ZK berikutnya, setelah
+											 * peserta menekan OK pada dialog konfirmasi.
+											 *
+											 * @param arg0 event timer ZK sekali-jalan (isinya tidak dipakai)
+											 * @throws Exception bila proses finalisasi nilai gagal
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												onSelesai();
@@ -2912,6 +2972,21 @@ public class ProsesUjianHelper extends MyWindow {
 		back.setDisabled(true);
 		back.setTooltiptext("Soal Sebelumnya");
 		back.addEventListener("onClick", new EventListener() {
+			/**
+			 * Berpindah ke soal (atau halaman soal) SEBELUMNYA.
+			 *
+			 * <p>Sebelum berpindah, {@link ProsesUjianHelper#jumlahDibatasi()} dipanggil untuk memastikan
+			 * jumlah jawaban pada soal berganda yang sedang tampil sudah memenuhi batas minimal/maksimal;
+			 * bila belum, perpindahan dibatalkan dan peserta diberi peringatan.</p>
+			 *
+			 * <p>Indeks dikurangi {@link ProsesUjianHelper#jumlahSoalPerHalaman}, lalu
+			 * {@link ProsesUjianHelper#doProcessUjian(int)} me-render halaman soal sebelumnya. Tombol ini
+			 * disembunyikan sepenuhnya pada ujian bermode "tiap soal" maupun ujian yang mematikan tombol
+			 * kembali.</p>
+			 *
+			 * @param event event {@code onClick} ZK dari tombol "Kembali"
+			 * @throws Exception bila render ulang soal gagal
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				if (!jumlahDibatasi()) {
@@ -2926,6 +3001,27 @@ public class ProsesUjianHelper extends MyWindow {
 
 		next.setTooltiptext("Soal Berikutnya");
 		next.addEventListener("onClick", new EventListener() {
+			/**
+			 * Berpindah ke soal (atau halaman soal) BERIKUTNYA, dengan penjagaan kelengkapan jawaban pada
+			 * ujian bermode "tiap soal".
+			 *
+			 * <p><b>Dua penjagaan berurutan:</b></p>
+			 * <ol>
+			 *   <li>{@link ProsesUjianHelper#jumlahDibatasi()} — batas minimal/maksimal jawaban pada soal
+			 *       berganda.</li>
+			 *   <li>Khusus ujian {@code tiapSoal} (soal tidak dapat ditinggalkan lalu dikunjungi ulang):
+			 *       soal yang sedang tampil WAJIB sudah dijawab. Untuk ujian pilihan ganda, "sudah
+			 *       dijawab" berarti ada {@code HasilUjianMahasiswaDetail} dengan {@code bankSoalDetail}
+			 *       tidak null; untuk jenis lain berarti kolom {@code jawaban} tidak kosong. Bila belum,
+			 *       peringatan ditampilkan dan perpindahan dibatalkan.</li>
+			 * </ol>
+			 *
+			 * <p>Setelah lolos, indeks ditambah {@link ProsesUjianHelper#jumlahSoalPerHalaman} dan
+			 * {@link ProsesUjianHelper#doProcessUjian(int)} me-render halaman berikutnya.</p>
+			 *
+			 * @param event event {@code onClick} ZK dari tombol "Lanjut"
+			 * @throws Exception bila render ulang soal gagal
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 
@@ -3056,11 +3152,35 @@ public class ProsesUjianHelper extends MyWindow {
 		cari.setParent(toolbar);
 		cari.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Memuat ulang seluruh soal ujian dari basis data (tombol "Refresh" pada toolbar bawah).
+			 *
+			 * <p>Menyimpan indeks soal yang sedang dibuka ke {@link ProsesUjianHelper#indexTemp},
+			 * menampilkan loading-bar, lalu menjalankan {@link ProsesUjianHelper#initSoal(Label)} di thread
+			 * latar. Ketika selesai, callback loading-bar me-render ulang soal yang sama dengan
+			 * {@code doProcessUjian(indexTemp, true)} — argumen {@code refresh=true} memaksa
+			 * {@code ambilBankSoalDetail} mengambil ulang opsi jawaban dari basis data, bukan dari cache.</p>
+			 *
+			 * <p>Tombol ini adalah jalan keluar ketika soal atau opsi jawaban gagal tampil karena cache
+			 * {@code GeneralValueObject} tidak sinkron dengan basis data.</p>
+			 *
+			 * @param arg0 event {@code onClick} ZK dari tombol Refresh (isinya tidak dipakai)
+			 * @throws Exception bila penyiapan ulang soal gagal
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				ProsesUjianHelper.this.indexTemp = ProsesUjianHelper.this.index;
 				final Label label = Common.displayLoadBar(new EventListener() {
 
+					/**
+					 * Me-render ulang soal yang sedang dibuka setelah thread latar selesai memuat ulang soal.
+					 *
+					 * <p>Memanggil {@code doProcessUjian(indexTemp, true)} sehingga posisi soal peserta tidak
+					 * berubah, tetapi opsi jawaban diambil segar dari basis data.</p>
+					 *
+					 * @param arg0 event ZK dari loading-bar (isinya tidak dipakai)
+					 * @throws Exception bila render ulang soal gagal
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						doProcessUjian(ProsesUjianHelper.this.indexTemp, true);
@@ -3069,6 +3189,13 @@ public class ProsesUjianHelper extends MyWindow {
 
 				new Thread(new Runnable() {
 
+					/**
+					 * Memuat ulang daftar soal di thread latar agar antarmuka tidak membeku selama proses Refresh.
+					 *
+					 * <p>Hanya memanggil {@link ProsesUjianHelper#initSoal(Label)}. Sama seperti thread penyiap
+					 * soal di {@link ProsesUjianHelper#init()}, ia berjalan di luar konteks request ZK sehingga
+					 * memakai session Hibernate native.
+					 */
 					@Override
 					public void run() {
 						initSoal(label);
@@ -3196,6 +3323,20 @@ public class ProsesUjianHelper extends MyWindow {
 
 			Common.createDefaultTimer(new EventListener() {
 
+				/**
+				 * Tahap pembersihan pasca-ujian: melepas slot kuota dan meng-invalidasi cache hasil ujian.
+				 *
+				 * <p>Menghapus {@code keyhasil} peserta dari {@link ProsesUjianHelper#kuotaUjian} sehingga slot
+				 * ujian bersamaan langsung dapat dipakai peserta lain, lalu menulis nilai kosong ke cache
+				 * {@code "hasilUjianMahasiswa"} pada entitas peserta (mahasiswa / calon mahasiswa / calon
+				 * siswa / siswa) supaya layar daftar ujian memuat ulang datanya.</p>
+				 *
+				 * <p>Dijadwalkan sebagai timer PERTAMA dari dua timer di {@link ProsesUjianHelper#onSelesai()};
+				 * urutan ini disengaja — pembersihan harus terjadi sebelum penyimpanan status akhir.</p>
+				 *
+				 * @param arg0 event timer ZK sekali-jalan (isinya tidak dipakai)
+				 * @throws Exception tidak pernah lolos keluar; kesalahan ditangkap dan dicatat di dalam
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					try {
@@ -3223,6 +3364,26 @@ public class ProsesUjianHelper extends MyWindow {
 
 			Common.createDefaultTimer(new EventListener() {
 
+				/**
+				 * Tahap penyimpanan akhir dan penutupan jendela ujian.
+				 *
+				 * <p><b>Urutan:</b> memuat ulang {@code hasilUjianMahasiswa} dari basis data
+				 * ({@code session.refresh}), menandai {@code telahIkutUjian = true}, menyimpannya dalam satu
+				 * transaksi pada session Hibernate native, menghentikan thread countdown
+				 * ({@code waktuTimer.setStop(true)}), memanggil {@link ProsesUjianHelper#eventListener} supaya
+				 * layar pemanggil menyegarkan tampilannya, lalu melepas jendela CBT.</p>
+				 *
+				 * <p><b>Ketahanan:</b> kegagalan penyimpanan hanya dicatat — jendela TETAP dilepas agar peserta
+				 * tidak terkurung di jendela ujian yang sudah selesai. Nilai itu sendiri sudah disimpan lebih
+				 * dahulu oleh
+				 * {@link ProsesUjianHelper#generateHasilUjian(List,HasilUjianMahasiswa,PertemuanPunyaUjian,Map)},
+				 * jadi kegagalan di sini paling banter menyisakan {@code telahIkutUjian} yang belum ternyala.</p>
+				 *
+				 * <p>Bila peserta dinyatakan lulus, pencetakan sertifikat dijadwalkan pada timer berikutnya.</p>
+				 *
+				 * @param arg0 event timer ZK sekali-jalan (isinya tidak dipakai)
+				 * @throws Exception bila {@code eventListener} milik layar pemanggil melempar kesalahan
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					if (hasilUjianMahasiswa != null) {
@@ -3252,6 +3413,15 @@ public class ProsesUjianHelper extends MyWindow {
 					if (hasilUjianMahasiswa != null && hasilUjianMahasiswa.getLulus()) {
 						Common.createDefaultTimer(new EventListener() {
 
+							/**
+							 * Mencetak sertifikat secara otomatis untuk peserta yang dinyatakan LULUS.
+							 *
+							 * <p>Dijadwalkan hanya bila {@code hasilUjianMahasiswa.getLulus()} bernilai benar, dan berjalan
+							 * setelah jendela ujian dilepas sehingga dialog sertifikat tampil di atas layar pemanggil.</p>
+							 *
+							 * @param arg0 event timer ZK sekali-jalan (isinya tidak dipakai)
+							 * @throws Exception bila pencetakan sertifikat gagal
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								SertifikatAction.cetakSertifikat(hasilUjianMahasiswa);

@@ -320,28 +320,118 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ CONSTANTS
+    /**
+     * Judul kelima langkah wizard, berurutan sesuai nomor langkah ({@code JUDUL[langkah-1]}).
+     * Panjang array inilah yang menentukan jumlah bulatan pada stepper
+     * ({@link #renderStepper()}); menambah/mengurangi entri di sini otomatis mengubah
+     * tampilan stepper, tetapi TIDAK mengubah percabangan {@link #renderBody()} maupun
+     * {@link #onNext(Event)} yang masih memakai nomor langkah eksplisit.
+     */
     private static final String[] JUDUL = {
         "Jenis & Semester", "Pilih Tagihan", "Atur Nominal", "Cara Bayar", "Selesai"
     };
+    /** Gaya inline kartu putih standar (border abu, sudut 10px, padding 14px) — dasar hampir seluruh blok konten wizard; varian warna dibuat dengan menempelkan override di belakangnya. */
     private static final String CARD_STYLE =
         "background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-bottom:10px;box-sizing:border-box;";
+    /** Gaya inline label kecil huruf kapital abu-abu di atas sebuah field/daftar. */
     private static final String LABEL_SM =
         "font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;display:block;";
+    /** Gaya inline tombol aksi utama (gradasi biru) — dipakai tombol Lanjut dan Tutup pada footer. */
     private static final String BTN_PRIMARY =
         "background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:0;border-radius:8px;"
         + "padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;";
+    /** Gaya inline tombol sekunder (abu muda) — dipakai tombol Batal dan Kembali pada footer. */
     private static final String BTN_SECONDARY =
         "background:#f1f5f9;color:#1e3a8a;border:1px solid #cbd5e1;border-radius:8px;"
         + "padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;";
+    /**
+     * Nama atribut penanda pada {@code Desktop} bahwa CSS mobile wizard SUDAH disuntikkan.
+     * Mencegah blok {@code <style>} yang sama ditambahkan berulang kali bila wizard dibuka
+     * lebih dari sekali dalam satu desktop ZK — lihat {@link #injectCssMobile(boolean)}.
+     */
     private static final String CSS_ATTR = "wz_mhs_css_v1";
 
     // ============================================================ FIELDS
+    /**
+     * Mahasiswa yang tagihannya dibayar — satu-satunya subjek data kelas ini, ditetapkan
+     * sekali lewat konstruktor dan tidak pernah berubah.
+     *
+     * <p><b>KONTRAK KEAMANAN (penting, jangan dilanggar saat menambah pemanggil baru).</b>
+     * Kelas ini TIDAK PERNAH me-resolve mahasiswa sendiri: tidak ada satu pun pembacaan
+     * parameter permintaan ({@code Executions.getCurrent().getParameter(...)},
+     * {@code ExecutionsCtrl}, atribut sesi) maupun kueri {@code Restrictions.idEq} atas id
+     * dari luar di seluruh berkas ini. Objek {@link Mahasiswa} selalu datang SUDAH JADI dari
+     * pemanggil, sehingga <i>seluruh</i> gerbang kepemilikan/otorisasi menjadi tanggung jawab
+     * pemanggil — bukan wizard. Konsekuensinya: siapa pun yang berhasil memanggil
+     * {@link #buka(Mahasiswa, EventListener)} dengan objek mahasiswa tertentu akan dapat
+     * MELIHAT seluruh rincian tagihan mahasiswa itu dan MEMBAYARKAN atas namanya.</p>
+     *
+     * <p>Pemanggil yang ada beserta cara masing-masing menetapkan kepemilikan:</p>
+     * <ul>
+     * <li>{@code ProfileMahasiswa} (tombol "Bayar" pada profil mandiri) — objeknya berasal
+     * dari {@code tbmuser.getMahasiswa()} milik sesi login lewat {@code ProfileAction};
+     * mahasiswa tidak dapat menunjuk mahasiswa lain.</li>
+     * <li>{@code PembayaranOnlineMahasiswa} — layar mandiri yang menerima parameter URL
+     * {@code mahasiswa}, tetapi sudah bergerbang fail-closed: id URL hanya diterima bila
+     * sama persis dengan milik {@code tbmuser} sendiri, dan objek yang dipakai tetap objek
+     * dari sesi login (bukan hasil kueri ulang atas id URL).</li>
+     * <li>{@code InformasiPembayaranMahasiswaAction} — layar staf, bergerbang
+     * {@code Common.doCheckSecurity()}.</li>
+     * <li>{@code DaftarUlangMahasiswaBaruAction} / {@code DaftarUlangMahasiswaLamaAction} —
+     * layar staf/mandiri gabungan; mahasiswanya berasal dari pilihan bandbox NIM atau dari
+     * {@code tbmuser.getMahasiswa()} untuk akun mahasiswa.</li>
+     * </ul>
+     *
+     * <p>Menambahkan pemanggil yang meresolusi mahasiswa dari parameter mentah tanpa
+     * membandingkannya ke kepemilikan sesi login akan membuka broken access control penuh
+     * pada jalur uang — pola yang sudah pernah ditambal di {@code PembayaranOnlineMahasiswa}.</p>
+     */
     private final Mahasiswa mahasiswa;
+    /**
+     * Callback opsional yang dipicu {@link #tutup()} saat jendela wizard ditutup (event
+     * {@code "onClose"} dengan {@link #window} sebagai target). Dipakai pemanggil untuk
+     * MENYEGARKAN layarnya sendiri setelah pembayaran — mis. DaftarUlang memuat ulang grid
+     * tagihan, {@code PembayaranOnlineMahasiswa} memanggil {@code reload(true)}. Boleh null
+     * (dipakai {@code ProfileMahasiswa} yang tidak perlu menyegarkan apa pun); pengecualian
+     * dari callback ditelan agar kegagalan penyegaran pemanggil tidak menahan jendela tetap
+     * terbuka.
+     */
     private final EventListener onSelesai;
 
+    /**
+     * Jenis pembayaran UTAMA yang dipilih pada langkah 1; ditetapkan
+     * {@link #validasiStep1()} dari combobox dan menjadi acuan hampir seluruh langkah
+     * berikutnya: pemuatan tagihan, resolusi {@link #jadwalPembayaran}, penyaringan saluran
+     * pembayaran ({@code JenisKegiatan.namaBankPembayaran}), gate tunai, serta
+     * {@code Kegiatan.jenisKegiatan} yang tercipta saat pembayaran tunai. Pada mode Keranjang
+     * jenis ini tetap yang pertama diproses, ditemani {@link #jenisEkstra}.
+     */
     private JenisKegiatan jenisKegiatan;
+    /**
+     * Semester tujuan pembayaran (1..20) yang dipilih pada langkah 1; semester berjalan
+     * mahasiswa ({@code Mahasiswa.currentSemester()}) ditandai "(sekarang)" dan terpilih
+     * otomatis. Ikut menentukan kombinasi kunci {@code (mahasiswa, jenisKegiatan, semester)}
+     * yang memetakan tepat satu {@link Kegiatan}, sehingga nilai yang salah di sini membuat
+     * pembayaran tercatat pada semester yang keliru. Perbedaan daftar item antar semester
+     * adalah perilaku yang benar (Setting Biaya memang per-semester), bukan bug.
+     */
     private Integer semester;
+    /**
+     * Seluruh baris tagihan yang dimuat untuk kombinasi terpilih — sumber tunggal langkah
+     * 2, 3 dan 4. Dibangun ulang dari nol setiap kali {@link #muatTagihan()} dijalankan
+     * (yakni setiap kali pengguna maju dari langkah 1), sehingga mundur-lalu-maju dengan
+     * jenis/semester berbeda tidak pernah menyisakan item dari pemuatan sebelumnya. Berisi
+     * item dari SELURUH jenis terpilih pada mode Keranjang, masing-masing menandai jenis
+     * pemiliknya lewat {@code TagihanItem.jenis}.
+     */
     private List<TagihanItem> tagihanItems = new ArrayList<TagihanItem>();
+    /**
+     * Nomor langkah aktif, 1..5. Satu-satunya state navigasi wizard: dibaca
+     * {@link #renderStepper()}, {@link #renderBody()}, {@link #renderFooter()} dan
+     * {@link #sesuaikanUkuran()}; dinaikkan {@link #onNext(Event)} setelah validasi langkah
+     * lolos, diturunkan tombol Kembali, dan dilompatkan langsung ke 5 oleh setiap eksekutor
+     * pembayaran yang berhasil. Nilai di luar 1..4 dirender sebagai langkah Selesai.
+     */
     private int langkah = 1;
 
     /**
@@ -355,25 +445,60 @@ public class WizardPembayaranMhsHelper {
     private Map<Long, JadwalPembayaran> jadwalPerJenis = new HashMap<Long, JadwalPembayaran>();
 
     // Step 1 UI refs (held for validasi)
+    /**
+     * Combobox Jenis Pembayaran langkah 1, disimpan agar {@link #validasiStep1()} dapat
+     * membaca pilihannya setelah render selesai. Diisi {@code Common.initJenisPembayaranMahasiswa}
+     * dan sengaja dibuat dapat diketik ({@code setReadonly(false)} + autodrop) sebagai
+     * autocomplete saat daftar jenis panjang. Daftar item-nya juga menjadi sumber pilihan
+     * checkbox jenis tambahan mode Keranjang.
+     */
     private Combobox cboJenis;
+    /** Combobox Semester langkah 1 (isi 1..20 plus satu item placeholder bernilai null), disimpan agar {@link #validasiStep1()} dapat membaca pilihannya. */
     private Combobox cboSmt;
+    /** Wadah label+combobox semester pada langkah 1; dipegang sebagai satu kesatuan agar baris semester dapat ditangani sebagai blok tunggal saat tata letak langkah 1 disusun ulang. */
     private Div rowSmt;
     /** Pasangan [Checkbox, JenisKegiatan] pilihan jenis tambahan di langkah 1. */
     private final List<Object[]> chkJenisEkstra = new ArrayList<Object[]>();
 
     // Window + layout hosts
+    /**
+     * Jendela popup wizard, dibuat {@link #tampilkan()} dan dilepas {@link #tutup()}.
+     * Ditampilkan dengan {@code doHighlighted()} (mengambang, TIDAK menyuspend event-thread
+     * ZK seperti {@code doModal()}), dan ukurannya disesuaikan ulang tiap langkah oleh
+     * {@link #sesuaikanUkuran()}: satu layar penuh pada mobile, 660px terpusat pada desktop.
+     */
     private MyWindow window;
+    /** Wadah flex-column terluar di dalam {@link #window} yang menampung header, stepper, badan, dan footer — pemegang tinggi 100% agar hanya badan yang menggulir. */
     private Div root;
+    /** Wadah tetap (tidak menggulir) berisi stepper bernomor; dibersihkan dan diisi ulang {@link #renderStepper()} pada setiap perpindahan langkah. */
     private Div stepperHost;
+    /** Satu-satunya area yang MENGGULIR: seluruh isi langkah aktif dirender ke sini oleh {@link #renderBody()} setelah dibersihkan — menghindari jebakan "scroll di dalam scroll" ZK. */
     private Div bodyHost;
+    /** Wadah tetap berisi tombol navigasi (Batal/Kembali di kiri, Lanjut/Tutup di kanan); dibersihkan dan diisi ulang {@link #renderFooter()} tiap perpindahan langkah. Langkah 4 sengaja tanpa tombol lanjut karena memilih saluran ITULAH aksinya. */
     private Div footerHost;
 
     // Hasil Virtual Account terakhir (diisi oleh saluran keluarga Bank Online;
     // dirender sebagai kartu VA pada langkah Selesai)
+    /** Nama saluran penerbit Virtual Account terakhir (label katalog, ditambah " · KERANJANG" pada mode keranjang) — dipakai sebagai judul kartu VA pada langkah Selesai. */
     private String vaLabelBank;
+    /**
+     * Nomor Virtual Account yang harus dibayar, sudah dirakit lengkap dengan prefix bank
+     * dan username kanal bila saluran memerlukannya ({@link #simpanInfoVa}). Sengaja
+     * DIKOSONGKAN untuk saluran QRIS karena yang terbit di sana adalah payload QR mentah
+     * yang tidak berguna ditampilkan sebagai teks — digantikan {@link #vaQrUrl}.
+     */
     private String vaKode;
+    /** Total yang harus ditransfer, SUDAH termasuk biaya administrasi saluran, dalam format rupiah siap tampil. Berbeda dari total tagihan pada langkah 3 justru karena komponen biaya admin ini. */
     private String vaTotal;
+    /** Batas waktu pembayaran VA dalam format tanggal siap tampil, atau null bila bank tidak mengirimkan masa berlaku. */
     private String vaKadaluarsa;
+    /**
+     * URL gambar QR ({@code /report/crcode_<idVa>.png}) yang dibangkitkan
+     * {@link #simpanInfoVa} untuk saluran QRIS atau kanal mana pun yang mengembalikan
+     * barcode panjang. Berkasnya dibuat sekali lalu dipakai ulang bila sudah ada — pola
+     * yang sama dengan checkout JSP dan {@code no_va.zul}. Null berarti langkah Selesai
+     * tidak merender gambar QR.
+     */
     private String vaQrUrl;
 
     /**
