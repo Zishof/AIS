@@ -35,15 +35,35 @@ import ais.database.model.Perkuliahan;
 import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyToolbarbuttonConfig;
 
-/** Grid mahasiswa yang telah mengisi angket dosen pada satu perkuliahan. */
+/**
+ * Grid mahasiswa yang telah mengisi angket dosen pada satu perkuliahan. Membangun panel ZK
+ * berisi dasbor ringkasan (kartu statistik, grafik batang, dan radar/spider aktivitas) dan
+ * daftar mahasiswa pengisi, dengan opsi muat ulang serta unduh Excel. Sumber data dibaca
+ * langsung dari tabel {@code checklist_baru_penilaian_dosen_oleh_mahasiswa} lewat SQL native
+ * berparameter (bukan dari entity Hibernate terpetakan), sehingga tidak terhubung ke
+ * {@code Kegiatan}/{@code DetailKegiatan}/{@code DetailBiaya} atau ke mesin billing pusat;
+ * cakupan datanya murni dibatasi oleh id {@link Perkuliahan} yang diberikan pemanggil.
+ */
 public final class AngketPerkuliahanHelper {
 
+	/** Tipe MIME berkas Excel (.xlsx) yang diunduh oleh {@link #downloadExcel(Perkuliahan)}. */
 	private static final String MIME_XLSX =
 			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+	/**
+	 * Konstruktor privat: kelas ini hanya berisi method statis dan tidak boleh diinstansiasi.
+	 */
 	private AngketPerkuliahanHelper() {
 	}
 
+	/**
+	 * Menyusun panel ZK lengkap (header, toolbar Refresh/Download Excel, dan konten dasbor+grid)
+	 * ke dalam {@code panel} yang diberikan, lalu langsung memuat konten awal.
+	 *
+	 * @param panel kontainer {@link Div} tujuan; diisi ulang setiap kali dipanggil.
+	 * @param perkuliahan perkuliahan yang datanya ditampilkan; boleh {@code null} (ringkasan dan
+	 *        data akan kosong).
+	 */
 	public static void display(final Div panel, final Perkuliahan perkuliahan) {
 		panel.setWidth("100%");
 		panel.setStyle("min-height:260px;padding:8px;box-sizing:border-box;");
@@ -88,6 +108,13 @@ public final class AngketPerkuliahanHelper {
 		muatKonten(isi, perkuliahan);
 	}
 
+	/**
+	 * Mengosongkan {@code parent} lalu mengisinya ulang dengan dasbor HTML ringkasan dan grid
+	 * paging daftar mahasiswa pengisi angket, diambil segar dari {@link #ambilData(Long)}.
+	 *
+	 * @param parent kontainer {@link Div} yang akan diisi ulang.
+	 * @param perkuliahan perkuliahan sumber data; boleh {@code null}.
+	 */
 	private static void muatKonten(Div parent, Perkuliahan perkuliahan) {
 		parent.getChildren().clear();
 		List<Object[]> data = ambilData(perkuliahan == null ? null : perkuliahan.getId());
@@ -134,6 +161,20 @@ public final class AngketPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Menghitung indikator ringkasan (cakupan, kecepatan, konsistensi, sebaran, kelengkapan,
+	 * tren tanggal, distribusi jam mulai) dari {@code data} lalu merender seluruhnya sebagai
+	 * markup HTML siap tempel ke {@link Html#setContent(String)}: baris kartu statistik, grafik
+	 * batang tren tanggal, grafik batang distribusi jam, dan radar/spider pola aktivitas.
+	 *
+	 * <p>Seluruh indikator pada radar bersifat operasional (seberapa lengkap/cepat/konsisten
+	 * pengisian dilakukan) dan bukan nilai hasil substansi angket itu sendiri.</p>
+	 *
+	 * @param perkuliahan perkuliahan sumber, dipakai untuk jumlah peserta pembanding cakupan.
+	 * @param data baris hasil {@link #ambilData(Long)}: {@code [id, nim, nama, waktu_mulai,
+	 *        waktu_selesai, jumlah_isian]}.
+	 * @return markup HTML dasbor lengkap.
+	 */
 	private static String buatDashboard(Perkuliahan perkuliahan, List<Object[]> data) {
 		int peserta = ambilJumlahPeserta(perkuliahan);
 		int pengisi = data.size();
@@ -196,6 +237,14 @@ public final class AngketPerkuliahanHelper {
 		return html.toString();
 	}
 
+	/**
+	 * Menambahkan satu kartu statistik (judul, nilai besar, catatan kecil) ke {@code html}.
+	 *
+	 * @param html buffer markup tujuan, ditambah di tempat (bukan dikembalikan).
+	 * @param judul judul kartu.
+	 * @param nilai nilai utama yang ditonjolkan, sudah diformat siap tampil.
+	 * @param catatan keterangan kecil di bawah nilai.
+	 */
 	private static void kartu(StringBuilder html, String judul, String nilai, String catatan) {
 		html.append("<div style='border:1px solid #dbe4ee;border-radius:8px;padding:11px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.06)'>")
 				.append("<div style='font-size:11px;font-weight:bold;color:#64748b;text-transform:uppercase'>").append(judul).append("</div>")
@@ -203,6 +252,17 @@ public final class AngketPerkuliahanHelper {
 				.append("<div style='font-size:10px;color:#94a3b8'>").append(catatan).append("</div></div>");
 	}
 
+	/**
+	 * Menambahkan satu panel grafik batang horizontal ke {@code html}: satu baris per entri
+	 * {@code data}, dengan panjang batang proporsional terhadap nilai maksimum pada peta
+	 * (minimum lebar 4% agar entri bernilai kecil tetap terlihat).
+	 *
+	 * @param html buffer markup tujuan, ditambah di tempat.
+	 * @param judul judul panel.
+	 * @param data peta label ke nilai, urutan iterasi sesuai urutan {@code data} (mis. tanggal
+	 *        atau jam berurutan bila sumbernya {@link LinkedHashMap}).
+	 * @param satuan sufiks satuan yang ditampilkan setelah nilai pada tiap baris.
+	 */
 	private static void panelBatang(StringBuilder html, String judul, Map<String, Integer> data, String satuan) {
 		html.append("<div style='border:1px solid #dbe4ee;border-radius:8px;padding:10px;background:#fff;min-height:220px'>")
 				.append("<div style='font-weight:bold;color:#1e3a5f;margin-bottom:10px'>").append(judul).append("</div>");
@@ -218,6 +278,13 @@ public final class AngketPerkuliahanHelper {
 		html.append("</div>");
 	}
 
+	/**
+	 * Menyusun panel "Distribusi Jam Mulai" dengan mengubah kunci jam (0-23) menjadi label
+	 * {@code "HH:00"} lalu mendelegasikan perenderan ke {@link #panelBatang}.
+	 *
+	 * @param html buffer markup tujuan, ditambah di tempat.
+	 * @param data peta jam (0-23) ke jumlah mahasiswa yang mulai mengisi pada jam tersebut.
+	 */
 	private static void panelJam(StringBuilder html, Map<Integer, Integer> data) {
 		Map<String, Integer> label = new LinkedHashMap<String, Integer>();
 		for (Map.Entry<Integer, Integer> entri : data.entrySet()) {
@@ -227,6 +294,16 @@ public final class AngketPerkuliahanHelper {
 		panelBatang(html, "Distribusi Jam Mulai", label, " mahasiswa");
 	}
 
+	/**
+	 * Membentuk markup SVG radar/spider chart dengan empat cincin skala (25/50/75/100) dan satu
+	 * poligon nilai yang menghubungkan {@code nilai} tiap sumbu, tersebar merata melingkar mulai
+	 * dari arah jam 12.
+	 *
+	 * @param label label tiap sumbu, ditampilkan di ujung garis sumbu.
+	 * @param nilai nilai tiap sumbu, diasumsikan berskala 0-100 (dibatasi/di-clamp oleh
+	 *        {@link #titikRadar}); panjang harus sama dengan {@code label}.
+	 * @return markup {@code <svg>} siap tempel.
+	 */
 	private static String buatRadar(String[] label, double[] nilai) {
 		double cx = 150.0, cy = 100.0, radius = 62.0;
 		StringBuilder svg = new StringBuilder("<svg viewBox='0 0 300 205' style='width:100%;height:190px'>");
@@ -247,6 +324,18 @@ public final class AngketPerkuliahanHelper {
 		return svg.toString();
 	}
 
+	/**
+	 * Menghitung titik-titik poligon SVG untuk satu set nilai radar, dengan tiap nilai
+	 * dibatasi (clamp) ke rentang 0-100 lalu diskalakan proporsional terhadap {@code radius}
+	 * sebelum diproyeksikan ke koordinat kartesian di sekitar pusat {@code (cx, cy)}.
+	 *
+	 * @param cx absis pusat radar.
+	 * @param cy ordinat pusat radar.
+	 * @param radius jari-jari maksimum (nilai 100).
+	 * @param nilai nilai tiap sumbu, urutan sesuai sumbu, di-clamp ke [0, 100].
+	 * @return string koordinat {@code "x,y x,y ..."} siap dipakai sebagai atribut
+	 *         {@code points} elemen {@code <polygon>}.
+	 */
 	private static String titikRadar(double cx, double cy, double radius, double[] nilai) {
 		StringBuilder titik = new StringBuilder();
 		for (int i = 0; i < nilai.length; i++) {
@@ -259,10 +348,25 @@ public final class AngketPerkuliahanHelper {
 		return titik.toString();
 	}
 
+	/**
+	 * Membulatkan nilai ke satu angka desimal untuk memperkecil ukuran markup SVG.
+	 *
+	 * @param nilai nilai mentah.
+	 * @return nilai dibulatkan ke satu desimal, sebagai string.
+	 */
 	private static String bulat(double nilai) {
 		return String.valueOf(Math.round(nilai * 10.0) / 10.0);
 	}
 
+	/**
+	 * Mengambil jumlah peserta perkuliahan (jumlah {@code Detailperkuliahan} langsung, tanpa
+	 * mengikuti kelas gabungan) sebagai penyebut perhitungan cakupan. Mengembalikan {@code 0}
+	 * (bukan melempar exception) bila perkuliahan {@code null}/belum tersimpan atau bila
+	 * penghitungan gagal, agar dasbor tetap tampil meski jumlah peserta tidak dapat dipastikan.
+	 *
+	 * @param perkuliahan perkuliahan sumber; boleh {@code null}.
+	 * @return jumlah peserta, atau {@code 0} bila tidak dapat dihitung.
+	 */
 	private static int ambilJumlahPeserta(Perkuliahan perkuliahan) {
 		if (perkuliahan == null || perkuliahan.getId() == null) return 0;
 		try {
@@ -274,40 +378,101 @@ public final class AngketPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Mencari nilai maksimum di antara seluruh value pada {@code data}, mengabaikan entri
+	 * {@code null}.
+	 *
+	 * @param data peta yang nilainya akan dibandingkan; kunci tidak relevan (tipe generik).
+	 * @return nilai maksimum, atau {@code 0} bila peta kosong atau semua nilai {@code null}.
+	 */
 	private static int maksimum(Map<?, Integer> data) {
 		int maksimum = 0;
 		for (Integer nilai : data.values()) if (nilai != null) maksimum = Math.max(maksimum, nilai.intValue());
 		return maksimum;
 	}
 
+	/**
+	 * Membaca nilai peta secara aman terhadap kunci yang belum ada.
+	 *
+	 * @param <T> tipe kunci peta.
+	 * @param data peta sumber.
+	 * @param kunci kunci yang dicari.
+	 * @return nilai pada {@code kunci}, atau {@code 0} bila belum ada entri untuk kunci tersebut.
+	 */
 	private static <T> int nilaiPeta(Map<T, Integer> data, T kunci) {
 		Integer nilai = data.get(kunci);
 		return nilai == null ? 0 : nilai.intValue();
 	}
 
+	/**
+	 * Membaca satu kolom hasil query sebagai angka {@code long}.
+	 *
+	 * @param nilai satu baris hasil {@link #ambilData(Long)}.
+	 * @param index indeks kolom yang dibaca.
+	 * @return nilai kolom sebagai {@code long}, atau {@code 0L} bila baris {@code null}, indeks
+	 *         di luar jangkauan, atau kolom bukan {@link Number}.
+	 */
 	private static long angka(Object[] nilai, int index) {
 		if (nilai == null || index >= nilai.length || !(nilai[index] instanceof Number)) return 0L;
 		return ((Number) nilai[index]).longValue();
 	}
 
+	/**
+	 * Membaca satu kolom hasil query sebagai {@link Date}.
+	 *
+	 * @param nilai satu baris hasil {@link #ambilData(Long)}.
+	 * @param index indeks kolom yang dibaca.
+	 * @return nilai kolom sebagai {@link Date}, atau {@code null} bila baris {@code null},
+	 *         indeks di luar jangkauan, atau kolom bukan {@link Date}.
+	 */
 	private static Date nilaiTanggal(Object[] nilai, int index) {
 		return nilai != null && index < nilai.length && nilai[index] instanceof Date ? (Date) nilai[index] : null;
 	}
 
+	/**
+	 * Memformat angka bulat dengan pemisah ribuan gaya Indonesia (titik).
+	 *
+	 * @param nilai angka yang diformat.
+	 * @return angka terformat, mis. {@code "1.234"}.
+	 */
 	private static String formatAngka(long nilai) {
 		return String.format("%,d", Long.valueOf(nilai)).replace(',', '.');
 	}
 
+	/**
+	 * Memformat persentase satu desimal dengan koma sebagai pemisah desimal gaya Indonesia.
+	 *
+	 * @param nilai nilai persen (0-100).
+	 * @return persentase terformat, mis. {@code "12,3%"}.
+	 */
 	private static String formatPersen(double nilai) {
 		return String.format("%.1f%%", Double.valueOf(nilai)).replace('.', ',');
 	}
 
+	/**
+	 * Menambahkan satu {@link Column} ke {@code columns} dengan label dan lebar opsional.
+	 *
+	 * @param columns kontainer kolom tujuan.
+	 * @param label judul kolom.
+	 * @param width lebar kolom (mis. {@code "150px"}); {@code null} berarti lebar otomatis.
+	 */
 	private static void tambahKolom(Columns columns, String label, String width) {
 		Column column = new Column(label);
 		if (width != null) column.setWidth(width);
 		column.setParent(columns);
 	}
 
+	/**
+	 * Mengambil daftar mahasiswa yang telah mengisi angket dosen pada satu perkuliahan, langsung
+	 * dari tabel {@code checklist_baru_penilaian_dosen_oleh_mahasiswa} lewat SQL native
+	 * berparameter, dikelompokkan per mahasiswa dan diurutkan berdasarkan waktu mulai pengisian
+	 * paling awal lalu NIM.
+	 *
+	 * @param perkuliahanId id {@link Perkuliahan}; {@code null} mengembalikan daftar kosong tanpa
+	 *        mengeksekusi query (menghindari query dengan parameter tak valid).
+	 * @return daftar baris {@code [id, nim, nama, waktu_mulai, waktu_selesai, jumlah_isian]},
+	 *         tidak pernah {@code null}.
+	 */
 	@SuppressWarnings("unchecked")
 	private static List<Object[]> ambilData(Long perkuliahanId) {
 		if (perkuliahanId == null) return new ArrayList<Object[]>();
@@ -323,6 +488,15 @@ public final class AngketPerkuliahanHelper {
 		return query.list();
 	}
 
+	/**
+	 * Membentuk dan mengunduh berkas Excel (.xlsx) berisi judul, ringkasan perkuliahan, dan
+	 * daftar mahasiswa pengisi angket dengan format yang sama seperti grid pada layar. Kegagalan
+	 * apa pun (mis. sesi Hibernate bermasalah) ditangkap, dicatat lewat
+	 * {@link Common#tampilErrorJikaAdmin(Exception)}, dan ditampilkan sebagai pesan peringatan ke
+	 * pengguna alih-alih menjalar ke pemanggil.
+	 *
+	 * @param perkuliahan perkuliahan sumber data; boleh {@code null}.
+	 */
 	private static void downloadExcel(Perkuliahan perkuliahan) {
 		try {
 			List<Object[]> data = ambilData(perkuliahan == null ? null : perkuliahan.getId());
@@ -373,6 +547,13 @@ public final class AngketPerkuliahanHelper {
 		}
 	}
 
+	/**
+	 * Menyusun satu baris teks ringkasan identitas perkuliahan: kode dan nama mata kuliah, tahun
+	 * ajaran, label jenis semester, dan kelas.
+	 *
+	 * @param perkuliahan perkuliahan sumber; boleh {@code null}.
+	 * @return teks ringkasan, string kosong bila {@code perkuliahan} {@code null}.
+	 */
 	private static String ringkasanPerkuliahan(Perkuliahan perkuliahan) {
 		if (perkuliahan == null) return "";
 		String kode = perkuliahan.getMatakuliah() == null ? "" : perkuliahan.getMatakuliah().getKode();
@@ -382,10 +563,28 @@ public final class AngketPerkuliahanHelper {
 				+ (perkuliahan.getKelas() == null ? "-" : perkuliahan.getKelas());
 	}
 
+	/**
+	 * Membaca satu kolom hasil query sebagai teks.
+	 *
+	 * @param nilai satu baris hasil {@link #ambilData(Long)}.
+	 * @param index indeks kolom yang dibaca.
+	 * @return {@link Object#toString()} kolom tersebut, atau string kosong bila baris
+	 *         {@code null}, indeks di luar jangkauan, atau nilai kolom {@code null}.
+	 */
 	private static String teks(Object[] nilai, int index) {
 		return nilai != null && index < nilai.length && nilai[index] != null ? nilai[index].toString() : "";
 	}
 
+	/**
+	 * Membaca satu kolom hasil query sebagai tanggal terformat.
+	 *
+	 * @param nilai satu baris hasil {@link #ambilData(Long)}.
+	 * @param index indeks kolom yang dibaca.
+	 * @param format formatter tanggal yang dipakai bila nilai kolom berupa {@link Date}.
+	 * @return tanggal terformat bila kolom berupa {@link Date}; {@link Object#toString()} bila
+	 *         kolom bukan {@link Date} tetapi tidak {@code null}; string kosong bila baris
+	 *         {@code null}, indeks di luar jangkauan, atau nilai kolom {@code null}.
+	 */
 	private static String tanggal(Object[] nilai, int index, SimpleDateFormat format) {
 		if (nilai == null || index >= nilai.length || nilai[index] == null) return "";
 		return nilai[index] instanceof Date ? format.format((Date) nilai[index]) : nilai[index].toString();

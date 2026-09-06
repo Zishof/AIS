@@ -99,11 +99,15 @@ import ais.ui.util.DashboardUiKit;
  */
 public final class NotifikasiDashboardHelper {
 
+	/** Kelas utilitas statis murni; tidak boleh diinstansiasi. */
 	private NotifikasiDashboardHelper() {
 	}
 
+	/** Kode warna hijau untuk status "aman"/positif (mis. sudah dibaca). */
 	private static final String HIJAU = "#16a34a";
+	/** Kode warna kuning untuk status peringatan/menunggu (mis. belum dibaca). */
 	private static final String KUNING = "#f59e0b";
+	/** Kode warna merah untuk status mendesak/bahaya; disiapkan untuk pemakaian panel masa depan. */
 	private static final String MERAH = "#dc2626";
 
 	/**
