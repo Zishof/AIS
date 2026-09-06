@@ -656,7 +656,8 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 		Session streamingSession = null;
 
 		try {
-			streamingSession = StreamingHibernateUtil.getInstance().currentSession();
+			streamingSession = StreamingHibernateUtil.getInstance().openSession();
+			streamingSession.beginTransaction();
 			FileFotoLain.hapusAtauUpdate(a, streamingSession, usingId, ref, jenis);
 
 			// 3. Panggil method terpisah untuk memetakan data kelas spesifik
@@ -664,8 +665,6 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 
 			a.setGdrive(gdrive);
 			a.setGdriveUsername(gdriveUser);
-
-			streamingSession.getTransaction().begin();
 
 			// 4. Efisiensi: Set BLOB sebelum save pertama kali agar tidak terjadi 2x
 			// transaksi
@@ -688,35 +687,10 @@ public class AmbilDataLampiranFileLain extends MyWindow {
 			streamingSession.getTransaction().commit();
 
 		} catch (Exception e) {
-			if (streamingSession != null && streamingSession.getTransaction().isActive()) {
-				StreamingHibernateUtil.getInstance().rollbackTransaction();
-			}
 			Common.tampilErrorJikaAdmin(e);
 			throw e; // Opsional: Direkomendasikan dilempar agar sistem mendeteksi kegagalan
 		} finally {
-			// 5. Wajib berada di finally untuk mencegah resource/connection leak
-			if (streamingSession != null) {
-				try {
-					streamingSession.clear();
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:586");
-				}
-				try {
-					if (streamingSession.isOpen()) {
-						streamingSession.disconnect();
-					}
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:592");
-				}
-				try {
-					if (streamingSession.isOpen()) {
-						streamingSession.close();
-					}
-				} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:598");
-				}
-			}
-			try {
-				StreamingHibernateUtil.getInstance().closeSession();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/generic/AmbilDataLampiranFileLain.java:603");
-			}
+			ais.database.hibernate.HibernateUtil.closeSessionQuietly(streamingSession);
 		}
 
 		return a;

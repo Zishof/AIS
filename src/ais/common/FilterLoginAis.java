@@ -389,16 +389,7 @@ public class FilterLoginAis { // Sesuaikan nama class dengan implementasi Anda
 	// =========================================================================
 
 	private static void closeSessionSafely(Session session) {
-		try {
-			if (session != null && session.isOpen()) {
-				session.disconnect();
-				session.close();
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/FilterLoginAis.java:345");
-			// Abaikan error saat menutup agar eksekusi berlanjut
-		} finally {
-			HibernateUtil.closeSession();
-		}
+		HibernateUtil.closeSessionQuietly(session);
 	}
 
 	private static boolean forwardError(ServletRequest req, ServletResponse res, String errorMessage) {

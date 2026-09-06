@@ -3575,7 +3575,8 @@ public class MainAction extends GenericAutowireComposer {
 			if (max > 80) {
 				max = 80;
 			}
-			return ConstantValues.simpleList(criteria.setMaxResults(max), PengumumanAkademis.class);
+			return criteria.setProjection(null).setResultTransformer(Criteria.ROOT_ENTITY)
+					.setMaxResults(max).list();
 		} catch (Exception e) {
 			showError(e);
 		} finally {

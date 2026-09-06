@@ -867,18 +867,10 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 					int maxIndexData = index;
 					for (StudentObeResult hasilMahasiswa : hasilParallel) {
 						Mahasiswa mahasiswa = hasilMahasiswa.mahasiswa;
-						try {
-							Executions.activate(desktop);
-							try {
-								label.setValue(Common.getBahasaConfig("Menulis hasil nilai OBE") + " "
+						updateProgressLabelSafe(desktop, label, Common.getBahasaConfig("Menulis hasil nilai OBE") + " "
 										+ (mahasiswa == null ? "" : mahasiswa.toString()) + " (" + Common.numberFormat.get()
 												.format(indexLocal * 100.0 / hasilParallel.size())
 										+ " %)");
-							} finally {
-								Executions.deactivate(desktop);
-							}
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:630");
-						}
 
 						XSSFRow row = sheet.createRow(rowIndex);
 						writeExcelCell(row, 0, Integer.valueOf(hasilMahasiswa.nomor), dataStyle);
@@ -1019,15 +1011,13 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 				} catch (Exception e) {
 					e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:769");
 				} finally {
-					if (sessionLocal != null && sessionLocal.isOpen()) {
-						try {
-							sessionLocal.close();
-						} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:774");
-						}
-					}
+					HibernateUtil.closeSessionQuietly(sessionLocal);
 					
 					// PEMBERSIHAN FINAL DAN MENYEMBUNYIKAN AUTO-RENDER SPREADSHEET
 					try {
+						if (desktop == null || !desktop.isAlive()) {
+							return;
+						}
 						Executions.activate(desktop);
 						try {
 							label.setValue("");
@@ -1036,6 +1026,10 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 						} finally {
 							Executions.deactivate(desktop);
 						}
+					} catch (org.zkoss.zk.ui.DesktopUnavailableException stopped) {
+						// Ekspor sudah selesai; desktop peminta sudah ditutup.
+					} catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
 					} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:788");
 					}
 				}
@@ -1048,6 +1042,9 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 	// =========================================================================
 
 	private void addTabFromMemorySheet(Desktop desktop, ais.ui.util.MyButtonTabbox tabbox, XSSFSheet sheet) {
+		if (desktop == null || !desktop.isAlive()) {
+			return;
+		}
 		final String sheetName = sheet == null ? "Sheet" : sheet.getSheetName();
 		final String tablePreview = convertSheetToModernPreviewTable(sheet);
 		final String excelPreview = convertSheetToHtmlTable(sheet);
@@ -1068,7 +1065,11 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 				Executions.deactivate(desktop);
 			}
 		} catch (Exception e) {
-			e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:824");
+			if (e instanceof InterruptedException) {
+				Thread.currentThread().interrupt();
+			} else if (!(e instanceof org.zkoss.zk.ui.DesktopUnavailableException)) {
+				ais.common.ErrorAuditUtil.record(e, "RekapOBE:addTabFromMemorySheet");
+			}
 		}
 	}
 
@@ -2462,6 +2463,10 @@ public class RekapHasilTugasPerTugasDanUjianObe extends MyWindow {
 			} finally {
 				Executions.deactivate(desktop);
 			}
+		} catch (org.zkoss.zk.ui.DesktopUnavailableException stopped) {
+			// Desktop dapat berhenti setelah pemeriksaan isAlive().
+		} catch (InterruptedException interrupted) {
+			Thread.currentThread().interrupt();
 		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/dashboard/admin/RekapHasilTugasPerTugasDanUjianObe.java:2170");
 		}
 	}

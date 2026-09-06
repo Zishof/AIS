@@ -1128,26 +1128,26 @@ public class AnggotaKoperasi extends VOSiswa {
 	 */
 	private static long ambilNomorUrutKodeMember(final Session session, final long koperasiId, final long jenisId)
 			throws Exception {
-		Long counterId = cariAtauBuatKodeCounterId(session, koperasiId, jenisId);
-		final long[] hasil = new long[1];
-		boolean adaBaris = ais.database.hibernate.KunciEntityHelper.jalankanDenganKunci(
-				AnggotaKoperasiKodeCounter.class, counterId,
-				new ais.database.hibernate.KunciEntityHelper.PekerjaanTransaksi() {
-					@Override
-					public void kerjakan(Session sesiTerkunci, Object entityTerkunci) throws Exception {
-						AnggotaKoperasiKodeCounter counter = (AnggotaKoperasiKodeCounter) entityTerkunci;
-						long nilaiBaru = counter.getNilai() + 1L;
-						counter.setNilai(nilaiBaru);
-						sesiTerkunci.update(counter);
-						hasil[0] = nilaiBaru;
-					}
-				});
-		if (!adaBaris) {
-			// Baris pencacah terhapus tepat di antara pencarian & penguncian (sangat jarang): buat
-			// ulang lalu coba sekali lagi, meniru pola ais.common.CommonPSB#ambilNomorUrutOtomatis.
-			return ambilNomorUrutKodeMember(session, koperasiId, jenisId);
+		Session counterSession = null;
+		try {
+			counterSession = HibernateUtil.openSession();
+			counterSession.beginTransaction();
+			// Kunci juga melindungi pencacah yang belum memiliki baris. Satu transaksi
+			// memiliki CREATE dan increment; transaksi anggota tidak ikut di-commit.
+			counterSession.createSQLQuery("select 1 from (select pg_advisory_xact_lock(hashtext(:key))) locked")
+					.setString("key", "anggota-koperasi-counter:" + koperasiId + ":" + jenisId).uniqueResult();
+			Long counterId = cariAtauBuatKodeCounterId(counterSession, koperasiId, jenisId);
+			Number nilai = (Number) counterSession.createSQLQuery(
+					"UPDATE koperasi.anggota_koperasi_kode_counter SET nilai=nilai+1 WHERE id=:id RETURNING nilai")
+					.setParameter("id", counterId).uniqueResult();
+			if (nilai == null) {
+				throw new IllegalStateException("Pencacah nomor anggota tidak ditemukan: " + counterId);
+			}
+			counterSession.getTransaction().commit();
+			return nilai.longValue();
+		} finally {
+			HibernateUtil.closeSessionQuietly(counterSession);
 		}
-		return hasil[0];
 	}
 
 	/**
@@ -1170,14 +1170,9 @@ public class AnggotaKoperasi extends VOSiswa {
 		if (id != null) {
 			return id.longValue();
 		}
-		try {
 			session.createSQLQuery("INSERT INTO koperasi.anggota_koperasi_kode_counter (koperasi_id, jenis_id, nilai)"
 					+ " VALUES (:koperasiId, :jenisId, 0)").setParameter("koperasiId", koperasiId)
 					.setParameter("jenisId", jenisId).executeUpdate();
-		} catch (RuntimeException race) {
-			// Baris sudah dibuat proses lain di antara SELECT dan INSERT di atas (unique
-			// constraint) -- abaikan, SELECT ulang di bawah akan menemukannya.
-		}
 		Number idBaru = (Number) session
 				.createSQLQuery("SELECT id FROM koperasi.anggota_koperasi_kode_counter"
 						+ " WHERE koperasi_id=:koperasiId AND jenis_id=:jenisId")

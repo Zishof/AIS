@@ -218,15 +218,16 @@ public class MainMenuHelper {
 								detailLogLogin.setWaktu(ais.ui.util.WaktuUtil.getDate());
 								detailLogLogin.setLogLogin(login);
 
-								Session session = HibernateUtil.currentNativeSession();
+								Session session = null;
 								try {
+									session = HibernateUtil.openSession();
 									session.getTransaction().begin();
+									LogLogin persistedLogin = login == null ? null : (LogLogin) session.merge(login);
+									detailLogLogin.setLogLogin(persistedLogin);
 									session.save(detailLogLogin);
 									session.getTransaction().commit();
-									// session.disconnect();
-									if (session.isOpen()) {
-										session.disconnect();
-										session.close();
+									if (login != null) {
+										login.setId(persistedLogin.getId());
 									}
 									Sessions.getCurrent().setAttribute("detailLogLogin", detailLogLogin);
 								} catch (Exception e) {
@@ -545,8 +546,9 @@ public class MainMenuHelper {
 									Sessions.getCurrent().setAttribute("detailLogLogin", detailLogLogin);
 								} catch (Exception e) {
 									e.printStackTrace(); ais.common.ErrorAuditUtil.record(e, "auto-audit src/ais/action/master/helper/MainMenuHelper.java:474");
+								} finally {
+									HibernateUtil.closeSessionQuietly(session);
 								}
-								HibernateUtil.closeSession();
 
 								Common.launchMenu(navigasi, menuService, iframe, menu, login);
 

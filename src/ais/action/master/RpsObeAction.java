@@ -6226,8 +6226,16 @@ public class RpsObeAction extends GenericAutowireComposer {
 					return;
 				}
 
-				int mulai = mulaiMingguKe.getValue() == null ? 0 : mulaiMingguKe.getValue();
-				int sampai = sampaiMingguKe.getValue() == null ? 0 : sampaiMingguKe.getValue();
+				int mulai;
+				int sampai;
+				try {
+					mulai = mulaiMingguKe.getValue() == null ? 0 : mulaiMingguKe.getValue();
+					sampai = sampaiMingguKe.getValue() == null ? 0 : sampaiMingguKe.getValue();
+				} catch (org.zkoss.zk.ui.WrongValueException invalidWeek) {
+					org.zkoss.zk.ui.util.Clients.wrongValue(invalidWeek.getComponent(),
+							"Isi satu angka pada setiap kolom. Untuk minggu 8-9, isi Mulai 8 dan Sampai 9.");
+					return;
+				}
 
 				if (keyData == null) {
 					TreeMap<Integer, Map> maps = kurikulumPunyaMatakuliah

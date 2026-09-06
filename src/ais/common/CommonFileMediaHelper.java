@@ -736,7 +736,12 @@ public class CommonFileMediaHelper extends Common {
 
 									try {
 										session = StreamingHibernateUtil.getInstance().openSession();
-										session.connection().setAutoCommit(false);
+										transaction = session.beginTransaction();
+										TugasFileContent source = tugasFileContent.getId() == null ? null
+												: (TugasFileContent) session.get(TugasFileContent.class, tugasFileContent.getId());
+										if (source == null) {
+											throw new IllegalStateException("Berkas tugas sumber tidak ditemukan.");
+										}
 
 										final TugasFileContent copy = new TugasFileContent(tugas.getClass().getName());
 
@@ -744,7 +749,7 @@ public class CommonFileMediaHelper extends Common {
 										copy.setPertemuan(tugas.getId());
 										copy.setBiodataCalonMahasiswa(biodataCalonMahasiswa == null ? -Common.randLong()
 												: biodataCalonMahasiswa.getId());
-										copy.setCopyDari(tugasFileContent);
+										copy.setCopyDari(source);
 
 										Tbmuser tbmuser = Common.getCurrentUser();
 										Dosen dosen = tbmuser == null ? null : tbmuser.ambilDosen();
@@ -759,7 +764,6 @@ public class CommonFileMediaHelper extends Common {
 																: pegawai != null ? pegawai.getNama()
 																		: (tbmuser.getUserNama()));
 
-										transaction = session.beginTransaction();
 										session.save(copy);
 										transaction.commit();
 
@@ -775,16 +779,13 @@ public class CommonFileMediaHelper extends Common {
 												new String[] {
 														"Ulangi proses pengumpulan/pengambilan berkas tugas ini.",
 														"Periksa apakah berkas yang dipilih masih tersedia di server." });
+										return;
 									} finally {
-										if (session != null) {
-											try { session.clear(); } catch (Exception clearError) { }
-											try { session.disconnect(); } catch (Exception disconnectError) { }
-											try { session.close(); } catch (Exception closeError) { }
-										}
+										HibernateUtil.closeSessionQuietly(session);
 									}
 
 									if (eventListener != null) {
-										eventListener.onEvent(arg0);
+										eventListener.onEvent(new Event(arg0.getName(), arg0.getTarget(), tugasFileContent));
 									}
 									window.detach();
 								}

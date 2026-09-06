@@ -328,7 +328,7 @@ public class AmbilDataCapaianLulusanBanyak extends MyWindow {
 					for (Row row : rows) {
 						try {
 							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
 								CapaianLulusan myCapaianLulusan = (CapaianLulusan) row.getAttribute("capaianLulusan");
 								capaianLulusans.add(myCapaianLulusan);
 							}

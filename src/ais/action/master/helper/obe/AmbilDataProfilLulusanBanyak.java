@@ -325,7 +325,7 @@ public class AmbilDataProfilLulusanBanyak extends MyWindow {
 					for (Row row : rows) {
 						try {
 							MyCheckboxConfig checkbox = (MyCheckboxConfig) row.getAttribute("checkbox");
-							if (checkbox.isChecked() && !checkbox.isDisabled()) {
+							if (checkbox != null && checkbox.isChecked() && !checkbox.isDisabled()) {
 								ProfilLulusan myProfilLulusan = (ProfilLulusan) row.getAttribute("profilLulusan");
 								profilLulusans.add(myProfilLulusan);
 							}

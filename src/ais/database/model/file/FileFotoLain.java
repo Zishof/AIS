@@ -3013,6 +3013,7 @@ public abstract class FileFotoLain extends FileFoto {
 	 */
 	public static void hapusAtauUpdate(FileFotoLain a, Session session, boolean usingId, Serializable ref,
 			String jenis) {
+		boolean ownsTransaction = false;
 		try {
 			FileFotoLain.resetLokasi(usingId, ref, jenis, a.ambilClazz());
 
@@ -3027,7 +3028,10 @@ public abstract class FileFotoLain extends FileFoto {
 				hasJenis = false;
 			}
 
-			session.getTransaction().begin();
+			ownsTransaction = !session.getTransaction().isActive();
+			if (ownsTransaction) {
+				session.beginTransaction();
+			}
 
 			if (usingId) {
 				// Delete by ID
@@ -3067,14 +3071,19 @@ public abstract class FileFotoLain extends FileFoto {
 					q.executeUpdate();
 				}
 			}
-			session.getTransaction().commit();
+			if (ownsTransaction) {
+				session.getTransaction().commit();
+			}
 
 		} catch (Exception e) {
 			try {
-				session.getTransaction().rollback();
+				if (ownsTransaction && session != null && session.isOpen()
+						&& session.getTransaction().isActive()) {
+					session.getTransaction().rollback();
+				}
 			} catch (Exception ee) { ais.common.ErrorAuditUtil.record(ee, "auto-audit(empty-catch) src/ais/database/model/file/FileFotoLain.java:1079");
 			}
-			// e.printStackTrace(); // Optional logging
+			throw e instanceof RuntimeException ? (RuntimeException) e : new IllegalStateException(e);
 		}
 	}
 }

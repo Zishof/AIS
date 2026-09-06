@@ -105,6 +105,7 @@ public final class ApiTokenManager {
             if (users == null || users.isEmpty()) {
                 return;
             }
+            session.clear();
             for (Tbmuser user : users) {
                 if (user != null && ApiHelperSupport.hasText(user.getToken())) {
                     tokens.put(user.getToken(), user);
@@ -160,13 +161,15 @@ public final class ApiTokenManager {
             return;
         }
         try {
-            Object obj = ConstantValues.ambil(clazz.getName(), id, true, session);
+            // Jangan publikasikan entity yang masih attached ke session pemuat token.
+            Object obj = session.get(clazz, id);
             if (obj == null) {
                 return;
             }
             Method method = clazz.getMethod("getToken", new Class[0]);
             Object tokenObject = method.invoke(obj, new Object[0]);
             String token = tokenObject == null ? null : String.valueOf(tokenObject);
+            session.clear();
             if (ApiHelperSupport.hasText(token)) {
                 tokens.put(token, obj);
             }

@@ -254,6 +254,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return id pengguna pengubah terakhir, atau {@code null} bila baris belum pernah di-<i>update</i>
 	 */
+	@Column(columnDefinition = "text")
 	public String getOlehId() {
 		return olehId;
 	}
@@ -285,6 +286,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return nama pengguna pengubah terakhir, atau {@code null} bila belum pernah di-<i>update</i>
 	 */
+	@Column(columnDefinition = "text")
 	public String getOleh() {
 		return oleh;
 	}
@@ -473,7 +475,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return username tanpa spasi di ujung, atau {@code null} bila field belum diisi
 	 */
-	@Column(name = "nama", nullable = false, length = 255)
+	@Column(name = "nama", nullable = false, columnDefinition = "text")
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
@@ -494,7 +496,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return isi keterangan, bisa {@code null}
 	 */
-	@Column(name = "keterangan", nullable = true)
+	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		return this.keterangan;
 	}
@@ -798,6 +800,7 @@ public class LogLogin extends GeneralValueObject {
 	 * @return alamat IP hasil penurunan, sudah di-{@code trim}; <b>string kosong</b> (bukan
 	 *         {@code null}) bila tidak ada nilai sama sekali
 	 */
+	@Column(columnDefinition = "text")
 	public String getIp() {
 
 		try {
@@ -877,6 +880,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return nama host, bisa {@code null} pada baris lama
 	 */
+	@Column(columnDefinition = "text")
 	public String getHostname() {
 		return hostname;
 	}
@@ -927,6 +931,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return keterangan hasil login, bisa {@code null}
 	 */
+	@Column(columnDefinition = "text")
 	public String getDescription() {
 		return description;
 	}
@@ -1008,6 +1013,7 @@ public class LogLogin extends GeneralValueObject {
 	 *
 	 * @return session id klien, bisa {@code null} bila klien belum punya sesi
 	 */
+	@Column(columnDefinition = "text")
 	public String getSessionid() {
 		return sessionid;
 	}

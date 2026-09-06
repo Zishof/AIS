@@ -133,8 +133,10 @@ public class AmbilMedia extends HttpServlet {
 			if (q != null && !q.trim().isEmpty()) {
 				jsonObject = new JSONObject(Common.desEncrypter.get().decrypt(q));
 			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/servlet/AmbilMedia.java:118");
-//			e.printStackTrace();
+		} catch (Exception e) {
+			resp.sendError(HttpServletResponse.SC_BAD_REQUEST,
+					"Tautan media tidak valid atau sudah tidak dapat dibaca. Buka ulang tautan dari aplikasi.");
+			return null;
 		}
 
 		try {
