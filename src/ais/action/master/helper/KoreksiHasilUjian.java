@@ -183,15 +183,116 @@ import ais.ui.util.MyToolbarbuttonConfig;
  */
 public class KoreksiHasilUjian implements DataCriteria {
 
+	/**
+	 * Peserta ujian yang sedang diperiksa — akar dari seluruh data yang ditampilkan panel ini.
+	 *
+	 * <p>Diisi sekali di awal {@link #display} dari parameter bernama sama, lalu dibaca oleh
+	 * {@link #initCriteria(boolean)} (sebagai filter {@code eq("hasilUjianMahasiswa", ...)}),
+	 * {@link #loadData(Object)} (sumber daftar soal dan peta jawaban), serta seluruh event listener
+	 * toolbar. Bernilai {@code null} sampai {@link #display} dipanggil; memanggil
+	 * {@link #initCriteria(boolean)} atau {@link #loadData(Object)} sebelum itu akan gagal.
+	 *
+	 * <p>Instance yang disimpan di sini melekat pada sesi Hibernate ZK saat {@link #display} berjalan.
+	 * Operasi tulis di event listener sengaja <b>tidak</b> memakai instance ini, melainkan memuat ulang
+	 * entity lewat {@code session.get(...)} pada sesi mandiri masing-masing, agar tidak menulis lewat
+	 * objek yang mungkin sudah detached.
+	 */
 	private HasilUjianMahasiswa tempHasilUjianMahasiswa;
+
+	/**
+	 * Grid utama panel koreksi — satu baris per soal, dengan {@code pageSize=1} sehingga efektif menjadi
+	 * navigator "satu soal per halaman".
+	 *
+	 * <p>Dibuat di akhir {@link #display} dan diisi model + renderer oleh {@link #loadData(Object)}.
+	 * Juga menjadi sumber data tombol ekspor Excel lewat {@link Common#cetakData}, yang memanggil balik
+	 * {@link #initCriteria(boolean)} pada kelas ini.
+	 */
 	private MyGrid grid;
+
+	/**
+	 * Profil mahasiswa dari akun yang sedang login, atau {@code null} bila akun bukan mahasiswa.
+	 *
+	 * <p>Diisi di {@link #display} dari {@code Common.getCurrentUser().getMahasiswa()}. Bersama
+	 * {@link #biodataCalonMahasiswa} dan dua pemeriksaan tambahan pada {@link Tbmuser}
+	 * ({@code getPesertaKursus()}, {@code getSiswa()}) field ini membentuk satu-satunya pembeda peran
+	 * yang dikenal kelas ini: bila keempatnya {@code null}, seluruh kendali edit (Textbox koreksi,
+	 * Doublebox nilai, tombol Ulang Ujian / Koreksi AI / History) ditampilkan.
+	 *
+	 * <p><b>Perhatikan:</b> field ini menyatakan "siapa yang melihat", bukan "siapa yang diperiksa".
+	 * Peserta yang diperiksa selalu berasal dari {@link #tempHasilUjianMahasiswa}. Keduanya tidak
+	 * pernah dibandingkan, sehingga kelas ini tidak pernah menguji apakah pengguna berwenang atas
+	 * ujian atau peserta tertentu.
+	 */
 	private Mahasiswa mahasiswa;
+
+	/**
+	 * Profil calon mahasiswa (peserta ujian saringan PMB) dari akun yang sedang login, atau {@code null}
+	 * bila akun bukan calon mahasiswa.
+	 *
+	 * <p>Diisi di {@link #display} dari {@code Common.getCurrentUser().getBiodataCalonMahasiswa()}.
+	 * Perannya identik dengan {@link #mahasiswa}: menandai bahwa pengguna adalah <i>peserta</i>,
+	 * sehingga panel dirender read-only.
+	 */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+
+	/**
+	 * Checkbox filter "Yg belum dijawab" — bila dicentang, {@link #loadData(Object)} hanya menampilkan
+	 * soal yang <b>tidak</b> ada di himpunan {@code terjawab}.
+	 *
+	 * <p>Dibuat dan dipasang ke toolbar di {@link #display}; listener {@code onClick}-nya memanggil
+	 * {@code loadData(null)}. Dapat dikombinasikan bebas dengan lima checkbox lain — semua filter
+	 * bersifat konjungtif (AND), sehingga mencentang pasangan yang saling meniadakan
+	 * (mis. "belum dijawab" + "telah dijawab") menghasilkan grid kosong secara wajar, bukan error.
+	 * Selalu terlihat untuk semua jenis ujian.
+	 */
 	private MyCheckboxConfig belumDijawab;
+
+	/**
+	 * Checkbox filter "yg telah dijawab" — bila dicentang, hanya soal yang ada di himpunan
+	 * {@code terjawab} yang ditampilkan. Selalu terlihat untuk semua jenis ujian.
+	 *
+	 * @see #belumDijawab
+	 */
 	private MyCheckboxConfig telahDijawab;
+
+	/**
+	 * Checkbox filter "Yg benar" — bila dicentang, hanya soal yang ada di himpunan {@code benar}
+	 * (jawaban peserta cocok dengan kunci) yang ditampilkan.
+	 *
+	 * <p>Hanya di-{@code setVisible(true)} bila jenis ujian adalah {@link BankSoal#PILIHAN_GANDA},
+	 * karena benar/salah tidak terdefinisi otomatis untuk esai.
+	 *
+	 * @see #belumDijawab
+	 */
 	private MyCheckboxConfig benarDijawab;
+
+	/**
+	 * Checkbox filter "Yg salah" — bila dicentang, hanya soal yang <b>tidak</b> ada di himpunan
+	 * {@code benar} yang ditampilkan. Perhatikan bahwa soal yang belum dijawab juga termasuk "salah"
+	 * menurut definisi ini, karena ia tidak ada di himpunan {@code benar}.
+	 *
+	 * <p>Hanya terlihat untuk ujian {@link BankSoal#PILIHAN_GANDA}.
+	 *
+	 * @see #benarDijawab
+	 */
 	private MyCheckboxConfig salahDijawab;
+
+	/**
+	 * Checkbox filter "Yg telah dinilai" — bila dicentang, hanya soal yang ada di himpunan
+	 * {@code dinilai} (esai yang sudah diberi nilai oleh pemeriksa) yang ditampilkan.
+	 *
+	 * <p>Hanya terlihat untuk jenis ujian {@link BankSoal#ESAY} atau {@link BankSoal#JAWABAN_SINGKAT},
+	 * karena skor Pilihan Ganda dihitung otomatis sehingga tidak punya status "belum dinilai".
+	 */
 	private MyCheckboxConfig nilaiDijawab;
+
+	/**
+	 * Checkbox filter "Yg belum dinilai" — kebalikan {@link #nilaiDijawab}: hanya menampilkan soal yang
+	 * <b>tidak</b> ada di himpunan {@code dinilai}. Ini filter kerja utama pemeriksa esai, karena ia
+	 * menyisakan tepat soal-soal yang masih menunggu penilaian.
+	 *
+	 * <p>Hanya terlihat untuk jenis ujian {@link BankSoal#ESAY} atau {@link BankSoal#JAWABAN_SINGKAT}.
+	 */
 	private MyCheckboxConfig belumNilaiDijawab;
 
 	/**
@@ -243,7 +344,38 @@ public class KoreksiHasilUjian implements DataCriteria {
 		return criteria;
 	}
 
+	/**
+	 * Daftar soal yang <b>lolos seluruh filter checkbox</b> pada pemuatan terakhir — sekaligus model
+	 * baris grid dan sumber klausa {@code in("bankSoal", ...)} pada {@link #initCriteria(boolean)}.
+	 *
+	 * <p><b>Kontrak urutan pemanggilan yang wajib dijaga:</b> field ini dibangun ulang dari nol setiap
+	 * kali {@link #loadData(Object)} dijalankan, dan {@link #initCriteria(boolean)} <i>membacanya</i>.
+	 * Karena itu {@code loadData()} harus selalu dijalankan lebih dulu; {@code initCriteria()} yang
+	 * dipanggil duluan (mis. oleh ekspor Excel sebelum grid pernah dimuat) akan melihat daftar kosong.
+	 * Keadaan kosong itu ditangani secara aman: {@code initCriteria} menukar {@code Restrictions.in}
+	 * dengan {@code sqlRestriction("false")} sehingga mengembalikan nol baris, bukan melempar exception
+	 * seperti yang dilakukan Hibernate untuk {@code in()} berkoleksi kosong.
+	 *
+	 * <p>Diinisialisasi ke {@link ArrayList} kosong agar aman dibaca sebelum pemuatan pertama.
+	 */
 	private List<BankSoal> bankSoals = new ArrayList<BankSoal>();
+
+	/**
+	 * Cache nilai konfigurasi {@code adminBolehMerubahJawabanUjian} untuk sesi tampilan ini.
+	 *
+	 * <p>Dibaca sekali di awal {@link #display} lewat
+	 * {@code Common.bolehKonfigurasi("adminBolehMerubahJawabanUjian", Konfigurasi.TIDAK_AKTIF)} —
+	 * artinya default sistem adalah <b>tidak aktif</b>. Bila {@code true} <i>dan</i>
+	 * {@link Common#getApakahAdmin()} juga {@code true}, renderer soal Pilihan Ganda menambahkan
+	 * {@link Combobox} yang memungkinkan admin mengganti pilihan jawaban yang sudah tersimpan milik
+	 * peserta.
+	 *
+	 * <p>Ini adalah satu-satunya tempat di kelas ini yang memeriksa peran administratif secara eksplisit;
+	 * kendali edit lain (koreksi teks, nilai esai) tidak melewati gerbang ini. Perubahan pilihan jawaban
+	 * yang dilakukan lewat jalur ini <b>tidak</b> otomatis menghitung ulang total nilai peserta — setelah
+	 * commit, listener hanya memanggil {@code loadData(null)}; total nilai baru tersinkron setelah
+	 * pengguna menekan tombol "Hitung Ulang" ({@link ProsesUjianHelper#hitungPilihanGanda}).
+	 */
 	private boolean adminBolehMerubahJawabanUjian = false;
 
 	/**

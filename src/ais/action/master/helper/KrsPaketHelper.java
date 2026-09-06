@@ -77,26 +77,42 @@ import ais.ui.util.MyWindow;
  */
 public class KrsPaketHelper implements DataLoader {
 
+	/** Grid daftar {@link Detailperkuliahan} yang sudah diambil mahasiswa; dirender ulang oleh {@link #loadData(Object)}. */
 	private MyGrid grid;
+	/** Grid daftar {@link Komentar} dosen PA terkait KRS ini; dirender ulang oleh {@link #loadDataKomentar()}. */
 	private MyGrid gridKomentar;
+	/** Panel informasi jam bentrok (termasuk bentrok jadwal paralel), dibangun ulang setiap {@link #loadData(Object)}. */
 	private MyDiv jamBentrok = new MyDiv();
+	/** Mahasiswa pemilik KRS yang sedang ditampilkan/dikelola, diset di awal {@link #display}. */
 	private Mahasiswa mahasiswa;
+	/** Semester KRS yang sedang ditampilkan, diset di awal {@link #display}. */
 	private Integer semester;
+	/** Dosen Pembimbing Akademik mahasiswa untuk KRS ini, diambil dari {@code KrsMahasiswa#getDosenPa()} pada {@link #display}. */
 	private Dosen dosenPembimbingAkademik;
 
+	/** Daftar id {@link Detailperkuliahan} yang sudah diambil mahasiswa untuk KRS ini, dimuat oleh {@link #loadData(Object)}. */
 	private List<Long> detailperkuliahans;
 
+	/** Tombol "Ambil Paket Perkuliahan"; visibilitas/status enable-nya mengikuti periode KRS dan tahapan pembayaran aktif. */
 	private MyButtonConfig buttonPerkuliahan;
+	/** Label ringkasan status persetujuan (belum/sebagian/semua disetujui), diperbarui oleh {@link #loadStatus()}. */
 	private Label statusPersetujuan;
 	// private Html keterangan;
+	/** Komponen {@link Html} tujuan penulisan keterangan/analisis KRS (lihat {@code KrsMahasiswaAnalisisPopupHelper}), diset di {@link #display}. */
 	private Html keteranganParent;
+	/** Label total SKS yang sudah diambil pada KRS ini, diperbarui oleh {@link #loadStatus()}. */
 	private Label jumlahKRS;
+	/** Label batas maksimal SKS yang boleh diambil (dihitung dari IPK via {@code Common#getMinDanMaxIPK}), diisi sekali di {@link #display}. */
 	private Label jumlahMaxSks;
 
+	/** {@link Konfigurasi} status buka/tutup periode KRS (KRS/KRS_SP) untuk tahun ajaran+semester berjalan; menentukan visibilitas {@link #buttonPerkuliahan}. */
 	private Konfigurasi konfigurasi;
+	/** Tahun ajaran KRS yang sedang ditampilkan, diset di awal {@link #display}. */
 	private String tahunAjaran;
+	/** Penanda semester pendek (bukan {@code null}) atau KRS reguler ({@code null}); diset lewat konstruktor atau {@link #setSemesterPendek(Integer)}. */
 	private Integer semesterPendek = null;
 
+	/** Tahapan pembayaran/KRS aktif (bila fitur tahapan diaktifkan); {@code -1} berarti mode ringkasan tanpa grid/toolbar. */
 	private Integer tahapan;
 
 	/**
@@ -888,10 +904,12 @@ public class KrsPaketHelper implements DataLoader {
 
 	}
 
+	/** @return status semester pendek yang berlaku untuk KRS ini ({@code null} untuk KRS semester reguler) */
 	public Integer getSemesterPendek() {
 		return semesterPendek;
 	}
 
+	/** @param semesterPendek status semester pendek baru untuk KRS ini ({@code null} untuk KRS semester reguler) */
 	public void setSemesterPendek(Integer semesterPendek) {
 		this.semesterPendek = semesterPendek;
 	}

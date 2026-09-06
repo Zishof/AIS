@@ -291,14 +291,59 @@ public class HasilUjianSiswaHelper implements DataLoader {
 	 */
 	private Textbox nama;
 
-	/** Membuat helper dalam mode admin/guru: menampilkan hasil ujian SELURUH peserta {@code pertemuan}. */
+	/**
+	 * Membuat helper dalam mode admin/guru: menampilkan hasil ujian SELURUH peserta
+	 * {@code pertemuan}. {@link #siswa} dan {@link #calonSiswa} sengaja dikosongkan
+	 * eksplisit, karena kedua field itulah yang menjadi saklar mode di sepanjang kelas
+	 * ini (mengendalikan visibilitas tombol aksi massal pada
+	 * {@link #display(PertemuanPunyaUjian, Component)} dan pemilihan sumber daftar
+	 * peserta pada {@link #loadData(Object)}).
+	 *
+	 * <p>
+	 * Inilah satu-satunya konstruktor yang benar-benar dipakai pemanggil
+	 * ({@code DetailUjianHelper} dan {@code sekolah.helper.PertemuanPunyaUjianSiswaHelper}).
+	 * Perhatikan bahwa {@link #pertemuanPunyaUjian} belum terisi di sini — ujian yang
+	 * ditampilkan baru ditentukan saat {@link #display(PertemuanPunyaUjian, Component)}
+	 * dipanggil.
+	 * </p>
+	 *
+	 * @param pertemuan pertemuan/sesi kelas sumber daftar peserta; boleh {@code null},
+	 *                  yang membuat {@link #loadData(Object)} jatuh ke jalur cadangan
+	 *                  "peserta yang sudah punya hasil ujian tersimpan" dan menyembunyikan
+	 *                  tombol "Peserta dianggap hadir"
+	 */
 	public HasilUjianSiswaHelper(Pertemuan pertemuan) {
 		this.siswa = null;
 		this.calonSiswa = null;
 		this.pertemuan = pertemuan;
 	}
 
-	/** Membuat helper dalam mode satu peserta: menampilkan hasil ujian milik {@code siswa} atau {@code calonSiswa} (salah satu terisi) saja. */
+	/**
+	 * Membuat helper dalam mode satu peserta: menampilkan hasil ujian milik
+	 * {@code siswa} <i>atau</i> {@code calonSiswa} (secara konvensi hanya salah satu yang
+	 * terisi) saja. Dalam mode ini {@link #display(PertemuanPunyaUjian, Component)}
+	 * menyembunyikan tombol-tombol aksi massal ("Ulang Semua", "Peserta dianggap hadir",
+	 * "Download Lampiran") serta kotak pencarian, dan {@link #loadData(Object)}
+	 * memasukkan tepat satu peserta ke daftar.
+	 *
+	 * <p>
+	 * <b>Peringatan pemeliharaan:</b> konstruktor ini <b>tidak dipanggil dari mana pun</b>
+	 * di basis kode saat dokumentasi ini ditulis, sehingga seluruh cabang
+	 * {@code siswa != null} / {@code calonSiswa != null} di kelas ini merupakan jalur
+	 * yang belum pernah dieksekusi di produksi. Bila suatu saat konstruktor ini
+	 * diaktifkan (misalnya untuk portal siswa "lihat hasil ujian saya"), perlu diingat
+	 * bahwa penyempitan cakupan di sini bersifat <b>penyaringan daftar</b>, bukan gerbang
+	 * otorisasi: tombol-tombol yang tidak diberi {@code setVisible} — terutama
+	 * "Lampiran ke Drive" dan "Hitung Ulang Semua" — akan ikut tampil dan bekerja atas
+	 * data yang termuat. Lihat catatan otorisasi pada Javadoc kelas.
+	 * </p>
+	 *
+	 * @param siswa       siswa yang hasil ujiannya ditampilkan, atau {@code null}
+	 * @param calonSiswa  calon siswa (pendaftar PMB/PSB) yang hasil ujiannya
+	 *                    ditampilkan, atau {@code null}
+	 * @param pertemuan   pertemuan/sesi kelas terkait; lihat
+	 *                    {@link #HasilUjianSiswaHelper(Pertemuan)}
+	 */
 	public HasilUjianSiswaHelper(Siswa siswa, CalonSiswa calonSiswa, Pertemuan pertemuan) {
 		this.siswa = siswa;
 		this.calonSiswa = calonSiswa;
@@ -306,15 +351,74 @@ public class HasilUjianSiswaHelper implements DataLoader {
 	}
 
 	/**
-	 * Membangun tab "Statistik" ke dalam region {@link #east}: tiga donat chart
-	 * (kelengkapan jawaban, keikutsertaan ujian, akses ujian) beserta angka
-	 * pendukungnya (jumlah soal, total soal x peserta, terjawab/belum, peserta yang
-	 * sudah/belum ujian, peserta yang sudah/belum mengakses ujian sama sekali —
-	 * dihitung dari log akses {@link Pertemuan#ambilData}).
+	 * Membangun (menggambar ulang) seluruh isi tab "Statistik" ke dalam region
+	 * {@link #east}. Dipanggil dari dalam callback {@link Common#displayLoadBar} milik
+	 * {@link #loadData(Object)}, yaitu setelah grid peserta selesai dirender, dengan
+	 * angka agregat yang dihitung di sana dari isi {@link #hasilUjianMahasiswas}.
 	 *
-	 * @param jumlahPeserta      total peserta yang berhak mengikuti ujian
-	 * @param terjawab           total soal yang sudah terjawab lintas seluruh peserta
-	 * @param pesertaYgIkutUjian jumlah peserta yang sudah memulai/menyelesaikan ujian
+	 * <h4>Langkah kerja</h4>
+	 * <ol>
+	 * <li>{@link Common#clear(Component)} pada {@link #east} — tab ini tidak pernah
+	 * ditambal sebagian, selalu dibongkar total lalu dibangun ulang, sehingga aman
+	 * dipanggil berkali-kali oleh setiap siklus muat ulang.</li>
+	 * <li>Membuat {@link MyGrid} dua kolom (label 40% + nilai) berisi deretan
+	 * {@link MyFormRow}.</li>
+	 * <li>Menyusun tiga blok metrik, masing-masing ditutup satu donat chart HTML/CSS
+	 * lewat {@link ais.ui.util.HtmlChartHelper#donut}, dirender sebagai
+	 * {@link ais.ui.util.MyHtml} pada baris ber-{@code colspan} 2. Donat HTML/CSS ini
+	 * menggantikan pie 3D JFreeChart pada versi terdahulu, sehingga tidak ada lagi
+	 * gambar sisi-server yang perlu dibuat, disimpan, dan dibersihkan.</li>
+	 * </ol>
+	 *
+	 * <h4>Tiga blok metrik</h4>
+	 * <ol>
+	 * <li><b>Kelengkapan Jawaban</b> — "Jumlah Soal" adalah
+	 * {@code pertemuanPunyaUjian.getJmlDitampilkan()}, yaitu banyaknya soal yang
+	 * ditampilkan ke setiap peserta (bukan jumlah soal di bank soal). "Total Soal" =
+	 * {@code jmlDitampilkan * jumlahPeserta}, yakni jumlah slot jawaban ideal bila semua
+	 * peserta menjawab semua soal. "Total Terjawab" adalah parameter {@code terjawab},
+	 * dan "Total Belum Terjawab" adalah selisihnya. Donat membandingkan terjawab vs
+	 * belum.</li>
+	 * <li><b>Keikutsertaan Ujian</b> — membandingkan {@code pesertaYgIkutUjian} dengan
+	 * {@code jumlahPeserta - pesertaYgIkutUjian}. Perlu dicatat bahwa "ikut ujian" di
+	 * sini didefinisikan oleh pemanggil sebagai "punya minimal satu soal terjawab",
+	 * bukan "punya {@code mulaiPada} terisi"; peserta yang membuka ujian lalu keluar
+	 * tanpa menjawab apa pun tetap terhitung "belum ujian" pada blok ini.</li>
+	 * <li><b>Akses Ujian</b> — dihitung ulang di dalam method ini (tidak diterima sebagai
+	 * parameter) dari log akses yang disimpan pertemuan:
+	 * {@code pertemuanPunyaUjian.getPertemuan().ambilData("ujian_" + id, null)}
+	 * mengembalikan {@link TreeMap} berisi jejak siapa saja yang pernah membuka ujian
+	 * ini. Penyebutnya adalah {@code jumlahPeserta + jumlah dosen/pengajar pertemuan}
+	 * ({@code ambilDosen().size()}), karena pengajar juga tercatat di log akses yang
+	 * sama. Karena itu angka "Total peserta yg bisa akses" pada blok ketiga sengaja
+	 * lebih besar daripada "Jumlah Peserta" pada blok kedua — bukan ketidakkonsistenan
+	 * data.</li>
+	 * </ol>
+	 *
+	 * <h4>Catatan pembulatan dan pembagian</h4>
+	 * <p>
+	 * Seluruh persentase dihitung sebagai {@code double} murni tanpa pembulatan
+	 * eksplisit; pembulatan tampilan sepenuhnya diserahkan kepada
+	 * {@code Common.numberFormat}. Pembagi tidak dijaga: bila {@code jumlahPeserta}
+	 * bernilai 0 (ujian tanpa peserta terdaftar) atau {@code jmlDitampilkan} bernilai 0,
+	 * hasil bagi {@code double} menjadi {@code NaN} (0/0) atau {@code Infinity} sehingga
+	 * yang tampil di layar adalah teks non-numerik, bukan pengecualian yang menggagalkan
+	 * halaman. Karena tab ini murni informatif dan tidak menulis apa pun ke basis data,
+	 * dampaknya terbatas pada tampilan.
+	 * </p>
+	 * <p>
+	 * Variabel {@code persenBelum} dihitung pada ketiga blok tetapi hanya sebagian yang
+	 * benar-benar dirender; sisanya sengaja dibiarkan sebagai nilai antara yang tidak
+	 * dipakai. Di akhir method, {@code d} dan {@code dsn} dikosongkan lalu di-{@code null}-kan
+	 * secara manual — pola pelepasan memori eksplisit yang dipakai konsisten di seluruh
+	 * berkas ini karena satu halaman dapat menahan ribuan baris peserta.
+	 * </p>
+	 *
+	 * @param jumlahPeserta      total peserta yang berhak mengikuti ujian, sebagaimana
+	 *                           dihitung {@link #loadData(Object)} ke {@link #jumlahPeserta}
+	 * @param terjawab           total soal yang sudah terjawab lintas SELURUH peserta
+	 *                           (penjumlahan ukuran himpunan id bank soal terjawab)
+	 * @param pesertaYgIkutUjian jumlah peserta yang memiliki minimal satu jawaban tersimpan
 	 */
 	@SuppressWarnings({ "deprecation" })
 	private void displayStatistik(int jumlahPeserta, int terjawab, int pesertaYgIkutUjian) {

@@ -167,34 +167,77 @@ public class RekapitulasiUjianHelper {
 				final MyFormRow rowTambah = new MyFormRow();
 
 				/**
-				 * Tipe implementasi bersarang {@link PertemuanEvent} milik {@link RekapitulasiUjianHelper}. Kelas ini memberi
-				 * nama pada state atau perilaku lokal agar tanggung jawabnya tidak tersebar sebagai blok anonim.
+				 * Kelas lokal (method-local) pengisi ulang {@link Combobox} "Pilih Pertemuan" pada
+				 * wizard {@link RekapitulasiUjianHelper#buatbaru}. Dipakai sebagai {@link EventListener}
+				 * yang dipanggil ulang setiap kali konteks pembelajaran berubah (Perkuliahan/Jadwal
+				 * Pelajaran baru dipilih, atau satu pertemuan baru selesai dibuat lewat
+				 * {@link PenjadwalanHelper}/{@link PenjadwalanSiswaHelper}).
 				 *
-				 * <p><b>Scope:</b> setiap instance terikat pada instance {@link RekapitulasiUjianHelper} dan dapat mengakses
-				 * state kelas induk. Jangan menyimpan atau membagikannya lintas desktop/session.</p>
-				 * <p>Kontrak yang tampak dari deklarasi ini meliputi state utama: {@code VOPembelajaran vo}, {@code Pertemuan
-				 * pertemuanPilih}; operasi lokal: {@code onEvent}(). Aturan bisnis bersama tetap berada pada kelas induk atau
-				 * service yang dipanggilnya.</p>
-				 * <p><b>Efek samping:</b> operasi dapat mengubah state lokal dan, sesuai nama methodnya, komponen UI atau
-				 * persistence melalui konteks kelas induk. Gunakan transaksi, otorisasi, dan session milik alur induk;
-				 * tambahkan perilaku lintas domain pada service bersama.</p>
+				 * <p>
+				 * Perilaku pengisian: mengosongkan combobox, mengambil daftar {@link Pertemuan} dari
+				 * {@code vo.ambilPertemuanList()}, lalu menyesuaikan mode pilih menurut jumlahnya —
+				 * tepat satu pertemuan berarti langsung terpilih dan combobox dikunci; lebih dari satu
+				 * memunculkan item pembuka "= Pilih Pertemuan ="; nol pertemuan memunculkan item
+				 * "= Pertemuan / Agenda belum dibuat =" dan combobox dinonaktifkan. Baris tombol tambah
+				 * pertemuan ({@code rowTambah}) hanya ditampilkan bila {@code vo} terisi.
+				 * </p>
 				 *
-				 * @see RekapitulasiUjianHelper
+				 * <p>
+				 * <b>Scope &amp; efek samping:</b> ini adalah kelas LOKAL di dalam {@code onEvent} tombol
+				 * "Buat &lt;nama&gt;", sehingga menutup (capture) variabel {@code pertemuan},
+				 * {@code rowTambah}, dan field {@code pdata} milik listener induk — instance-nya hanya
+				 * valid selama jendela wizard itu hidup dan TIDAK boleh disimpan atau dibagikan lintas
+				 * desktop/session. Operasinya murni baca-data + mutasi komponen ZK; tidak ada penulisan
+				 * ke database di kelas ini.
+				 * </p>
+				 *
+				 * @see RekapitulasiUjianHelper#buatbaru(Tbmuser, VOPembelajaran, DataLoader, int, String)
 				 */
 				class PertemuanEvent implements EventListener {
 
+					/**
+					 * Konteks pembelajaran yang daftar pertemuannya diisikan ke combobox. Bila
+					 * {@code null}, combobox dikosongkan dan baris tombol tambah pertemuan
+					 * disembunyikan (belum ada Perkuliahan/Jadwal Pelajaran terpilih).
+					 */
 					private VOPembelajaran vo;
+					/**
+					 * Pertemuan yang harus langsung terpilih setelah combobox diisi ulang — dipakai
+					 * ketika pengguna baru saja membuat satu pertemuan, agar hasilnya otomatis aktif
+					 * dan combobox dikunci. {@code null} berarti tanpa pra-pilihan.
+					 */
 					private Pertemuan pertemuanPilih = null;
 
+					/**
+					 * Membuat listener pengisi combobox tanpa pra-pilihan pertemuan.
+					 *
+					 * @param vo konteks pembelajaran sumber daftar pertemuan; boleh {@code null}
+					 */
 					public PertemuanEvent(VOPembelajaran vo) {
 						this.vo = vo;
 					}
 
+					/**
+					 * Membuat listener pengisi combobox yang sekaligus mengunci pilihan ke satu
+					 * pertemuan tertentu.
+					 *
+					 * @param vo             konteks pembelajaran sumber daftar pertemuan; boleh {@code null}
+					 * @param pertemuanPilih pertemuan yang langsung dipilih dan dikunci setelah pengisian
+					 */
 					public PertemuanEvent(VOPembelajaran vo, Pertemuan pertemuanPilih) {
 						this.vo = vo;
 						this.pertemuanPilih = pertemuanPilih;
 					}
 
+					/**
+					 * Mengisi ulang combobox "Pilih Pertemuan" sesuai {@code vo} dan
+					 * {@code pertemuanPilih}, serta mereset {@code pdata} milik listener induk. Aman
+					 * dipanggil dengan {@code arg0} bernilai {@code null} (kelas ini kerap dipanggil
+					 * langsung, bukan lewat dispatch event ZK) karena isi event tidak pernah dibaca.
+					 *
+					 * @param arg0 event pemicu; tidak dipakai, boleh {@code null}
+					 * @throws Exception diteruskan dari operasi komponen ZK
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						pdata = null;
