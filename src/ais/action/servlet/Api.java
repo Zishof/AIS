@@ -53,6 +53,7 @@ import ais.database.model.Tbmuser;
 public class Api extends HttpServlet {
     private static final long serialVersionUID = 1L;
 
+    /** Kode status HTTP 200 (OK), dipakai sebagai status default respons JSON servlet ini. */
     private static final int HTTP_OK = 200;
 
     /**
@@ -63,11 +64,15 @@ public class Api extends HttpServlet {
 
     /** Dipertahankan untuk kompatibilitas penggunaan lama. */
     public static Long randLong = 0L;
+    /** Kumpulan nilai {@link #randLong} yang pernah diterbitkan sebagai penanda sesi PMB (lihat {@link #createPmbSessionMarker}); dipakai untuk menjaga keunikan penanda tersebut selama proses berjalan. */
     public static Set<Long> nexts = Collections.newSetFromMap(new ConcurrentHashMap<Long, Boolean>());
 
+    /** Kunci sinkronisasi untuk pembuatan penanda sesi PMB di {@link #createPmbSessionMarker}, agar increment {@link #randLong} dan penulisan ke {@link #nexts} tidak bertabrakan antar-thread. */
     private static final Object PMB_SESSION_LOCK = new Object();
+    /** Tabel rute {@code action} API ke implementasinya, dibentuk sekali saat class dimuat lewat {@link ApiRouteRegistry#createDefaultRoutes()}. */
     private static final Map<String, ApiRoute> ROUTES = ApiRouteRegistry.createDefaultRoutes();
 
+    /** Konstruktor default; memastikan {@link #tokens} terisi dari {@link ApiTokenManager} sebelum servlet melayani permintaan pertamanya. */
     public Api() {
         super();
         initTokens();
@@ -94,6 +99,23 @@ public class Api extends HttpServlet {
         tokens = ApiTokenManager.tokens;
     }
 
+    /**
+     * Titik masuk utama routing API JSON: memvalidasi/mengotorisasi permintaan lewat {@link
+     * ApiAccessGuard#check}, menentukan rute dari field {@code action} pada {@code jsonObject}
+     * (dicocokkan tanpa membedakan besar/kecil huruf ke {@link #ROUTES}), lalu mengeksekusi rute
+     * tersebut. Mendukung idempotensi mutasi offline-first: bila permintaan membawa {@code
+     * clientMutationId} dan {@code action} tergolong mutasi ({@link
+     * ais.action.servlet.api.MutasiIdempotenUtil#aksiMutasi}), eksekusi ulang dengan
+     * {@code clientMutationId} yang sama mengembalikan respons tersimpan dari percobaan pertama,
+     * bukan menjalankan operasi bisnis dua kali; respons sukses ({@code status} "00") dari eksekusi
+     * baru disimpan untuk dipakai ulang.
+     *
+     * @param request    permintaan servlet yang sedang diproses (dipakai rute untuk cek sesi/tenant)
+     * @param jsonObject payload permintaan; {@code null} atau tanpa {@code action} valid menghasilkan
+     *                   respons default tanpa memproses apa pun
+     * @return respons JSON hasil rute, respons default {@link ApiHelperSupport#defaultResponse()}
+     *         bila tidak ada rute yang cocok, atau respons galat internal bila terjadi exception
+     */
     public static JSONObject ambil(HttpServletRequest request, JSONObject jsonObject) {
         JSONObject hasil = ApiHelperSupport.defaultResponse();
         if (jsonObject == null) {
@@ -149,6 +171,15 @@ public class Api extends HttpServlet {
         }
     }
 
+    /**
+     * Menangani permintaan {@code GET}: memasang header CORS, lalu mencoba jalur unduhan surat
+     * keluar ({@link #handleDownloadRequest}); bila bukan unduhan, menangani tiga kasus berdasar
+     * parameter — {@code data_session_pmb} (buat penanda sesi PMB via {@link
+     * #createPmbSessionMarker}), {@code checkLogin} ({@code "Y"}/{@code "N"} sesuai status login
+     * lewat {@link Common#getCurrentUser}), atau badan permintaan JSON (diteruskan ke {@link
+     * #ambil} dan dicatat lewat {@link ApiMobileLogger#save}). Galat parsing JSON/IO/lainnya
+     * ditangkap dan diterjemahkan ke respons status kode singkat, tidak dilempar ke container.
+     */
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         addCorsHeaders(response);
 
@@ -185,6 +216,16 @@ public class Api extends HttpServlet {
         writeResponse(response, httpStatus, body);
     }
 
+    /**
+     * Menangani permintaan unduhan surat keluar bila parameter {@code suratKeluar} hadir: mencetak
+     * berkas lewat {@link SuratApi#cetakSurat} lalu men-streamnya via {@link
+     * AmbilLampiran#doDownload}. Kegagalan (berkas tidak ada/exception) dijawab dengan respons JSON
+     * status galat, bukan exception, agar {@link #doGet} tetap dapat menuliskan respons yang wajar.
+     *
+     * @return {@code true} bila permintaan ini ditangani sebagai unduhan (baik sukses maupun
+     *         gagal) sehingga {@link #doGet} tidak perlu melanjutkan ke jalur lain; {@code false}
+     *         bila parameter {@code suratKeluar} tidak ada dan permintaan bukan unduhan
+     */
     private boolean handleDownloadRequest(HttpServletRequest request, HttpServletResponse response) throws IOException {
         if (request == null || response == null || request.getParameter("suratKeluar") == null) {
             return false;
@@ -203,6 +244,14 @@ public class Api extends HttpServlet {
         return true;
     }
 
+    /**
+     * Membuat penanda unik untuk sesi pendaftaran PMB: menaikkan {@link #randLong} secara
+     * tersinkronisasi ({@link #PMB_SESSION_LOCK}), mencatatnya ke {@link #nexts}, lalu
+     * menyimpannya sebagai atribut sesi HTTP {@code data_session_pmb} (sesi dibuat bila belum ada).
+     *
+     * @return representasi string dari nilai {@link #randLong} yang baru, dipakai klien sebagai
+     *         token penanda sesi
+     */
     private String createPmbSessionMarker(HttpServletRequest request) {
         synchronized (PMB_SESSION_LOCK) {
             randLong = Long.valueOf(randLong.longValue() + 1L);
@@ -212,6 +261,14 @@ public class Api extends HttpServlet {
         }
     }
 
+    /**
+     * Menulis {@code body} sebagai respons JSON: mengatur status HTTP, {@code Content-Type}
+     * {@code application/json}, header panjang badan (kunci {@code "length"}, bukan {@code
+     * Content-Length} standar — dipertahankan untuk kompatibilitas klien lama), dan header CORS
+     * (lihat {@link #addCorsHeaders}), lalu menuliskan dan menutup writer.
+     *
+     * @param body badan respons; {@code null} diperlakukan sebagai string kosong
+     */
     private void writeResponse(HttpServletResponse response, int httpStatus, String body) throws IOException {
         if (body == null) {
             body = "";
@@ -237,6 +294,11 @@ public class Api extends HttpServlet {
         }
     }
 
+    /**
+     * Menambahkan header CORS permisif (asal mana pun, method GET/POST/OPTIONS, header umum yang
+     * dipakai klien API) agar endpoint ini dapat diakses lintas-origin oleh klien web/mobile.
+     * Tidak melakukan apa pun bila {@code response} {@code null}.
+     */
     private void addCorsHeaders(HttpServletResponse response) {
         if (response == null) {
             return;
@@ -246,10 +308,12 @@ public class Api extends HttpServlet {
         response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
     }
 
+    /** Menangani permintaan {@code POST} dengan perilaku identik {@link #doGet}: seluruh logika routing API menerima badan JSON lewat metode HTTP apa pun. */
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         doGet(request, response);
     }
 
+    /** Menangani preflight CORS {@code OPTIONS}: memasang header CORS (lihat {@link #addCorsHeaders}) lalu membalas {@link #HTTP_OK} tanpa badan. */
     protected void doOptions(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         addCorsHeaders(response);
         response.setStatus(HTTP_OK);

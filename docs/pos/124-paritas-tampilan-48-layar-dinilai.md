@@ -111,10 +111,25 @@ Rp 217.000 (margin 7,69%) vs tunai Rp 206.000 (margin 2,23%). Uji kesetaraan tet
 
 ## 2. Dua hal yang menunggu keputusan, bukan pengamatan
 
-**Layar 6 — jumlah customer 334 vs 333.** `CUSTOMER.DBF` berisi 334 baris tetapi hanya 333 kode
-unik: kode `00375` ("ARI TK") tercatat dua kali dengan alamat berbeda (C3 dan C2). Legacy
-menghitung baris; model tenant berkunci unik. Bukan data hilang — aturan yang berbeda. Menggabung
-atau memisahkan keduanya adalah keputusan pemilik usaha.
+**Layar 6 — jumlah customer 334 vs 333. ✅ DIPUTUSKAN: digabung (2026-09-07).**
+`CUSTOMER.DBF` berisi 334 baris tetapi hanya 333 kode unik: kode `00375` ("ARI TK", BOBOS)
+tercatat dua kali, **berbeda hanya pada kode wilayahnya** (`ALAMAT` = C3 vs C2); seluruh medan
+lain — termasuk piutang awal/masuk/keluar — identik dan nol.
+
+Penggabungannya kini **eksplisit**, dan itu perubahan yang sesungguhnya. Sebelum ini hasilnya
+sudah "tergabung" tetapi karena **kebetulan**: penjaga `COALESCE`/`WHERE NOT EXISTS` di importir
+membuat baris kedua menjadi no-op yang tidak dilaporkan siapa pun. Datanya sama; yang tidak ada
+adalah siapa pun yang tahu bahwa 334 menjadi 333.
+
+| lapisan | perubahan |
+|---|---|
+| ekstraktor | `gabung_kode_ganda()` menggabungkan baris berkode sama pada jenis MASTER, melaporkan tiap penggabungan |
+| aturan | nilai kosong diisi dari baris berikutnya; bila keduanya terisi dan berbeda, baris pertama menang dan yang dibuang **disebut** |
+| pembanding | `banding-dbf` mencetak "334 baris berkode → 333 kode unik. Kode ganda: 00375 x2" |
+
+**Jenis TRANSAKSI sengaja tidak ikut digabung.** Dua baris berfaktur sama adalah dua ITEM yang
+sah, bukan duplikat — menggabungkannya akan menghapus barang yang benar-benar dibeli. Itu persis
+cacat kunci idempotensi yang pernah melenyapkan 562 baris BELI dan 51 baris JUAL (doc 116).
 
 **Layar 20 — diskon per baris pembelian.** Medan `HARGAASLI` / `DISCOUNT` / `DISCOUNT2` pada
 `BELI.DBF` belum punya rumah pada model tenant (keputusan terbuka sejak doc 120), sehingga diskon
@@ -156,6 +171,38 @@ menyimpulkan layar ini kosong.
 ## 4. Yang tersisa untuk UAT 100%
 
 1. ~~Celah harga kredit/tunai~~ — **ditutup** oleh migrasi v20 (§1).
-2. Dua keputusan pemilik usaha (§2).
-3. Data uji untuk sesi sales (SPJ, Nota, Biaya, Rekonsiliasi) bila alur itu ingin ikut diuji.
-4. Sesudah semuanya: varian `sales-inventory` → `https://ebisnis.id/ebisnis`.
+2. ~~Layar 6 (kode ganda)~~ — **diputuskan: digabung** (§2). Sisa satu: layar 20 (§2).
+3. **BARU — kode wilayah pelanggan tidak terimpor (§5).**
+4. Data uji untuk sesi sales (SPJ, Nota, Biaya, Rekonsiliasi) bila alur itu ingin ikut diuji.
+5. Sesudah semuanya: varian `sales-inventory` → `https://ebisnis.id/ebisnis`.
+
+---
+
+## 5. TEMUAN BARU: kode wilayah pelanggan tidak terimpor sama sekali
+
+Ditemukan justru saat mengerjakan penggabungan `00375` — medan yang membuat kedua baris itu
+berbeda ternyata **tidak pernah dibaca importir**, untuk pelanggan mana pun.
+
+```
+CUSTOMER.DBF, 334 baris:
+  ALAMAT   terisi 334/334, hanya 7 nilai unik: C7(65) C5(57) C2(57) C1(53) C3(52) C4(34) C6(16)
+  WILAYAH  terisi   0/334   <-- medan yang BERNAMA wilayah justru kosong seluruhnya
+  ALAMAT1  terisi 334/334   ("BOBOS", "BODE", "PS SUMBER", ...)
+```
+
+Jadi pada berkas ini **`ALAMAT` adalah kode wilayah/rute**, dan `ALAMAT1` adalah alamat jalannya.
+Itu cocok dengan layar legacy 06, yang berkolom "Alamat" (BODE, PS SUMBER) dan "Wilayah" (C1–C5),
+serta bertombol **"Urut Wilayah"**.
+
+`map_customer` membaca `ALAMAT1` → `alamat`, dan **`ALAMAT` tidak dibaca sama sekali** — bahkan
+tidak masuk daftar "medan dilewati", sehingga tidak pernah dilaporkan. Medan `WILAYAH` yang
+dilaporkan sebagai dilewati tidak pernah terisi, jadi laporan itu tidak pernah muncul: dua
+kekeliruan yang saling menutupi.
+
+**Akibatnya:** kolom Wilayah pada layar Master Customer kosong, pengurutan "Urut Wilayah" tidak
+punya padanan, dan `SalesInventoryMasterTenant.dukungWilayahMitra()` mengembalikan `false` —
+benar untuk model tenant hari ini, tetapi datanya **ada** dan sedang dibuang.
+
+**Perlu keputusan, sama bentuknya dengan harga kredit/tunai:** tambahkan kolom wilayah pada
+`customer_profile` (migrasi v21) lalu impor `ALAMAT`, atau nyatakan pembagian wilayah pelanggan
+tidak dipakai lagi. Selama belum diputuskan, layar 4–6 sepadan pada seluruh medan lain.
