@@ -5608,12 +5608,14 @@ public class TugasMandiriHelper {
 			Label namaLblS = new Label(siswa.getNomorInduk() + " / " + siswa.getNama());
 			namaLblS.setSclass("ais-tugas-upload-nama");
 			namaLblS.setParent(a);
-			org.zkoss.zul.Div contactRowS = new org.zkoss.zul.Div();
-			contactRowS.setSclass("ais-tugas-contact-row");
-			contactRowS.setParent(a);
-			siswa.tampilkanHp(contactRowS);
-			siswa.tampilkanEmail(contactRowS);
-			rapikanBarisKontak(contactRowS);
+			if (bolehKelolaTugas(tbmuser)) {
+				org.zkoss.zul.Div contactRowS = new org.zkoss.zul.Div();
+				contactRowS.setSclass("ais-tugas-contact-row");
+				contactRowS.setParent(a);
+				siswa.tampilkanHp(contactRowS);
+				siswa.tampilkanEmail(contactRowS);
+				rapikanBarisKontak(contactRowS);
+			}
 
 		} else if (mahasiswa != null) {
 			Hbox ahbox = new Hbox();
@@ -5630,7 +5632,7 @@ public class TugasMandiriHelper {
 			namaLblM.setSclass("ais-tugas-upload-nama");
 			namaLblM.setParent(a);
 
-			if (TugasMandiriHelper.this.mahasiswa == null) {
+			if (bolehKelolaTugas(tbmuser)) {
 				org.zkoss.zul.Div contactRowM = new org.zkoss.zul.Div();
 				contactRowM.setSclass("ais-tugas-contact-row");
 				contactRowM.setParent(a);
@@ -5657,7 +5659,7 @@ public class TugasMandiriHelper {
 							: " / " + biodataCalonMahasiswa.getNama()));
 			namaLblC.setSclass("ais-tugas-upload-nama");
 			namaLblC.setParent(a);
-			if (biodataCalonMahasiswa != null) {
+			if (biodataCalonMahasiswa != null && bolehKelolaTugas(tbmuser)) {
 				org.zkoss.zul.Div contactRowC = new org.zkoss.zul.Div();
 				contactRowC.setSclass("ais-tugas-contact-row");
 				contactRowC.setParent(a);
