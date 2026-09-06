@@ -28,19 +28,18 @@ import ais.database.model.Tbmuser;
  * itu memvalidasi kelayakan mahasiswa lalu merender template Jasper
  * <code>Undangan_Wisuda</code>.</p>
  *
- * <p><b>Dua prasyarat disalin apa adanya dari layar ZK</b> — keduanya menolak
- * cetak, bukan sekadar peringatan:</p>
+ * <p><b>Prasyarat bersifat fail-closed</b> — kondisi berikut menolak cetak,
+ * bukan sekadar menampilkan peringatan:</p>
  * <ol>
- *   <li>biodata mahasiswa harus ada DAN nama ayah terisi, karena template
- *       memakai parameter <code>nama_ayah</code>;</li>
- *   <li>pendaftaran wisuda harus sudah memiliki nomor kursi
+ *   <li>seluruh persetujuan pendaftaran wisuda harus sudah disetujui;</li>
+ *   <li>pendaftaran wisuda harus memiliki nomor kursi
  *       (<code>noKursi</code>); tanpa itu tombol cetak pada ZK memang
  *       dinonaktifkan.</li>
  * </ol>
  *
- * <p>Parameter Jasper: peta acak {@code HashMapGenerator} ditambah
- * <code>mahasiswa</code> (id) dan <code>nama_ayah</code> — persis seperti ZK.
- * PDF dikirim sebagai {@code pdfBase64}.</p>
+ * <p>PDF dirender oleh helper yang sama dengan layar ZK. Identitas kampus diambil dari master
+ * {@code PerguruanTinggi}, sedangkan QR peserta dibuat dinamis di memori. Hasil dikirim sebagai
+ * {@code pdfBase64} tanpa menyimpan ZIP atau aset undangan statis di webapp.</p>
  *
  * <p>Fail-closed: mahasiswa wajib dipilih, seluruh prasyarat diperiksa sebelum
  * render, dan pengguna tanpa sesi ditolak.</p>

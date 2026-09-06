@@ -31,41 +31,14 @@ import ais.ui.util.MyMessageboxConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Window ZK (dialog) modul wisuda untuk MENCETAK UNDANGAN WISUDA seorang mahasiswa dalam format
- * PDF/lain, setelah No. Registrasi dan No. Kursi Wisuda-nya sudah ada. Berbeda dari tiga window
- * sejenis lain di paket ini ({@link GenerateNoKursiDanNoRegistrasiWindow},
- * {@link GenerateNoKursiWindow}, {@link LaporanRegistrasiWisudaWindow}), kelas ini TIDAK
- * men-generate nomor apa pun — perannya murni cetak, dan justru menolak mencetak bila nomor
- * belum lengkap.
+ * Window ZK untuk mengunduh undangan wisuda mahasiswa. Semua jalur unduh menggunakan
+ * {@link UndanganWisudaDownloadHelper}, sehingga daftar admin, halaman mahasiswa, native UI,
+ * dan window lama menerapkan validasi serta hasil PDF yang sama.
  *
- * <p><b>Alur data:</b> mahasiswa dipilih lewat {@link AmbilDataMahasiswaBanbox} atau otomatis
- * dari user login. {@link PendaftaranWisuda} dimuat via
- * {@code Restrictions.eq("mahasiswa", mahasiswa)} dengan {@code setMaxResults(1)}; window juga
- * memuat {@link BiodataMahasiswa} milik mahasiswa yang sama (entity tambahan yang tidak dipakai
- * oleh tiga window sejenis lain) karena nama ayah kandung dibutuhkan sebagai salah satu isi
- * undangan cetak. Bila {@code pendaftaranWisuda} tidak ditemukan, window menampilkan peringatan
- * dan berhenti dibangun; bila {@code mahasiswa} sendiri {@code null}, {@code init()} berhenti
- * lebih awal tanpa pesan (tidak seperti window sejenis lain yang selalu lanjut sampai query
- * PendaftaranWisuda).</p>
- *
- * <p><b>Validasi sebelum cetak</b> ({@code onCetakUndanganWisuda()}) — bukan lewat status
- * enable/disable tombol seperti window lain, melainkan pengecekan eksplisit di awal method dengan
- * {@code return} dini dan pesan peringatan berbeda untuk tiap kondisi: (1) {@code biodataMahasiswa}
- * kosong atau nama ayah belum diisi → arahkan ke menu Biodata Mahasiswa; (2) No. Registrasi Wisuda
- * belum ada → arahkan untuk registrasi wisuda; (3) No. Kursi belum ada → arahkan untuk generate
- * nomor kursi (lihat {@link GenerateNoKursiWindow}/{@link GenerateNoKursiDanNoRegistrasiWindow}).
- * Tombol "Cetak" sendiri hanya dinonaktifkan berdasarkan No. Kursi kosong di {@code init()}; dua
- * validasi lain (biodata, No. Registrasi) baru dicek saat tombol benar-benar diklik.</p>
- *
- * <p><b>Efek samping:</b> mencetak lewat {@link Report#generatePDFReport} dengan basis nama
- * {@code "Undangan_Wisuda"}, parameter {@code mahasiswa} (id) dan {@code nama_ayah} dari
- * {@link BiodataMahasiswa#getNamaAyah()}; format mengikuti pilihan {@code Combobox reportType}
- * dengan fallback {@link Report#PDF}. Ada baris debug {@code System.out.println("nama ayah : " +
- * ...)} yang tersisa di kode produksi (tidak dihapus, hanya dicatat). Tombol "Batal" pada window
- * ini men-detach seluruh {@link Tabpanel} induk beserta tab-nya (menutup tab), bukan sekadar
- * menutup window seperti {@link GenerateNoKursiDanNoRegistrasiWindow}/{@link GenerateNoKursiWindow}
- * — sama seperti perilaku "Batal" pada {@link LaporanRegistrasiWisudaWindow}, mengindikasikan
- * kedua window ini biasa dibuka sebagai tab, bukan dialog lepas.</p>
+ * <p>Undangan hanya dapat dibuat apabila seluruh persetujuan pendaftaran wisuda sudah lengkap
+ * dan nomor kursi tersedia. Template Jasper {@code Undangan_Wisuda} menerima data peserta,
+ * identitas kampus dari master {@code PerguruanTinggi}, serta gambar QR yang dibuat dinamis di
+ * memori; tidak ada arsip ZIP atau gambar QR statis yang dimasukkan ke WAR.</p>
  *
  * @see MyWindow
  * @see GenerateNoKursiDanNoRegistrasiWindow
@@ -122,9 +95,9 @@ public class GenerateUndanganWisudaWindow extends MyWindow {
 	 * <p>Langkah: (1) {@link Common#clear(org.zkoss.zk.ui.Component)} membuang child lama; (2)
 	 * membangun ulang layout Borderlayout; (3) berhenti dini bila {@code mahasiswa == null}; (4)
 	 * memuat {@link PendaftaranWisuda} milik mahasiswa (query {@code setMaxResults(1)}); bila tidak
-	 * ditemukan, tampilkan peringatan dan window berhenti dibangun; (5) memuat
-	 * {@link BiodataMahasiswa} milik mahasiswa yang sama (dipakai untuk nama ayah pada undangan);
-	 * (6) mengisi textbox readonly NIM/Nama/Fakultas/Prodi/No. Registrasi/No. Kursi serta
+	 * ditemukan, tampilkan peringatan dan window berhenti dibangun; (5) memuat biodata pendukung
+	 * untuk kompatibilitas tampilan lama; (6) mengisi textbox readonly
+	 * NIM/Nama/Fakultas/Prodi/No. Registrasi/No. Kursi serta
 	 * {@code Combobox reportType}; (7) menghitung status enable/disable tombol "Cetak" berdasarkan
 	 * apakah No. Kursi sudah terisi.</p>
 	 *
@@ -339,7 +312,7 @@ public class GenerateUndanganWisudaWindow extends MyWindow {
 	 * Jasper, dan QR dinamis tidak dapat berbeda antarhalaman.
 	 *
 	 * @param event event {@code onClick} dari tombol "Cetak" (tidak dipakai isinya)
-	 * @throws Exception diteruskan dari {@link Report#generatePDFReport}
+	 * @throws Exception diteruskan dari proses validasi, render Jasper, atau pengiriman file
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onCetakUndanganWisuda(Event event) throws Exception {
