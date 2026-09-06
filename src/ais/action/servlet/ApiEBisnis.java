@@ -19,6 +19,7 @@ package ais.action.servlet;
  * ikut terekspos ke aksi yang belum matang.</p>
  */
 public class ApiEBisnis extends PosApi {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
 
 	/**

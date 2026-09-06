@@ -9,13 +9,18 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Mahasiswa;
+import ais.database.model.Tbmrole;
+import ais.database.model.Tbmuser;
 import ais.database.model.penelitiandanpengabdian.FilePengajuanTahapanPelaporanPenelitianDanPengabdian;
+import ais.database.model.penelitiandanpengabdian.PengajuanPenelitianDanPengabdian;
 
 /**
  * Servlet penyaji berkas lampiran tahapan pelaporan penelitian dan pengabdian
@@ -33,14 +38,21 @@ import ais.database.model.penelitiandanpengabdian.FilePengajuanTahapanPelaporanP
  * {@code Restrictions.idEq(id)} pada parameter {@code id} apa adanya, sehingga
  * parameter {@code usingId} milik temuan {@code task_b82b25d2} tidak relevan di sini.</p>
  *
- * <h4>PERINGATAN KEAMANAN &mdash; pengambilan berkas anonim berdasarkan primary key tebakan</h4>
+ * <h4>PERINGATAN KEAMANAN (DITAMBAL) &mdash; sebelumnya pengambilan berkas anonim berdasarkan
+ * primary key tebakan</h4>
  * <p>Alamat servlet ini tidak punya aturan {@code intercept-url} sendiri di
- * {@code applicationContext-security.xml} sehingga jatuh ke aturan payung
- * {@code /** = IS_AUTHENTICATED_ANONYMOUSLY}: siapa pun tanpa perlu masuk dapat memanggil
+ * {@code applicationContext-security.xml} sehingga TADINYA jatuh ke aturan payung
+ * {@code /** = IS_AUTHENTICATED_ANONYMOUSLY}: siapa pun tanpa perlu masuk bisa memanggil
  * {@code ?id=1}, {@code ?id=2}, dst. secara berurutan tanpa pernah diminta membuktikan
- * kepemilikan atas laporan tahapan yang bersangkutan. Pola ini sama persis dengan enam
- * kelas {@code Ambil*}/{@code AmbilFile*} bertetangga di paket ini (lih. Javadoc
- * {@code AmbilFilePengajuanPengajuanPenelitianDanPengabdian} untuk daftar lengkapnya).</p>
+ * kepemilikan atas laporan tahapan yang bersangkutan. DITAMBAL: {@code
+ * applicationContext-security.xml} kini punya aturan eksplisit
+ * {@code /FilePengajuanTahapanPelaporanPenelitianDanPengabdian = IS_AUTHENTICATED_REMEMBERED},
+ * DAN {@link #process} kini memanggil {@link #berwenangMelihat} setelah baris ditemukan
+ * (gerbang fail-closed berbasis {@code HttpSession.getAttribute("mytbmuser")}, bukan
+ * {@code Common.getCurrentUser(request)} yang spoofable). Pola ini SEBELUMNYA sama persis
+ * dengan enam kelas {@code Ambil*}/{@code AmbilFile*} bertetangga di paket ini (lih. Javadoc
+ * {@code AmbilFilePengajuanPengajuanPenelitianDanPengabdian} untuk daftar lengkapnya) &mdash;
+ * kelima kelas itu SUDAH DITAMBAL juga dengan pola serupa.</p>
  *
  * @see FilePengajuanTahapanPelaporanPenelitianDanPengabdian
  */
@@ -136,6 +148,13 @@ public class AmbilFilePengajuanTahapanPelaporanPenelitianDanPengabdian extends H
 			return;
 		}
 
+		HttpSession httpSession = request.getSession(false);
+		Tbmuser tbmuserLogin = httpSession == null ? null : (Tbmuser) httpSession.getAttribute("mytbmuser");
+		if (tbmuserLogin == null) {
+			resp.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Harus login");
+			return;
+		}
+
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
@@ -145,6 +164,10 @@ public class AmbilFilePengajuanTahapanPelaporanPenelitianDanPengabdian extends H
 					.add(Restrictions.idEq(Long.parseLong(id))).setMaxResults(1).uniqueResult();
 
 			if (fileFoto != null) {
+				if (!berwenangMelihat(fileFoto, tbmuserLogin)) {
+					resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Tidak berwenang mengunduh berkas ini");
+					return;
+				}
 				String mimeType = sc.getMimeType(fileFoto.getNama());
 				if (mimeType == null) {
 					if (fileFoto.getNama().toLowerCase().endsWith("png")) {
@@ -194,6 +217,39 @@ public class AmbilFilePengajuanTahapanPelaporanPenelitianDanPengabdian extends H
 			}
 		}
 
+	}
+
+	/**
+	 * Menentukan apakah {@code tbmuserLogin} berwenang mengunduh berkas lampiran laporan tahap
+	 * {@code fileFoto}: pengaju asli proposal induk (dosen/pegawai lewat {@code Tbmuser} atau
+	 * mahasiswa lewat {@code Mahasiswa}, dibandingkan via {@link Tbmuser#getMahasiswa()}), atau
+	 * pengguna dengan privilese lintas-unit {@link Tbmrole#getMelihatDataSatkerLain()}.
+	 * Fail-closed: relasi {@code null} atau privilese tidak jelas dianggap TIDAK berwenang.
+	 *
+	 * @param fileFoto     baris lampiran yang diminta (tidak {@code null})
+	 * @param tbmuserLogin pengguna yang sudah login (tidak {@code null})
+	 * @return {@code true} bila berwenang mengunduh, {@code false} bila tidak
+	 */
+	private boolean berwenangMelihat(FilePengajuanTahapanPelaporanPenelitianDanPengabdian fileFoto,
+			Tbmuser tbmuserLogin) {
+		PengajuanPenelitianDanPengabdian pengajuan = fileFoto.getPengajuanTahapanPelaporanPenelitianDanPengabdian() == null
+				? null
+				: fileFoto.getPengajuanTahapanPelaporanPenelitianDanPengabdian().getPengajuanPenelitianDanPengabdian();
+		if (pengajuan != null) {
+			Tbmuser pengajuTbmuser = pengajuan.getTbmuser();
+			if (pengajuTbmuser != null && pengajuTbmuser.getUserId() != null
+					&& pengajuTbmuser.getUserId().equals(tbmuserLogin.getUserId())) {
+				return true;
+			}
+			Mahasiswa pengajuMahasiswa = pengajuan.getMahasiswa();
+			Mahasiswa mahasiswaLogin = tbmuserLogin.getMahasiswa();
+			if (pengajuMahasiswa != null && pengajuMahasiswa.getNim() != null && mahasiswaLogin != null
+					&& pengajuMahasiswa.getNim().equals(mahasiswaLogin.getNim())) {
+				return true;
+			}
+		}
+		Tbmrole hakAkses = tbmuserLogin.hakAkses();
+		return hakAkses != null && Boolean.TRUE.equals(hakAkses.getMelihatDataSatkerLain());
 	}
 
 }

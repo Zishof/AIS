@@ -9,12 +9,14 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import org.hibernate.Session;
 import org.hibernate.criterion.Restrictions;
 
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
+import ais.database.model.Tbmuser;
 import ais.database.model.file.FileFoto;
 import ais.database.model.file.LampiranPengumumanPerkuliahan;
 
@@ -31,15 +33,23 @@ import ais.database.model.file.LampiranPengumumanPerkuliahan;
  * {@code Restrictions.idEq(id)} pada parameter {@code id} apa adanya, sehingga
  * parameter {@code usingId} milik temuan {@code task_b82b25d2} tidak relevan di sini.</p>
  *
- * <h4>PERINGATAN KEAMANAN &mdash; pengambilan berkas anonim berdasarkan primary key tebakan</h4>
+ * <h4>PERINGATAN KEAMANAN (DITAMBAL) &mdash; sebelumnya pengambilan berkas anonim berdasarkan
+ * primary key tebakan</h4>
  * <p>Alamat servlet ini tidak punya aturan {@code intercept-url} sendiri di
- * {@code applicationContext-security.xml} sehingga jatuh ke aturan payung
- * {@code /** = IS_AUTHENTICATED_ANONYMOUSLY}: siapa pun tanpa perlu masuk dapat memanggil
- * {@code ?id=1}, {@code ?id=2}, dst. secara berurutan, termasuk terhadap baris pengumuman
- * yang belum dipublikasikan karena tidak ada penyaring status/kepemilikan apa pun pada
- * kueri. Pola akses-tebak-ID ini sama persis dipakai enam kelas
- * {@code Ambil*}/{@code AmbilFile*} bertetangga di paket ini (lih. Javadoc
- * {@code AmbilFilePengajuanPengajuanPenelitianDanPengabdian} untuk daftar lengkapnya).</p>
+ * {@code applicationContext-security.xml} sehingga TADINYA jatuh ke aturan payung
+ * {@code /** = IS_AUTHENTICATED_ANONYMOUSLY}. Investigasi lanjutan mengonfirmasi TIDAK ADA
+ * satu pun halaman/JSP/ZUL publik yang membangun URL ke servlet ini &mdash; kode
+ * mati/legacy yang tetap tereksploitasi selama tidak ditambal (lih. javadoc
+ * {@code AmbilPengumumanAkademis} untuk perbandingan jalur unduhan publik yang sungguhan
+ * dipakai). DITAMBAL: {@code applicationContext-security.xml} kini punya aturan eksplisit
+ * {@code /PengumumanPerkuliahan = IS_AUTHENTICATED_REMEMBERED}, DAN {@link #process} kini
+ * mensyaratkan sesi login serta menolak baris yang
+ * {@link LampiranPengumumanPerkuliahan#getDitampilkan()} bernilai {@code false} atau induk
+ * ({@link ais.database.model.PengumumanPerkuliahan#getAktif()}) bernilai {@code false}. Pola
+ * akses-tebak-ID ini SEBELUMNYA sama persis dipakai enam kelas {@code Ambil*}/
+ * {@code AmbilFile*} bertetangga di paket ini (lih. Javadoc
+ * {@code AmbilFilePengajuanPengajuanPenelitianDanPengabdian} untuk daftar lengkapnya) &mdash;
+ * kelima kelas itu SUDAH DITAMBAL juga.</p>
  *
  * @see LampiranPengumumanPerkuliahan
  */
@@ -137,15 +147,27 @@ public class AmbilPengumumanPerkuliahan extends HttpServlet {
 			return;
 		}
 
+		HttpSession httpSession = request.getSession(false);
+		Tbmuser tbmuserLogin = httpSession == null ? null : (Tbmuser) httpSession.getAttribute("mytbmuser");
+		if (tbmuserLogin == null) {
+			resp.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Harus login");
+			return;
+		}
+
 		Session session = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 
-			FileFoto fileFoto = (LampiranPengumumanPerkuliahan) session
+			LampiranPengumumanPerkuliahan fileFoto = (LampiranPengumumanPerkuliahan) session
 					.createCriteria(LampiranPengumumanPerkuliahan.class).add(Restrictions.idEq(Long.parseLong(id)))
 					.setMaxResults(1).uniqueResult();
 
 			if (fileFoto != null) {
+				if (!Boolean.TRUE.equals(fileFoto.getDitampilkan()) || fileFoto.getPengumumanPerkuliahan() == null
+						|| !Boolean.TRUE.equals(fileFoto.getPengumumanPerkuliahan().getAktif())) {
+					resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Lampiran tidak tersedia");
+					return;
+				}
 				String mimeType = sc.getMimeType(fileFoto.getNama());
 				if (mimeType == null) {
 					if (fileFoto.getNama().toLowerCase().endsWith("png")) {
