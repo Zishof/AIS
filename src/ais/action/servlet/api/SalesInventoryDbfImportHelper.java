@@ -55,6 +55,25 @@ public final class SalesInventoryDbfImportHelper {
 		return r.isNull(k) ? null : Double.valueOf(r.optDouble(k, 0));
 	}
 
+	/**
+	 * Nomor urut baris DBF sebagai {@link Integer}, atau {@code null} bila tidak dikirim.
+	 *
+	 * <p>Kolom {@code legacy_source_record_no} bertipe {@code integer}; mengirimnya sebagai teks
+	 * ditolak PostgreSQL ("bertipe integer tapi ekspresi bertipe character varying") dan — karena
+	 * impornya satu transaksi — menggagalkan seluruh bongkah, bukan satu baris.</p>
+	 */
+	private static Integer noBaris(JSONObject r) {
+		String v = s(r, "baris_ke");
+		if (v.isEmpty()) {
+			return null;
+		}
+		try {
+			return Integer.valueOf(v);
+		} catch (NumberFormatException e) {
+			return null;   // nomor yang tidak masuk akal lebih baik kosong daripada menggagalkan
+		}
+	}
+
 	private static java.util.Date tgl(JSONObject r, String k) {
 		String v = s(r, k);
 		try {
@@ -913,11 +932,9 @@ public final class SalesInventoryDbfImportHelper {
 		Double harga = d(r, "harga_beli");
 		java.math.BigDecimal hrg = harga == null ? null
 				: new java.math.BigDecimal(String.valueOf(harga));
-		String barisKe = s(r, "baris_ke");
-
 		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipOpnameRinci(sk),
 				new Object[] { opnameId, produkId, qSistem, qFisik, selisih, hrg, oleh,
-						barisKe.isEmpty() ? null : barisKe, opnameId, produkId });
+						noBaris(r), opnameId, produkId });
 		if (n == 0) {
 			return 0;   // rincian untuk produk itu sudah ada pada opname yang sama
 		}
@@ -972,8 +989,7 @@ public final class SalesInventoryDbfImportHelper {
 				: "Status BELUM ditafsirkan dari TGLBAYAR kosong.";
 		java.sql.Date sqlTgl = new java.sql.Date(tanggal.getTime());
 		java.sql.Date sqlJatuh = jatuh == null ? null : new java.sql.Date(jatuh.getTime());
-		String barisKe = s(r, "baris_ke");
-		Object noBaris = barisKe.isEmpty() ? null : barisKe;
+		Integer noBaris = noBaris(r);
 
 		int n;
 		if (piutang) {
@@ -1022,10 +1038,8 @@ public final class SalesInventoryDbfImportHelper {
 			throw new Exception("kode akun " + kode + " tidak dapat ditentukan tipenya"
 					+ " (angka pertama harus 1-5)");
 		}
-		String barisKe = s(r, "baris_ke");
 		int n = jalankan(session, SalesInventoryDbfImportTenant.sisipAkunLegacy(sk),
-				new Object[] { kode, nama, tipe, saldoNormal, oleh,
-						barisKe.isEmpty() ? null : barisKe, kode });
+				new Object[] { kode, nama, tipe, saldoNormal, oleh, noBaris(r), kode });
 		return n > 0 ? 1 : 0;
 	}
 

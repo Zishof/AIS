@@ -1,7 +1,5 @@
 package ais.action.master.helper;
 
-import java.util.Map;
-
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.event.Event;
 import org.zkoss.zk.ui.event.EventListener;
@@ -19,7 +17,6 @@ import org.zkoss.zul.Tabpanel;
 import org.zkoss.zul.Textbox;
 import org.zkoss.zul.Toolbar;
 
-import ais.action.report.Report;
 import ais.action.report.helper.CommonReport;
 import ais.common.Common;
 import ais.database.hibernate.HibernateUtil;
@@ -337,53 +334,15 @@ public class GenerateUndanganWisudaWindow extends MyWindow {
 	}
 
 	/**
-	 * Handler tombol "Cetak". Memvalidasi tiga prasyarat berurutan sebelum mencetak, masing-masing
-	 * dengan {@code return} dini dan pesan peringatan berbeda: (1) {@link #biodataMahasiswa} harus
-	 * ada dan {@link BiodataMahasiswa#getNamaAyah()} harus terisi; (2) {@link PendaftaranWisuda}
-	 * harus sudah punya No. Registrasi Wisuda; (3) harus sudah punya No. Kursi. Bila lolos ketiganya,
-	 * cetak undangan lewat {@link Report#generatePDFReport} dengan basis nama
-	 * {@code "Undangan_Wisuda"}, parameter {@code mahasiswa} (id) dan {@code nama_ayah}, format dari
-	 * {@link #reportType} atau fallback {@link Report#PDF}. Mencetak baris debug nama ayah ke
-	 * {@code System.out} sebelum generate laporan (sisa debugging, tidak dihapus).
+	 * Handler tombol "Cetak". Seluruh jalur cetak memakai helper yang sama dengan tombol pada
+	 * daftar admin dan halaman mahasiswa, sehingga pemeriksaan persetujuan, data peserta, template
+	 * Jasper, dan QR dinamis tidak dapat berbeda antarhalaman.
 	 *
 	 * @param event event {@code onClick} dari tombol "Cetak" (tidak dipakai isinya)
 	 * @throws Exception diteruskan dari {@link Report#generatePDFReport}
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void onCetakUndanganWisuda(Event event) throws Exception {
-
-		if (biodataMahasiswa == null || biodataMahasiswa.getNamaAyah() == null) {
-			MyMessageboxConfig
-					.show("Nama ayah belum diisi, silahkan isi di menu biodata mahasiswa",
-							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-			return;
-		}
-
-		if (pendaftaranWisuda.getNoRegistrasiWisuda() == null
-				|| pendaftaranWisuda.getNoRegistrasiWisuda().trim().equals("")) {
-			MyMessageboxConfig
-					.show("Mahasiswa ini belum mendapatkan nomor registrasi wisuda, silahkan melakukan registrasi wisuda",
-							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-			return;
-		}
-		if (pendaftaranWisuda.getNoKursi() == null
-				|| pendaftaranWisuda.getNoKursi().trim().equals("")) {
-			MyMessageboxConfig
-					.show("Mahasiswa ini belum mendapatkan nomor kursi wisuda, silahkan generate nomor kursi wisuda",
-							"Peringatan", MyMessageboxConfig.OK, MyMessageboxConfig.EXCLAMATION);
-			return;
-		}
-
-		final Map parameters = ais.common.HashMapGenerator.getRand();
-		parameters.put("mahasiswa", mahasiswa.getId());
-		parameters.put("nama_ayah", biodataMahasiswa.getNamaAyah() == null ? ""
-				: biodataMahasiswa.getNamaAyah());
-		System.out.println("nama ayah : " + biodataMahasiswa.getNamaAyah());
-
-		Report.generatePDFReport(
-				reportType == null || reportType.getSelectedItem() == null ? Report.PDF
-						: reportType.getSelectedItem().getValue().toString(),
-				parameters, "Undangan_Wisuda", ais.ui.util.WaktuUtil.getDate());
-
+		UndanganWisudaDownloadHelper.download(pendaftaranWisuda);
 	}
 }

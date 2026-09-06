@@ -1,6 +1,8 @@
 package ais.action.master.helper;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -9,6 +11,8 @@ import java.util.Map;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+
+import org.zkoss.zul.Filedownload;
 
 import ais.action.report.Report;
 import ais.action.master.helper.util.PerguruanTinggiUtil;
@@ -31,7 +35,7 @@ import ais.ui.util.MyMessageboxConfig;
  */
 public final class UndanganWisudaDownloadHelper {
 
-	private static final String TEMPLATE = "Undangan_Wisuda";
+	public static final String TEMPLATE = "Undangan_Wisuda";
 	private static final Locale LOCALE_INDONESIA = new Locale("id", "ID");
 
 	private UndanganWisudaDownloadHelper() {
@@ -56,18 +60,34 @@ public final class UndanganWisudaDownloadHelper {
 
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public static void download(PendaftaranWisuda pendaftaranWisuda) throws Exception {
-		if (!disetujuiSemua(pendaftaranWisuda)) {
-			tampilkanPeringatan("Undangan belum dapat diunduh karena seluruh persetujuan pendaftaran wisuda belum selesai.");
-			return;
+		try {
+			validasi(pendaftaranWisuda);
+			File pdf = generatePdf(pendaftaranWisuda);
+			String nim = amanNamaFile(pendaftaranWisuda.getMahasiswa().getNim());
+			Filedownload.save(new FileInputStream(pdf), "application/pdf",
+					"undangan_yudisium_" + (nim.length() == 0 ? pendaftaranWisuda.getId() : nim) + ".pdf");
+		} catch (IllegalArgumentException e) {
+			tampilkanPeringatan(e.getMessage());
+		} catch (Exception e) {
+			try {
+				ais.common.ErrorAuditUtil.record(e, "UndanganWisudaDownloadHelper.download");
+			} catch (Exception diabaikan) {
+				// Pelaporan audit tidak boleh menutupi kegagalan laporan utama.
+			}
+			tampilkanPeringatan("Undangan belum dapat dibuat. Silakan coba kembali atau hubungi administrator sistem jika kendala berulang.");
 		}
+	}
 
+	/** Dipakai pula oleh endpoint native agar seluruh jalur memakai template dan QR yang sama. */
+	public static File generatePdf(PendaftaranWisuda pendaftaranWisuda) throws Exception {
+		validasi(pendaftaranWisuda);
+		return Report.generateFileReportSimple(Report.PDF, buatParameters(pendaftaranWisuda), TEMPLATE);
+	}
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private static Map buatParameters(PendaftaranWisuda pendaftaranWisuda) throws Exception {
 		Mahasiswa mahasiswa = pendaftaranWisuda.getMahasiswa();
 		String noKursi = teks(pendaftaranWisuda.getNoKursi());
-		if (noKursi.length() == 0) {
-			tampilkanPeringatan("Undangan belum dapat dibuat karena nomor kursi mahasiswa belum tersedia. Silakan generate nomor kursi terlebih dahulu.");
-			return;
-		}
-
 		Map parameters = ais.common.HashMapGenerator.getRand();
 		parameters.put("id_pendaftaran_wisuda", pendaftaranWisuda.getId());
 		parameters.put("nama_peserta", namaPeserta(mahasiswa));
@@ -86,17 +106,17 @@ public final class UndanganWisudaDownloadHelper {
 				"Ketua " + namaPerguruanTinggi));
 		parameters.put("qrcode_undangan", buatQr(pendaftaranWisuda));
 		parameters.put("tidak_tampil_pilihan_export", Boolean.TRUE);
+		return parameters;
+	}
 
-		try {
-			Report.generateDownloadReport(Report.PDF, parameters, TEMPLATE, null,
-					ais.ui.util.WaktuUtil.getDate());
-		} catch (Exception e) {
-			try {
-				ais.common.ErrorAuditUtil.record(e, "UndanganWisudaDownloadHelper.download");
-			} catch (Exception diabaikan) {
-				// Pelaporan audit tidak boleh menutupi kegagalan laporan utama.
-			}
-			tampilkanPeringatan("Undangan belum dapat dibuat. Silakan coba kembali atau hubungi administrator sistem jika kendala berulang.");
+	private static void validasi(PendaftaranWisuda pendaftaranWisuda) {
+		if (!disetujuiSemua(pendaftaranWisuda)) {
+			throw new IllegalArgumentException(
+					"Undangan belum dapat diunduh karena seluruh persetujuan pendaftaran wisuda belum selesai.");
+		}
+		if (teks(pendaftaranWisuda.getNoKursi()).length() == 0) {
+			throw new IllegalArgumentException(
+					"Undangan belum dapat dibuat karena nomor kursi mahasiswa belum tersedia. Silakan generate nomor kursi terlebih dahulu.");
 		}
 	}
 
@@ -164,6 +184,10 @@ public final class UndanganWisudaDownloadHelper {
 
 	private static String teks(String nilai) {
 		return nilai == null ? "" : nilai.trim();
+	}
+
+	private static String amanNamaFile(String nilai) {
+		return teks(nilai).replaceAll("[^A-Za-z0-9._-]+", "_");
 	}
 
 	private static void tampilkanPeringatan(String pesan) throws Exception {
