@@ -523,6 +523,18 @@ public class LogHostToHost extends GeneralValueObject {
 	public LogHostToHost() {
 	}
 
+	/**
+	 * Mengembalikan primary key baris log.
+	 *
+	 * <p>
+	 * Perhatikan {@code insertable = false} pada anotasi kolom: nilai id sepenuhnya dihasilkan
+	 * basis data (strategi {@code IDENTITY}), sehingga Hibernate tidak menyertakan kolom ini
+	 * dalam pernyataan INSERT. Konsekuensinya, memanggil {@link #setId(Long)} sebelum menyimpan
+	 * <b>tidak</b> memaksakan id tertentu — nilainya akan tetap ditimpa oleh sequence.
+	 * </p>
+	 *
+	 * @return id baris; {@code null} selama objek belum pernah disimpan
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -530,37 +542,166 @@ public class LogHostToHost extends GeneralValueObject {
 		return this.id;
 	}
 
+	/**
+	 * Menyetel primary key baris log. Hanya relevan bagi Hibernate saat mengisi objek dari
+	 * hasil query; pemanggilan manual tidak akan mengubah id yang diberikan basis data karena
+	 * kolom dipetakan {@code insertable = false} (lihat {@link #getId()}).
+	 *
+	 * @param id nilai primary key
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Mengembalikan deskripsi bebas interaksi ({@link #nama}) dengan spasi tepi dipangkas.
+	 *
+	 * <p>
+	 * Meski namanya "nama", isi kolom ini bukan label melainkan <b>kalimat rakitan berisi data
+	 * transaksi</b> — pada banyak modul integrasi berupa untaian pasangan {@code kunci = nilai}
+	 * yang dipisah koma. Dua field turunan entitas ini mem-<i>parse</i> string tersebut:
+	 * {@link #getKode()} mencari penanda {@code "NIM ="} dan {@link #getNominal()} mencari
+	 * {@code "nominalTagihan ="}. Artinya <b>format string ini adalah kontrak tersirat</b>:
+	 * mengubah cara modul integrasi merangkai {@code nama} akan diam-diam melumpuhkan kedua
+	 * getter turunan itu tanpa satu pun galat kompilasi maupun runtime.
+	 * </p>
+	 *
+	 * <p>
+	 * Kolom dipetakan {@code NOT NULL}, jadi setiap baris log wajib punya deskripsi. Karena
+	 * isinya memuat data pembayar sungguhan, perlakukan hasil method ini sebagai data sensitif
+	 * — setara dengan payload {@link #getRequest()}.
+	 * </p>
+	 *
+	 * @return deskripsi interaksi yang sudah di-<i>trim</i>, atau {@code null} bila field
+	 *         memang belum diisi (mungkin terjadi pada objek yang belum disimpan)
+	 */
 	@Column(name = "nama", nullable = false, columnDefinition = "text")
 	public String getNama() {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Menyetel deskripsi bebas interaksi.
+	 *
+	 * <p>
+	 * Karena {@link #getKode()} dan {@link #getNominal()} mem-<i>parse</i> nilai ini, penulis
+	 * modul integrasi yang ingin kedua field turunan itu terisi harus mempertahankan penanda
+	 * {@code "NIM = <nilai>,"} dan {@code "nominalTagihan = <angka>,"} di dalam string.
+	 * Setter ini sendiri tidak memvalidasi apa pun.
+	 * </p>
+	 *
+	 * @param nama deskripsi interaksi; kolomnya {@code NOT NULL} sehingga menyimpan
+	 *             {@code null} akan ditolak basis data saat <i>flush</i>
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Mengembalikan keterangan tambahan apa adanya (tanpa <i>trim</i>, berbeda dari
+	 * {@link #getNama()}).
+	 *
+	 * <p>
+	 * Sebagian modul menaruh potongan HTML di kolom ini — {@link #getItem()} mencari pemisah
+	 * {@code "<br>amount="} di dalamnya. Ini petunjuk kuat bahwa nilai keterangan memang
+	 * dirender mentah di antarmuka; siapa pun yang mengisi kolom ini dari data yang dikendalikan
+	 * pihak luar harus menyadari risiko injeksi HTML pada halaman yang menampilkannya.
+	 * </p>
+	 *
+	 * @return keterangan tambahan; boleh {@code null}
+	 */
 	@Column(name = "keterangan", columnDefinition = "text", nullable = true)
 	public String getKeterangan() {
 		return this.keterangan;
 	}
 
+	/**
+	 * Menyetel keterangan tambahan. Format bebas; bila ingin {@link #getItem()} dapat menarik
+	 * nominal item, sertakan pola {@code "<br>amount=<nilai><br>"}.
+	 *
+	 * @param keterangan keterangan tambahan; boleh {@code null}
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Menyetel alamat IP lawan bicara.
+	 *
+	 * <p>
+	 * Nilai yang disimpan di sini menentukan hasil {@link #getBankHost()} ketika relasi bank
+	 * belum disetel eksplisit, karena getter tersebut mencocokkan IP dengan daftar
+	 * {@link BankHost}. Simpan IP dalam bentuk yang sama persis dengan yang terdaftar pada
+	 * master {@link BankHost} — pencocokannya berbasis kesamaan string (tidak peka huruf besar
+	 * kecil), bukan berbasis rentang/subnet.
+	 * </p>
+	 *
+	 * @param ip alamat IP asal/tujuan; boleh {@code null}
+	 */
 	public void setIp(String ip) {
 		this.ip = ip;
 	}
 
+	/**
+	 * Mengembalikan alamat IP lawan bicara, dinormalisasi menjadi string kosong bila
+	 * {@code null} dan dipangkas spasi tepinya.
+	 *
+	 * <p>
+	 * Normalisasi ke {@code ""} (bukan {@code null}) disengaja agar {@link #getBankHost()} bisa
+	 * langsung memanggil {@code isEmpty()} tanpa penjagaan null. Efek sampingnya, pemanggil
+	 * tidak dapat membedakan "IP tidak pernah dicatat" dari "IP tercatat sebagai string kosong".
+	 * </p>
+	 *
+	 * @return alamat IP yang sudah dinormalisasi; tidak pernah {@code null}
+	 */
 	@Column(name = "ip", columnDefinition = "text")
 	public String getIp() {
 		return ip == null ? "" : ip.trim();
 	}
 
+	/**
+	 * Mengembalikan mitra host-to-host ({@link BankHost}) yang terkait baris log ini —
+	 * <b>dengan penebakan otomatis berbasis IP</b>.
+	 *
+	 * <h4>Cara kerja</h4>
+	 * <p>
+	 * Langkah pertama, nilai relasi dilewatkan ke {@code check(...)} milik
+	 * {@link GeneralValueObject} untuk menormalkan proxy Hibernate yang mungkin sudah tidak
+	 * valid (relasi ini dipetakan {@code FetchType.LAZY}). Langkah kedua — dan inilah bagian
+	 * yang harus disadari — bila {@link #getIp()} tidak kosong, method menelusuri
+	 * <b>seluruh</b> master {@link BankHost} dari cache {@code ConstantValues} dan, begitu
+	 * menemukan satu yang alamat IP-nya sama (perbandingan tidak peka huruf besar kecil),
+	 * <b>menimpa field {@link #bankHost}</b> dengan temuan itu lalu mengembalikannya.
+	 * </p>
+	 *
+	 * <h4>Konsekuensi yang tidak kentara</h4>
+	 * <ol>
+	 * <li><b>Getter ini bermutasi.</b> Membaca {@code getBankHost()} pada entitas yang masih
+	 * terikat sesi Hibernate dapat mengubah field dan menandai entitas kotor, sehingga memicu
+	 * UPDATE beserta revisi Envers baru — padahal secara logika tidak ada yang berubah. Ini
+	 * instansi dari pola <i>getter yang memutasi field</i> yang tersebar luas di paket
+	 * {@code ais.database.model}.</li>
+	 *
+	 * <li><b>Penebakan mengalahkan nilai tersimpan.</b> Bila IP cocok dengan suatu
+	 * {@link BankHost}, hasil pencocokan itu menang atas nilai yang sudah tersimpan di kolom
+	 * {@code bank_host}. Jadi bila master {@link BankHost} kemudian disunting (IP dipindah ke
+	 * bank lain, atau dua mitra kebetulan berbagi IP gateway/proxy yang sama), <b>baris log
+	 * lama dapat berubah "bank"-nya secara retroaktif</b>. Untuk jurnal yang tujuannya adalah
+	 * bukti forensik, sifat retroaktif ini penting diketahui: kolom yang tersimpan tetap utuh,
+	 * tetapi nilai yang dilihat aplikasi bisa berbeda.</li>
+	 *
+	 * <li><b>Pencocokan pertama yang menang.</b> Iterasi berhenti pada kecocokan pertama tanpa
+	 * mendeteksi ambiguitas; bila ada lebih dari satu {@link BankHost} dengan IP sama, hasilnya
+	 * bergantung urutan iterasi cache yang tidak dijamin stabil.</li>
+	 *
+	 * <li><b>Galat ditelan.</b> Setiap iterasi dibungkus {@code try/catch} yang hanya mencatat
+	 * ke {@code ErrorAuditUtil} lalu melanjutkan, sehingga entri master yang rusak tidak
+	 * menggagalkan penelusuran — sekaligus tidak terlihat oleh pemanggil.</li>
+	 * </ol>
+	 *
+	 * @return mitra host-to-host yang terkait; {@code null} bila tidak tersetel dan tidak ada
+	 *         {@link BankHost} yang IP-nya cocok
+	 */
 	@ManyToOne(cascade = { CascadeType.PERSIST, CascadeType.MERGE }, fetch = FetchType.LAZY)
 	@JoinColumn(name = "bank_host", nullable = true)
 	public BankHost getBankHost() {

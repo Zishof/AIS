@@ -427,60 +427,149 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Token identifikasi perangkat/QR milik pengguna. Lihat {@link #getToken()} &mdash;
+	 * nilainya dapat berasal dari entitas tertaut dan di-<i>generate</i> otomatis bila kosong.
+	 */
 	private String token;
+	/** Nama tampilan pengguna. Getter-nya delegatif; lihat {@link #getUserNama()}. */
 	private String userNama;
+	/**
+	 * Kata sandi ter-<i>encode</i> DES (reversibel). Lihat peringatan keamanan lengkap pada
+	 * {@link #getUserPassword()}.
+	 */
 	private String userPassword;
 
+	/**
+	 * Peran utama (kolom {@code userrole}, {@code nullable=false}). Slot ini yang dipakai
+	 * {@link #hakAkses()} sebagai peran <b>efektif</b> pengguna.
+	 */
 	private Tbmrole userRole;
+	/** Peran tambahan slot 2. Lihat {@link #getUserRole2()} dan {@link #ambilRoles()}. */
 	private Tbmrole userRole2;
+	/** Peran tambahan slot 3. Lihat {@link #getUserRole3()} dan {@link #ambilRoles()}. */
 	private Tbmrole userRole3;
+	/** Peran tambahan slot 4. Lihat {@link #getUserRole4()} dan {@link #ambilRoles()}. */
 	private Tbmrole userRole4;
+	/** Peran tambahan slot 5. Lihat {@link #getUserRole5()} dan {@link #ambilRoles()}. */
 	private Tbmrole userRole5;
+	/**
+	 * Penanda bahwa akun memakai slot peran tambahan ({@code userRole2}..{@code userRole5}).
+	 * Lihat {@link #getMemilikiHakAksesTambahan()}.
+	 */
 	private Boolean memilikiHakAksesTambahan;
+	/**
+	 * Penanda tampil/sembunyi akun di daftar pengguna. Default {@code 1} (tampil). Satu-satunya
+	 * field angka polos di kelas ini yang getter-nya benar-benar non-delegatif.
+	 */
 	private Integer userShow = 1;
+	/** Relasi ke data dosen. Getter-nya melakukan auto-resolusi; lihat {@link #getDosen()}. */
 	private Dosen dosen;
+	/** Relasi ke data guru. Getter-nya melakukan auto-resolusi; lihat {@link #getGuru()}. */
 	private Guru guru;
+	/** Relasi ke biodata pendaftar PMB. Bersifat transien; lihat {@link #getBiodataCalonMahasiswa()}. */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/** Relasi ke data kepegawaian. Lihat {@link #getPegawai()} dan {@link #getPegawaiTransien()}. */
 	private Pegawai pegawai;
+	/** Relasi ke data mahasiswa. Bersifat transien; lihat {@link #getMahasiswa()}. */
 	private Mahasiswa mahasiswa;
+	/** Relasi ke data siswa. Bersifat transien; lihat {@link #getSiswa()}. */
 	private Siswa siswa;
+	/**
+	 * Relasi ke tenaga medis modul SIRS (mencakup Dokter, Perawat, dan Bidan &mdash; satu tabel).
+	 * Lihat {@link #getDokter()}.
+	 */
 	private ais.database.model.sirs.Dokter dokter;
+	/** Relasi ke data penduduk modul SISDES. Bersifat transien; lihat {@link #getPenduduk()}. */
 	private Penduduk penduduk;
+	/**
+	 * Relasi ke keanggotaan koperasi. <b>Berpengaruh besar</b>: bila terisi, ia mengambil alih
+	 * hasil {@link #getAktif()} dan {@link #getUserPassword()}.
+	 */
 	private AnggotaKoperasi anggotaKoperasi;
+	/** Relasi ke peserta kursus/LMS. Transien, hanya diisi lewat konstruktor konversi. */
 	private PesertaKursus pesertaKursus;
+	/** Relasi ke calon siswa (PSB). Bersifat transien; lihat {@link #getCalonSiswa()}. */
 	private CalonSiswa calonSiswa;
+	/** Relasi ke pelamar/calon pegawai (rekrutmen). Lihat {@link #getCalonPegawai()}. */
 	private CalonPegawai calonPegawai;
+	/** Relasi ke penyedia/vendor aset. Menentukan peran {@code tbmrolePenyedia}. */
 	private PenyediaAsset penyediaAsset;
+	/** Lokasi fisik (modul aset) yang melekat pada akun ini. */
 	private Lokasi lokasi;
+	/** Relasi ke data orang tua/wali siswa. Lihat {@link #getOrangTua()}. */
 	private OrangTua orangTua;
+	/**
+	 * Alamat surel, <b>boleh berisi beberapa alamat dipisah koma</b>. Lihat
+	 * {@link #getEmail()} dan {@link #appendEmail(String)}.
+	 */
 	private String email;
+	/** Nomor telepon/HP. Delegatif dan multi-nilai; lihat {@link #getHp()}. */
 	private String hp;
 
+	/** Program studi/jenjang (lingkup organisasi). Lihat {@link #ambilProgram()}. */
 	private Program program;
 
+	/**
+	 * Salinan {@code pegawai} yang <b>tidak dipetakan ke kolom</b> ({@code @Transient}) dan
+	 * berfungsi sebagai jalur pintas berprioritas tertinggi di {@link #getPegawai()}, sehingga
+	 * hasil {@link #setPegawai(Pegawai)} tidak "hilang" ditimpa auto-resolusi.
+	 */
 	private Pegawai pegawaiTransien = null;
 
+	/** Program studi/jurusan (lingkup organisasi). Lihat {@link #ambilJurusan()}. */
 	private Jurusan jurusan;
+	/** Fakultas (lingkup organisasi). Lihat {@link #ambilFakultas()}. */
 	private Fakultas fakultas;
+	/** Yayasan penaung sekolah (lingkup organisasi). Lihat {@link #ambilYayasan()}. */
 	private Yayasan yayasan;
+	/** Sekolah (lingkup organisasi). Lihat {@link #ambilSekolah()}. */
 	private Sekolah sekolah;
+	/** Perguruan tinggi (lingkup organisasi). Lihat {@link #getPerguruanTinggi()}. */
 	private PerguruanTinggi perguruanTinggi;
+	/**
+	 * Penanda apakah {@link #userPassword} sudah ter-<i>encode</i> DES atau masih polos.
+	 * Lihat {@link #getIs_encripted()}.
+	 */
 	private Boolean is_encripted;
 
+	/** Penanda akun {@code root}/supervisor. Lihat {@link #getRoot()}. */
 	private Boolean root;
+	/**
+	 * Status aktif akun (gerbang blokir login). <b>Baca {@link #getAktif()}</b> &mdash; getter
+	 * ini punya banyak aturan turunan dan jalur pintas yang mengabaikan nilai field ini.
+	 */
 	private Boolean aktif;
+	/** Satuan kerja (lingkup organisasi paling sering dipakai untuk filter data keuangan). */
 	private SatuanKerja satuanKerja;
 
+	/** Id akun Facebook tertaut (multi-nilai dipisah koma). Lihat {@link #getFacebookId()}. */
 	private String facebookId;
+	/** Id akun Google tertaut (multi-nilai dipisah koma). Lihat {@link #getGoogleId()}. */
 	private String googleId;
+	/** Id akun Twitter/X tertaut (multi-nilai dipisah koma). Lihat {@link #getTwitterId()}. */
 	private String twitterId;
+	/** Id akun LinkedIn tertaut (multi-nilai dipisah koma). Lihat {@link #getLinkedinId()}. */
 	private String linkedinId;
 
+	/** Profil media sosial terserialisasi (kolom {@code text}). Lihat {@link #getSocialMediaProfile()}. */
 	private String socialMediaProfile;
+	/**
+	 * Bahasa antarmuka pilihan pengguna. <b>Otoritatif</b> &mdash; satu-satunya field di kelas
+	 * ini yang secara eksplisit diprioritaskan di atas entitas tertaut; lihat
+	 * {@link #getBahasa()}.
+	 */
 	private String bahasa;
+	/** Username untuk integrasi OJS (jurnal). Lihat {@link #getUsernameOjs()}. */
 	private String usernameOjs;
+	/**
+	 * Relasi ke pedagang/petugas toko (modul inventory/POS). Seperti {@code anggotaKoperasi},
+	 * relasi ini mengambil alih hasil {@link #getAktif()} dan {@link #getUserPassword()}.
+	 */
 	private Pedagang pedagang;
+	/** Tenant tempat akun bernaung. Lihat {@link #getPendaftar()}. */
 	private ais.database.model.Pendaftar pendaftar;
+	/** Jenis kelamin. Delegatif penuh; lihat {@link #getKelamin()}. */
 	private String kelamin;
 
 	/**
@@ -494,15 +583,73 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	 */
 	private Long tokoAktifMultiToko;
 
+	/**
+	 * Token push-notification Google Cloud Platform / Firebase, <b>multi-perangkat</b>:
+	 * beberapa token digabung dalam satu kolom {@code text} dipisah titik koma. Lihat
+	 * {@link #setGcpToken(String)} dan {@link #tambahToken(String, String)}.
+	 */
 	private String gcpToken;
 
+	/**
+	 * Konstruktor tanpa argumen yang diwajibkan Hibernate/JPA. Tidak menetapkan nilai apa pun
+	 * kecuali default field ({@code userShow = 1}, {@code tanggal_dirubah = }waktu sekarang).
+	 */
 	public Tbmuser() {
 	}
 
+	/**
+	 * Membuat instance ringan yang hanya membawa kunci primer.
+	 *
+	 * <p>Berguna sebagai referensi/kriteria pencarian tanpa perlu memuat baris utuh dari
+	 * database. Menulis <b>langsung ke field</b>, melewati {@link #setUserId(String)}.</p>
+	 *
+	 * @param userId username/kunci primer akun
+	 */
 	public Tbmuser(String userId) {
 		this.userId = userId;
 	}
 
+	/**
+	 * Konstruktor <b>konversi</b>: membangun akun {@code Tbmuser} dari sebuah entitas orang
+	 * yang sudah ada (mahasiswa, siswa, dosen, guru, pegawai, dan seterusnya).
+	 *
+	 * <p>Dipakai oleh alur "buatkan akun login untuk data ini" &mdash; mis. saat mahasiswa
+	 * baru diterima, guru baru diangkat, atau peserta kursus mendaftar. Konstruktor menerima
+	 * {@link GeneralValueObject} (kelas induk seluruh entity AIS) lalu memakai
+	 * {@code instanceof} berjenjang untuk menentukan jenis aktor, mengisi relasi yang sesuai,
+	 * menetapkan {@link #setUserRole(Tbmrole)} dari konstanta {@link ConstantValues}, serta
+	 * menurunkan {@code userId}, {@code userNama}, dan lingkup organisasinya.</p>
+	 *
+	 * <h3>Alur yang perlu diperhatikan</h3>
+	 * <ul>
+	 *   <li><b>{@link PesertaKursus} diproses lebih dulu dan terpisah</b> (blok {@code if}
+	 *   sendiri, bukan bagian rantai {@code else if}). Bila peserta kursus ternyata menunjuk
+	 *   ke {@code Tbmuser} yang sudah ada, variabel {@code generalValueObject} <b>ditimpa</b>
+	 *   dengan object itu &mdash; namun rantai {@code instanceof} berikutnya tidak memiliki
+	 *   cabang untuk {@code Tbmuser}, sehingga akun hasilnya hanya membawa relasi
+	 *   {@code pesertaKursus} tanpa menyalin data akun asal.</li>
+	 *   <li><b>{@link Dosen} dan {@link Guru} hanya diterima bila {@code getAktif()} bernilai
+	 *   benar.</b> Untuk dosen/guru non-aktif, seluruh rantai gagal dan konstruktor
+	 *   menghasilkan akun kosong tanpa peran &mdash; bukan melempar exception.</li>
+	 *   <li><b>Beberapa cabang tidak menetapkan peran sama sekali</b>, yaitu
+	 *   {@link BiodataCalonMahasiswa}, {@link Guru}, {@link Pegawai}, dan
+	 *   {@link ais.database.model.sekolah.CalonSiswa}. Untuk kasus itu peran diharapkan
+	 *   ditentukan belakangan oleh pemanggil atau oleh auto-resolusi di
+	 *   {@link #getUserRole()}.</li>
+	 *   <li><b>Cabang {@link OrangTua} memanggil {@code setUserNama(null)}</b> dan
+	 *   {@code setPenyediaAsset(null)}; nama akan diturunkan kemudian oleh
+	 *   {@link #getUserNama()} dari {@code orangTua.getNamaAyah()}.</li>
+	 *   <li>Setiap entitas dilewatkan {@link GeneralValueObject#check(Object) check(...)}
+	 *   lebih dulu supaya proxy lazy yang sudah <i>detached</i> ter-resolve.</li>
+	 * </ul>
+	 *
+	 * <p><b>Yang TIDAK dilakukan konstruktor ini:</b> tidak menetapkan kata sandi, tidak
+	 * memeriksa apakah {@code userId} hasil turunan sudah terpakai akun lain, dan tidak
+	 * menyimpan apa pun ke database. Seluruh tanggung jawab itu ada pada pemanggil.</p>
+	 *
+	 * @param generalValueObject entitas orang sumber; jenis yang tidak dikenali menghasilkan
+	 *                           akun kosong tanpa peran dan tanpa relasi
+	 */
 	public Tbmuser(GeneralValueObject generalValueObject) {
 
 		if (generalValueObject instanceof PesertaKursus) {
@@ -639,6 +786,25 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 	}
 
 
+	/**
+	 * Memastikan sebuah relasi aman disentuh <b>tanpa memicu lazy-load</b>.
+	 *
+	 * <p>Berbeda dari {@link GeneralValueObject#check(Object) check(...)} yang berusaha
+	 * <i>me-resolve</i> proxy (dan karenanya butuh {@link Session} hidup atau cache yang
+	 * terisi), method ini hanya <b>bertanya</b> apakah proxy sudah ter-inisialisasi. Dipakai
+	 * khusus oleh {@link #getUserId()}, yang boleh dipanggil Hibernate di tengah proses
+	 * memuat entity maupun oleh proses cache latar belakang saat session sudah tertutup
+	 * &mdash; kondisi di mana memaksa lazy-load akan melempar
+	 * {@code LazyInitializationException} atau "Session is closed!".</p>
+	 *
+	 * <p>{@code null} dianggap aman (mengembalikan {@code true}) karena tidak ada proxy yang
+	 * perlu diinisialisasi; pemanggil tetap wajib memeriksa {@code null} sendiri. Exception
+	 * apa pun ditafsirkan sebagai "tidak aman" ({@code false}), sehingga method ini
+	 * <i>fail-closed</i>.</p>
+	 *
+	 * @param value relasi yang hendak disentuh
+	 * @return {@code true} bila {@code null} atau proxy sudah ter-inisialisasi
+	 */
 	private boolean isSafeInitialized(Object value) {
 		try {
 			return value == null || org.hibernate.Hibernate.isInitialized(value);
@@ -647,6 +813,18 @@ public class Tbmuser extends GeneralValueObject implements SocialMediaCommonMode
 		}
 	}
 
+	/**
+	 * Menormalkan string: memangkas spasi di kedua ujung dan menyamakan string kosong dengan
+	 * {@code null}.
+	 *
+	 * <p>Dipakai {@link #getUserId()} agar {@code userId} berisi spasi saja diperlakukan sama
+	 * dengan {@code userId} kosong, sehingga jalur turunan dari entitas tertaut tetap
+	 * dijalankan alih-alih mengembalikan kunci primer yang tidak sah.</p>
+	 *
+	 * @param value string yang dinormalkan
+	 * @return string hasil {@code trim()}, atau {@code null} bila masukan {@code null} atau
+	 *         menjadi kosong setelah dipangkas
+	 */
 	private String trimToNull(String value) {
 		if (value == null) {
 			return null;

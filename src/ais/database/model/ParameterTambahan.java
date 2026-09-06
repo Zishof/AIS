@@ -213,26 +213,76 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return id + "-" + nama;
 	}
 
+	/**
+	 * Kode pendek parameter (mis. {@code "f8"}, {@code "f1601"} pada kuesioner Tracer Kemendikbud).
+	 * Dipakai sebagai kunci stabil saat mengekspor nilai ke map laporan — lihat kunci
+	 * {@code param.kode.<kode>} di {@link #masukkanSemuaParameterKeMap(String, Map)}. Tidak dijamin unik
+	 * oleh basis data.
+	 */
 	private String kode;
 
+	/** Nama tampil parameter. Bila kosong, {@link #getNama()} menurunkannya dari {@link #getLabelInputan()}. */
 	private String nama;
+	/** Keterangan bebas untuk pengelola parameter. Kolom {@code text}, default string kosong. */
 	private String keterangan;
+	/**
+	 * Tipe inputan; SALAH SATU konstanta {@code String} milik {@link ParameterTambahanAstract} (mis.
+	 * {@link ParameterTambahanAstract#TEXT}, {@link ParameterTambahanAstract#ANGKA},
+	 * {@link ParameterTambahanAstract#PILIHAN_CUSTOM}). Nilai inilah yang menentukan komponen ZK mana yang
+	 * dibuat {@link ParameterTambahanAstract#ambilComponent}. Disimpan sebagai KALIMAT lengkap berbahasa
+	 * Indonesia (mis. {@code "Berupa teks"}), bukan enum atau kode pendek, sehingga mengganti teks konstanta
+	 * akan memutus seluruh baris data lama.
+	 */
 	private String tipeDataInputan;
+	/**
+	 * Data pendamping tipe inputan; artinya BERGANTUNG pada {@link #tipeDataInputan}:
+	 * <ul>
+	 * <li>{@link ParameterTambahanAstract#PILIHAN_CUSTOM} / {@link ParameterTambahanAstract#PILIHAN_BANYAK}
+	 * — daftar pilihan dipisah {@code ";"}, tiap butir boleh berformat {@code "label:nilai"}.</li>
+	 * <li>{@link ParameterTambahanAstract#PILIHAN_MATRIX} dan variannya — satu baris per baris matriks,
+	 * dipisah baris baru, berformat {@code "namaBaris->kol1:nilai1;kol2:nilai2"}.</li>
+	 * <li>{@link ParameterTambahanAstract#PILIHAN_OBJECT} — nama kelas berkualifikasi penuh (FQCN) entity
+	 * yang boleh dipilih. Nilai ini di-{@code Class.forName} apa adanya.</li>
+	 * </ul>
+	 */
 	private String nilaiDataInputan;
+	/**
+	 * Potongan SQL mentah penyaring kandidat untuk {@link ParameterTambahanAstract#PILIHAN_OBJECT}.
+	 * Disisipkan sebagai {@code Restrictions.sqlRestriction} tanpa parameter terikat, jadi isinya
+	 * diperlakukan sebagai SQL tepercaya — hanya boleh diisi oleh pengelola parameter, bukan pengguna akhir.
+	 */
 	private String kondisiDataInputan;
+	/** Bila {@code true}, form memunculkan baris unggah lampiran khusus untuk parameter ini. */
 	private Boolean harusMenyertakanLampiran;
+	/** Bila {@code true}, form memunculkan baris isian keterangan tambahan di bawah komponen utama. */
 	private Boolean tampilkanIsianKeterangan;
+	/** Teks label yang ditampilkan di sebelah kiri komponen isian (praktisnya: bunyi pertanyaannya). */
 	private String labelInputan;
+	/** Label untuk baris keterangan tambahan; default {@code "Keterangan"} bila kosong. */
 	private String labelInputanKeterangan;
+	/** Penanda aktif. Default {@code true} — lihat catatan flag pada {@link #getAktif()}. */
 	private Boolean aktif;
+	/** Bila {@code true}, isian ini wajib diisi saat validasi form. Default {@code true}. */
 	private Boolean wajibDiisi;
+	/** Bila {@code true}, baris hanya dirender untuk admin dengan kode pada {@link #kodeAdminYgBoleh}. */
 	private Boolean hanyaTampilDiAdmin;
+	/** Kode admin yang boleh melihat baris ini. Lihat peringatan destruktif di {@link #getKodeAdminYgBoleh()}. */
 	private String kodeAdminYgBoleh;
+	/** Bila {@code true}, lampiran pada parameter ini wajib; ditandai {@code "(*)"} di label unggah. */
 	private Boolean lampiranWajibDiisi;
+	/** Urutan tampil dalam satu grup. Menjadi dasar {@link #compareTo(GeneralValueObject)}. Default {@code 1}. */
 	private Integer nomorUrut;
+	/** Jumlah baris {@code Textbox} untuk tipe {@link ParameterTambahanAstract#TEXT}. Default {@code 1}. */
 	private Integer jumlahBaris;
+	/** Batas panjang karakter {@code Textbox}. Default sangat longgar ({@code 100000}). */
 	private Integer jumlahText;
+	/** Grup pengelompokan parameter di layar master. Relasi lazy; lihat {@link #getGrupParameterTambahan()}. */
 	private GrupParameterTambahan grupParameterTambahan;
+	/**
+	 * Parameter induk — dipakai untuk menyusun pertanyaan bertingkat (mis. butir {@code f18a}..{@code f18d}
+	 * bernaung di bawah {@code f18}). Bersifat rujukan diri; TIDAK ada penjaga siklus, jadi rantai induk
+	 * yang melingkar akan menggantung penelusur yang menaikinya tanpa batas kedalaman.
+	 */
 	private ParameterTambahan parent;
 
 	// SYARAT TAMPIL (conditional display / skip-logic) berbasis JSON agar MENDUKUNG BANYAK syarat
@@ -241,20 +291,43 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 	// Kosong/null = parameter SELALU tampil.
 	private String syaratTampil;
 
+	/** Bila {@code true}, nilai dirender sebagai {@code Label} mati (hanya baca) alih-alih komponen isian. */
 	private Boolean nilaiTidakBolehDiubah;
+	/** Nilai awal yang dipakai bila isian tersimpan masih kosong. Default string kosong. */
 	private String nilaiDefault;
 
+	/**
+	 * Pembatas lingkup: jurusan pemilik parameter. Empat field lingkup
+	 * ({@link #jurusan}, {@link #fakultas}, {@link #yayasan}, {@link #sekolah}) semuanya {@code nullable}
+	 * dan tidak dipaksakan oleh kelas ini — penyaringannya sepenuhnya tanggung jawab kueri pemanggil.
+	 * Baris dengan keempat field {@code null} berlaku lintas lingkup.
+	 */
 	private Jurusan jurusan;
+	/** Pembatas lingkup: fakultas pemilik parameter. Lihat catatan lingkup pada {@link #jurusan}. */
 	private Fakultas fakultas;
+	/** Pembatas lingkup: yayasan pemilik parameter. Diturunkan dari {@link #sekolah} bila ada — lihat {@link #getYayasan()}. */
 	private Yayasan yayasan;
+	/** Pembatas lingkup: sekolah pemilik parameter. Lihat catatan lingkup pada {@link #jurusan}. */
 	private Sekolah sekolah;
 
+	/** Batas atas untuk tipe {@link ParameterTambahanAstract#ANGKA}. Default {@code 100000000.0} bila kosong. */
 	private Double nilaiMax;
+	/** Batas bawah untuk tipe {@link ParameterTambahanAstract#ANGKA}. Default {@code -100000000.0} bila kosong. */
 	private Double nilaiMin;
 
+	/** Konstruktor tanpa argumen yang diwajibkan JPA/Hibernate. Semua field dibiarkan pada nilai awalnya. */
 	public ParameterTambahan() {
 	}
 
+	/**
+	 * Kunci utama baris definisi parameter.
+	 *
+	 * <p>Nilai inilah yang menjadi bagian {@code ptId} pada kunci gabungan {@code kelId->ptId} yang dipakai
+	 * untuk menyimpan nilai isian sekaligus sebagai namespace lampiran. Lihat javadoc kelas dan
+	 * {@link #masukkanSemuaParameterKeMap(String, Map)}.</p>
+	 *
+	 * @return id baris, atau {@code null} bila entity belum pernah disimpan.
+	 */
 	@Id
 	@GeneratedValue(strategy = IDENTITY)
 	@Column(name = "id", insertable = false, unique = true, nullable = false)
@@ -262,18 +335,53 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return this.id;
 	}
 
+	/**
+	 * Menetapkan kunci utama. Lazimnya hanya dipanggil Hibernate.
+	 *
+	 * @param id kunci utama.
+	 */
 	public void setId(Long id) {
 		this.id = id;
 	}
 
+	/**
+	 * Kode pendek parameter.
+	 *
+	 * <p>Salah satu dari sedikit getter MURNI di kelas ini — mengembalikan field apa adanya, termasuk
+	 * {@code null}, tanpa memutasi apa pun. Pemanggil wajib menangani {@code null}/kosong sendiri, dan
+	 * memang itu yang dilakukan {@link #masukkanSemuaParameterKeMap(String, Map)}.</p>
+	 *
+	 * @return kode parameter, boleh {@code null}.
+	 */
 	public String getKode() {
 		return kode;
 	}
 
+	/**
+	 * Menetapkan kode pendek parameter.
+	 *
+	 * @param kode kode baru; tidak divalidasi keunikannya.
+	 */
 	public void setKode(String kode) {
 		this.kode = kode;
 	}
 
+	/**
+	 * Nama tampil parameter, dengan penurunan otomatis dari label bila belum diisi.
+	 *
+	 * <p><b>Getter memutasi field (pola sistemik).</b> Bila {@code nama} masih {@code null}, getter ini
+	 * MENULIS hasil {@link #getLabelInputan()} ke field {@code nama} — dan {@code getLabelInputan()} sendiri
+	 * juga menulis string kosong ke field-nya bila kosong. Jadi satu pembacaan {@code getNama()} dapat
+	 * mengubah DUA field sekaligus, membuat entity kotor dan berpotensi memicu UPDATE beserta revisi Envers
+	 * meski tidak ada perubahan yang disengaja. Bandingkan dengan {@link #toString()} yang sengaja membaca
+	 * field mentah agar tidak memutasi apa pun.</p>
+	 *
+	 * <p>Perlu dicatat kolomnya {@code nullable = false}, sementara getter masih bisa mengembalikan
+	 * {@code null} — yaitu bila {@code getLabelInputan()} pun mengembalikan {@code null}, yang pada praktiknya
+	 * tidak terjadi karena getter itu selalu mengganti {@code null} menjadi string kosong.</p>
+	 *
+	 * @return nama yang sudah di-{@code trim}, atau {@code null} pada kasus tepi di atas.
+	 */
 	@Column(name = "nama", nullable = false, length = 255)
 	public String getNama() {
 		if (nama == null) {
@@ -282,10 +390,23 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return this.nama == null ? null : this.nama.trim();
 	}
 
+	/**
+	 * Menetapkan nama tampil parameter.
+	 *
+	 * @param nama nama baru; bila {@code null}, {@link #getNama()} akan menurunkannya kembali dari label.
+	 */
 	public void setNama(String nama) {
 		this.nama = nama;
 	}
 
+	/**
+	 * Keterangan bebas parameter.
+	 *
+	 * <p><b>Getter memutasi field:</b> {@code null} ditulis menjadi string kosong. Lihat catatan pola pada
+	 * javadoc kelas.</p>
+	 *
+	 * @return keterangan; tidak pernah {@code null} setelah pemanggilan pertama.
+	 */
 	@Column(name = "keterangan", nullable = true, columnDefinition = "text")
 	public String getKeterangan() {
 		if (keterangan == null) {
@@ -294,10 +415,32 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return this.keterangan;
 	}
 
+	/**
+	 * Menetapkan keterangan bebas parameter.
+	 *
+	 * @param keterangan teks keterangan; boleh {@code null}.
+	 */
 	public void setKeterangan(String keterangan) {
 		this.keterangan = keterangan;
 	}
 
+	/**
+	 * Tipe inputan parameter — penentu komponen ZK yang dibangun.
+	 *
+	 * <p><b>Getter memutasi field, dan defaultnya berkonsekuensi.</b> Bila {@code tipeDataInputan} masih
+	 * {@code null}, getter MENULIS {@link ParameterTambahanAstract#PILIHAN_CUSTOM} ke field. Artinya
+	 * parameter yang tipenya belum pernah ditetapkan diam-diam menjadi "pilihan custom" begitu dibaca;
+	 * karena {@link #nilaiDataInputan} biasanya masih kosong, hasilnya adalah {@code Combobox} tanpa satu
+	 * pun pilihan — isian yang mustahil diisi, bukan pesan kesalahan. Nilai ini juga akan ikut tersimpan
+	 * bila entity ter-flush.</p>
+	 *
+	 * <p>Nilai balik dibandingkan dengan {@code equals} terhadap konstanta {@link ParameterTambahanAstract}
+	 * di sepanjang {@link ParameterTambahanAstract#ambilComponent} dan
+	 * {@link ParameterTambahanAstract#ambilValComponent}, sehingga tidak pernah dianggap {@code null} di
+	 * sana.</p>
+	 *
+	 * @return salah satu konstanta tipe milik {@link ParameterTambahanAstract}; tidak pernah {@code null}.
+	 */
 	public String getTipeDataInputan() {
 		if (tipeDataInputan == null) {
 			tipeDataInputan = PILIHAN_CUSTOM;
@@ -305,10 +448,26 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return tipeDataInputan;
 	}
 
+	/**
+	 * Menetapkan tipe inputan.
+	 *
+	 * @param tipeDataInputan harus SALAH SATU konstanta {@link ParameterTambahanAstract}; nilai di luar itu
+	 *                        tidak ditolak di sini, tetapi membuat {@code ambilComponent} mengembalikan
+	 *                        {@code null} sehingga barisnya tidak punya komponen isian sama sekali.
+	 */
 	public void setTipeDataInputan(String tipeDataInputan) {
 		this.tipeDataInputan = tipeDataInputan;
 	}
 
+	/**
+	 * Apakah parameter ini mewajibkan baris unggah lampiran tersendiri.
+	 *
+	 * <p><b>Getter memutasi field</b> ({@code null} ditulis menjadi {@code false}). Nilai {@code true}
+	 * itulah yang membuat {@link ParameterTambahanAstract#initComponent} membangun baris unggah dengan
+	 * kunci namespace {@code jenis} — akar {@code task_484d4bd0}.</p>
+	 *
+	 * @return {@code true} bila lampiran ditampilkan; tidak pernah {@code null}.
+	 */
 	public Boolean getHarusMenyertakanLampiran() {
 		if (harusMenyertakanLampiran == null) {
 			harusMenyertakanLampiran = false;
@@ -316,10 +475,27 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return harusMenyertakanLampiran;
 	}
 
+	/**
+	 * Menetapkan apakah parameter ini menampilkan baris unggah lampiran.
+	 *
+	 * @param harusMenyertakanLampiran penanda; {@code null} akan dibaca sebagai {@code false}.
+	 */
 	public void setHarusMenyertakanLampiran(Boolean harusMenyertakanLampiran) {
 		this.harusMenyertakanLampiran = harusMenyertakanLampiran;
 	}
 
+	/**
+	 * Label isian — teks pertanyaan yang dilihat pengguna.
+	 *
+	 * <p><b>Getter memutasi field</b> ({@code null} ditulis menjadi string kosong).</p>
+	 *
+	 * <p>Selain sebagai label, nilai ini dipakai sebagai DATA oleh
+	 * {@link ParameterTambahanAstract#isiOtomatisParameterTerkaitPenyedia}: konteks korelasi antar-parameter
+	 * vendor diambil dengan mencocokkan akhiran label. Karena itu mengubah kata-kata label dapat mematikan
+	 * pengisian otomatis tanpa ada perubahan kode.</p>
+	 *
+	 * @return label isian; tidak pernah {@code null} setelah pemanggilan pertama.
+	 */
 	public String getLabelInputan() {
 		if (labelInputan == null) {
 			labelInputan = "";
@@ -327,10 +503,23 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return labelInputan;
 	}
 
+	/**
+	 * Menetapkan label isian.
+	 *
+	 * @param labelInputan teks label; boleh {@code null}.
+	 */
 	public void setLabelInputan(String labelInputan) {
 		this.labelInputan = labelInputan;
 	}
 
+	/**
+	 * Data pendamping tipe inputan (daftar pilihan, definisi matriks, atau FQCN entity).
+	 *
+	 * <p><b>Getter memutasi field</b> ({@code null} ditulis menjadi string kosong). Format isinya bergantung
+	 * pada {@link #getTipeDataInputan()} — lihat rincian pada deklarasi field {@link #nilaiDataInputan}.</p>
+	 *
+	 * @return data pendamping; tidak pernah {@code null} setelah pemanggilan pertama.
+	 */
 	@Column(columnDefinition = "text")
 	public String getNilaiDataInputan() {
 		if (nilaiDataInputan == null) {
@@ -339,10 +528,25 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return nilaiDataInputan;
 	}
 
+	/**
+	 * Menetapkan data pendamping tipe inputan.
+	 *
+	 * @param nilaiDataInputan isi sesuai format tipe yang dipilih; tidak divalidasi di sini.
+	 */
 	public void setNilaiDataInputan(String nilaiDataInputan) {
 		this.nilaiDataInputan = nilaiDataInputan;
 	}
 
+	/**
+	 * Penanda aktif parameter.
+	 *
+	 * <p><b>Getter memutasi field, dan defaultnya FAIL-OPEN:</b> {@code null} ditulis menjadi {@code true}.
+	 * Baris lama yang kolom {@code aktif}-nya masih {@code NULL} — mis. baris yang dibuat sebelum kolom ini
+	 * ada — otomatis dianggap AKTIF, bukan nonaktif. Penyaringan berdasarkan flag ini pun tidak dilakukan
+	 * kelas ini sama sekali; sepenuhnya tanggung jawab kueri pemanggil.</p>
+	 *
+	 * @return {@code true} bila parameter aktif; tidak pernah {@code null}.
+	 */
 	public Boolean getAktif() {
 		if (aktif == null) {
 			aktif = true;
@@ -350,10 +554,24 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return aktif;
 	}
 
+	/**
+	 * Menetapkan penanda aktif.
+	 *
+	 * @param aktif penanda; {@code null} akan dibaca kembali sebagai {@code true}.
+	 */
 	public void setAktif(Boolean aktif) {
 		this.aktif = aktif;
 	}
 
+	/**
+	 * Nomor urut tampil dalam satu grup.
+	 *
+	 * <p><b>Getter memutasi field</b> ({@code null} ditulis menjadi {@code 1}). Baris {@code return}-nya
+	 * mengandung pemeriksaan {@code null} KEDUA yang sudah tidak mungkin benar karena blok {@code if} di
+	 * atasnya pasti sudah mengisi field — sisa penyuntingan lama yang tidak berbahaya.</p>
+	 *
+	 * @return nomor urut; tidak pernah {@code null}.
+	 */
 	public Integer getNomorUrut() {
 		if (nomorUrut == null) {
 			nomorUrut = 1;
@@ -361,10 +579,25 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return nomorUrut == null ? 1 : nomorUrut;
 	}
 
+	/**
+	 * Menetapkan nomor urut tampil.
+	 *
+	 * @param nomorUrut urutan; tidak dijamin unik antar parameter dalam satu grup — dua parameter dengan
+	 *                  nomor sama akan berurutan secara tidak tentu.
+	 */
 	public void setNomorUrut(Integer nomorUrut) {
 		this.nomorUrut = nomorUrut;
 	}
 
+	/**
+	 * Apakah isian ini wajib diisi.
+	 *
+	 * <p><b>Getter memutasi field, default {@code true}</b> — parameter yang kolomnya masih {@code NULL}
+	 * diperlakukan WAJIB. Ini kebalikan arah dari {@link #getHarusMenyertakanLampiran()} yang default
+	 * {@code false}; keduanya berdampingan sehingga mudah tertukar saat membaca sepintas.</p>
+	 *
+	 * @return {@code true} bila wajib diisi; tidak pernah {@code null}.
+	 */
 	public Boolean getWajibDiisi() {
 		if (wajibDiisi == null) {
 			wajibDiisi = true;
@@ -372,10 +605,26 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return wajibDiisi;
 	}
 
+	/**
+	 * Menetapkan wajib/tidaknya isian.
+	 *
+	 * @param wajibDiisi penanda; {@code null} akan dibaca kembali sebagai {@code true}.
+	 */
 	public void setWajibDiisi(Boolean wajibDiisi) {
 		this.wajibDiisi = wajibDiisi;
 	}
 
+	/**
+	 * Apakah lampiran pada parameter ini wajib diisi.
+	 *
+	 * <p><b>Getter memutasi field, default {@code true}.</b> Hanya bermakna ketika
+	 * {@link #getHarusMenyertakanLampiran()} bernilai {@code true}; bila tidak, nilainya tetap tersimpan
+	 * tetapi tidak pernah dibaca. Dipakai {@link ParameterTambahanAstract#initComponent} semata untuk
+	 * menambahkan penanda {@code " (*)"} pada label unggah — penegakan wajib/tidaknya dilakukan di lapisan
+	 * validasi pemanggil, bukan di sini.</p>
+	 *
+	 * @return {@code true} bila lampiran wajib; tidak pernah {@code null}.
+	 */
 	public Boolean getLampiranWajibDiisi() {
 		if (lampiranWajibDiisi == null) {
 			lampiranWajibDiisi = true;
@@ -383,10 +632,30 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return lampiranWajibDiisi;
 	}
 
+	/**
+	 * Menetapkan wajib/tidaknya lampiran.
+	 *
+	 * @param lampiranWajibDiisi penanda; {@code null} akan dibaca kembali sebagai {@code true}.
+	 */
 	public void setLampiranWajibDiisi(Boolean lampiranWajibDiisi) {
 		this.lampiranWajibDiisi = lampiranWajibDiisi;
 	}
 
+	/**
+	 * Apakah baris parameter ini hanya ditampilkan kepada admin tertentu.
+	 *
+	 * <p><b>Getter memutasi field, default {@code false}</b> (yaitu terlihat semua orang). Bila
+	 * {@code true}, {@link ParameterTambahanAstract#initComponent} memanggil
+	 * {@code Common.getApakahAdmin(getKodeAdminYgBoleh())} lalu menyembunyikan sekaligus membekukan
+	 * ({@code Common.freeze}) barisnya.</p>
+	 *
+	 * <p><b>Ini kendali TAMPILAN, bukan kendali AKSES.</b> Baris yang disembunyikan tetap ikut dalam
+	 * struktur form dan nilainya tetap dibaca kembali oleh {@link ParameterTambahanAstract#ambilVal}; yang
+	 * dicegah hanyalah penyuntingan lewat layar. Jangan menjadikan flag ini satu-satunya penjaga untuk data
+	 * yang benar-benar rahasia.</p>
+	 *
+	 * @return {@code true} bila baris dibatasi admin; tidak pernah {@code null}.
+	 */
 	public Boolean getHanyaTampilDiAdmin() {
 		if (hanyaTampilDiAdmin == null) {
 			hanyaTampilDiAdmin = false;
@@ -394,15 +663,52 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return hanyaTampilDiAdmin;
 	}
 
+	/**
+	 * Menetapkan pembatasan tampil khusus admin.
+	 *
+	 * <p>Menyetel ini ke {@code false} membuat {@link #getKodeAdminYgBoleh()} MENGHAPUS kode admin yang
+	 * tersimpan pada pembacaan berikutnya — lihat peringatan di getter tersebut.</p>
+	 *
+	 * @param hanyaTampilDiAdmin penanda; {@code null} akan dibaca kembali sebagai {@code false}.
+	 */
 	public void setHanyaTampilDiAdmin(Boolean hanyaTampilDiAdmin) {
 		this.hanyaTampilDiAdmin = hanyaTampilDiAdmin;
 	}
 
+	/**
+	 * Pengurutan alami antar parameter: menaik menurut {@link #getNomorUrut()}.
+	 *
+	 * <p>Argumennya di-cast paksa ke {@code ParameterTambahan}, jadi membandingkan dengan
+	 * {@link GeneralValueObject} jenis lain melempar {@code ClassCastException}. Karena
+	 * {@code getNomorUrut()} memutasi field, MENGURUTKAN sebuah koleksi parameter dapat mengotori setiap
+	 * entity di dalamnya.</p>
+	 *
+	 * @param arg0 parameter pembanding; harus bertipe {@code ParameterTambahan}.
+	 * @return hasil {@code compareTo} antar nomor urut.
+	 */
 	@Override
 	public int compareTo(GeneralValueObject arg0) {
 		return getNomorUrut().compareTo(((ParameterTambahan) arg0).getNomorUrut());
 	}
 
+	/**
+	 * Kode admin yang berhak melihat baris ini.
+	 *
+	 * <p><b>GETTER DESTRUKTIF — bukan sekadar getter-mutasi-default.</b> Bila
+	 * {@link #getHanyaTampilDiAdmin()} bernilai {@code false}, getter ini MENIMPA field
+	 * {@code kodeAdminYgBoleh} dengan string kosong, yakni MEMBUANG data yang sebelumnya tersimpan. Berbeda
+	 * dengan getter lain di kelas ini yang hanya mengisi {@code null} dengan nilai default, yang satu ini
+	 * menghapus nilai yang sudah ada.</p>
+	 *
+	 * <p>Akibat praktisnya: mematikan {@code hanyaTampilDiAdmin} lalu sekadar MEMBACA parameter ini sudah
+	 * cukup untuk melenyapkan kode adminnya secara permanen begitu entity ter-flush. Menyalakan kembali
+	 * flag tersebut tidak mengembalikan kode lama — harus diisi ulang manual. Perancangannya memang
+	 * dimaksudkan menjaga konsistensi (kode admin tidak relevan bila pembatasan mati), tetapi menaruh
+	 * penghapusan data di dalam getter berarti efeknya terjadi pada jalur baca mana pun, termasuk saat
+	 * merender laporan.</p>
+	 *
+	 * @return kode admin yang sudah di-{@code trim}; string kosong bila tidak ada atau pembatasan mati.
+	 */
 	public String getKodeAdminYgBoleh() {
 		if (!getHanyaTampilDiAdmin()) {
 			kodeAdminYgBoleh = "";
@@ -410,6 +716,15 @@ public class ParameterTambahan extends ParameterTambahanAstract {
 		return kodeAdminYgBoleh == null ? "" : kodeAdminYgBoleh.trim();
 	}
 
+	/**
+	 * Menetapkan kode admin yang berhak melihat baris ini.
+	 *
+	 * <p>Menyetel nilai di sini TIDAK ada gunanya selama {@link #getHanyaTampilDiAdmin()} masih
+	 * {@code false} — pembacaan berikutnya akan menghapusnya kembali. Setel
+	 * {@link #setHanyaTampilDiAdmin(Boolean)} ke {@code true} lebih dulu.</p>
+	 *
+	 * @param kodeAdminYgBoleh kode admin; boleh {@code null}.
+	 */
 	public void setKodeAdminYgBoleh(String kodeAdminYgBoleh) {
 		this.kodeAdminYgBoleh = kodeAdminYgBoleh;
 	}
