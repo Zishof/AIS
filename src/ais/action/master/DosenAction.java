@@ -1170,7 +1170,7 @@ public class DosenAction extends GenericAutowireComposer
 															Integer.parseInt(port), null);
 
 													String token = feederConnector.getToken(username, password);
-													System.out.println("TOKEN => " + token);
+													System.out.println("TOKEN => " + (token == null || token.isEmpty() ? "(gagal)" : "(berhasil, disamarkan)"));
 
 													if (token == null || token.trim().isEmpty()
 															|| token.trim().toLowerCase().startsWith("error")) {

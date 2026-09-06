@@ -188,7 +188,7 @@ public class EksporFromFeederAction extends GenericAutowireComposer {
 		try {
 			List<String> warnings = new ArrayList<String>();
 			String token = feederConnector.getToken(username, password, warnings);
-			System.out.println("TOKEN => " + token);
+			System.out.println("TOKEN => " + (token == null || token.isEmpty() ? "(gagal)" : "(berhasil, disamarkan)"));
 
 			if (token == null || token.trim().isEmpty() || token.trim().toLowerCase().startsWith("error")) {
 				String detailTeknis = warnings.isEmpty() ? null : warnings.get(0);
@@ -488,7 +488,7 @@ public class EksporFromFeederAction extends GenericAutowireComposer {
 
 					List<String> warnings = new ArrayList<String>();
 					String token = feederConnector.getToken(username, password, warnings);
-					System.out.println("TOKEN => " + token);
+					System.out.println("TOKEN => " + (token == null || token.isEmpty() ? "(gagal)" : "(berhasil, disamarkan)"));
 
 					if (token == null || token.trim().isEmpty() || token.trim().toLowerCase().startsWith("error")) {
 						myProgressmeter.setValue(100);
