@@ -1776,6 +1776,58 @@ public class Va extends HttpServlet {
 	// =========================================================================================
 	// IMPLEMENTASI METHOD H2H REVERSAL (PEMBATALAN TRANSAKSI)
 	// =========================================================================================
+	/**
+	 * Menjalankan {@code action=reversal}: membatalkan setoran yang sebelumnya sudah diposting
+	 * atas sebuah VA, sehingga tagihan kembali berstatus belum dibayar.
+	 *
+	 * <h4>Prasyarat</h4>
+	 * <p>Pembatalan hanya berjalan bila kolom {@code kegiatan} pada VA sudah terisi &mdash; yaitu
+	 * VA memang pernah dibayar. Bila masih kosong, method langsung mengembalikan balasan berstatus
+	 * {@code 02} "Tagihan Belum Dibayar" tanpa menyentuh basis data.</p>
+	 *
+	 * <p>Berbeda dari {@code inquiry} dan {@code payment}, jalur ini <b>tidak</b> memeriksa
+	 * kedaluwarsa VA lewat {@link #isExpired} dan tidak membandingkan nominal apa pun.</p>
+	 *
+	 * <h4>Langkah pembatalan</h4>
+	 * <ol>
+	 *   <li>{@link Kegiatan} yang bersangkutan dimuat &mdash; dari kolom {@code kegiatan} pada VA,
+	 *       atau dicari ulang berdasarkan mahasiswa/calon, jenis kegiatan, dan semester &mdash;
+	 *       lalu atribut identitasnya ditulis ulang dan disimpan;</li>
+	 *   <li>relasi {@code kegiatan} pada objek VA di memori dikosongkan;</li>
+	 *   <li>daftar {@link DetailBiaya} dimuat dari kolom {@code detailbiaya} untuk menghitung
+	 *       ulang {@code nilaiBiayaHarusDiBayars}, sekaligus menyegarkan {@link DetailKegiatan}
+	 *       terkait;</li>
+	 *   <li><b>seluruh baris {@code cicilan_pembayaran} yang menunjuk VA ini dihapus</b> lewat
+	 *       satu perintah SQL native {@code delete from cicilan_pembayaran where ref_va = ...}.
+	 *       Nilai yang disisipkan berasal dari {@code vaNtt.getId()}, yaitu {@code Long} hasil
+	 *       pembacaan basis data, bukan masukan pemanggil, sehingga tidak membuka celah injeksi
+	 *       SQL &mdash; tetapi tetap jangan mengubah pola perangkaian string ini untuk nilai lain;</li>
+	 *   <li>total dan denda dihitung ulang dari cicilan yang tersisa, lalu {@link Kegiatan}
+	 *       diperbarui;</li>
+	 *   <li>{@code VirtualAccountBank.updateVa} dipanggil dengan kegiatan bernilai {@code null}
+	 *       untuk mengembalikan VA ke status belum dibayar.</li>
+	 * </ol>
+	 *
+	 * <p>Status balasan dibaca ulang dari kondisi VA sesudah pembatalan: {@code 00} "Reversal
+	 * Sukses" bila kolom {@code kegiatan} benar-benar sudah kosong, {@code 02} bila belum.</p>
+	 *
+	 * <p>Nilai {@code nominal} pada balasan awalnya diisi total VA, lalu ditimpa dengan jumlah
+	 * seluruh komponen cicilan yang berhasil diurai bila kolom {@code cicilan} tidak kosong.
+	 * Penguraian tokennya mengikuti aturan yang sama dengan {@link #prosesH2HInquiry}, kecuali
+	 * bentuk {@code Keranjang-} yang tidak ditangani di sini.</p>
+	 *
+	 * @param vaNtt      VA yang dibatalkan; dijamin tidak {@code null} oleh pemanggil
+	 * @param session    session Hibernate aktif milik {@link #doProses}
+	 * @param bank       nama bank pemanggil; disimpan sebagai {@code validator}
+	 * @param data       badan permintaan mentah, disimpan sebagai jejak
+	 * @param jsonObject objek balasan awal; selalu diganti objek baru di dalam method ini
+	 * @param rincian    array rincian yang akan diisi; dimodifikasi di tempat
+	 * @param nim        penampung NIM; diisi ulang dari data VA
+	 * @param nama       penampung nama; diisi ulang dari data VA
+	 * @param tanggalP   tanggal pembatalan versi bank dalam bentuk string mentah
+	 * @return badan balasan JSON dalam bentuk string
+	 * @throws Exception bila salah satu transaksi atau query gagal
+	 */
 	@SuppressWarnings("unchecked")
 	private static String prosesH2HReversal(VirtualAccountBank vaNtt, Session session, String bank, String data,
 			JSONObject jsonObject, JSONArray rincian, String nim, String nama, String tanggalP) throws Exception {

@@ -952,7 +952,7 @@ public class Bniresponse extends HttpServlet {
 					if (bniPassword != null && bniPassword.length() > 0) {
 
 						String bniMerchantId = sekolah.getBniMerchantId();
-						System.out.println("chek bniPassword " + bniPassword + " bniMerchantId " + bniMerchantId);
+						System.out.println("chek bniPassword " + (bniPassword == null || bniPassword.isEmpty() ? "(kosong)" : "(disamarkan)") + " bniMerchantId " + bniMerchantId);
 						Integer tahun = 0;
 						for (String p : StringUtils.split(bniMerchantId, ";")) {
 							try {
@@ -999,7 +999,7 @@ public class Bniresponse extends HttpServlet {
 				}
 			}
 
-			System.out.println("==> BniResponse merchant_id " + merchant_id + ", Password " + Password + ", parsedData "
+			System.out.println("==> BniResponse merchant_id " + merchant_id + ", Password " + (Password == null || Password.isEmpty() ? "(kosong)" : "(disamarkan)") + ", parsedData "
 					+ parsedData);
 
 			String decodeData = BNIHash.parseData(parsedData, merchant_id, Password);

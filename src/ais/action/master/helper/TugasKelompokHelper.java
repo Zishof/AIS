@@ -2366,29 +2366,23 @@ public class TugasKelompokHelper implements DataLoader {
 		 * akhir. Kotak centang dinonaktifkan untuk baris non-mahasiswa karena daftar ini hanya menampung id
 		 * mahasiswa.</p>
 		 *
-		 * <h4>Ketidakseragaman gerbang peran (fakta yang perlu diketahui pemelihara)</h4>
-		 * <p>Metode ini memakai TIGA bentuk pemeriksaan peran yang berbeda, dan ketiganya tidak setara:</p>
-		 * <ol>
-		 *   <li>{@link TugasKelompokHelper#bolehKelola(Tbmuser)} &mdash; bentuk terpusat dan paling ketat,
-		 *   dipakai tombol Kelola Nilai, Download/Upload Nilai, Hapus, dan dashboard analitik.</li>
-		 *   <li>Pemeriksaan enam suku gaya lama yang menguji dua field helper ditambah empat peran pada
-		 *   objek pengguna &mdash; namun <b>tidak menguji {@code tbmuser.getMahasiswa()}</b>, dan tidak
-		 *   menguji field {@code siswa}/{@code calonSiswa}. Dipakai antara lain untuk memilih syarat yang
-		 *   dapat diubah versus baca-saja, hak unggah lampiran instruksi, dan pemetaan Sub-CPMK.</li>
-		 *   <li>Pemeriksaan empat suku yang HANYA menguji field helper dan sama sekali tidak melihat
-		 *   pengguna yang login &mdash; bentuk paling longgar, justru yang menjaga tombol "Anggap Hadir
-		 *   (Pengumpul)" dan "Tdk Upload = Alpa" yang menulis absensi seluruh peserta kelas.</li>
-		 * </ol>
-		 * <p>Karena helper yang dibangun lewat konstruktor sekolah selalu meninggalkan field jalur perguruan
-		 * tinggi bernilai {@code null}, bentuk (2) dan (3) dapat menilai seorang pelajar sebagai pengelola
-		 * pada jalur tersebut. Seluruh pemeriksaan peran di sini juga bersifat <i>per tampilan</i>, bukan per
-		 * data: tidak ada satu pun yang menanyakan apakah pengguna berhak atas perkuliahan/kelas TUGAS INI.
-		 * Bentuk (1) adalah yang seharusnya dipakai di semua tempat.</p>
-		 *
-		 * <p><b>Catatan {@code null}:</b> beberapa cabang memanggil {@code tbmuser.getPesertaKursus()} dan
-		 * sejenisnya tanpa penjagaan {@code null} lebih dulu, sehingga sesi tanpa pengguna akan melempar
-		 * {@code NullPointerException} alih-alih diperlakukan sebagai bukan pengelola. {@code bolehKelola}
-		 * sudah menangani hal ini dengan benar lewat {@code loginPelajar(null)}.</p>
+		 * <h4>Gerbang peran</h4>
+		 * <p>Seluruh cabang peran di metode ini &mdash; pemilihan syarat dapat-diubah versus baca-saja,
+		 * hak unggah lampiran instruksi, pemetaan Sub-CPMK, tombol "Kelola Nilai"/"Download Nilai"/"Upload
+		 * Nilai"/"Kelola Kelompok"/"Hapus", dashboard analitik, dan tombol "Anggap Hadir (Pengumpul)"/"Tdk
+		 * Upload = Alpa" &mdash; kini seragam memakai {@link TugasKelompokHelper#bolehKelola(Tbmuser)}.
+		 * Sebelumnya beberapa cabang memakai bentuk pemeriksaan gaya lama yang menguji field helper dan
+		 * sebagian peran pada objek pengguna satu per satu; karena helper yang dibangun lewat konstruktor
+		 * sekolah selalu meninggalkan field jalur perguruan tinggi bernilai {@code null}, bentuk lama itu
+		 * dapat menilai seorang pelajar (mis. peserta kursus atau mahasiswa yang login lewat jalur sekolah)
+		 * sebagai pengelola. {@code bolehKelola} menutup celah itu dengan memeriksa DUA syarat sekaligus:
+		 * layar tidak dibuka dalam konteks pelajar ({@link TugasKelompokHelper#konteksPelajar()}) DAN
+		 * pengguna yang login bukan pelajar/peserta ({@link TugasKelompokHelper#loginPelajar(Tbmuser)}), serta
+		 * memperlakukan sesi tanpa pengguna sebagai bukan pengelola alih-alih melempar
+		 * {@code NullPointerException} seperti bentuk lama yang memanggil {@code tbmuser.getPesertaKursus()}
+		 * dkk. tanpa penjagaan {@code null}.</p>
+		 * <p>Seluruh pemeriksaan peran di sini tetap bersifat <i>per tampilan</i>, bukan per data: tidak ada
+		 * satu pun yang menanyakan apakah pengguna berhak atas perkuliahan/kelas TUGAS INI.</p>
 		 *
 		 * @param rowUtama baris grid yang harus diisi komponen; disetel rata atas dan menjadi induk seluruh
 		 *                 komponen yang dirakit di sini
@@ -4093,12 +4087,10 @@ public class TugasKelompokHelper implements DataLoader {
 	 * {@code "external_update"} sebagai penanda bila tidak ada pengguna yang login.</p>
 	 *
 	 * <h4>Visibilitas tombol</h4>
-	 * <p>Tombol disembunyikan bagi pelajar memakai pemeriksaan peran gaya lama, bukan
-	 * {@link #bolehKelola(Tbmuser)}. Bentuk itu tidak menguji {@code tbmuser.getMahasiswa()} dan memuat
-	 * suku {@code tbmuser.getSiswa() == null} dua kali &mdash; sisa salin-tempel yang semestinya menguji
-	 * mahasiswa. Selain itu {@code tbmuser} dipakai tanpa penjagaan {@code null} lebih dulu, sehingga
-	 * sesi tanpa pengguna akan melempar {@code NullPointerException}. Perhatikan pula bahwa ini hanya
-	 * menyembunyikan tombol: komponennya tetap dibuat dan listenernya tetap terdaftar.</p>
+	 * <p>Tombol disembunyikan bagi pelajar memakai {@link #bolehKelola(Tbmuser)}, yang juga
+	 * memperlakukan sesi tanpa pengguna sebagai bukan pengelola sehingga aman dipanggil tanpa
+	 * penjagaan {@code null} lebih dulu. Perhatikan pula bahwa ini hanya menyembunyikan tombol:
+	 * komponennya tetap dibuat dan listenernya tetap terdaftar.</p>
 	 *
 	 * @return tombol "Ambil Tugas Sebelumnya" yang siap ditempelkan ke toolbar; sudah lengkap dengan
 	 *         pengaturan visibilitas dan listenernya
@@ -4272,12 +4264,11 @@ public class TugasKelompokHelper implements DataLoader {
 	 * awal sehingga setiap perpindahan memicu {@code loadData} kembali.</p>
 	 *
 	 * <h4>Hak akses tombol</h4>
-	 * <p>Tombol "Tambah Tugas" memakai {@link #bolehKelola(Tbmuser)} &mdash; bentuk pemeriksaan yang
-	 * benar. Tombol "Recovery" (memulihkan tugas kelompok yang terhapus) dijaga
-	 * {@code RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)} dan komponennya tidak dibuat sama
-	 * sekali bila tidak berhak. Sebaliknya "Ambil Tugas Sebelumnya" memakai pemeriksaan gaya lama di
-	 * dalam {@link #createAmbilTugas()}. Tombol Cari dan Refresh sengaja tersedia untuk semua peran
-	 * karena keduanya hanya membaca.</p>
+	 * <p>Tombol "Tambah Tugas" dan "Ambil Tugas Sebelumnya" (di dalam {@link #createAmbilTugas()})
+	 * sama-sama memakai {@link #bolehKelola(Tbmuser)}. Tombol "Recovery" (memulihkan tugas kelompok
+	 * yang terhapus) dijaga {@code RecoveryAktivitasPembelajaranHelper.bolehTampil(tbmuser)} dan
+	 * komponennya tidak dibuat sama sekali bila tidak berhak. Tombol Cari dan Refresh sengaja tersedia
+	 * untuk semua peran karena keduanya hanya membaca.</p>
 	 *
 	 * <p><b>Batas yang jujur:</b> seperti seluruh penjagaan di kelas ini, yang dibatasi adalah tombolnya,
 	 * bukan datanya. Tugas kelompok mana yang boleh terlihat sepenuhnya ditentukan cakupan yang
@@ -4838,11 +4829,10 @@ public class TugasKelompokHelper implements DataLoader {
 	 *   SEBELUM pemeriksaan {@code if (addWindow != null)}, sehingga pemeriksaan itu tidak pernah
 	 *   melindungi apa pun &mdash; {@code addWindow} yang {@code null} sudah melempar galat di baris
 	 *   sebelumnya. Kedua pemanggil selalu mengisinya lebih dulu, jadi tidak ada gejala.</li>
-	 *   <li><b>Pemeriksaan peran tidak seragam.</b> Blok pemindah pertemuan memakai daftar peran yang
-	 *   dirakit setempat, sedangkan blok Sub-CPMK dan blok syarat memakai bentuk enam suku gaya lama
-	 *   yang tidak menguji {@code tbmuser.getMahasiswa()}. Tidak satu pun memakai
-	 *   {@link #bolehKelola(Tbmuser)}, dan {@code tbmuser} sebagian dipakai tanpa penjagaan {@code null}
-	 *   lebih dulu.</li>
+	 *   <li><b>Pemeriksaan peran tidak seragam.</b> Blok Sub-CPMK dan blok syarat memakai
+	 *   {@link #bolehKelola(Tbmuser)}, tetapi blok pemindahan pertemuan (variabel lokal
+	 *   {@code bisaPindahPertemuan}/{@code loginPelajar} di dekat {@code tbmuserPindah}) masih memakai
+	 *   daftar peran yang dirakit setempat, bukan {@code bolehKelola}.</li>
 	 *   <li><b>Penguncian syarat khusus admin.</b> Kunci hanya dipasang bila pengguna berupa dosen atau
 	 *   mahasiswa (atau sesi tanpa pengguna). Peran lain &mdash; siswa, calon siswa, peserta kursus
 	 *   &mdash; tidak ikut terkunci meskipun bukan admin.</li>
@@ -5479,10 +5469,10 @@ public class TugasKelompokHelper implements DataLoader {
 	 *
 	 * <h4>Catatan bagi pemelihara</h4>
 	 * <ul>
-	 *   <li><b>Tidak ada pemeriksaan wewenang.</b> Metode ini {@code public static} dan langsung menulis
-	 *   absensi begitu pengguna mengonfirmasi. Penjagaan sepenuhnya berada pada tombol pemanggilnya
-	 *   &mdash; dan gerbang tombol itu adalah bentuk paling longgar di kelas ini, karena hanya menguji
-	 *   field helper tanpa melihat pengguna yang sedang login.</li>
+	 *   <li><b>Tidak ada pemeriksaan wewenang di sini.</b> Metode ini {@code public static} dan langsung
+	 *   menulis absensi begitu pengguna mengonfirmasi. Penjagaan sepenuhnya berada pada tombol
+	 *   pemanggilnya (kini {@link #bolehKelola(Tbmuser)} di {@code render}); pemanggil lain di luar kelas
+	 *   ini, bila ada, tidak akan mendapat penjagaan apa pun karena metode ini {@code public static}.</li>
 	 *   <li><b>Hanya mahasiswa yang diproses.</b> Kueri anggota menyaring {@code isNotNull("mahasiswa")},
 	 *   sehingga anggota kelompok yang berupa siswa (jalur sekolah) tidak pernah ditandai.</li>
 	 *   <li><b>Pertemuan sasaran berasal dari pemanggil.</b> Absensi ditulis ke pertemuan yang diserahkan
@@ -5607,9 +5597,10 @@ public class TugasKelompokHelper implements DataLoader {
 	 *   status kehadiran yang tersimpan.</li>
 	 * </ol>
 	 *
-	 * <p>Catatan pemelihara lain berlaku sama seperti pada kembarannya: tidak ada pemeriksaan wewenang
-	 * (metode {@code public static}, dijaga hanya oleh tombol pemanggil yang gerbangnya paling longgar di
-	 * kelas ini), hanya anggota bertipe mahasiswa yang diproses sehingga jalur sekolah terlewat, dan
+	 * <p>Catatan pemelihara lain berlaku sama seperti pada kembarannya: tidak ada pemeriksaan wewenang di
+	 * dalam metode ini sendiri (metode {@code public static}, dijaga hanya oleh tombol pemanggil di
+	 * {@code render}, kini lewat {@link #bolehKelola(Tbmuser)}), hanya anggota bertipe mahasiswa yang
+	 * diproses sehingga jalur sekolah terlewat, dan
 	 * pertemuan sasaran sepenuhnya berasal dari pemanggil sehingga rujukan pertemuan yang salah &mdash;
 	 * misalnya pada tugas hasil salinan lintas semester &mdash; akan menulis absensi ke pertemuan yang
 	 * keliru.</p>

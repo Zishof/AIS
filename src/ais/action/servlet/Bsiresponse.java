@@ -721,7 +721,7 @@ public class Bsiresponse extends HttpServlet {
 					if (bsiPasswords != null && bsiPasswords.length > 0) {
 						String bsiPassword = bsiPasswords[0] + "";
 						String bsiMerchantId = bsiPasswords[1] + "";
-						System.out.println("chek bsiPassword " + bsiPassword + " bsiMerchantId " + bsiMerchantId);
+						System.out.println("chek bsiPassword " + (bsiPassword == null || bsiPassword.isEmpty() ? "(kosong)" : "(disamarkan)") + " bsiMerchantId " + bsiMerchantId);
 						Integer tahun = 0;
 						for (String p : StringUtils.split(bsiMerchantId, ";")) {
 							try {
@@ -765,7 +765,7 @@ public class Bsiresponse extends HttpServlet {
 				}
 			}
 
-			System.out.println("==> BsiResponse merchant_id " + merchant_id + ", Password " + Password + ", parsedData "
+			System.out.println("==> BsiResponse merchant_id " + merchant_id + ", Password " + (Password == null || Password.isEmpty() ? "(kosong)" : "(disamarkan)") + ", parsedData "
 					+ parsedData);
 
 			String decodeData = BNIHash.parseData(parsedData, merchant_id, Password);

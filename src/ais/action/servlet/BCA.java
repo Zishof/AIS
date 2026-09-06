@@ -1361,11 +1361,11 @@ public class BCA extends HttpServlet {
 							String tokenReq = Authorization == null ? "------------"
 									: Authorization.split(" ")[1].trim();
 
-							System.out.println("==> tokenReq " + tokenReq);
+							System.out.println("==> tokenReq " + (tokenReq == null || tokenReq.isEmpty() ? "(kosong)" : "(disamarkan)"));
 
 							Remover remover = accessTokens.get(tokenReq);
 
-							System.out.println("==> tokenReq " + tokenReq + ", remover-> " + remover);
+							System.out.println("==> tokenReq " + (tokenReq == null || tokenReq.isEmpty() ? "(kosong)" : "(disamarkan)") + ", remover-> " + remover);
 
 							if (remover == null) {
 								JSONObject jsonObject = new JSONObject();

@@ -714,6 +714,25 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Mengubah satu {@link Akreditasi} menjadi baris tampilan berbentuk peta kunci-nilai yang siap
+     * dibaca JSP.
+     *
+     * <p>Kunci yang dihasilkan mencakup identitas ({@code type} bernilai {@code "akreditasi"},
+     * {@code id}, {@code akreditasiId}), teks tampilan ({@code name}, {@code description},
+     * {@code jenis}, {@code lembaga}, {@code tingkat}, {@code lingkup}, {@code tahun},
+     * {@code periode}), petunjuk tampilan ({@code iconClass}, {@code typeLabel},
+     * {@code sizeLabel}), dan navigasi ({@code openUrl}).</p>
+     *
+     * <p>Jumlah isi dihitung lewat {@link #countRootDokumen(Session, Akreditasi)}. Ruang arsip
+     * selalu {@code canOpen} dan tidak pernah punya lampiran langsung, sehingga
+     * {@code downloadUrl} selalu kosong.</p>
+     *
+     * @param session    session Hibernate yang sedang terbuka
+     * @param akreditasi ruang arsip yang sudah lolos penyaringan hak akses
+     * @param baseUrl    dasar URL portal untuk menyusun tautan
+     * @return peta baris tampilan
+     */
     private Map<String, Object> toAkreditasiEntry(Session session, Akreditasi akreditasi, String baseUrl) {
         Map<String, Object> row = new HashMap<String, Object>();
         int childCount = countRootDokumen(session, akreditasi);
@@ -743,6 +762,24 @@ public class Document extends HttpServlet {
         return row;
     }
 
+    /**
+     * Mengubah satu {@link DokumenAkreditasi} menjadi baris tampilan berbentuk peta kunci-nilai.
+     *
+     * <p>Simpul yang punya anak diberi label {@code "Sub Ruang"} dan dapat dibuka
+     * ({@code canOpen}); simpul tanpa anak diberi label {@code "Dokumen"} dan hanya dapat diunduh
+     * bila lampirannya ada. Ikon dipilih {@link #iconClassByLampiran(LampiranLain)} berdasarkan
+     * akhiran nama berkas.</p>
+     *
+     * <p>{@code downloadUrl} hanya diisi ketika lampiran benar-benar ada. Perlu diingat bahwa
+     * tautan itu semata petunjuk tampilan: pemeriksaan hak akses yang sesungguhnya dilakukan
+     * ulang di {@link #downloadDocument(HttpServletRequest, HttpServletResponse)}, sehingga
+     * menyusun URL unduh secara manual tidak melewati pemeriksaan apa pun.</p>
+     *
+     * @param session session Hibernate yang sedang terbuka
+     * @param dokumen simpul dokumen yang sudah lolos penyaringan kriteria
+     * @param baseUrl dasar URL portal untuk menyusun tautan
+     * @return peta baris tampilan
+     */
     private Map<String, Object> toDokumenEntry(Session session, DokumenAkreditasi dokumen, String baseUrl) {
         Map<String, Object> row = new HashMap<String, Object>();
         int childCount = countChildDokumen(session, dokumen);
@@ -776,6 +813,17 @@ public class Document extends HttpServlet {
         return row;
     }
 
+    /**
+     * Menghitung jumlah simpul akar (yang {@code induk}-nya {@code null}) pada satu ruang arsip.
+     *
+     * <p>Penyaring aktif dan satuan kerja ikut diterapkan agar angka yang tampil sesuai dengan
+     * isi yang benar-benar dapat dilihat. Kegagalan query dikembalikan sebagai {@code 0} sehingga
+     * satu baris bermasalah tidak menggagalkan seluruh halaman.</p>
+     *
+     * @param session    session Hibernate yang sedang terbuka
+     * @param akreditasi ruang arsip yang dihitung isinya
+     * @return jumlah simpul akar, atau {@code 0} bila query gagal
+     */
     private int countRootDokumen(Session session, Akreditasi akreditasi) {
         try {
             Criteria criteria = session.createCriteria(DokumenAkreditasi.class)
@@ -789,6 +837,17 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Menghitung jumlah anak langsung dari satu simpul dokumen.
+     *
+     * <p>Dipakai untuk menentukan apakah simpul ditampilkan sebagai "Sub Ruang" atau "Dokumen".
+     * Penyaring aktif dan satuan kerja ikut diterapkan, dan kegagalan query dikembalikan sebagai
+     * {@code 0}.</p>
+     *
+     * @param session session Hibernate yang sedang terbuka
+     * @param induk   simpul yang dihitung anaknya
+     * @return jumlah anak langsung, atau {@code 0} bila query gagal
+     */
     private int countChildDokumen(Session session, DokumenAkreditasi induk) {
         try {
             Criteria criteria = session.createCriteria(DokumenAkreditasi.class).add(Restrictions.eq("induk", induk));
@@ -801,6 +860,12 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Membentuk remah roti untuk mode {@code root}, yang hanya berisi satu simpul
+     * {@code "Beranda Dokumen"} dengan id kosong.
+     *
+     * @return daftar remah roti berisi tepat satu elemen
+     */
     private List<Map<String, Object>> buildRootBreadcrumbs() {
         List<Map<String, Object>> breadcrumbs = new ArrayList<Map<String, Object>>();
         Map<String, Object> root = new HashMap<String, Object>();
@@ -811,6 +876,19 @@ public class Document extends HttpServlet {
         return breadcrumbs;
     }
 
+    /**
+     * Membentuk remah roti untuk mode {@code dokumen}: beranda, nama ruang arsip, lalu seluruh
+     * simpul induk dari yang terluar hingga simpul yang sedang dibuka.
+     *
+     * <p>Rantai induk ditelusuri ke atas lewat {@code getInduk()}. Penelusuran dijaga
+     * {@link HashSet} berisi id yang sudah dikunjungi sehingga data yang terlanjur membentuk
+     * lingkaran ({@code A} induk {@code B}, {@code B} induk {@code A}) berhenti dengan sendirinya
+     * alih-alih menyebabkan pengulangan tanpa akhir.</p>
+     *
+     * @param akreditasi ruang arsip yang sedang dibuka
+     * @param induk      simpul yang sedang dibuka; {@code null} berarti tingkat akar
+     * @return daftar remah roti terurut dari terluar ke terdalam
+     */
     private List<Map<String, Object>> buildDokumenBreadcrumbs(Akreditasi akreditasi, DokumenAkreditasi induk) {
         List<Map<String, Object>> breadcrumbs = buildRootBreadcrumbs();
         Map<String, Object> grup = new HashMap<String, Object>();
@@ -843,6 +921,48 @@ public class Document extends HttpServlet {
         return breadcrumbs;
     }
 
+    /**
+     * Menstrim isi satu lampiran dokumen ke klien — satu-satunya jalur di kelas ini yang
+     * mewajibkan pengguna sudah login.
+     *
+     * <h4>Gerbang berlapis</h4>
+     * <ol>
+     *   <li>Pengguna wajib terdeteksi login lewat {@link #getLoggedUser(HttpServletRequest)};
+     *       bila tidak, dikembalikan HTTP 401.</li>
+     *   <li>Parameter {@code id} wajib berupa angka; bila tidak, dikembalikan HTTP 400.</li>
+     *   <li>Dokumen wajib ada, aktif ({@link #isDokumenAktif(DokumenAkreditasi)}), punya ruang
+     *       arsip, dan ruang arsip itu wajib boleh dilihat pengguna tersebut
+     *       ({@link #isAkreditasiVisible(Akreditasi, Object)}). Kegagalan mana pun dijawab HTTP
+     *       404 dengan pesan seragam, sehingga id yang ditebak tidak dapat dipakai membedakan
+     *       "tidak ada" dari "tidak boleh diakses".</li>
+     *   <li>Lampiran wajib ada dan isinya wajib dapat diambil.</li>
+     * </ol>
+     * <p>Pemeriksaan ini berdiri sendiri dan tidak bergantung pada tautan yang dihasilkan
+     * {@link #toDokumenEntry(Session, DokumenAkreditasi, String)}, sehingga URL unduh yang
+     * disusun manual tetap melewati seluruh gerbang di atas.</p>
+     *
+     * <h4>Penulisan respons</h4>
+     * <p>Nama berkas diambil dari keterangan lampiran, lalu nama dokumen, lalu cadangan
+     * {@code "dokumen-<id>"}. Header {@code X-Content-Type-Options: nosniff} dipasang agar
+     * peramban tidak menebak tipe isi, dan {@code Content-Disposition} dirakit
+     * {@link #addContentDisposition(HttpServletResponse, String)} dengan nama yang sudah
+     * dibersihkan.</p>
+     * <p>{@link LampiranLain#ambilFile()} dapat mengembalikan tiga bentuk yang ditangani
+     * terpisah: {@link File} (tipe MIME ditanyakan ke container, isi disalin lewat
+     * {@link #streamFile(File, HttpServletResponse)}), {@code byte[]}, dan {@link InputStream}.
+     * Bentuk lain dijawab HTTP 500. Untuk {@link File} dan {@code byte[]} panjang isi diketahui
+     * sehingga {@code Content-Length} dapat dipasang; untuk {@link InputStream} tidak.</p>
+     *
+     * <h4>Session</h4>
+     * <p>Berbeda dengan {@link #buildDmsContentData(HttpServletRequest)}, method ini memakai
+     * {@code HibernateUtil.currentSession()} dan tidak menutupnya sendiri — penutupan dilakukan
+     * terpusat di {@link FilterJSP}. Bila sesi itu {@code null} atau sudah tertutup, sesi native
+     * diambil ulang lebih dulu.</p>
+     *
+     * @param request  permintaan yang memuat parameter {@code id}
+     * @param response respons yang akan diisi isi berkas atau kode galat
+     * @throws Exception bila pengambilan atau penyalinan isi berkas gagal
+     */
     private void downloadDocument(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Object user = getLoggedUser(request);
         if (user == null) {
@@ -931,6 +1051,17 @@ public class Document extends HttpServlet {
                 "Tipe file lampiran belum didukung oleh servlet Document.");
     }
 
+    /**
+     * Menyalin isi sebuah berkas di cakram ke aliran keluaran respons.
+     *
+     * <p>Berkas dibungkus {@link BufferedInputStream} lalu diserahkan ke
+     * {@link #streamInput(InputStream, OutputStream, boolean)}. Aliran masukan selalu ditutup di
+     * blok {@code finally}, termasuk ketika penyalinan gagal di tengah jalan.</p>
+     *
+     * @param file     berkas yang isinya dikirim; sudah dipastikan ada oleh pemanggil
+     * @param response respons tujuan
+     * @throws IOException bila pembacaan berkas atau penulisan respons gagal
+     */
     private void streamFile(File file, HttpServletResponse response) throws IOException {
         BufferedInputStream input = null;
         try {
@@ -941,6 +1072,20 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Menyalin seluruh isi aliran masukan ke aliran keluaran memakai penyangga sebesar
+     * {@link #STREAM_BUFFER_SIZE}, lalu melakukan {@code flush}.
+     *
+     * <p>Kepemilikan aliran masukan sengaja dibuat eksplisit lewat {@code closeInput} karena
+     * pemanggil berbeda punya tanggung jawab berbeda: penyalinan dari {@code byte[]} menutup
+     * aliran sementaranya sendiri, sedangkan penyalinan dari berkas atau dari
+     * {@link InputStream} milik lampiran ditutup oleh pemanggilnya.</p>
+     *
+     * @param input      aliran sumber
+     * @param output     aliran tujuan; tidak pernah ditutup oleh method ini
+     * @param closeInput bila {@code true}, aliran sumber ditutup di blok {@code finally}
+     * @throws IOException bila pembacaan atau penulisan gagal
+     */
     private void streamInput(InputStream input, OutputStream output, boolean closeInput) throws IOException {
         try {
             byte[] buffer = new byte[STREAM_BUFFER_SIZE];
@@ -956,6 +1101,20 @@ public class Document extends HttpServlet {
         }
     }
 
+    /**
+     * Mengambil lampiran milik satu dokumen lewat
+     * {@link LampiranLain#ambil(Long, String)}, dengan pasangan kunci berupa id dokumen dan nama
+     * kelas {@link DokumenAkreditasi}.
+     *
+     * <p>Penyertaan nama kelas pemilik penting: {@link LampiranLain} dipakai bersama oleh banyak
+     * entity, sehingga id saja tidak cukup untuk mengenali pemilik yang benar.</p>
+     *
+     * <p>Kegagalan apa pun dikembalikan sebagai {@code null} sehingga baris tetap dapat tampil
+     * tanpa tombol unduh alih-alih menggagalkan seluruh halaman.</p>
+     *
+     * @param dokumen dokumen pemilik lampiran; boleh {@code null}
+     * @return lampiran yang ditemukan, atau {@code null} bila tidak ada atau terjadi galat
+     */
     private LampiranLain getLampiran(DokumenAkreditasi dokumen) {
         try {
             if (dokumen != null && dokumen.getId() != null) {
