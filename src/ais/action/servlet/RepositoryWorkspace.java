@@ -30,17 +30,68 @@ import ais.database.hibernate.HibernateUtil;
 import ais.database.model.Tbmuser;
 import ais.database.model.repository.RepoItem;
 
-/** Authenticated deposit, review, and repository administration workspace. */
+/**
+ * Workspace repository AIS TERAUTENTIKASI: pengisian deposit, review naskah, dan administrasi
+ * repository, memetakan {@code GET}/{@code POST /repository-workspace}.
+ *
+ * <p><b>Relasi dengan {@link Repository}.</b> {@link Repository} adalah portal PUBLIK
+ * (anonim) untuk membaca/menelusuri katalog karya ilmiah yang sudah terbit; kelas ini adalah
+ * sisi SEBALIKNYA -- ruang kerja privat bagi deposan, reviewer, dan administrator yang belum
+ * atau sedang mengubah data. Gerbang keamanannya SAMA KUAT ATAU LEBIH KUAT daripada
+ * {@code Repository}: setiap permintaan ({@code doGet} maupun {@code doPost}) mensyaratkan
+ * {@link Common#getCurrentUser} tidak {@code null} di baris pertama (dibalas 401 bila belum
+ * login) -- baseline yang tidak dimiliki {@code Repository} karena portal publik memang
+ * sengaja dapat dibaca anonim. Di atas baseline login itu, hak per-tampilan digerbangi
+ * eksplisit: {@code view=review} mensyaratkan {@link RepositoryWorkflowService#isRepositoryAdmin},
+ * {@code view=admin} dan aksi {@code exportXlsx}/{@code orcidStart} mensyaratkan
+ * {@link RepositoryWorkflowService#isRepositoryAdministrator}, dan unggah berkas mensyaratkan
+ * {@link RepositoryWorkflowService#canDeposit} atau administrator. Kepemilikan record individual
+ * (mis. siapa boleh melihat/mengedit satu {@link RepoItem}) didelegasikan ke
+ * {@code workflow.workspaceItem}/{@code reviewItem}, sejalan dengan pola "otorisasi rinci di
+ * service" yang dipakai {@code Repository}.</p>
+ *
+ * <p><b>CSRF.</b> Token acak per sesi ({@link #CSRF}) dibuat sekali di {@link #doGet} dan
+ * diverifikasi waktu-tetap ({@link #constantTime}) oleh {@link #verifyCsrf} pada setiap aksi
+ * {@code POST} (form maupun unggah multipart) -- pola yang sama seperti CSRF publik di
+ * {@code Repository}. Alur OAuth ORCID memakai token {@code state} terpisah yang juga
+ * dibandingkan waktu-tetap untuk mencegah CSRF pada callback OAuth.</p>
+ */
 public class RepositoryWorkspace extends HttpServlet {
+    /** ID versi serialisasi servlet ini (kontrak {@link java.io.Serializable} bawaan {@code HttpServlet}). */
     private static final long serialVersionUID = 1L;
+    /** Path JSP tunggal tempat seluruh tampilan workspace (deposit/review/admin) dirender. */
     private static final String JSP = "/WEB-INF/baru/modul/repository/WorkspaceRepository.jsp";
+    /** Kunci atribut sesi tempat token CSRF workspace disimpan. */
     private static final String CSRF = "repository.csrf";
+    /** Layanan alur kerja utama: draft, submit, review, publikasi, dan pengecekan hak per-item/peran. */
     private final RepositoryWorkflowService workflow = new RepositoryWorkflowService();
+    /** Layanan integrasi eksternal: ORCID OAuth, DataCite DOI, COAR Notify, ROR. */
     private final ais.action.master.repository.RepositoryIntegrationService integrations=new ais.action.master.repository.RepositoryIntegrationService();
+    /** Layanan berkas lampiran: unggah, daftar, dan hapus berkas milik satu item. */
     private final RepositoryFileService files = new RepositoryFileService();
+    /** Layanan baca publik yang dipakai ulang di sini untuk daftar koleksi dan saran metadata AI. */
     private final RepositoryPublicService publicService = new RepositoryPublicService();
+    /** Layanan khusus administrator: profil koleksi, authority penulis, ekspor, fixity, impor massal. */
     private final RepositoryAdminService adminService = new RepositoryAdminService();
 
+    /**
+     * Melayani navigasi {@code GET} workspace: memilih tampilan ({@code deposit}/{@code review}/
+     * {@code admin}), memuat data yang relevan untuk tampilan tersebut, dan mem-forward ke
+     * {@link #JSP} -- atau menangani aksi khusus non-tampilan ({@code exportXlsx},
+     * {@code orcidStart}, {@code orcidCallback}) yang membalas langsung tanpa forward JSP.
+     *
+     * <p>Belum login dibalas 401 lewat {@link #renderState}. {@code view=review} tanpa hak
+     * reviewer, atau {@code view=admin} tanpa hak administrator, melempar
+     * {@link SecurityException} yang dibalas 403. Galat lain dicatat lewat
+     * {@link ais.common.ErrorAuditUtil} dan dibalas 500. Sesi Hibernate selalu ditutup di
+     * blok {@code finally}.</p>
+     *
+     * @param request permintaan HTTP; parameter {@code action}, {@code view}, {@code id}, dan
+     *                berbagai parameter query lain bergantung tampilan/aksi
+     * @param response tanggapan HTTP; diisi forward JSP, unduhan XLSX, redirect OAuth, atau kode kesalahan
+     * @throws ServletException bila forward gagal
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Tbmuser user = Common.getCurrentUser(request);
         if (user == null) { renderState(request,response,HttpServletResponse.SC_UNAUTHORIZED,"Sesi telah berakhir","Silakan masuk kembali untuk membuka workspace repository."); return; }
@@ -128,6 +179,22 @@ public class RepositoryWorkspace extends HttpServlet {
         } finally { HibernateUtil.closeSession(); }
     }
 
+    /**
+     * Melayani mutasi {@code POST} workspace: memilih antara unggah berkas multipart
+     * ({@link #processUpload}) dan aksi form biasa ({@link #processAction}) berdasarkan
+     * jenis konten permintaan.
+     *
+     * <p>Belum login dibalas 401. {@link SecurityException} (CSRF/hak tidak valid) dibalas
+     * 403; {@link IllegalArgumentException} (parameter tidak valid) dibalas 400;
+     * {@link IllegalStateException} (konflik, mis. versi optimistic-lock usang) dibalas 409;
+     * galat lain dicatat lewat {@link ais.common.ErrorAuditUtil} dan dibalas 500 dengan ID
+     * jejak. Bentuk tanggapan galat (JSON vs redirect+flash) ditentukan oleh {@link #fail}.</p>
+     *
+     * @param request permintaan HTTP; multipart untuk unggah berkas, form biasa untuk aksi lain
+     * @param response tanggapan HTTP; JSON, redirect, atau kode kesalahan
+     * @throws ServletException tidak pernah dilempar keluar dalam praktiknya
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         Tbmuser user = Common.getCurrentUser(request);
         if (user == null) { response.sendError(HttpServletResponse.SC_UNAUTHORIZED); return; }
@@ -148,6 +215,31 @@ public class RepositoryWorkspace extends HttpServlet {
         } finally { HibernateUtil.closeSession(); }
     }
 
+    /**
+     * Menjalankan satu aksi form (bukan unggah berkas) sesuai parameter {@code action}, setelah
+     * memverifikasi token CSRF sesi.
+     *
+     * <p>Mencakup siklus hidup deposit ({@code create}/{@code save}/{@code autosave}/
+     * {@code submit}/{@code resubmit}), review ({@code claim}/{@code return}/{@code reject}/
+     * {@code approve}/{@code publish}/{@code withdraw}/{@code restore}/{@code comment}), serta
+     * aksi administratif ({@code saveCollectionProfile}, {@code verifyFixity},
+     * {@code retrySync}, {@code runSearchAlerts}, {@code bulkRepairMetadata},
+     * {@code toggleFeatured}, {@code datacite}, {@code coarNotify}, {@code aiSuggest},
+     * {@code rorMatch}, {@code mergeAuthorities}). Setiap cabang admin memeriksa ulang
+     * {@code workflow.isRepositoryAdministrator} sebelum mengeksekusi. Hasil berupa JSON
+     * (untuk {@code autosave} atau klien yang meminta {@code Accept: application/json}) atau
+     * redirect+flash ke tampilan yang sesuai ({@link #reviewerAction} menentukan {@code review}
+     * vs {@code deposit}).</p>
+     *
+     * @param request permintaan HTTP; parameter {@code action}, {@code id}, {@code version},
+     *                {@code csrf}, dan field draft sesuai aksi
+     * @param response tanggapan HTTP; diisi JSON atau redirect oleh cabang aksi
+     * @param user pengguna yang melakukan aksi (sudah dipastikan login oleh {@link #doPost})
+     * @param requestId ID jejak permintaan untuk idempotensi dan audit
+     * @throws Exception galat apa pun dari {@link RepositoryWorkflowService} atau service
+     *         terkait, termasuk {@link SecurityException} bila CSRF tidak valid atau hak
+     *         administrator tidak dipenuhi; ditangani oleh pemanggil ({@link #doPost})
+     */
     private void processAction(HttpServletRequest request, HttpServletResponse response, Tbmuser user, String requestId) throws Exception {
         verifyCsrf(request.getSession(false), request.getParameter("csrf"));
         String action = clean(request.getParameter("action"));
@@ -211,6 +303,27 @@ public class RepositoryWorkspace extends HttpServlet {
         redirect(response, request, view, result == null ? id : result.getId());
     }
 
+    /**
+     * Menangani unggah berkas multipart: memverifikasi hak deposit, membaca berkas dan field
+     * form lewat Commons FileUpload, memverifikasi CSRF, lalu menyimpan berkas atau menjalankan
+     * dry-run impor XLSX.
+     *
+     * <p>Pengguna tanpa {@code canDeposit} maupun hak administrator ditolak sebelum parsing
+     * dimulai. Berkas berjenis/berekstensi PDF wajib disertai konfirmasi watermark
+     * ({@code watermarkConfirmed=true}) sebelum diterima -- mencegah PDF final tanpa watermark
+     * institusi diunggah tanpa sadar. Penyimpanan sesungguhnya (termasuk penghitungan checksum)
+     * didelegasikan ke {@link RepositoryFileService#store}.</p>
+     *
+     * @param request permintaan HTTP multipart; field form {@code action}, {@code id},
+     *                {@code csrf}, dan berkas terlampir
+     * @param response tanggapan HTTP; diisi redirect+flash oleh {@link #redirect}
+     * @param user pengguna yang mengunggah (sudah dipastikan login oleh {@link #doPost})
+     * @param requestId ID jejak permintaan untuk audit penyimpanan berkas
+     * @throws Exception galat apa pun dari parsing multipart atau {@link RepositoryFileService},
+     *         termasuk {@link SecurityException} (hak deposit tidak dipenuhi atau CSRF tidak
+     *         valid) dan {@link IllegalArgumentException} (tidak ada berkas atau watermark
+     *         belum dikonfirmasi); ditangani oleh pemanggil ({@link #doPost})
+     */
     private void processUpload(HttpServletRequest request, HttpServletResponse response, Tbmuser user, String requestId) throws Exception {
         if (!workflow.canDeposit(user) && !workflow.isRepositoryAdministrator(user))
             throw new SecurityException("Pengguna tidak memiliki izin unggah repository.");
@@ -245,6 +358,18 @@ public class RepositoryWorkspace extends HttpServlet {
         redirect(response, request, "deposit", itemId);
     }
 
+    /**
+     * Menyalin seluruh field metadata draft ({@code title}, {@code authors}, afiliasi, DOI,
+     * kebijakan akses, dsb.) dari parameter permintaan ke satu objek {@link DraftInput}.
+     *
+     * <p>Tidak melakukan validasi bisnis apa pun -- validasi (mis. field wajib, format DOI)
+     * sepenuhnya berada di {@link RepositoryWorkflowService#createDraft}/{@code saveDraft}
+     * yang menerima objek ini.</p>
+     *
+     * @param request permintaan HTTP; parameter form draft
+     * @return objek input draft yang siap diteruskan ke {@link RepositoryWorkflowService}
+     * @throws Exception bila {@link #date} melempar galat parsing {@code embargoUntil}
+     */
     private DraftInput input(HttpServletRequest request) throws Exception {
         DraftInput input = new DraftInput(); input.collectionId = positiveLong(request.getParameter("collectionId"));
         input.title = request.getParameter("title"); input.authors = request.getParameter("authors");
@@ -261,22 +386,188 @@ public class RepositoryWorkspace extends HttpServlet {
         input.bibliography=request.getParameter("bibliography");return input;
     }
 
+    /**
+     * Memverifikasi token CSRF permintaan terhadap yang tersimpan di sesi ({@link #CSRF}),
+     * dengan pembandingan waktu-tetap ({@link #constantTime}).
+     *
+     * @param session sesi HTTP saat ini, boleh {@code null} (dianggap tidak valid)
+     * @param supplied token CSRF dari permintaan (parameter {@code csrf})
+     * @throws SecurityException bila token tidak ada di sesi, tidak dikirim, atau tidak cocok
+     */
     private void verifyCsrf(HttpSession session, String supplied) {
         String expected = session == null ? null : (String) session.getAttribute(CSRF);
         if (!constantTime(expected, supplied)) throw new SecurityException("Token CSRF tidak valid. Muat ulang halaman.");
     }
+
+    /**
+     * Membandingkan dua string dalam waktu yang tidak bergantung pada di mana perbedaan
+     * pertama terjadi, untuk mencegah <i>timing attack</i> pada perbandingan token CSRF/OAuth
+     * state.
+     *
+     * @param a string pertama, boleh {@code null}
+     * @param b string kedua, boleh {@code null}
+     * @return {@code true} hanya bila keduanya tidak {@code null} dan seluruh karakternya sama
+     */
     private boolean constantTime(String a, String b) { if (a == null || b == null) return false; int diff=a.length()^b.length(); int n=Math.min(a.length(),b.length()); for(int i=0;i<n;i++)diff|=a.charAt(i)^b.charAt(i); return diff==0; }
+
+    /**
+     * Menentukan apakah {@code action} termasuk aksi yang setelah selesai mengarahkan pengguna
+     * kembali ke tampilan {@code review}/{@code admin} (bukan {@code deposit}).
+     *
+     * @param action nama aksi yang baru dieksekusi
+     * @return {@code true} bila aksi tersebut adalah aksi reviewer/administrator
+     */
     private boolean reviewerAction(String action) { return "claim".equals(action)||"return".equals(action)||"reject".equals(action)||"approve".equals(action)||"publish".equals(action)||"withdraw".equals(action)||"restore".equals(action)||"toggleFeatured".equals(action)||"datacite".equals(action)||"coarNotify".equals(action)||"saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"retrySync".equals(action)||"bulkRepairMetadata".equals(action)||"importDryRun".equals(action); }
+
+    /**
+     * Menghitung URL publik absolut satu item repository ({@code /repository/item/{id}}),
+     * dipakai sebagai identitas target saat mendaftarkan DOI (DataCite) atau mengirim
+     * notifikasi COAR.
+     *
+     * <p>Bila properti sistem {@code ais.repository.publicBaseUrl} diisi, nilainya divalidasi
+     * ketat (skema http/https, tanpa userinfo/query/fragment, path kosong atau {@code "/"}) dan
+     * dipakai sebagai basis URL -- berguna saat aplikasi berjalan di belakang proxy/CDN dengan
+     * host berbeda dari yang dilihat servlet. Bila tidak diisi, basis URL dihitung dari skema,
+     * host, dan port permintaan saat ini, juga divalidasi ketat.</p>
+     *
+     * @param request permintaan HTTP saat ini, sumber skema/host/port bila konfigurasi tidak diisi
+     * @param id ID item repository
+     * @return URL publik absolut item tersebut
+     * @throws Exception bila konfigurasi {@code ais.repository.publicBaseUrl} atau origin
+     *         permintaan tidak valid ({@link IllegalStateException})
+     */
     private String publicItemUrl(HttpServletRequest request,Long id)throws Exception{String configured=clean(System.getProperty("ais.repository.publicBaseUrl"));if(configured.length()>0){java.net.URL url=new java.net.URL(configured);String protocol=url.getProtocol(),path=clean(url.getPath());if(!("http".equalsIgnoreCase(protocol)||"https".equalsIgnoreCase(protocol))||clean(url.getHost()).length()==0||url.getUserInfo()!=null||url.getQuery()!=null||url.getRef()!=null||!(path.length()==0||"/".equals(path)))throw new IllegalStateException("ais.repository.publicBaseUrl tidak valid.");String host=url.getHost().indexOf(':')>=0?"["+url.getHost()+"]":url.getHost();configured=protocol.toLowerCase()+"://"+host+(url.getPort()<0?"":":"+url.getPort());return configured+request.getContextPath()+"/repository/item/"+id;}String scheme=clean(request.getScheme()).toLowerCase(),host=clean(request.getServerName());int port=request.getServerPort();if(!("http".equals(scheme)||"https".equals(scheme))||host.length()==0||!host.matches("[A-Za-z0-9.-]+|[0-9a-fA-F:]+")||port<1||port>65535)throw new IllegalStateException("Origin publik Repository tidak valid.");String authority=host.indexOf(':')>=0?"["+host+"]":host;boolean defaultPort=("http".equals(scheme)&&port==80)||("https".equals(scheme)&&port==443);String origin=scheme+"://"+authority+(defaultPort?"":":"+port);return origin+request.getContextPath()+"/repository/item/"+id;}
+    /**
+     * Mem-parsing tanggal berformat {@code yyyy-MM-dd} secara ketat (tidak lenient); teks
+     * kosong/{@code null} (setelah {@link #clean}) menghasilkan {@code null}.
+     *
+     * @param value teks tanggal, boleh {@code null}/kosong
+     * @return tanggal hasil parse, atau {@code null} bila {@code value} kosong
+     * @throws Exception bila {@code value} terisi tetapi bukan tanggal valid pada format tersebut
+     */
     private Date date(String value) throws Exception { if(clean(value).length()==0)return null;SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd");f.setLenient(false);return f.parse(clean(value)); }
+
+    /**
+     * Menanggapi kegagalan satu aksi {@code POST}: JSON {@code {status:"ERROR", message}} bila
+     * klien meminta {@code Accept: application/json}, atau redirect+flash ke tampilan yang
+     * sesuai untuk klien form biasa.
+     *
+     * <p>Tampilan tujuan redirect ditentukan oleh {@link #failureView} berdasarkan aksi yang
+     * gagal (dibaca dari atribut permintaan yang diisi {@link #processUpload}, atau parameter
+     * {@code action} untuk {@link #processAction}), dan {@code id} item terkait bila ada.</p>
+     *
+     * @param request permintaan HTTP yang gagal diproses
+     * @param response tanggapan HTTP yang akan diisi JSON galat atau redirect
+     * @param message pesan galat untuk ditampilkan ke pengguna
+     * @param status kode status HTTP (dipakai hanya untuk jalur JSON)
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     private void fail(HttpServletRequest request,HttpServletResponse response,String message,int status)throws IOException{if("application/json".equals(request.getHeader("Accept"))){response.setStatus(status);response.setContentType("application/json;charset=UTF-8");try{JSONObject j=new JSONObject();j.put("status","ERROR");j.put("message",message);response.getWriter().write(j.toString());}catch(Exception e){response.sendError(status,message);}return;}flash(request.getSession(),"repository.flash.error",message);String action=request.getAttribute("repository.action")==null?request.getParameter("action"):String.valueOf(request.getAttribute("repository.action"));String rawId=request.getAttribute("repository.itemId")==null?request.getParameter("id"):String.valueOf(request.getAttribute("repository.itemId"));redirect(response,request,failureView(action),positiveLong(rawId));}
+    /**
+     * Menentukan tampilan tujuan redirect saat satu aksi {@code POST} gagal: {@code admin}
+     * untuk aksi administratif, {@code review} untuk aksi reviewer ({@link #reviewerAction}),
+     * atau {@code deposit} sebagai baku.
+     *
+     * @param action nama aksi yang gagal, boleh {@code null}
+     * @return nama tampilan tujuan ({@code "admin"}, {@code "review"}, atau {@code "deposit"})
+     */
     private String failureView(String action){if("saveCollectionProfile".equals(action)||"verifyFixity".equals(action)||"retrySync".equals(action)||"runSearchAlerts".equals(action)||"bulkRepairMetadata".equals(action)||"rorMatch".equals(action)||"mergeAuthorities".equals(action)||"importDryRun".equals(action))return "admin";return reviewerAction(action)?"review":"deposit";}
+
+    /**
+     * Mengalihkan (302) ke {@code /repository-workspace} dengan parameter {@code view} dan,
+     * bila diberikan, {@code id}.
+     *
+     * @param response tanggapan HTTP yang akan diisi redirect
+     * @param request permintaan HTTP, sumber {@code contextPath}
+     * @param view nama tampilan tujuan ({@code deposit}/{@code review}/{@code admin})
+     * @param id ID item yang akan disorot di tampilan tujuan, boleh {@code null}
+     * @throws IOException bila penulisan redirect gagal
+     */
     private void redirect(HttpServletResponse response,HttpServletRequest request,String view,Long id)throws IOException{String url=request.getContextPath()+"/repository-workspace?view="+view+(id==null?"":"&id="+id);response.sendRedirect(response.encodeRedirectURL(url));}
-    private void flash(HttpSession s,String key,String value){s.setAttribute(key,value);} private Object consume(HttpSession s,String key){Object v=s.getAttribute(key);s.removeAttribute(key);return v;}
+
+    /**
+     * Menyimpan {@code value} sebagai atribut sesi sekali-baca (flash message) di bawah
+     * {@code key}, untuk dibaca dan dihapus oleh {@link #consume} pada permintaan berikutnya.
+     *
+     * @param s sesi HTTP tujuan
+     * @param key nama atribut flash
+     * @param value nilai pesan flash
+     */
+    private void flash(HttpSession s,String key,String value){s.setAttribute(key,value);}
+
+    /**
+     * Membaca dan langsung menghapus atribut sesi {@code key} (pola flash message
+     * sekali-tampil): dipanggil saat merender {@link #doGet} agar pesan tidak muncul lagi pada
+     * pemuatan halaman berikutnya.
+     *
+     * @param s sesi HTTP sumber
+     * @param key nama atribut flash
+     * @return nilai atribut, atau {@code null} bila tidak ada
+     */
+    private Object consume(HttpSession s,String key){Object v=s.getAttribute(key);s.removeAttribute(key);return v;}
+
+    /**
+     * Memasang header pengeras standar workspace: {@code X-Content-Type-Options: nosniff},
+     * {@code X-Frame-Options: SAMEORIGIN}, {@code Referrer-Policy: same-origin}, dan
+     * {@code Cache-Control: no-store} (halaman workspace tidak pernah boleh di-cache karena
+     * memuat data pribadi/draft pengguna).
+     *
+     * @param r tanggapan HTTP yang akan diisi header
+     */
     private void securityHeaders(HttpServletResponse r){r.setHeader("X-Content-Type-Options","nosniff");r.setHeader("X-Frame-Options","SAMEORIGIN");r.setHeader("Referrer-Policy","same-origin");r.setHeader("Cache-Control","no-store");}
+
+    /**
+     * Merender halaman status generik (mis. "Sesi telah berakhir", "Akses tidak diizinkan")
+     * lewat {@code landing_page.jsp} alih-alih tampilan workspace normal, dilengkapi ID jejak
+     * untuk korelasi log.
+     *
+     * @param request permintaan HTTP yang akan diisi atribut status
+     * @param response tanggapan HTTP; status HTTP-nya diset ke {@code status}
+     * @param status kode status HTTP yang akan dikirim, mis. 401 atau 403
+     * @param title judul singkat halaman status
+     * @param message pesan penjelasan untuk pengguna
+     * @throws ServletException bila forward gagal
+     * @throws IOException bila penulisan tanggapan gagal
+     */
     private void renderState(HttpServletRequest request,HttpServletResponse response,int status,String title,String message)throws ServletException,IOException{response.setStatus(status);request.setAttribute("repoView","state");request.setAttribute("repoStateCode",Integer.valueOf(status));request.setAttribute("repoStateTitle",title);request.setAttribute("repoStateMessage",message);request.setAttribute("repoRequestId",Long.toHexString(System.currentTimeMillis()));request.getRequestDispatcher("/WEB-INF/baru/modul/repository/landing_page.jsp").forward(request,response);}
+
+    /**
+     * Menormalkan teks: {@code null} menjadi string kosong, selain itu di-trim.
+     *
+     * @param v teks apa adanya, boleh {@code null}
+     * @return teks yang sudah dinormalkan, tidak pernah {@code null}
+     */
     private static String clean(String v){return v==null?"":v.trim();}
+
+    /**
+     * Mem-parsing {@code v} menjadi {@link Long} positif, atau {@code null} bila kosong, bukan
+     * angka, atau tidak lebih besar dari nol.
+     *
+     * @param v teks yang akan diparse, boleh {@code null}
+     * @return ID positif hasil parse, atau {@code null} bila tidak valid
+     */
     private static Long positiveLong(String v){try{Long n=Long.valueOf(clean(v));return n.longValue()>0?n:null;}catch(Exception e){return null;}}
+
+    /**
+     * Mem-parsing {@code v} menjadi {@link Long} tak-negatif (dipakai untuk parameter
+     * {@code version} optimistic-lock, yang sah bernilai nol), atau {@code null} bila kosong,
+     * bukan angka, atau negatif.
+     *
+     * @param v teks yang akan diparse, boleh {@code null}
+     * @return nilai tak-negatif hasil parse, atau {@code null} bila tidak valid
+     */
     private static Long nonNegativeLong(String v){try{Long n=Long.valueOf(clean(v));return n.longValue()>=0?n:null;}catch(Exception e){return null;}}
+
+    /**
+     * Mem-parsing {@code value} menjadi angka bulat positif yang dibatasi maksimum
+     * {@code maximum}; {@code fallback} dipakai bila {@code value} kosong, bukan angka, atau
+     * tidak positif -- dipakai untuk parameter halaman/ukuran halaman agar tidak bisa
+     * dipaksa terlalu besar dari klien.
+     *
+     * @param value teks yang akan diparse, boleh {@code null}
+     * @param fallback nilai baku bila {@code value} tidak valid
+     * @param maximum batas atas nilai yang diizinkan
+     * @return nilai hasil parse yang sudah dibatasi, atau {@code fallback}
+     */
     private static int positiveInt(String value,int fallback,int maximum){try{int parsed=Integer.parseInt(clean(value));return parsed>0?Math.min(parsed,maximum):fallback;}catch(Exception e){return fallback;}}
 }
