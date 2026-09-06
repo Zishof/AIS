@@ -864,6 +864,79 @@ public class TugasMandiriHelper {
 	 * selama yang login bukan pelajar. Setelah disimpan, eventListener dipanggil untuk
 	 * me-refresh tampilan tugas pada tab yang memanggilnya.</p>
 	 *
+	 * <h3>Susunan dialog</h3>
+	 * <p>Dialog dibangun sebagai {@code MyWindow} modal setinggi 95% dan selebar 950 piksel, berisi
+	 * satu {@code Borderlayout} dengan Center berupa grid form dan South berupa toolbar Batal/Simpan.
+	 * Baris form disusun berurutan sebagai berikut.</p>
+	 * <ol>
+	 *   <li><strong>Pindahkan ke pertemuan lain.</strong> Hanya dibangun bila pertemuan induk memiliki
+	 *       {@code VOPembelajaran} dan yang login bukan pelajar. Combobox diisi seluruh pertemuan pada
+	 *       pembelajaran yang sama; bila cache lokasi-pertemuan kosong, daftar dipaksa dimuat ulang
+	 *       dari basis data lewat {@code ambilPertemuan(true)} agar dropdown tidak tampil kosong.
+	 *       Pertemuan yang sedang aktif selalu ditambahkan dan dipilih walaupun tidak termuat dalam
+	 *       daftar. Combobox aktif hanya untuk {@link TugasPertemuan}; untuk {@link Pertemuan} ia
+	 *       ditampilkan ternonaktif disertai keterangan bahwa tugas melekat pada pertemuannya sendiri.
+	 *       Perpindahan cukup menulis {@code setPertemuan(idBaru)} dan {@code setPertemuanData(...)};
+	 *       berkas pengumpulan ikut secara otomatis karena {@link TugasFileContent} merujuk id tugas,
+	 *       bukan id pertemuan.</li>
+	 *   <li><strong>Tugas Mulai dan Tugas Selesai.</strong> Untuk pengelola berupa {@code MyDatebox}
+	 *       yang dapat disunting; untuk mahasiswa berupa teks merah read-only. Keduanya boleh
+	 *       dikosongkan, yang berarti tugas tidak memiliki batas mulai atau batas selesai.</li>
+	 *   <li><strong>Format penilaian.</strong> Tiga bentuk yang saling eksklusif, dipilih berdasarkan
+	 *       {@link #perkuliahan} dan {@link #jadwalPelajaran}; lihat uraian pada kedua field itu.
+	 *       Pada bentuk OBE, setiap Sub-CPMK memperoleh satu checkbox dan satu kotak bobot yang
+	 *       menulis langsung ke dokumen JSON {@code tugas.getFormatNilais()} pada setiap perubahan —
+	 *       tanpa menunggu tombol Simpan. Kotak bobot dinonaktifkan selama checkbox-nya belum
+	 *       dicentang, dan seluruh checkbox dinonaktifkan bila perkuliahan sudah dikunci.</li>
+	 *   <li><strong>Syarat mengumpulkan tugas.</strong> Lihat {@link #syaratMengumpulkanTugas}.</li>
+	 *   <li><strong>Judul tugas.</strong> Kotak teks maksimal 255 karakter yang menyimpan sendiri
+	 *       setiap kali kehilangan fokus. Judul kosong berarti "tidak ada tugas" bagi seluruh gerbang
+	 *       tampilan di kelas ini, karena itu ia diberi keterangan wajib diisi.</li>
+	 *   <li><strong>Lampiran dan Generate Tugas Individu.</strong> Unggahan lampiran ditangani
+	 *       {@code LampiranLain.createDownloadUploadFileLain} dengan jenis
+	 *       {@code TUGAS_MANDIRI_PERKULIAHAN}; bila lampiran pertama diunggah saat judul masih kosong,
+	 *       judul diisi otomatis menjadi "Tugas pertemuan ke N". Tombol Generate memanggil
+	 *       {@code AIGenerator.generateApa(...)} untuk menyusun langkah pengerjaan tugas secara
+	 *       otomatis; hasilnya mengisi editor teks kaya dan, bila judul masih kosong, ikut mengisi
+	 *       judul.</li>
+	 *   <li><strong>Isi instruksi tugas.</strong> Editor teks kaya {@code MyCkEditor}.</li>
+	 * </ol>
+	 *
+	 * <h3>Dua jalur penyimpanan</h3>
+	 * <p>Perlu diperhatikan bahwa dialog ini menyimpan lewat dua jalur sekaligus. Sebagian kontrol
+	 * menyimpan seketika pada kejadian {@code onChange}/{@code onClick}-nya sendiri — kotak judul,
+	 * kotak bobot persen, combobox format nilai, checkbox Sub-CPMK, dan combobox jenis item penilaian
+	 * siswa. Sisanya baru tersimpan ketika tombol "Simpan Tugas" ditekan. Akibatnya, menutup dialog
+	 * lewat tombol Batal <em>tidak</em> membatalkan perubahan yang sudah tersimpan lewat jalur
+	 * pertama.</p>
+	 *
+	 * <h3>Ketahanan terhadap data format nilai yang rusak</h3>
+	 * <p>Setiap jalur yang menyentuh format nilai didahului {@link #bersihkanFormatNilaiYatim(Tugas)}
+	 * untuk membereskan foreign key yatim di basis data, lalu memvalidasi objek dari layar lewat
+	 * {@link #ambilFormatNilaiValid(Session, FormatNilai)}. Bila validasi gagal, pilihan dikosongkan
+	 * dan {@link #tampilkanPeringatanFormatNilaiTidakValid(FormatNilai)} dipanggil. Tombol Simpan juga
+	 * membungkus {@code Common.refreshUpdate} dengan {@code try}/{@code catch} yang melakukan rollback
+	 * dan menampilkan pesan yang dapat dipahami pengguna, karena flush dapat ikut meng-update entity
+	 * lain yang datanya tidak konsisten. Selain itu {@code session.refresh(tugas)} dibungkus
+	 * {@code try}/{@code catch} tersendiri: sesi yang sedang berjalan belum tentu berada di dalam
+	 * transaksi aktif, dan kegagalan menyegarkan bukan alasan untuk membatalkan penyimpanan.</p>
+	 *
+	 * <h3>Sesudah penyimpanan berhasil</h3>
+	 * <p>Tombol Simpan menghitung ulang visibilitas {@link #upload} dan {@link #hapus} sesuai jendela
+	 * waktu yang baru, memanggil {@code eventListener} agar pemanggil membangun ulang tampilan,
+	 * mengirim pemberitahuan lewat {@code CommonEmail.infoAdaTugasPerkuliahan(tugas)} dan
+	 * {@code CommonNotifikasi.infoTugasBaru(tugas)}, melepas dialog, lalu menyegarkan label tab.
+	 * Pemberitahuan dikirim pada setiap penyimpanan yang berhasil, termasuk penyuntingan tugas lama —
+	 * bukan hanya saat tugas pertama kali dibuat.</p>
+	 *
+	 * <h3>Batas kewenangan</h3>
+	 * <p>Dialog ini tidak melakukan pemeriksaan kewenangan tersendiri sebelum menyimpan. Ia
+	 * mengandalkan pemanggilnya: tombol "Ubah Instruksi Tugas" pada
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)} hanya ditampilkan untuk pengguna
+	 * non-pelajar. Di dalam dialog, pembedaan peran hanya memengaruhi tampilan — kolom tanggal menjadi
+	 * read-only bagi mahasiswa, combobox pindah pertemuan disembunyikan bagi pelajar, dan combobox
+	 * syarat dinonaktifkan bila syaratnya ditandai hanya-admin.</p>
+	 *
 	 * @param eventListener listener yang dipanggil setelah simpan atau pindah pertemuan,
 	 *                      dengan data {@link Tugas} yang baru sebagai payload event.
 	 * @throws Exception jika terjadi kesalahan akses DB atau ZK rendering.
@@ -1934,6 +2007,76 @@ public class TugasMandiriHelper {
 	 * dengan North (toolbar) dan Center (Tabbox: Telah Upload / Belum Upload / Statistik /
 	 * Peserta yg tdk perlu ikut / Rekap Tugas). Tampilan dan aksi tombol disesuaikan
 	 * otomatis berdasarkan peran pengguna (mahasiswa/siswa vs dosen/admin).</p>
+	 *
+	 * <h3>Urutan pembangunan</h3>
+	 * <ol>
+	 *   <li><strong>Penyiapan state.</strong> {@link #tabpanelFileTugasPertemuan} disimpan dan
+	 *       dikosongkan, {@link #tbmuser} dibaca dari sesi, {@link #mobile} dan {@link #peserta}
+	 *       dihitung, lalu {@link #perkuliahan}, {@link #jadwalPelajaran}, dan {@link #pa} diturunkan
+	 *       dari jenis entitas {@link Tugas} yang diterima.</li>
+	 *   <li><strong>Portal dua kolom.</strong> {@code MyPortallayout} berisi kolom kiri 40% (instruksi
+	 *       tugas) dan kolom kanan 60% (pengumpulan dan rekap). Portal dipilih menggantikan
+	 *       {@code Borderlayout} West+Center agar kedua kolom menumpuk sendiri pada layar sempit.</li>
+	 *   <li><strong>Kolom kiri.</strong> Berisi info pertemuan opsional, tanggal mulai dan selesai,
+	 *       panel ringkasan pengumpulan khusus pengelola, deretan tombol pengelolaan (Ubah Instruksi
+	 *       Tugas, Ambil Tugas, Hapus Tugas, Format Nilai), kotak instruksi tugas beserta lampirannya,
+	 *       dan di ujung pemanggilan {@code Tugas.tampilanSyarat}/{@code tampilanSyaratReadonly} yang
+	 *       mengisi {@link #syaratAlert}.</li>
+	 *   <li><strong>Toolbar kolom kanan.</strong> Dibangun sebagai {@code Hbox} ber-{@code flex-wrap}
+	 *       dan dikelompokkan oleh {@link #createSeparator()} menjadi empat kelompok: Berkas (Upload
+	 *       Tugas, Download Semua, Drive, Akses), Nilai (Masukkan Nilai, Rekap Semua Tugas untuk
+	 *       peserta, Download Nilai, Upload Nilai), Kelola (Refresh, Recovery), dan Kehadiran (Anggap
+	 *       Hadir Pengumpul, Anggap Hadir Pengakses, Anggap Sudah Upload).</li>
+	 *   <li><strong>Isi kolom kanan.</strong> Bila tugas belum berjudul, seluruh bagian ini dilewati.
+	 *       Bila berjudul, dibangun {@link #myborderlayoutlagi}; untuk peserta hanya berisi grid,
+	 *       untuk selainnya dibungkus {@code MyButtonTabbox} berisi lima tab.</li>
+	 * </ol>
+	 *
+	 * <h3>Lima tab pada tampilan pengelolaan</h3>
+	 * <ol>
+	 *   <li><em>Telah upload</em> — dimuat seketika. Berisi {@link #uploadTugasGrid} beserta toolbar
+	 *       Simpan/Batal di bawahnya (khusus {@code !peserta}). Simpan menulis {@link #jsonObjectTugas}
+	 *       ke kolom {@code keteranganNilai}; Batal membaca ulang kolom itu dari basis data sehingga
+	 *       perubahan di memori terbuang.</li>
+	 *   <li><em>Belum upload</em> — dimuat malas sekali saja. Menyaring {@code pa.ambilMahasiswa()}
+	 *       terhadap {@link #treemapData} dan {@code mhsYgTidakIkut}, menampilkan waktu akses terakhir,
+	 *       serta menyediakan dua tombol penandaan alpa.</li>
+	 *   <li><em>Statistik</em> — dibangun ulang setiap kali tab dipilih. Berisi kartu ringkasan, dua
+	 *       donut (pengumpulan dan keterbacaan), batang capaian, tren tugas masuk per tanggal,
+	 *       histogram distribusi nilai lima rentang, dan pada kurikulum OBE sebuah radar Sub-CPMK
+	 *       lewat {@link #buildRadarChartHtml(String, String, LinkedHashMap, double)}. Seluruh grafik
+	 *       dihasilkan sebagai HTML/CSS/SVG oleh {@code DashboardUiKit}, tanpa pustaka grafik.</li>
+	 *   <li><em>Peserta yg tdk perlu ikt</em> — dimuat malas sekali saja. Menyediakan checkbox
+	 *       "Tidak perlu ikut tugas" dan "Boleh Upload Ulang" per peserta beserta checkbox massal di
+	 *       header kolom, dan pada {@link TugasPertemuan} ber-OBE menambah dua kolom untuk nilai manual
+	 *       per Sub-CPMK ({@code nilaiManualJson}) serta daftar Sub-CPMK yang dikerjakan peserta
+	 *       ({@code subCpmkPerPeserta}). Checkbox "Paksa" menentukan apakah nilai manual dipakai
+	 *       walaupun peserta tetap mengumpulkan tugas.</li>
+	 *   <li><em>Rekap Tugas</em> — dibangun ulang setiap kali dipilih; menyematkan
+	 *       {@link RekapHasilTugasPerVoPertemuan} untuk seluruh pembelajaran.</li>
+	 * </ol>
+	 *
+	 * <h3>Catatan penting bagi pemelihara</h3>
+	 * <ul>
+	 *   <li><strong>Gerbang tabbox memakai field konstruktor.</strong> Pembangunan tabbox pengelolaan
+	 *       diputuskan oleh {@link #mahasiswa} dan {@link #biodataCalonMahasiswa}, bukan oleh
+	 *       {@link #peserta}. Karena kedua field itu menyatakan konteks pemanggilan dan bukan peran
+	 *       pengguna yang login, dasar pemeriksaannya berbeda dari gerbang lain di kelas yang sama.
+	 *       Setiap perubahan gerbang di sini perlu menyelaraskan kedua dasar tersebut.</li>
+	 *   <li><strong>Rantai pemeriksaan peran ditulis berulang.</strong> Pola
+	 *       {@code tbmuser.getSiswa() == null && ...} disalin puluhan kali dengan variasi kecil —
+	 *       beberapa menguji {@code getSiswa()} lebih dari sekali, sebagian menyertakan
+	 *       {@code getPesertaKursus()} dan sebagian tidak. Bentuk terpusatnya tersedia lewat
+	 *       {@link #bolehKelolaTugas(Tbmuser)} dan {@link #bolehUpload(Tbmuser)}.</li>
+	 *   <li><strong>Batasan satu anak pada region layout.</strong> {@code Borderlayout} hanya menerima
+	 *       satu North dan satu South, dan {@code South} sendiri hanya menerima satu anak langsung.
+	 *       Karena itu toolbar Simpan/Batal dan {@link #paging} berbagi satu {@code Hbox}, dan setiap
+	 *       pembuatan region selalu ditulis "pakai yang sudah ada bila ada".</li>
+	 *   <li><strong>Pembangunan ulang lewat timer.</strong> Beberapa aksi memanggil kembali metode ini
+	 *       dari dalam {@code Common.createDefaultTimer(...)} alih-alih langsung, agar pembangunan
+	 *       ulang terjadi pada siklus event berikutnya dan tidak merusak pohon komponen yang sedang
+	 *       diproses.</li>
+	 * </ul>
 	 *
 	 * @param tugas                    entitas tugas (dapat berupa {@link Pertemuan} atau
 	 *                                 {@link TugasPertemuan}) yang akan ditampilkan.

@@ -2325,6 +2325,155 @@ public class TugasKelompokHelper implements DataLoader {
 			hapus.setParent(aksi);
 		}
 
+		/**
+		 * <h3>Penggambar satu baris daftar &mdash; kartu lengkap sebuah Tugas Kelompok</h3>
+		 *
+		 * <p><b>Untuk apa (bahasa sederhana):</b> mengubah satu data tugas kelompok menjadi satu "kartu"
+		 * utuh di layar. Kartu ini bukan sekadar sebaris teks: di dalamnya ada judul dan instruksi tugas,
+		 * jadwal mulai dan batas akhir, daftar kelompok beserta anggotanya, dosen pengampu, tempat mengunggah
+		 * dan mengunduh berkas, pengaturan bagaimana nilai tugas ini masuk ke nilai akhir, tombol-tombol
+		 * pengelolaan, sampai ringkasan grafik penilaian. Metode inilah yang merakit semuanya, sehingga
+		 * hampir seluruh isi layar Tugas Kelompok berasal dari sini.</p>
+		 *
+		 * <p>Karena satu metode merakit begitu banyak hal, urutan bacanya penting. Secara garis besar
+		 * badannya berjalan dalam tujuh tahap berikut.</p>
+		 *
+		 * <h4>Tahap 1 &mdash; Syarat pengumpulan</h4>
+		 * <p>Bila tugas menempel pada sebuah {@link Pertemuan}, daftar syarat pengumpulan disiapkan lebih
+		 * dulu ke dalam {@code rowsSyarat} dan pesan syarat yang belum terpenuhi dikumpulkan ke
+		 * {@code syaratAlert}. Kumpulan pesan itu kemudian diteruskan apa adanya ke
+		 * {@link #bukaDaftarKelompok} dan {@link #pasangAksiPengaturan}, sehingga peringatan yang sama tidak
+		 * perlu dihitung ulang di tiap jendela. Pengelola mendapat versi yang dapat diubah
+		 * ({@code Tugas.tampilanSyarat}), pelajar mendapat versi baca-saja
+		 * ({@code Tugas.tampilanSyaratReadonly}) ditambah {@code Tugas.tampilanLain}. Perhatikan bahwa
+		 * pemilihan cabang di sini memakai pemeriksaan peran gaya lama yang menguji field helper dan
+		 * beberapa peran pada objek pengguna satu per satu, BUKAN
+		 * {@link TugasKelompokHelper#bolehKelola(Tbmuser)}; keduanya tidak selalu memberi hasil yang sama
+		 * (lihat catatan "Ketidakseragaman gerbang peran" di bawah).</p>
+		 *
+		 * <h4>Tahap 2 &mdash; Kartu ringkas</h4>
+		 * <p>{@link TugasKelompokHelper#buatKartuRingkasTugasKelompok} mengembalikan HTML dalam tiga
+		 * potongan: header selebar penuh, kolom kiri (mata kuliah, jadwal, daftar kelompok+anggota), dan
+		 * bagian atas kolom kanan (dosen pengampu + tombol peserta). Seluruh kontrol ZK berikutnya
+		 * ditempelkan ke dalam {@code vbox} yang menjadi kolom KANAN, tepat di bawah tombol peserta &mdash;
+		 * dengan begitu kontrol berada DI DALAM kartu dan mengisi ruang kosong, bukan terlempar jauh ke
+		 * bawah. Judul lama ({@code MyCaptionStyled}) disembunyikan karena sudah diwakili header kartu.
+		 * Seluruh perakitan kartu dibungkus {@code try/catch}: bila gagal, {@code vbox} tetap ditempelkan
+		 * ke {@code Groupbox} induk sebagai jalur cadangan sehingga kontrol lama tidak ikut hilang. Prinsip
+		 * ini berlaku di sepanjang metode: hiasan boleh gagal, fungsi tidak boleh ikut gagal.</p>
+		 *
+		 * <h4>Tahap 3 &mdash; Gerbang waktu: tiga keadaan yang saling meniadakan</h4>
+		 * <p>Dengan acuan {@code kemarin} (yang sesungguhnya berisi waktu sekarang), tugas berada di salah
+		 * satu dari tiga keadaan: <b>belum mulai</b> (waktu sekarang masih sebelum {@code getMulai()}),
+		 * <b>telah selesai</b> (sudah melewati {@code getSelesai()}), atau <b>sedang berjalan</b>. Dua
+		 * keadaan pertama hanya menampilkan pesan berikut ikon jam, dan seluruh kontrol pengumpulan maupun
+		 * penilaian TIDAK dibangun sama sekali. Ini penting dipahami: batas waktu tugas ditegakkan dengan
+		 * cara tidak membuat komponennya, bukan dengan menonaktifkannya.</p>
+		 *
+		 * <h4>Tahap 4 &mdash; Isi tugas &amp; berkas (hanya saat sedang berjalan)</h4>
+		 * <p>Menampilkan rentang waktu, instruksi tugas, syarat pengumpulan bila ada, dan &mdash; pada mode
+		 * rinci ({@code tampilRinci}) &mdash; dosen pengampu, riwayat revisi, prasyarat mata kuliah, serta
+		 * jadwal hari/jam/ruangan. Kotak unggah/unduh dibangun oleh
+		 * {@code LampiranLain.createDownloadUploadFileLain}; argumen terakhirnya yang bertipe {@code boolean}
+		 * menentukan apakah pengguna boleh mengubah lampiran instruksi.</p>
+		 *
+		 * <h4>Tahap 5 &mdash; Penilaian: dua dunia yang terpisah</h4>
+		 * <p>Ini bagian terbesar, dan bercabang menurut asal tugas:</p>
+		 * <ul>
+		 *   <li><b>Perkuliahan</b> ({@code getPerkuliahan() != null}). Pelajar hanya melihat label komponen
+		 *   nilai berikut bobotnya. Pengelola mendapat pemilih {@link FormatNilai} + kotak bobot yang
+		 *   langsung tersimpan saat diubah, dan bercabang lagi menurut kurikulum:
+		 *   <ul>
+		 *     <li><i>Kurikulum OBE</i> &mdash; pemilih format nilai tunggal beserta bobot manual
+		 *     DISEMBUNYIKAN, karena penilaian OBE memakai pemetaan Sub-CPMK. Yang tampil adalah tombol
+		 *     "Masukkan Nilai" (memanggil {@code GradingHelper.hitungNilaiBerdasarkanFormatNilaiObe} di
+		 *     dalam timer agar tidak menahan permintaan) dan grid Sub-CPMK BACA-SAJA. Bobot Sub-CPMK
+		 *     sengaja hanya dapat diubah dari formulir "Instruksi Tugas Kelompok", yaitu
+		 *     {@code bangunGridSubCpmk(..., editable=true)} di {@link TugasKelompokHelper#init}.</li>
+		 *     <li><i>Non-OBE</i> &mdash; pemilih format nilai, bobot, tombol "Masukkan Nilai", dan tombol
+		 *     "Format Nilai". Saat pilihan diganti, {@code bersihkanFormatNilaiYatim} dijalankan lebih dulu
+		 *     untuk membersihkan rujukan menggantung, baru pilihan barunya disimpan.</li>
+		 *   </ul>
+		 *   Bila perkuliahan sudah dikunci ({@code getDikunci() != null}), pemilih dan kotak bobot
+		 *   dinonaktifkan dan keterangan "Penilaian sudah dikunci" ditampilkan.</li>
+		 *   <li><b>Sekolah</b> ({@code jadwalPelajaran != null}). Memakai rantai penilaian sekolah:
+		 *   {@code JenisPenilaian} &rarr; {@code GrupPenilaian} &rarr; {@code GrupKategoriItemPenilaianSiswa}
+		 *   &rarr; {@code JenisItemPenilaianSiswa}. Jenis penilaian diambil dari mata pelajaran, tetapi
+		 *   ditimpa oleh kurikulum sekolah bila kurikulum menetapkannya. Daftar disaring per tingkat kelas:
+		 *   grup atau kategori yang ditandai "khusus tingkat" dilewati bila tingkatnya tidak cocok. Hanya
+		 *   item bertipe ANGKA atau TEXT_ANGKA yang ditawarkan, karena nilai tugas berupa angka. Grup
+		 *   kategori dan grup penilaian ikut disimpan sebagai atribut {@code Comboitem} sehingga ketiga
+		 *   rujukan tersimpan sekaligus saat pilihan berubah.</li>
+		 * </ul>
+		 * <p><b>Perangkap yang perlu diketahui:</b> pada cabang sekolah terdapat {@code return} di tengah
+		 * loop ketika sebuah grup penilaian tidak memiliki grup kategori. Yang dihentikan bukan hanya loop,
+		 * melainkan SELURUH penggambaran baris &mdash; sisa kartu (jumlah kelompok, toolbar, blok
+		 * pengecualian peserta) tidak ikut dibangun untuk baris itu.</p>
+		 *
+		 * <h4>Tahap 6 &mdash; Toolbar aksi</h4>
+		 * <p>Berisi lima tombol: <b>Kelola Nilai</b> ({@link TugasKelompokHelper#bukaKelolaNilai}),
+		 * <b>Download Nilai</b> dan <b>Upload Nilai</b> (entri massal lewat berkas Excel), <b>Kelola
+		 * Kelompok</b>, dan <b>Hapus Tugas Kelompok</b>. Berkas Excel menyesuaikan mode penilaian: kolom
+		 * tunggal "Nilai" untuk non-OBE, atau satu kolom per Sub-CPMK untuk OBE, selalu diakhiri kolom
+		 * "Keterangan". Kolom "ID" pada berkas adalah id baris keanggotaan
+		 * ({@link NamaTugasKelompokPunyaMahasiswa}); saat diunggah, hanya id yang memang milik tugas ini yang
+		 * diproses (baris lain diabaikan diam-diam), sehingga berkas hasil unduhan tugas lain tidak dapat
+		 * dipakai untuk menulis nilai ke tugas ini. Nilai OBE ditulis ke blob JSON
+		 * {@code TugasKelompok.keteranganNilai} sekali di akhir, sedangkan keterangan dan nilai non-OBE
+		 * ditulis per baris keanggotaan.</p>
+		 * <p>Kedua fitur Excel memuat anggota dengan satu kueri PER KELOMPOK (pola N+1). Untuk jumlah
+		 * kelompok yang wajar hal ini tidak terasa, tetapi berbeda dari
+		 * {@code buatKartuRingkasTugasKelompok} dan {@code bukaKelolaNilai} yang sengaja memakai
+		 * {@code Restrictions.in} agar cukup satu kueri &mdash; perbedaan yang layak diseragamkan bila kelak
+		 * ada keluhan lambat.</p>
+		 *
+		 * <h4>Tahap 7 &mdash; Pengecualian peserta</h4>
+		 * <p>Tombol "Tampilkan peserta yang tidak perlu mengumpulkan tugas kelompok" membuka grid berisi
+		 * seluruh peserta kelas dengan kotak centang per orang, ditambah satu kotak centang massal di kepala
+		 * kolom. Keanggotaan daftar pengecualian disimpan sebagai teks CSV berpagar koma pada
+		 * {@code TugasKelompok.mhsYgTidakIkut} dan diubah lewat
+		 * {@code GradingHelper.ubahIdPadaCsvBerpagarKoma}, yang membandingkan token secara utuh sehingga id
+		 * yang kebetulan menjadi bagian dari id lain tidak ikut terhapus. Kotak centang massal menerapkan
+		 * perubahan pada seluruh peserta yang sedang lolos saringan pencarian, lalu menyimpan SEKALI di
+		 * akhir. Kotak centang dinonaktifkan untuk baris non-mahasiswa karena daftar ini hanya menampung id
+		 * mahasiswa.</p>
+		 *
+		 * <h4>Ketidakseragaman gerbang peran (fakta yang perlu diketahui pemelihara)</h4>
+		 * <p>Metode ini memakai TIGA bentuk pemeriksaan peran yang berbeda, dan ketiganya tidak setara:</p>
+		 * <ol>
+		 *   <li>{@link TugasKelompokHelper#bolehKelola(Tbmuser)} &mdash; bentuk terpusat dan paling ketat,
+		 *   dipakai tombol Kelola Nilai, Download/Upload Nilai, Hapus, dan dashboard analitik.</li>
+		 *   <li>Pemeriksaan enam suku gaya lama yang menguji dua field helper ditambah empat peran pada
+		 *   objek pengguna &mdash; namun <b>tidak menguji {@code tbmuser.getMahasiswa()}</b>, dan tidak
+		 *   menguji field {@code siswa}/{@code calonSiswa}. Dipakai antara lain untuk memilih syarat yang
+		 *   dapat diubah versus baca-saja, hak unggah lampiran instruksi, dan pemetaan Sub-CPMK.</li>
+		 *   <li>Pemeriksaan empat suku yang HANYA menguji field helper dan sama sekali tidak melihat
+		 *   pengguna yang login &mdash; bentuk paling longgar, justru yang menjaga tombol "Anggap Hadir
+		 *   (Pengumpul)" dan "Tdk Upload = Alpa" yang menulis absensi seluruh peserta kelas.</li>
+		 * </ol>
+		 * <p>Karena helper yang dibangun lewat konstruktor sekolah selalu meninggalkan field jalur perguruan
+		 * tinggi bernilai {@code null}, bentuk (2) dan (3) dapat menilai seorang pelajar sebagai pengelola
+		 * pada jalur tersebut. Seluruh pemeriksaan peran di sini juga bersifat <i>per tampilan</i>, bukan per
+		 * data: tidak ada satu pun yang menanyakan apakah pengguna berhak atas perkuliahan/kelas TUGAS INI.
+		 * Bentuk (1) adalah yang seharusnya dipakai di semua tempat.</p>
+		 *
+		 * <p><b>Catatan {@code null}:</b> beberapa cabang memanggil {@code tbmuser.getPesertaKursus()} dan
+		 * sejenisnya tanpa penjagaan {@code null} lebih dulu, sehingga sesi tanpa pengguna akan melempar
+		 * {@code NullPointerException} alih-alih diperlakukan sebagai bukan pengelola. {@code bolehKelola}
+		 * sudah menangani hal ini dengan benar lewat {@code loginPelajar(null)}.</p>
+		 *
+		 * @param rowUtama baris grid yang harus diisi komponen; disetel rata atas dan menjadi induk seluruh
+		 *                 komponen yang dirakit di sini
+		 * @param data     objek {@link TugasKelompok} untuk baris ini; di-<i>cast</i> tanpa pemeriksaan tipe
+		 *                 karena model grid selalu diisi {@code TugasKelompok} oleh
+		 *                 {@link TugasKelompokHelper#loadData(Object)} dan
+		 *                 {@link TugasKelompokHelper#tampilanTugas}
+		 * @throws Exception bila perakitan komponen atau pembacaan data gagal; ZK akan menampilkannya sebagai
+		 *                   galat penggambaran baris
+		 * @see TugasKelompokHelper#buatKartuRingkasTugasKelompok(TugasKelompok)
+		 * @see TugasKelompokHelper#bukaKelolaNilai(TugasKelompok)
+		 * @see #pasangAksiPengaturan(Vbox, TugasKelompok, Set)
+		 */
 		@SuppressWarnings({ "unchecked" })
 		@Override
 		public void render(final Row rowUtama, Object data) throws Exception {

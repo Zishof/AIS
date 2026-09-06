@@ -198,6 +198,17 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 					MahasiswaRequestTugasAkhir.class.getName() + "_" + commonVO.getName(), "Catatan", false,
 					new EventListener() {
 
+						/**
+						 * Callback pasca-unggah yang sengaja kosong: lampiran catatan per peran sudah
+						 * ditautkan sendiri oleh {@link LampiranLain#createDownloadUploadFileLain}
+						 * memakai kunci {@code MahasiswaRequestTugasAkhir#id} + nama peran, sehingga
+						 * tidak ada state entity yang perlu diperbarui di sini.
+						 *
+						 * <p>Argumen terakhir pemanggilan bernilai {@code false}, jadi pada baris
+						 * grid area lampiran ini bersifat baca/unduh saja bagi semua orang.</p>
+						 *
+						 * @param arg0 event unggah/hapus lampiran; tidak dipakai
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 
@@ -271,8 +282,18 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 
 				Hbox toolbar = new Hbox();
 				MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Penilaian", "/img/svg/edit-box-line.svg");
+				// Tooltip "Hapus Data" adalah sisa salin-tempel; tombol ini membuka entri nilai.
 				button.setTooltiptext("Hapus Data");
 				button.addEventListener("onClick", new EventListener() {
+					/**
+					 * Membuka dialog entri nilai per komponen untuk dosen dan peran baris ini
+					 * ({@link PenilaianProposalSkripsiHelper#init(Dosen, String)}). Tombol ini muncul
+					 * bagi semua pengguna yang boleh melihat nilai — termasuk mahasiswa pemilik
+					 * pengajuan; pembatasan hak edit dilakukan di dalam {@code init}, yang menampilkan
+					 * label read-only alih-alih kotak isian bagi mahasiswa maupun dosen lain.
+					 *
+					 * @param event event {@code onClick}; isinya tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event event) throws Exception {
 
@@ -378,8 +399,39 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		final Footer footerTotal = new Footer(Common.numberFormat.get().format(nilaiPembimbing) + " ("
 				+ (nilaiHurufpembimbing == null ? "" : nilaiHurufpembimbing.getNilaiHuruf()) + ")");
 
+		// Listener kalkulasi bersama dialog ini: dipasang ke SETIAP kotak nilai, ke kotak catatan
+		// dosen, dan dipanggil langsung oleh tombol "Hitung Ulang".
 		final EventListener hitungUlang = new EventListener() {
 
+			/**
+			 * Inti kalkulasi dialog entri nilai, dipanggil setiap kali satu kotak nilai atau kotak
+			 * catatan berubah, dan oleh tombol "Hitung Ulang".
+			 *
+			 * <p>Urutan kerjanya: hitung ulang nilai peran ini lewat
+			 * {@link MahasiswaRequestTugasAkhir#cariNilaiDariDosen} (argumen ketiga {@code true}
+			 * hanya bila event bernama {@code "Hitung Ulang"}, yaitu memaksa baca ulang detail dari
+			 * basis data alih-alih memakai yang sudah ada di memori), ambil total pengajuan, tentukan
+			 * nilai huruf/IP/status lulus, simpan catatan dosen ke JSON
+			 * {@link MahasiswaRequestTugasAkhir#getCatatanDosen()} pada kunci peran, simpan
+			 * pengajuan, lalu — bila sudah tertaut KRS — salin total/IP/nilai huruf/lulus beserta
+			 * kembaran "sementara"-nya ke {@link Detailperkuliahan} dan simpan. Terakhir memperbarui
+			 * label footer total peran ini.
+			 *
+			 * <p><b>Auto-save tanpa tombol Simpan:</b> perubahan satu kotak nilai langsung menembus
+			 * sampai ke baris KRS/transkrip mahasiswa, tanpa langkah verifikasi/persetujuan dan tanpa
+			 * satu transaksi pembungkus.</p>
+			 *
+			 * <p><b>Efek samping tak kentara:</b> catatan dosen ikut ditulis ulang dari isi kotak
+			 * {@code catatanDosen} setiap kali sebuah <i>nilai</i> berubah, bukan hanya saat
+			 * catatannya sendiri diubah.</p>
+			 *
+			 * <p>Berbeda dari kembarannya di {@code PenilaianSkripsiHelper}, listener ini tidak
+			 * memicu callback ke layar pemanggil — kelas ini memang tidak menyimpan
+			 * {@code eventListener} milik pemanggil.</p>
+			 *
+			 * @param arg0 event pemicu; hanya namanya yang dipakai, untuk membedakan "Hitung Ulang"
+			 *             (paksa baca ulang) dari perubahan biasa
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				Detailperkuliahan detailperkuliahan = mahasiswaRequestTugasAkhir.getDetailperkuliahan();
@@ -482,6 +534,26 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 					row.setAttribute("dosen", dosen);
 					nilai.addEventListener("onChange", new EventListener() {
 
+						/**
+						 * Menyimpan nilai komponen tunggal (komponen tanpa sub-komponen) untuk
+						 * {@code dosen} pada peran {@code jenis}, lalu memicu hitung ulang total.
+						 *
+						 * <p>{@code refresh} dipanggil lebih dulu agar entri dosen lain yang masuk
+						 * bersamaan — dialog ini dibuka per dosen, jadi bisa paralel — tidak
+						 * tertimpa oleh salinan lama di memori. Berbeda dari kembarannya di
+						 * {@code PenilaianSkripsiHelper}, di sini <b>tidak ada penjagaan "pastikan
+						 * transaksi aktif"</b> sebelum {@code refresh}; kembarannya menambahkan
+						 * penjagaan itu justru untuk mengatasi {@code HibernateException} "refresh
+						 * is not valid without active transaction". Dicatat apa adanya.</p>
+						 *
+						 * <p>Kotak nilai ini hanya dibuat bila pengguna login berhak mengubahnya
+						 * (bukan mahasiswa, dan bukan dosen selain pemilik baris), sehingga bagi yang
+						 * lain listener ini tidak pernah ada. Nilai yang diketik TIDAK divalidasi
+						 * terhadap bobot maupun batas 0-100.</p>
+						 *
+						 * @param arg0 event {@code onChange} kotak nilai, diteruskan apa adanya ke
+						 *             {@code hitungUlang}
+						 */
 						@Override
 						public void onEvent(Event arg0) throws Exception {
 							HibernateUtil.currentSession().refresh(mahasiswaRequestTugasAkhir);
@@ -526,11 +598,30 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 						row.setValign("top");
 						row.setAttribute("nilai", nilai);
 						row.setValign("top");
+						// CACAT DICATAT (belum diperbaiki): baris SUB-KOMPONEN ini menitipkan objek
+						// INDUK, bukan komponenPenilaianProposalSkripsi miliknya sendiri.
+						// Kembarannya di PenilaianSkripsiHelper menitipkan komponen anak yang benar.
+						// Listener onChange di bawah tidak terpengaruh (ia memakai variabel yang
+						// benar), tetapi tombol "Hitung Ulang" yang menyapu baris lewat atribut
+						// "komponen" akan menulis nilai anak ke slot induk. Lihat Javadoc
+						// init(Dosen, String).
 						row.setAttribute("komponen", parent);
 						row.setValign("top");
 						row.setAttribute("dosen", dosen);
 						nilai.addEventListener("onChange", new EventListener() {
 
+							/**
+							 * Kembaran listener nilai komponen tunggal, untuk komponen ANAK
+							 * (sub-komponen). Perilaku dan catatan hak aksesnya sama; bedanya
+							 * komponen yang disimpan adalah {@code komponenPenilaianProposalSkripsi}
+							 * — variabel yang <i>benar</i>, sehingga jalur pengetikan nilai biasa
+							 * tidak terkena cacat atribut {@code "komponen"} yang dicatat tepat di
+							 * atas. Komponen induk yang punya anak tidak menerima nilai langsung;
+							 * barisnya hanya judul.
+							 *
+							 * @param arg0 event {@code onChange} kotak nilai, diteruskan apa adanya
+							 *             ke {@code hitungUlang}
+							 */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								HibernateUtil.currentSession().refresh(mahasiswaRequestTugasAkhir);
@@ -568,6 +659,16 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		LampiranLain.createDownloadUploadFileLain(hbox, mahasiswaRequestTugasAkhir.getId(),
 				MahasiswaRequestTugasAkhir.class.getName() + "_" + jenis, "Catatan", false, new EventListener() {
 
+					/**
+					 * Callback pasca-unggah yang sengaja kosong — sama seperti kembarannya di
+					 * {@link DetailKelompokKknRenderer}: lampiran catatan per peran sudah ditautkan
+					 * sendiri oleh {@link LampiranLain#createDownloadUploadFileLain}. Yang berbeda di
+					 * sini, argumen terakhir pemanggilan menghitung hak unggah dari syarat yang sama
+					 * dengan kotak nilai, sehingga hanya dosen pemilik baris (atau staf non-dosen)
+					 * yang boleh menambah/menghapus lampiran.
+					 *
+					 * @param arg0 event unggah/hapus lampiran; tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 
@@ -603,11 +704,25 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Selesai", "/img/cancel.gif");
 		cancel.setTooltiptext("Tutup");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menutup dialog entri nilai lalu menjadwalkan pemuatan ulang grid dosen penilai. Tidak
+			 * ada penyimpanan di sini: seluruh perubahan sudah tersimpan seketika oleh
+			 * {@code hitungUlang} pada tiap perubahan field, jadi label "Selesai" berarti "tutup",
+			 * bukan "simpan".
+			 *
+			 * @param event event {@code onClick} tombol "Selesai"; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				addWindow.detach();
 				Common.createDefaultTimer(new EventListener() {
 
+					/**
+					 * Dijalankan pada siklus event ZK berikutnya agar {@link #loadData(Object)}
+					 * membaca state SETELAH dialog terlepas dan penyimpanan terakhir selesai.
+					 *
+					 * @param arg0 event timer; tidak dipakai
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						loadData(null);
@@ -620,6 +735,23 @@ public class PenilaianProposalSkripsiHelper implements DataLoader {
 		cancel = new MyToolbarbuttonConfig("Hitung Ulang", "/img/Configure.gif");
 		cancel.setTooltiptext("Hitung Ulang");
 		cancel.addEventListener("onClick", new EventListener() {
+			/**
+			 * Menyimpan ulang SELURUH kotak nilai yang sedang tampil — dibaca dari atribut
+			 * {@code "nilai"}/{@code "komponen"} yang dititipkan ke tiap baris saat dibangun — lalu
+			 * memanggil {@code hitungUlang} dengan event bernama {@code "Hitung Ulang"} sehingga
+			 * total dihitung ulang dari basis data, bukan dari hasil di memori.
+			 *
+			 * <p><b>Inilah jalur yang terkena cacat atribut {@code "komponen"}</b> yang dicatat pada
+			 * pembangunan baris sub-komponen di atas: untuk format nilai yang komponennya berjenjang,
+			 * setiap baris anak menyerahkan objek INDUK, sehingga
+			 * {@link MahasiswaRequestTugasAkhir#populateDetailNilai} menulis nilai anak ke slot
+			 * induk (dengan bobot induk) dan tiap anak berikutnya menimpa entri yang sama. Untuk
+			 * format yang seluruh komponennya datar, tombol ini bekerja sebagaimana mestinya.</p>
+			 *
+			 * <p>Baris read-only tidak punya atribut {@code "nilai"}, sehingga aman dilewati.</p>
+			 *
+			 * @param event event {@code onClick} tombol "Hitung Ulang"; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event event) throws Exception {
 				List<Row> rows = subRows.getChildren();

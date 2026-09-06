@@ -209,13 +209,66 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	 */
 	private MyGrid grid;
 
+	/**
+	 * Kata kunci pencarian bebas pada toolbar. Dicocokkan {@code ilike ANYWHERE} oleh
+	 * {@link #initCriteria} ke nama dan nomor induk baris: {@code mahasiswa.nama}/
+	 * {@code mahasiswa.nim} pada mode mahasiswa aktif, atau
+	 * {@code biodataCalonMahasiswa.nama}/{@code biodataCalonMahasiswa.noRegistrasi} pada mode
+	 * calon mahasiswa.
+	 * Dikosongkan berarti filter dilewati ({@code Restrictions.sqlRestriction("true")}).
+	 */
 	private Textbox pencarian;
 
+	/**
+	 * Batas BAWAH rentang tahun angkatan pada toolbar. Bersama {@link #searchtahunsd} membentuk
+	 * satu {@code Restrictions.between} atas {@code mahasiswa.tahunangkatan} (atau
+	 * {@code biodataCalonMahasiswa.tahun}) di {@link #initCriteria}.
+	 *
+	 * <p>Berbeda dengan filter lain, rentang ini TIDAK punya opsi "semua": nilainya dibaca
+	 * langsung lewat {@code getSelectedItem().getValue()} sehingga selalu ada batas yang
+	 * berlaku. Nilai awalnya diturunkan dari tahun berjalan (mundur 10 tahun pada mode calon
+	 * mahasiswa, mundur 2 tahun pada mode mahasiswa aktif), kecuali bila
+	 * {@code settingBiaya.getAngkatan()} terisi — saat itu kedua ujung rentang dikunci ke
+	 * angkatan tersebut dan comboboxnya di-{@code setDisabled(true)}.</p>
+	 */
 	private Combobox searchtahun;
+	/**
+	 * Batas ATAS rentang tahun angkatan pada toolbar, pasangan {@link #searchtahun}. Nilai
+	 * awalnya adalah tahun berjalan, dan ikut dikunci ke {@code settingBiaya.getAngkatan()}
+	 * bila SettingBiaya memang mengikat satu angkatan tertentu.
+	 */
 	private Combobox searchtahunsd;
+	/**
+	 * Filter fakultas pada toolbar, dipasangkan dengan {@link #searchjurusan} lewat
+	 * {@code Common.initFakultasDanJurusanDanSemua} sehingga memilih fakultas mempersempit isi
+	 * combobox jurusan. Di {@link #initCriteria} diterapkan sebagai
+	 * {@code CommonSearchFilterHelper.eqSelectedWithId("jurusan.fakultas", ...)}; entri
+	 * "Semua" (nilai {@code null}) membuat filter dilewati.
+	 *
+	 * <p>Dikunci ke fakultas milik {@code settingBiaya.getJurusan()} dan dinonaktifkan bila
+	 * SettingBiaya sudah mengikat satu jurusan tertentu.</p>
+	 */
 	private Combobox searchfakultas;
+	/**
+	 * Filter jurusan/program studi pada toolbar, diterapkan {@link #initCriteria} sebagai
+	 * {@code CommonSearchFilterHelper.eqSelectedWithId("jurusan", ...)}. Sama seperti
+	 * {@link #searchfakultas}, entri "Semua" melewati filter dan combobox dikunci bila
+	 * {@code settingBiaya.getJurusan()} terisi.
+	 */
 	private Combobox searchjurusan;
 
+	/**
+	 * Daftar {@link ItemBiaya} yang menjadi KOLOM grid — bukan filter baris. Dimuat sekali di
+	 * awal {@link #display()} dari {@link DetailSettingBiaya} milik {@link #settingBiaya},
+	 * di-{@code groupProperty("itemBiaya.id")} agar unik dan disaring hanya item yang aktif
+	 * ({@code aktif} null dibaca sebagai aktif).
+	 *
+	 * <p>Setiap renderer baris melakukan iterasi atas daftar ini untuk menghasilkan satu sel
+	 * nominal per item, dan {@link #renderTanggalTagihan} memakainya untuk menentukan apakah
+	 * label tanggal perlu diberi awalan nama item (hanya bila lebih dari satu item terpilih).
+	 * Karena dimuat sekali saat layar dibuka, menambah/menonaktifkan ItemBiaya pada SettingBiaya
+	 * baru tercermin setelah layar dibuka ulang, bukan setelah tombol Refresh.</p>
+	 */
 	private List<ItemBiaya> selectedItemBiaya;
 
 	/**
@@ -239,7 +292,32 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	 */
 	private boolean mhs = true;
 
+	/**
+	 * Pilihan jenis semester acuan ({@link Perkuliahan#GANJIL}/{@link Perkuliahan#GENAP}) untuk
+	 * resolusi tagihan aktif. Nilai awalnya mengikuti semester berjalan lewat
+	 * {@code Common.isNowSemensterGanjil()}. Bersama {@link #tahunAkademik} nilainya diteruskan
+	 * ke {@code KegiatanHelper.checkKegiatanMahasiswa}/{@code checkKegiatanCalonMahasiswa} serta
+	 * ke tombol unggah/unduh tagihan.
+	 *
+	 * <p><b>Perhatikan:</b> ini bukan sekadar filter tampilan. Karena helper resolusi MEMBUAT
+	 * {@link Kegiatan} bila belum ada, mengubah pilihan di sini lalu memuat ulang grid dapat
+	 * membangkitkan Kegiatan beserta tagihannya untuk TA/semester yang dipilih. Nilainya juga
+	 * dibaca lewat {@code getSelectedItem().getValue().toString()} tanpa penjagaan {@code null}
+	 * lebih dulu.</p>
+	 */
 	private Combobox genapGanjil;
+	/**
+	 * Pilihan tahun akademik acuan untuk resolusi tagihan aktif, pasangan {@link #genapGanjil}.
+	 * Nilainya diteruskan sebagai argumen tahun akademik ke helper resolusi Kegiatan di keempat
+	 * renderer dan ke tombol unggah/unduh tagihan, dan dibaca dengan pola
+	 * {@code getSelectedItem().getValue().toString()} yang mengandaikan selalu ada item
+	 * terpilih.
+	 *
+	 * <p>Jangan tertukar dengan parameter lokal bernama sama pada
+	 * {@link #bungkusPilihanSemester} dan {@link #perbaruiTahunAkademik} — di sana
+	 * {@code tahunAkademik} adalah {@link Label} penampil TA hasil hitung untuk rentang
+	 * semester {@link SettingBiayaDetail}, sama sekali bukan field ini.</p>
+	 */
 	private Combobox tahunAkademik;
 
 	/**
