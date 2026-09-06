@@ -37,18 +37,51 @@ import ais.database.model.file.LayarPelangganSlide;
  * bila salah satunya perlu diperbaiki di masa depan.
  */
 public class AmbilMediaLayarPelangganSlide extends HttpServlet {
+	/** ID versi serialisasi servlet ini (kontrak {@link java.io.Serializable} bawaan {@code HttpServlet}). */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Melayani {@code GET}: mendelegasikan ke {@link #process}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} menentukan slide yang diminta
+	 * @param response tanggapan HTTP; diisi gambar slide dari disk
+	 * @throws ServletException tidak pernah dilempar keluar dalam praktiknya (galat internal
+	 *         ditangani lewat {@link Common#tampilErrorJikaAdmin})
+	 * @throws IOException bila penulisan tanggapan gagal
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/**
+	 * Melayani {@code POST} dengan perilaku identik dengan {@link #doGet}: mendelegasikan ke
+	 * {@link #process}.
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} menentukan slide yang diminta
+	 * @param response tanggapan HTTP; diisi gambar slide dari disk
+	 * @throws ServletException tidak pernah dilempar keluar dalam praktiknya
+	 * @throws IOException bila penulisan tanggapan gagal
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		process(request, response);
 	}
 
+	/**
+	 * Menyiapkan berkas gambar slide (lewat {@link #loadFile}, membaca dari cache disk atau
+	 * menyalinnya dari Blob basis data sekali saja) lalu menstriknya langsung ke tanggapan
+	 * dengan tipe MIME yang sesuai.
+	 *
+	 * <p>Sesi Hibernate streaming ({@link StreamingHibernateUtil}) dibuka, dipakai hanya untuk
+	 * {@link #loadFile}, lalu di-clear/disconnect/close pada blok {@code finally} sebelum
+	 * penulisan berkas ke tanggapan dimulai -- sengaja dipisah agar sesi basis data tidak
+	 * tertahan selama transfer berkas yang berpotensi lambat. Galat apa pun ditangkap dan
+	 * diteruskan ke {@link Common#tampilErrorJikaAdmin}, tidak pernah dilempar keluar.</p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} menentukan slide yang diminta
+	 * @param resp tanggapan HTTP; diisi byte gambar slide (atau ikon peringatan/placeholder)
+	 */
 	private void process(HttpServletRequest request, HttpServletResponse resp) {
 		Session streamingSession = null;
 		ServletContext sc = getServletContext();
@@ -98,6 +131,25 @@ public class AmbilMediaLayarPelangganSlide extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menentukan berkas gambar slide yang akan disajikan: bila belum ada di cache disk
+	 * {@code /media/}, gambar disalin sekali dari kolom Blob {@link LayarPelangganSlide} lewat
+	 * {@link #writeBlobToFile}; permintaan berikutnya untuk {@code id} yang sama langsung
+	 * membaca dari berkas cache tanpa menyentuh basis data lagi.
+	 *
+	 * <p>Nama berkas cache disusun dari {@code id}, nama kelas entity, dan nama file asli
+	 * (spasi diganti {@code _}) agar unik per slide. {@code id} kosong/tidak diisi
+	 * menghasilkan ikon peringatan bawaan (dianggap "tidak ada slide diminta", bukan galat).
+	 * Bila berkas hasil salin ternyata bukan gambar valid ({@link Common#isImage}), ikon
+	 * peringatan yang dikembalikan sebagai gantinya.</p>
+	 *
+	 * @param request permintaan HTTP; parameter {@code id} menentukan slide yang diminta
+	 * @param resp tanggapan HTTP (tidak dipakai langsung, disediakan untuk kesamaan pola dengan
+	 *             {@code AmbilMediaProduk})
+	 * @param streamingSession sesi Hibernate streaming yang dipakai untuk membaca nama berkas dan Blob
+	 * @return berkas gambar yang siap disajikan: dari cache disk, hasil salin baru, atau ikon peringatan
+	 * @throws Exception galat apa pun dari akses basis data/berkas; ditangani oleh pemanggil ({@link #process})
+	 */
 	private File loadFile(HttpServletRequest request, HttpServletResponse resp, Session streamingSession)
 			throws Exception {
 		ServletContext sc = getServletContext();
@@ -139,6 +191,14 @@ public class AmbilMediaLayarPelangganSlide extends HttpServlet {
 		return myfile;
 	}
 
+	/**
+	 * Menulis isi {@code blob} ke {@code file} di disk lewat penyalinan kanal NIO
+	 * ({@link #fastChannelCopy}); tidak melakukan apa pun bila {@code file} sudah ada
+	 * (mencegah penyalinan ulang yang sia-sia untuk cache yang sudah terisi).
+	 *
+	 * @param blob sumber data biner dari basis data
+	 * @param file berkas tujuan di cache disk {@code /media/}
+	 */
 	private void writeBlobToFile(Blob blob, File file) {
 		if (file != null && file.exists()) {
 			return;
@@ -158,6 +218,14 @@ public class AmbilMediaLayarPelangganSlide extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyalin seluruh isi {@code src} ke {@code dest} lewat buffer langsung 16 KiB, tanpa
+	 * menyalin ke memori heap (pola salin kanal-ke-kanal NIO standar).
+	 *
+	 * @param src kanal sumber yang dapat dibaca
+	 * @param dest kanal tujuan yang dapat ditulis
+	 * @throws IOException bila pembacaan atau penulisan gagal
+	 */
 	private void fastChannelCopy(final ReadableByteChannel src, final WritableByteChannel dest) throws IOException {
 		final ByteBuffer buffer = ByteBuffer.allocateDirect(16 * 1024);
 		while (src.read(buffer) != -1) {

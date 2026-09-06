@@ -485,8 +485,10 @@ public class FilterJSP implements Filter {
 		Common.REAL_PATH_REPORT_TEMP = req.getRealPath("/report");
 
 		int port = req.getServerPort();
-		Common.CURRENT_URL_SIMPLE = (req.isSecure() ? "https://" : "http://") + serverName
-				+ (port == 80 || port == 443 ? "" : ":" + port);
+		if (Common.sanitizedRequestHostForCurrentUrl(req) != null) {
+			Common.CURRENT_URL_SIMPLE = (req.isSecure() ? "https://" : "http://") + serverName
+					+ (port == 80 || port == 443 ? "" : ":" + port);
+		}
 
 		
 
