@@ -40,9 +40,13 @@ import ais.common.Common;
  * @see HttpServlet
  */
 public class Recording extends HttpServlet {
+	/** Versi serialisasi tetap untuk kompatibilitas {@link java.io.Serializable} servlet ini. */
 	private static final long serialVersionUID = 1L;
 
 	/**
+	 * Konstruktor default tanpa argumen, hanya meneruskan ke {@link HttpServlet#HttpServlet()}.
+	 * Tidak ada state khusus yang diinisialisasi di sini.
+	 *
 	 * @see HttpServlet#HttpServlet()
 	 */
 	public Recording() {
@@ -51,6 +55,43 @@ public class Recording extends HttpServlet {
 	}
 
 	/**
+	 * Menerima upload berkas rekaman video multipart ({@code Content-Type: multipart/*}) dan
+	 * menyimpannya ke direktori laporan bersama ({@link Common#ambilREAL_PATH_REPORT()}) dengan
+	 * nama berkas yang diambil MENTAH dari klien, lalu membalas JSON {@code {"status":"OK"}}.
+	 *
+	 * <p>Alur: (1) ambil nilai awal {@code video-filename} dari parameter query (bila ada);
+	 * (2) parse body multipart dengan {@link ServletFileUpload}; field form biasa (termasuk
+	 * field bernama {@code video-filename}, yang menimpa nilai dari langkah 1) dibaca sebagai
+	 * teks, sedangkan bagian non-form-field pertama dianggap konten video; (3) bila ada konten
+	 * video, tulis ke {@code Common.ambilREAL_PATH_REPORT() + "/" + fileNameVideo} dengan
+	 * {@link StandardCopyOption#REPLACE_EXISTING} (menimpa berkas lama tanpa peringatan bila
+	 * nama sama); (4) balas {@code Content-Type: application/json}, header
+	 * {@code Access-Control-Allow-Origin: *}, dan badan {@code {"status":"OK"}} — status ini
+	 * SELALU "OK" walau upload sebenarnya gagal, karena exception pada blok upload hanya
+	 * dicatat ke {@link ais.common.ErrorAuditUtil} dan tidak mengubah respons.</p>
+	 *
+	 * <p><b>Keamanan — path traversal dan tulis berkas sembarang tanpa gerbang otentikasi:</b>
+	 * {@code fileNameVideo} dipakai APA ADANYA untuk membentuk path tujuan tanpa sanitasi
+	 * (tidak ada penolakan {@code ../}, tidak ada pembatasan ekstensi/karakter, tidak ada
+	 * pengecekan bahwa hasil resolusi path tetap berada di dalam direktori laporan). Endpoint
+	 * ini dipetakan di {@code web.xml} sebagai {@code /Recording} tanpa
+	 * {@code security-constraint} khusus, sehingga tunduk pada aturan tangkapan-semua
+	 * {@code IS_AUTHENTICATED_ANONYMOUSLY} — dapat dipanggil siapa pun tanpa login. Akibatnya
+	 * pemanggil anonim berpotensi menulis berkas dengan isi dan nama bebas (termasuk memakai
+	 * {@code ../} untuk keluar dari direktori laporan) ke lokasi mana pun yang terjangkau oleh
+	 * hak tulis proses server, dan {@code Access-Control-Allow-Origin: *} membuka pemanggilan
+	 * lintas-origin dari browser mana pun. Header {@code Access-Control-Allow-Origin} yang
+	 * longgar dikombinasikan dengan tulis berkas sembarang ini adalah kerentanan serius yang
+	 * berdiri sendiri, terlepas dari fungsi rekaman video yang dimaksud.</p>
+	 *
+	 * @param request  request HTTP masuk; body multipart-nya berisi metadata form (termasuk
+	 *                 {@code video-filename}) dan konten berkas video yang diunggah
+	 * @param response response HTTP keluar; selalu diisi JSON {@code {"status":"OK"}} dengan
+	 *                 header CORS terbuka, terlepas dari keberhasilan penulisan berkas
+	 * @throws ServletException tidak pernah dilempar keluar dari sini karena kegagalan upload
+	 *                          ditelan oleh blok catch; dipertahankan hanya karena tanda
+	 *                          tangan {@link HttpServlet#doGet}
+	 * @throws IOException      bila penulisan respons akhir gagal
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
@@ -111,6 +152,15 @@ public class Recording extends HttpServlet {
 	}
 
 	/**
+	 * Menangani POST dengan perilaku identik seperti GET: langsung mendelegasikan ke
+	 * {@link #doGet(HttpServletRequest, HttpServletResponse)} tanpa logika tambahan, karena
+	 * upload multipart pada praktiknya selalu dikirim sebagai POST namun ditangani sama saja
+	 * bila diterima lewat GET.
+	 *
+	 * @param request  request HTTP masuk; diteruskan apa adanya ke {@link #doGet}
+	 * @param response response HTTP keluar; diteruskan apa adanya ke {@link #doGet}
+	 * @throws ServletException bila {@link #doGet} melempar {@code ServletException}
+	 * @throws IOException      bila {@link #doGet} melempar {@code IOException}
 	 * @see HttpServlet#doPost(HttpServletRequest request, HttpServletResponse
 	 *      response)
 	 */
