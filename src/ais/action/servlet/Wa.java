@@ -1601,6 +1601,33 @@ public class Wa extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Menyusun potongan contoh tanya-jawab khas satu institusi, untuk disisipkan ke prompt AI
+	 * menggantikan penanda {@code PROFIL_APA_SAJA}.
+	 *
+	 * <p>Keluarannya <b>bukan JSON utuh</b>, melainkan deretan pasangan objek
+	 * {@code {"text": "input: ..."}, {"text": "output: ..."}} yang diakhiri koma, siap ditempel
+	 * di tengah array {@code parts} pada templat prompt Gemini.</p>
+	 *
+	 * <h4>Sumber data</h4>
+	 * <p>Bila {@code sekolah} ada dan sudah punya id, identitas diambil dari sekolah (nama,
+	 * telepon, nomor WhatsApp, alamat); selain itu diambil dari {@code perguruanTinggi}. Pasangan
+	 * tanya-jawab yang selalu dibuat: siapa operatornya dan apa tugasnya. Pasangan tambahan hanya
+	 * dibuat bila datanya terisi: nomor telepon, nomor HP/WhatsApp, dan alamat lokasi.</p>
+	 *
+	 * <p>Selain itu ditambahkan tautan yang dirakit dari
+	 * {@code Common.getRequestHostWithProtocol()}: alamat eSchool atau eCampus, alamat pendaftaran
+	 * ({@code /ppdb} untuk sekolah, {@code /pmb} untuk perguruan tinggi), dan alamat tracer study
+	 * ({@code /alumni}).</p>
+	 *
+	 * <p><b>Perhatian saat menyunting:</b> seluruh nilai institusi dirangkai langsung ke dalam
+	 * string JSON tanpa proses escape. Nama, alamat, atau nomor yang memuat tanda kutip ganda,
+	 * garis miring terbalik, atau baris baru akan merusak struktur prompt yang dihasilkan.</p>
+	 *
+	 * @param sekolah         sekolah pemilik konteks; boleh {@code null} atau tanpa id
+	 * @param perguruanTinggi perguruan tinggi pemilik konteks; dipakai bila sekolah tidak ada
+	 * @return potongan JSON contoh tanya-jawab yang diakhiri koma; tidak pernah {@code null}
+	 */
 	public static String buatProfile(Sekolah sekolah, PerguruanTinggi perguruanTinggi) {
 
 		String nama = "";
@@ -1691,23 +1718,97 @@ public class Wa extends HttpServlet {
 
 	}
 
+	/**
+	 * Pintasan pengiriman pesan teks tanpa lampiran dan tanpa pembaruan profil AI.
+	 *
+	 * <p>Meneruskan ke {@link #kirimWaViaUltramsg(String, String, String, String, String, boolean)}
+	 * dengan nama berkas, URL, dan profil bernilai {@code null}, serta {@code ulang} bernilai
+	 * {@code true}.</p>
+	 *
+	 * @param from nomor WhatsApp tujuan
+	 * @param send isi pesan yang dikirim
+	 * @throws Exception bila penjadwalan pengiriman gagal
+	 */
 	public static void kirimWaViaUltramsg(String from, String send) throws Exception {
 		kirimWaViaUltramsg(from, send, null, null, null);
 	}
 
+	/**
+	 * Pintasan pengiriman pesan berlampiran, sekaligus <b>memperbarui profil AI</b> nomor tujuan.
+	 *
+	 * <p>Berbeda dari pintasan dua-argumen, overload ini menyusun profil lewat
+	 * {@link #buatProfile} memakai sekolah dan perguruan tinggi dari konteks request yang sedang
+	 * berjalan, lalu meneruskannya. Karena itu overload ini hanya boleh dipanggil dari thread yang
+	 * masih punya konteks request; dari thread latar, pakai overload yang menerima {@code profile}
+	 * secara eksplisit.</p>
+	 *
+	 * @param from     nomor WhatsApp tujuan
+	 * @param send     isi pesan yang dikirim
+	 * @param namaFile nama berkas lampiran; boleh {@code null}
+	 * @param url      URL berkas lampiran; boleh {@code null}
+	 * @throws Exception bila penyusunan profil atau penjadwalan pengiriman gagal
+	 */
 	public static void kirimWaViaUltramsg(String from, String send, String namaFile, String url) throws Exception {
 		kirimWaViaUltramsg(from, send, namaFile, url,
 				Wa.buatProfile(SekolahUtil.getSekolah(), PerguruanTinggiUtil.getPerguruanTinggi()), true);
 	}
 
+	/**
+	 * Pintasan pengiriman dengan profil AI yang ditentukan pemanggil, dan percobaan ulang aktif.
+	 *
+	 * <p>Meneruskan ke {@link #kirimWaViaUltramsg(String, String, String, String, String, boolean)}
+	 * dengan {@code ulang} bernilai {@code true}.</p>
+	 *
+	 * @param from     nomor WhatsApp tujuan
+	 * @param send     isi pesan yang dikirim
+	 * @param namaFile nama berkas lampiran; boleh {@code null}
+	 * @param url      URL berkas lampiran; boleh {@code null}
+	 * @param profile  potongan profil AI hasil {@link #buatProfile}; boleh {@code null}/kosong
+	 *                 untuk melewati pembaruan profil
+	 * @throws Exception bila penjadwalan pengiriman gagal
+	 */
 	public static void kirimWaViaUltramsg(String from, String send, String namaFile, String url, String profile)
 			throws Exception {
 		kirimWaViaUltramsg(from, send, namaFile, url, profile, true);
 	}
 
+	/**
+	 * Penghitung indeks pengiriman yang dibagi seluruh thread.
+	 *
+	 * <p>Saat ini <b>tidak dibaca maupun dinaikkan</b> di mana pun pada kelas ini; tampaknya sisa
+	 * mekanisme rotasi akun pengirim yang sudah tidak dipakai. Karena bersifat {@code public
+	 * static} tanpa sinkronisasi, jangan mengandalkannya sebagai pencacah bila kelak dihidupkan
+	 * kembali &mdash; pakai tipe atomik.</p>
+	 */
 	public static int indexPengiriman = 0;
+	/**
+	 * Peta nomor WhatsApp pengirim ke {@code number_key} milik penyedia Watzap.
+	 *
+	 * <p>Diisi oleh {@link #watzap} setiap kali payload webhook memuat {@code number_key},
+	 * sehingga balasan dapat dikirim lewat akun penyedia yang sama dengan yang menerima pesan.
+	 * Pembacaannya dilakukan di luar kelas ini, pada pembentuk perintah {@code WaApi}.</p>
+	 *
+	 * <p><b>Perhatian:</b> ini {@link HashMap} biasa yang dibagi seluruh thread tanpa
+	 * sinkronisasi, dan tidak pernah dibersihkan &mdash; isinya tumbuh seiring jumlah nomor unik
+	 * yang pernah mengirim pesan selama umur aplikasi.</p>
+	 */
 	public static Map<String, String> nomorKey = new HashMap<String, String>();
 
+	/**
+	 * Menormalkan nomor WhatsApp tujuan ke format internasional Indonesia, sekaligus menyaring
+	 * nilai penampung yang tidak layak kirim.
+	 *
+	 * <p>Langkahnya: buang seluruh karakter selain angka, lalu ubah awalan {@code "0"} menjadi
+	 * {@code "62"}. Nomor yang setelah normalisasi tinggal kurang dari 8 digit, atau seluruhnya
+	 * berisi angka nol, dianggap tidak valid.</p>
+	 *
+	 * <p>Penjaga ini menangkap nilai penampung yang lazim muncul di basis data seperti
+	 * {@code "-"}, {@code "null"}, atau deretan nol, sehingga permintaan ke API penyedia tidak
+	 * dibuang percuma untuk nomor semu.</p>
+	 *
+	 * @param nomor nomor mentah dari basis data atau payload; boleh {@code null}
+	 * @return nomor yang sudah dinormalkan, atau {@code null} bila tidak valid untuk dikirimi
+	 */
 	private static String normalisasiNomorTujuanWa(String nomor) {
 		if (nomor == null) return null;
 		String hasil = nomor.trim().replaceAll("[^0-9]", "");
@@ -1718,6 +1819,50 @@ public class Wa extends HttpServlet {
 		return hasil;
 	}
 
+	/**
+	 * Mengirim pesan WhatsApp lewat penyedia pihak ketiga secara asinkron, memecah pesan panjang,
+	 * mencatat hasilnya, dan opsional memperbarui profil AI nomor tujuan.
+	 *
+	 * <p>Ini implementasi sesungguhnya dari seluruh overload {@code kirimWaViaUltramsg}. Seluruh
+	 * pekerjaan berjalan di dalam {@link Thread} baru sehingga method kembali seketika &mdash;
+	 * pemanggil tidak dapat mengetahui apakah pengiriman berhasil.</p>
+	 *
+	 * <h4>Urutan kerja</h4>
+	 * <ol>
+	 *   <li>nomor tujuan dinormalkan lewat {@link #normalisasiNomorTujuanWa}; bila hasilnya
+	 *       {@code null} atau pesannya kosong, thread berhenti tanpa efek;</li>
+	 *   <li>pesan yang lebih panjang dari 9999 karakter dipecah menjadi potongan-potongan sebesar
+	 *       itu, dan tiap potongan dikirim lewat pemanggilan terpisah. Perhatikan bahwa pemecahan
+	 *       ini bersifat rekursif dan tiap potongan ikut memicu pembaruan profil bila
+	 *       {@code profile} terisi;</li>
+	 *   <li>pengiriman sesungguhnya hanya dilakukan bila konfigurasi
+	 *       {@code aktifkan_reply_chatbot} aktif. Bentuk perintah dipilih dari konfigurasi
+	 *       {@code chatbot_pakai_watzap}: aktif berarti {@code WaApi.watzapFormat}, selain itu
+	 *       {@code WaApi.ultramsgFormat}. Perintah dijalankan lewat {@link ProcessBuilder} dan
+	 *       keluarannya dibaca sampai habis;</li>
+	 *   <li>hasilnya disimpan sebagai {@link NotifikasiWa} berisi pesan yang dikirim, keluaran
+	 *       penyedia, dan nomor tujuan;</li>
+	 *   <li>bila {@code profile} terisi, permintaan {@code action=waProfile} dikirim ke
+	 *       {@code https://dev.ecampus.id/ecampus/Api} untuk menyimpan profil institusi yang
+	 *       dikaitkan dengan nomor tujuan. Alamat ini <b>tertanam sebagai literal</b>, tidak
+	 *       dibaca dari konfigurasi seperti {@code ambil_kode_url} pada {@link #simpanPesan};</li>
+	 *   <li>bila {@code ulang} bernilai {@code true} dan keluaran penyedia memuat
+	 *       {@code "file not exist"}, pengiriman diulang sekali tanpa lampiran dan dengan
+	 *       {@code ulang} bernilai {@code false} sehingga tidak terjadi pengulangan berantai.</li>
+	 * </ol>
+	 *
+	 * <p>Seluruh exception di dalam thread ditangkap dan dicatat ke audit error. Isi pesan
+	 * dicetak ke {@code System.out} sebelum dikirim.</p>
+	 *
+	 * @param froma    nomor WhatsApp tujuan sebelum normalisasi
+	 * @param send     isi pesan; dipecah otomatis bila melebihi 9999 karakter
+	 * @param namaFile nama berkas lampiran; boleh {@code null}
+	 * @param url      URL berkas lampiran; boleh {@code null}
+	 * @param profile  potongan profil AI; {@code null}/kosong melewati pembaruan profil
+	 * @param ulang    bila {@code true}, izinkan satu kali kirim ulang tanpa lampiran ketika
+	 *                 penyedia melaporkan berkas tidak ada
+	 * @throws Exception dinyatakan pada tanda tangan; pembuatan thread sendiri tidak melemparnya
+	 */
 	public static void kirimWaViaUltramsg(final String froma, final String send, final String namaFile,
 			final String url, final String profile, final boolean ulang) throws Exception {
 
@@ -1842,6 +1987,43 @@ public class Wa extends HttpServlet {
 
 	}
 
+	/**
+	 * Membaca badan permintaan webhook lalu menyalurkannya ke rute penyedia yang sesuai.
+	 *
+	 * <h4>Pembacaan badan</h4>
+	 * <p>Badan dibaca baris demi baris lalu <b>digabung tanpa menyisipkan kembali pemisah
+	 * baris</b>. Untuk JSON hal itu tidak masalah, tetapi berarti string hasil rekonstruksi
+	 * <b>tidak identik byte-nya</b> dengan yang dikirim penyedia. Siapa pun yang kelak menambahkan
+	 * verifikasi HMAC {@code X-Hub-Signature-256} wajib membaca byte mentah dari
+	 * {@code request.getInputStream()}, bukan memakai string ini &mdash; kalau tidak, tanda tangan
+	 * akan selalu meleset.</p>
+	 *
+	 * <p>Badan permintaan dan query string dicetak utuh ke {@code System.out} dengan awalan
+	 * {@code "==> VA data =>"}; awalan itu sisa salin-tempel dari servlet {@link Va} dan tidak
+	 * ada hubungannya dengan Virtual Account.</p>
+	 *
+	 * <h4>Pemilihan rute</h4>
+	 * <p>Seluruh pemrosesan hanya berjalan bila konfigurasi {@code aktifkan_chatbot} aktif. Rute
+	 * dipilih semata-mata dari substring yang muncul di badan permintaan, diperiksa berurutan:</p>
+	 * <ol>
+	 *   <li>{@code whatsapp_business_account} &rarr; {@link #wa};</li>
+	 *   <li>{@code incoming_chat} &rarr; {@link #watzap};</li>
+	 *   <li>{@code message_received} &rarr; {@link #ultramsg}.</li>
+	 * </ol>
+	 * <p>Payload yang tidak memuat satu pun penanda itu diabaikan diam-diam.</p>
+	 *
+	 * <p>Status balasan selalu 200, tanpa badan &mdash; termasuk ketika payload diabaikan atau
+	 * chatbot dimatikan &mdash; sehingga penyedia webhook tidak pernah mencoba mengirim ulang.</p>
+	 *
+	 * <p><b>Catatan keamanan:</b> tidak ada verifikasi keaslian sama sekali di sini. Konfigurasi
+	 * {@code aktifkan_chatbot} adalah sakelar fitur, bukan gerbang keamanan: selama aktif,
+	 * payload palsu dari pihak mana pun akan diproses penuh. Lihat catatan pada dokumentasi
+	 * kelas.</p>
+	 *
+	 * @param request  permintaan HTTP webhook
+	 * @param response balasan HTTP; hanya diisi status 200
+	 * @throws Exception bila pembacaan badan permintaan gagal, atau rute yang dipilih melemparnya
+	 */
 	@SuppressWarnings({})
 	private void process(HttpServletRequest request, HttpServletResponse response) throws Exception {
 
@@ -1868,6 +2050,33 @@ public class Wa extends HttpServlet {
 		response.setStatus(200);
 	}
 
+	/**
+	 * Mengubah penanda tebal gaya WhatsApp menjadi tag HTML: setiap <b>pasangan</b> tanda bintang
+	 * diganti {@code <b>} dan {@code </b>}.
+	 *
+	 * <p>Berguna ketika balasan chatbot &mdash; yang memakai konvensi WhatsApp
+	 * {@code *tebal*} &mdash; hendak ditampilkan di antarmuka web.</p>
+	 *
+	 * <h4>Cara kerja</h4>
+	 * <p>String ditelusuri per karakter sambil menghitung tanda bintang. Begitu pasangan kedua
+	 * ditemukan, bintang pertama diganti {@code <b>} dan bintang kedua diganti {@code </b>};
+	 * indeks bintang kedua dinaikkan 2 lebih dulu karena panjang string sudah bertambah oleh
+	 * penggantian pertama, dan penunjuk baca dilompatkan 5 karena tujuh karakter tag menggantikan
+	 * dua karakter bintang. Penghitung lalu direset untuk mencari pasangan berikutnya.</p>
+	 *
+	 * <p>Bintang yang tidak berpasangan dibiarkan apa adanya. Nilai {@code null} atau string
+	 * kosong dikembalikan tanpa perubahan &mdash; penjaga yang mencegah
+	 * {@code StringIndexOutOfBoundsException} pada {@code charAt} ketika balasan AI kosong karena
+	 * panggilan API gagal.</p>
+	 *
+	 * <p><b>Perhatian:</b> keluarannya menyisipkan tag HTML tanpa meng-escape isi pesan, sehingga
+	 * tidak boleh langsung ditulis ke halaman sebagai HTML mentah tanpa penyaringan lebih
+	 * lanjut.</p>
+	 *
+	 * @param msg teks bergaya WhatsApp; boleh {@code null} atau kosong
+	 * @return teks dengan pasangan bintang diganti tag {@code <b>}, atau masukan apa adanya bila
+	 *         {@code null}/kosong
+	 */
 	public static String ubahKeBold(String msg) {
 		// Guard: string null/kosong tak punya index 0 -> hindari StringIndexOutOfBoundsException
 		// pada msg.charAt(i) di bawah (mis. hasil AI kosong krn respons API gagal/tanpa

@@ -251,6 +251,24 @@ public class FilterJSP implements Filter {
 	// LOGIC BLOCKING DEVICE
 	// ========================================================================
 
+	/**
+	 * Pintasan {@link #checkSingleDeviceBlock(Tbmuser, HttpServletRequest, HttpServletResponse,
+	 * boolean)} yang mengambil pengguna dari atribut sesi {@code "mytbmuser"}.
+	 *
+	 * <p>Bila belum ada sesi atau belum ada pengguna login, method langsung mengembalikan
+	 * {@code false} — tidak ada yang perlu diblokir. Sesi tidak pernah dibuat di sini karena
+	 * dipakai {@code getSession(false)}.</p>
+	 *
+	 * <p>Perhatikan bahwa method ini bersifat {@code static} dan dipanggil dari luar filter; ia
+	 * bukan bagian dari alur {@link #doFilter(ServletRequest, ServletResponse, FilterChain)}.</p>
+	 *
+	 * @param req      permintaan yang sedang dilayani
+	 * @param res      respons yang dipakai bila perlu mengalihkan ke halaman logout
+	 * @param redirect bila {@code true}, pengguna diarahkan ke halaman logout; bila {@code false},
+	 *                 method hanya melaporkan hasil pemeriksaan
+	 * @return {@code true} bila sesi ini harus diblokir
+	 * @throws Exception bila pengalihan ke halaman logout gagal
+	 */
 	public static boolean checkSingleDeviceBlock(HttpServletRequest req, HttpServletResponse res, boolean redirect)
 			throws Exception {
 		HttpSession session = req.getSession(false);
@@ -264,6 +282,38 @@ public class FilterJSP implements Filter {
 		return checkSingleDeviceBlock(tbmuser, req, res, redirect);
 	}
 
+	/**
+	 * Menegakkan kebijakan "satu akun satu perangkat" dengan menelusuri daftar pengguna daring
+	 * {@code SecurityFilter.dataOnline}.
+	 *
+	 * <h4>Tiga sakelar kebijakan</h4>
+	 * <p>Bila ketiga sakelar {@code ConstantValues.satuperangkat},
+	 * {@code satuperangkat_mahasiswa}, dan {@code satuperangkatipygbeda} bernilai mati, method
+	 * langsung mengembalikan {@code false} tanpa memeriksa apa pun.</p>
+	 * <ul>
+	 *   <li>{@code satuperangkat} / {@code satuperangkat_mahasiswa} — bila akun yang sama tercatat
+	 *       daring dengan id sesi <b>berbeda</b>, sesi saat ini diblokir dengan alasan "Akun telah
+	 *       login di perangkat lain". Sebaliknya, bila entri daring yang cocok justru sudah
+	 *       ditandai tidak aktif dan id sesinya sama dengan sesi ini, sesi diblokir dengan alasan
+	 *       "Sesi akun telah dinonaktifkan oleh admin" — inilah jalur yang memungkinkan
+	 *       administrator memutus sesi pengguna dari jauh.</li>
+	 *   <li>{@code satuperangkatipygbeda} — sesi diblokir bila alamat IP saat ini berbeda dari IP
+	 *       yang tercatat pada saat login. Pemeriksaan ini memakai
+	 *       {@link HttpServletRequest#getRemoteAddr()} apa adanya, sehingga pengguna di balik
+	 *       jaringan seluler yang berpindah IP dapat ikut terputus.</li>
+	 * </ul>
+	 *
+	 * <p>Pencocokan akun dilakukan {@link #isUserMatch(Tbmuser, OnlineUsers)}. Perlu dicatat bahwa
+	 * {@code dataOnline} adalah peta di memori, sehingga kebijakan ini tidak berlaku lintas simpul
+	 * bila aplikasi dijalankan lebih dari satu instance.</p>
+	 *
+	 * @param tbmuser  pengguna yang sedang diperiksa
+	 * @param req      permintaan yang sedang dilayani
+	 * @param res      respons yang dipakai bila perlu mengalihkan ke halaman logout
+	 * @param redirect bila {@code true}, pengguna diarahkan ke halaman logout
+	 * @return {@code true} bila sesi ini harus diblokir
+	 * @throws Exception bila pengalihan ke halaman logout gagal
+	 */
 	public static boolean checkSingleDeviceBlock(Tbmuser tbmuser, HttpServletRequest req, HttpServletResponse res,
 			boolean redirect) throws Exception {
 
@@ -308,6 +358,18 @@ public class FilterJSP implements Filter {
 		return false;
 	}
 
+	/**
+	 * Menentukan apakah satu entri pengguna daring merujuk akun yang sama dengan pengguna saat
+	 * ini.
+	 *
+	 * <p>Pencocokan dicoba berurutan lewat relasi mahasiswa, lalu siswa, lalu id {@link Tbmuser}.
+	 * Setiap perbandingan hanya dilakukan bila kedua sisi tidak {@code null}, sehingga entri
+	 * daring yang tipenya berbeda dari pengguna saat ini tidak pernah dianggap cocok.</p>
+	 *
+	 * @param currentUser pengguna yang sedang diperiksa
+	 * @param online      satu entri dari daftar pengguna daring
+	 * @return {@code true} bila keduanya merujuk akun yang sama
+	 */
 	private static boolean isUserMatch(Tbmuser currentUser, OnlineUsers online) {
 		if (online.getMahasiswa() != null && currentUser.getMahasiswa() != null) {
 			return online.getMahasiswa().getId().equals(currentUser.getMahasiswa().getId());
@@ -321,6 +383,29 @@ public class FilterJSP implements Filter {
 		return false;
 	}
 
+	/**
+	 * Menjalankan pemblokiran sesi: melepas entri dari daftar pengguna daring dan, bila diminta,
+	 * mengalihkan pengguna ke halaman logout beserta pesan alasannya.
+	 *
+	 * <p>Nama pengguna dan pesan disandikan {@code URLEncoder} sebelum disisipkan ke query string
+	 * halaman logout, sehingga karakter khusus tidak merusak URL. Penerusan hanya dilakukan bila
+	 * respons belum ter-commit, dan {@code resetBuffer()} yang gagal ditafsirkan sebagai respons
+	 * yang sudah terlanjur terkirim sehingga method berhenti dengan aman.</p>
+	 *
+	 * <p>Method selalu mengembalikan {@code true} karena ia hanya dipanggil ketika keputusan
+	 * memblokir sudah diambil.</p>
+	 *
+	 * @param req                permintaan yang sedang dilayani
+	 * @param res                respons tujuan
+	 * @param sessionIdToRemove  id sesi yang dilepas dari daftar daring; {@code null} berarti tidak
+	 *                           ada yang dilepas
+	 * @param user               pengguna yang diblokir; boleh {@code null}
+	 * @param message            alasan pemblokiran yang ditampilkan ke pengguna
+	 * @param redirect           bila {@code true}, pengguna dialihkan ke halaman logout
+	 * @return selalu {@code true}
+	 * @throws IOException      bila penyandian atau penerusan gagal
+	 * @throws ServletException bila penerusan ke halaman logout gagal
+	 */
 	private static boolean handleLogout(HttpServletRequest req, HttpServletResponse res, String sessionIdToRemove,
 			Tbmuser user, String message, boolean redirect) throws IOException, ServletException {
 
@@ -346,6 +431,44 @@ public class FilterJSP implements Filter {
 	// ROUTING LOGIC
 	// ========================================================================
 
+	/**
+	 * Menerjemahkan URL ramah menjadi {@code forward} ke berkas di bawah {@code /WEB-INF/} atau
+	 * menjadi {@code sendRedirect} ke rute kanonik.
+	 *
+	 * <h4>Efek samping global yang perlu diketahui</h4>
+	 * <p>Sebelum mengarahkan, method menulis empat field statis bersama pada {@link Common}:
+	 * {@code ROOT}, {@code REAL_PATH}, {@code REAL_PATH_REPORT_TEMP}, dan
+	 * {@code CURRENT_URL_SIMPLE}. Nilai-nilai itu diturunkan dari permintaan yang sedang berjalan
+	 * tetapi disimpan sebagai state proses, bukan per-thread; pada aplikasi yang dilayani beberapa
+	 * nama host sekaligus, nilai yang terbaca kode lain adalah milik permintaan terakhir yang
+	 * lewat sini.</p>
+	 *
+	 * <h4>Urutan aturan pengarahan</h4>
+	 * <ol>
+	 *   <li>Pengalihan berbasis subdomain lewat {@link #handleSubdomainRedirects};</li>
+	 *   <li>{@code /main2} ke halaman UI/UX baru;</li>
+	 *   <li>{@code /new/...} ke berkas di bawah {@code /WEB-INF/uiux};</li>
+	 *   <li>{@code /pm} yang memilih antara halaman PMB biasa dan {@code pm.zul} menurut atribut
+	 *       sesi {@code data_session_pmb} yang harus terdaftar di {@code Api.nexts};</li>
+	 *   <li>berkas utilitas ({@link #isUtilityJsp(String)}) ke {@code /WEB-INF/u/};</li>
+	 *   <li>sejumlah nama berkas tetap ({@code accept.jsp}, {@code code.jsp}, {@code broken.jsp},
+	 *       {@code error.jsp}, {@code redirect}) ke rute servletnya masing-masing;</li>
+	 *   <li>berkas {@code .zul} ke {@link #handleZulFiles};</li>
+	 *   <li>halaman login lama ke rute {@code /login} kanonik;</li>
+	 *   <li>jalur {@code /whatsapp/} dan {@code /ux} ke {@link #handleDynamicPath};</li>
+	 *   <li><b>penangkap akhir</b>: sisa permintaan berakhiran {@code .jsp} atau {@code .jspx}
+	 *       dialihkan ke akar aplikasi, sehingga URL JSP mentah tidak dilayani langsung;</li>
+	 *   <li>selain itu permintaan diteruskan ke rantai filter berikutnya.</li>
+	 * </ol>
+	 *
+	 * @param req       permintaan yang sedang dilayani
+	 * @param res       respons yang sedang dibentuk
+	 * @param chain     rantai filter berikutnya
+	 * @param path      jalur permintaan setelah dipotong context path, huruf asli
+	 * @param lowerPath jalur yang sama dalam huruf kecil, dipakai ulang agar tidak mengalokasi lagi
+	 * @throws IOException      bila pengalihan gagal
+	 * @throws ServletException bila penerusan gagal
+	 */
 	@SuppressWarnings("deprecation")
 	private void handleRouting(HttpServletRequest req, HttpServletResponse res, FilterChain chain, String path,
 			String lowerPath) throws IOException, ServletException {
@@ -417,6 +540,24 @@ public class FilterJSP implements Filter {
 		}
 	}
 
+	/**
+	 * Mengalihkan permintaan ke rute kanonik berdasarkan awalan nama host.
+	 *
+	 * <p>Host berawalan {@code ppdb} atau {@code psb} dialihkan ke {@code /ppdb}; host berawalan
+	 * {@code alumni} atau {@code tracer} dialihkan ke {@code /alumni}. Pengalihan dilewati bila
+	 * jalur sudah berada di tujuannya.</p>
+	 *
+	 * <p><b>Syarat penting:</b> aturan ini hanya berlaku ketika permintaan <b>tidak memiliki query
+	 * string sama sekali</b>. Penjagaan itu mencegah pengalihan membuang parameter yang sedang
+	 * dibawa, misalnya pada alur unggah berkas.</p>
+	 *
+	 * @param req        permintaan yang sedang dilayani
+	 * @param res        respons tujuan
+	 * @param serverName nama host permintaan
+	 * @param path       jalur permintaan dalam huruf kecil
+	 * @return {@code true} bila pengalihan dilakukan sehingga pemanggil harus berhenti
+	 * @throws IOException bila pengalihan gagal
+	 */
 	private boolean handleSubdomainRedirects(HttpServletRequest req, HttpServletResponse res, String serverName,
 			String path) throws IOException {
 		String query = req.getQueryString();
@@ -456,6 +597,26 @@ public class FilterJSP implements Filter {
 		return false;
 	}
 
+	/**
+	 * Menangani permintaan berakhiran {@code .zul}.
+	 *
+	 * <p>Sejumlah nama berkas yang dikenal ({@code welpus.zul}, {@code dekstop.zul},
+	 * {@code welsis.zul}, {@code vendor.zul}, {@code psb.zul}, {@code karir.zul},
+	 * {@code pmb.zul}, {@code alumni.zul}, {@code main.zul}, {@code login.zul}) dialihkan ke rute
+	 * ramahnya masing-masing. Selebihnya diteruskan ke berkas dengan nama yang sama di bawah
+	 * {@code /WEB-INF/z/x/y}.</p>
+	 *
+	 * <p>Sebelum diteruskan, context path dipotong dari jalur lewat {@code substring} — bukan
+	 * {@code replace}, demi menghindari alokasi — dan garis miring ganda di awal dirapikan menjadi
+	 * satu.</p>
+	 *
+	 * @param req          permintaan yang sedang dilayani
+	 * @param res          respons tujuan
+	 * @param originalPath jalur permintaan dengan huruf asli
+	 * @param lowerPath    jalur yang sama dalam huruf kecil
+	 * @throws IOException      bila pengalihan gagal
+	 * @throws ServletException bila penerusan gagal
+	 */
 	private void handleZulFiles(HttpServletRequest req, HttpServletResponse res, String originalPath, String lowerPath)
 			throws IOException, ServletException {
 
@@ -498,6 +659,23 @@ public class FilterJSP implements Filter {
 		}
 	}
 
+	/**
+	 * Meneruskan permintaan bermodul {@code /whatsapp/} dan {@code /ux} ke berkas padanannya di
+	 * bawah {@code /WEB-INF/o/}.
+	 *
+	 * <p>Sisa jalur setelah penanda modul diambil dengan {@code indexOf} dan {@code substring}
+	 * alih-alih ekspresi reguler, demi menghemat alokasi. Jalur yang persis berakhiran
+	 * {@code /ux} diarahkan ke {@code index.jsp} modul tersebut.</p>
+	 *
+	 * <p>Bila tidak ada pola yang cocok, target tetap kosong dan method tidak melakukan apa pun —
+	 * permintaan berakhir tanpa respons dari filter ini.</p>
+	 *
+	 * @param req  permintaan yang sedang dilayani
+	 * @param res  respons tujuan
+	 * @param path jalur permintaan dengan huruf asli
+	 * @throws ServletException bila penerusan gagal
+	 * @throws IOException      bila operasi masukan/keluaran gagal
+	 */
 	private void handleDynamicPath(HttpServletRequest req, HttpServletResponse res, String path)
 			throws ServletException, IOException {
 		String target = "";
@@ -523,6 +701,17 @@ public class FilterJSP implements Filter {
 		}
 	}
 
+	/**
+	 * Mengenali berkas JSP utilitas yang dilayani dari {@code /WEB-INF/u/}, antara lain berbagai
+	 * halaman perekaman ({@code capture.jsp} dan variannya), {@code doupload.jsp},
+	 * {@code mail.jsp}, {@code jml_pendaftar.jsp}, serta pembaca QR dan RFID.
+	 *
+	 * <p>Pencocokan memakai {@code contains}, bukan {@code endsWith}, sehingga nama berkas yang
+	 * memuat salah satu penanda di bagian mana pun jalur ikut cocok.</p>
+	 *
+	 * @param path jalur permintaan dalam huruf kecil
+	 * @return {@code true} bila jalur menunjuk berkas utilitas
+	 */
 	private boolean isUtilityJsp(String path) {
 		return path.contains("capture.jsp") || path.contains("capture_keterangan.jsp")
 				|| path.contains("capture_video.jsp") || path.contains("doupload.jsp")

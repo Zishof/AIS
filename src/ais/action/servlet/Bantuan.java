@@ -26,8 +26,22 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class Bantuan extends HttpServlet {
 
+	/** Versi serialisasi tetap 1L; servlet tidak pernah benar-benar diserialisasi ke stream. */
 	private static final long serialVersionUID = 1L;
 
+	/**
+	 * Menyajikan isi panduan berdasarkan parameter {@code key}: mengutamakan isi termodifikasi
+	 * dari tabel Bantuan ({@link ais.action.master.helper.BantuanHelper#ambilDariTabel}), lalu
+	 * fallback ke berkas HTML bawaan di {@code WEB-INF/bantuan/<key>.html}, atau pesan "belum
+	 * tersedia" jika keduanya kosong. Mode {@code mode=qa} membungkus isi dengan alat pencarian
+	 * tanya-jawab dan menambahkan blok FAQ umum. {@code key} divalidasi ketat
+	 * ({@code [a-z0-9_-]+}) sehingga tidak mungkin path traversal.
+	 *
+	 * @param request permintaan HTTP masuk; parameter {@code key} dan {@code mode} dibaca di sini
+	 * @param response respons HTTP keluar; content type {@code text/html}
+	 * @throws ServletException tidak pernah dilempar, hanya dideklarasikan oleh kontrak servlet
+	 * @throws IOException jika terjadi galat I/O saat membaca berkas panduan atau menulis respons
+	 */
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		response.setContentType("text/html; charset=UTF-8");
@@ -90,11 +104,27 @@ public class Bantuan extends HttpServlet {
 		out.write(bungkus(modeTanyaJawab ? "Tanya Jawab" : "Bantuan", isi, modeTanyaJawab));
 	}
 
+	/**
+	 * Menangani permintaan POST dengan perilaku identik dengan
+	 * {@link #doGet(HttpServletRequest, HttpServletResponse)}.
+	 *
+	 * @param request permintaan HTTP masuk
+	 * @param response respons HTTP keluar
+	 * @throws ServletException diteruskan dari {@link #doGet}
+	 * @throws IOException diteruskan dari {@link #doGet}
+	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 		doGet(request, response);
 	}
 
+	/**
+	 * Membaca seluruh isi berkas sebagai teks UTF-8.
+	 *
+	 * @param f berkas yang akan dibaca
+	 * @return isi berkas sebagai string UTF-8
+	 * @throws IOException jika terjadi galat I/O saat membaca berkas
+	 */
 	private static String baca(File f) throws IOException {
 		FileInputStream in = new FileInputStream(f);
 		try {
@@ -113,6 +143,13 @@ public class Bantuan extends HttpServlet {
 		}
 	}
 
+	/**
+	 * Membaca berkas panduan bawaan berdasarkan {@code key}, dipakai untuk memuat blok tambahan
+	 * seperti FAQ umum ({@code _qa_umum}) di mode tanya-jawab.
+	 *
+	 * @param key kunci berkas (nama tanpa ekstensi {@code .html})
+	 * @return isi berkas jika ada, atau {@code null} jika berkas tidak ditemukan atau gagal dibaca
+	 */
 	private String bacaResource(String key) {
 		try {
 			String path = getServletContext().getRealPath("/WEB-INF/bantuan/" + key + ".html");
@@ -129,10 +166,28 @@ public class Bantuan extends HttpServlet {
 		return null;
 	}
 
+	/**
+	 * Membungkus isi panduan dalam kerangka halaman HTML lengkap (tanpa mode tanya-jawab).
+	 * Sekadar delegasi ke {@link #bungkus(String, String, boolean)} dengan {@code modeTanyaJawab=false}.
+	 *
+	 * @param judul judul halaman
+	 * @param isi isi panduan (HTML) yang akan disisipkan ke dalam kerangka
+	 * @return halaman HTML lengkap siap dikirim ke klien
+	 */
 	private static String bungkus(String judul, String isi) {
 		return bungkus(judul, isi, false);
 	}
 
+	/**
+	 * Membungkus isi panduan dalam kerangka halaman HTML lengkap: header sticky berisi tautan
+	 * ke pusat panduan dan tombol cetak, gaya CSS ringkas, serta (bila {@code modeTanyaJawab})
+	 * skrip pencarian FAQ sisi klien ({@code kbCariQa}).
+	 *
+	 * @param judul judul halaman (disisipkan ke tag {@code <title>})
+	 * @param isi isi panduan (HTML) yang akan disisipkan ke dalam kerangka
+	 * @param modeTanyaJawab jika {@code true}, sertakan alat pencarian FAQ dan skrip pendukungnya
+	 * @return halaman HTML lengkap siap dikirim ke klien
+	 */
 	private static String bungkus(String judul, String isi, boolean modeTanyaJawab) {
 		return "<!doctype html><html lang='id'><head><meta charset='UTF-8'>"
 				+ "<meta name='viewport' content='width=device-width,initial-scale=1'>"
