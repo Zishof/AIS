@@ -4122,6 +4122,75 @@ public class TugasKelompokHelper implements DataLoader {
 		display(perkuliahan, kelompokKkn, kelompokPkl, null, component);
 	}
 
+	/**
+	 * <h3>Tombol "Ambil Tugas Sebelumnya" &mdash; menyalin tugas dari kelas/semester lain</h3>
+	 *
+	 * <p><b>Untuk apa (bahasa sederhana):</b> membuat tombol yang memungkinkan dosen/guru menyalin tugas
+	 * kelompok yang pernah ia buat sebelumnya ke kelas yang sedang dibuka, alih-alih mengetik ulang judul,
+	 * instruksi, dan lampirannya dari nol. Sangat menghemat waktu untuk mata kuliah yang diampu berulang
+	 * setiap semester.</p>
+	 *
+	 * <p>Metode ini hanya MERAKIT tombolnya dan mengembalikannya; pemanggil yang menentukan di toolbar
+	 * mana tombol itu dipasang. Kedua cabang tata letak pada varian kanonik {@code display(...)}
+	 * memakainya, sehingga perilakunya seragam pada mode tab maupun mode sisip.</p>
+	 *
+	 * <h4>Alur penyalinan</h4>
+	 * <ol>
+	 *   <li>Jendela pemilih {@link ais.action.master.helper.generic.AmbilDataTugasKelompok} dibuka secara
+	 *   modal. Daftar sumbernya disaring dengan {@code createCriteriaDosen} sehingga hanya memuat tugas
+	 *   milik dosen yang bersangkutan &mdash; termasuk tugas dari semester-semester sebelumnya.</li>
+	 *   <li>Setelah sebuah tugas dipilih, objeknya di-<i>clone</i>, {@code id} dikosongkan, keempat field
+	 *   cakupan diarahkan ke kelas yang sedang dibuka (dengan jatuh kembali ke cakupan asal bila layar
+	 *   ini sendiri tidak punya cakupan), lalu disimpan sebagai baris baru.</li>
+	 *   <li>Lampiran instruksi ikut disalin lewat sesi streaming terpisah, dan daftar dimuat ulang di
+	 *   dalam timer sehingga jendela pemilih sempat menutup lebih dulu.</li>
+	 * </ol>
+	 *
+	 * <h4>PENTING: penyalinan bersifat DANGKAL &mdash; banyak field ikut terbawa</h4>
+	 * <p>{@code clone()} yang dipakai diwarisi dari {@code GeneralValueObject} dan merupakan salinan
+	 * dangkal: SELURUH field disalin apa adanya. Yang direset di sini hanyalah {@code id} dan empat field
+	 * cakupan. Akibatnya field berikut ikut terbawa dari tugas semester lama dan perlu disadari
+	 * pemelihara maupun pengguna:</p>
+	 * <ul>
+	 *   <li><b>{@code keteranganNilai}</b> &mdash; blob JSON nilai per anggota, berkunci id peserta. Bagi
+	 *   mahasiswa yang MENGULANG mata kuliah dan hadir di kedua kelas, nilai lamanya akan langsung tampak
+	 *   sebagai nilai yang sudah terisi pada tugas hasil salinan.</li>
+	 *   <li><b>{@code mhsYgTidakIkut}</b> &mdash; daftar id peserta yang dikecualikan. Id yang kebetulan
+	 *   juga terdaftar di kelas baru akan ikut dikecualikan tanpa pernah dicentang siapa pun.</li>
+	 *   <li><b>{@code pertemuan}</b> &mdash; rujukan ke pertemuan semester LAMA tidak direset, sehingga
+	 *   {@code ambilPertemuan()} pada tugas baru masih menunjuk ke sana. Ini berpengaruh nyata: tombol
+	 *   "Anggap Hadir (Pengumpul)" dan "Tdk Upload = Alpa" menulis absensi ke pertemuan yang
+	 *   dikembalikan pemanggilan tersebut.</li>
+	 *   <li><b>{@code mulai} dan {@code selesai}</b> &mdash; jadwal semester lama terbawa, sehingga tugas
+	 *   hasil salinan umumnya langsung berstatus "Sudah ditutup" sampai jadwalnya diperbarui secara
+	 *   manual lewat formulir Instruksi.</li>
+	 * </ul>
+	 *
+	 * <h4>Penanganan lampiran</h4>
+	 * <p>Sebelum lampiran baru dibuat, dijalankan perintah SQL yang memindahkan lampiran mana pun yang
+	 * sudah menempel pada id tugas baru ke penanda khusus {@code -111111111111}. Langkah ini menjaga
+	 * agar tugas hasil salinan tidak mewarisi lampiran nyasar bila id yang baru saja diberikan basis data
+	 * pernah dipakai tugas lain di masa lalu. Id disambungkan ke teks perintah, tetapi nilainya berasal
+	 * dari kunci utama bertipe angka yang baru saja dihasilkan basis data, bukan dari masukan pengguna,
+	 * sehingga tidak membuka celah penyisipan perintah. Sesi streaming SELALU ditutup di blok
+	 * {@code finally} agar tidak ada koneksi yang bocor walau penyalinan gagal.</p>
+	 *
+	 * <p>Salinan lampiran mencatat jejak audit sendiri: tanggal diubah, id pelaku, dan nama pelaku yang
+	 * dipilih berurutan dari mahasiswa, dosen, pegawai, lalu nama pengguna &mdash; dengan
+	 * {@code "external_update"} sebagai penanda bila tidak ada pengguna yang login.</p>
+	 *
+	 * <h4>Visibilitas tombol</h4>
+	 * <p>Tombol disembunyikan bagi pelajar memakai pemeriksaan peran gaya lama, bukan
+	 * {@link #bolehKelola(Tbmuser)}. Bentuk itu tidak menguji {@code tbmuser.getMahasiswa()} dan memuat
+	 * suku {@code tbmuser.getSiswa() == null} dua kali &mdash; sisa salin-tempel yang semestinya menguji
+	 * mahasiswa. Selain itu {@code tbmuser} dipakai tanpa penjagaan {@code null} lebih dulu, sehingga
+	 * sesi tanpa pengguna akan melempar {@code NullPointerException}. Perhatikan pula bahwa ini hanya
+	 * menyembunyikan tombol: komponennya tetap dibuat dan listenernya tetap terdaftar.</p>
+	 *
+	 * @return tombol "Ambil Tugas Sebelumnya" yang siap ditempelkan ke toolbar; sudah lengkap dengan
+	 *         pengaturan visibilitas dan listenernya
+	 * @see ais.action.master.helper.generic.AmbilDataTugasKelompok
+	 */
 	public MyToolbarbutton createAmbilTugas() {
 		MyToolbarbutton ambil = new MyToolbarbutton("fa-history", "Ambil Tugas Sebelumnya");
 		ambil.setTooltiptext("Salin tugas dari semester/pertemuan sebelumnya ke sini");

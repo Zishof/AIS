@@ -5204,6 +5204,32 @@ public class TugasMandiriHelper {
 	 * (tempat siswa membaca statusnya) supaya jelas, besar, mudah disentuh, dan tidak
 	 * pernah tertutup toolbar. Memakai ulang tombol {@code upload} yang sudah ada sehingga
 	 * aturan tampil (jadwal/boleh upload ulang) dan aksi klik tetap berlaku.
+	 *
+	 * <p><strong>Memindahkan, bukan menyalin.</strong> Metode ini melakukan
+	 * {@code upload.setParent(aksi)} terhadap tombol yang sudah dibangun di
+	 * {@link #createTugas(Tugas, Tabpanel, EventListener, boolean)}, sehingga tombol berpindah dari
+	 * toolbar ke dalam kartu. Karena instance-nya sama, seluruh aturan visibilitas (jendela waktu
+	 * tugas dan izin upload ulang) serta listener {@code ON_CLICK} yang memeriksa
+	 * {@link #syaratAlert} tetap berlaku tanpa perlu disalin ulang. Pendekatan ini juga mencegah
+	 * munculnya dua tombol Upload yang aturannya bisa menyimpang satu sama lain.</p>
+	 *
+	 * <p><strong>Idempoten.</strong> Metode dipanggil dari kedua cabang kartu status pada
+	 * {@link #reloadTugasFileContent(boolean)} — cabang "sudah mengumpulkan" dan cabang "belum
+	 * mengumpulkan" — dan karena setiap pemuatan ulang membangun kartu baru, metode ini akan berjalan
+	 * berkali-kali. Pemasangan kelas gaya dijaga oleh pemeriksaan
+	 * {@code sc.indexOf("ais-upload-tugas-cta") < 0} agar nama kelas tidak menumpuk berulang pada
+	 * atribut {@code sclass}.</p>
+	 *
+	 * <p><strong>Yang diubah pada tombol.</strong> Orientasi disetel {@code horizontal} agar ikon dan
+	 * teks sejajar (bukan bertumpuk seperti pada toolbar), dan dua kelas gaya ditambahkan:
+	 * {@code ais-upload-tugas-cta} untuk tampilan tombol ajakan berukuran besar, serta
+	 * {@code ais-tbar-icon-white} agar ikonnya kontras di atas latar berwarna. Wadahnya berupa
+	 * {@code Div} ber-{@code sclass} {@code ais-upload-cta-wrap}.</p>
+	 *
+	 * <p>Metode langsung kembali bila {@link #upload} atau {@code groupbox} bernilai {@code null},
+	 * sehingga aman dipanggil sebelum toolbar sempat dibangun.</p>
+	 *
+	 * @param groupbox kartu status pengumpulan tempat tombol akan ditempelkan; boleh {@code null}.
 	 */
 	private void tempelTombolUploadUtama(Groupbox groupbox) {
 		if (upload == null || groupbox == null) {
@@ -6033,6 +6059,27 @@ public class TugasMandiriHelper {
 	 * {@code TIDAK_ADA_ALASAN} dengan keterangan "Tidak ikut diskusi di pertemuan". Setelah
 	 * selesai, memanggil {@code eventListener} untuk me-refresh tampilan.</p>
 	 *
+	 * <p><strong>Tidak memiliki gerbang kewenangan sendiri.</strong> Seperti tiga metode kehadiran
+	 * massal lainnya di kelas ini, metode ini bersifat {@code static}, dapat dipanggil dari mana saja,
+	 * dan tidak memeriksa siapa pengguna yang sedang login. Satu-satunya pembatasan berada pada
+	 * gerbang visibilitas tombol pemanggilnya. Setiap pemanggil baru wajib memasang gerbangnya
+	 * sendiri.</p>
+	 *
+	 * <p><strong>Penulisan absensi bersifat menimpa.</strong> {@code Pertemuan.populate(...)} menulis
+	 * status kehadiran peserta untuk pertemuan ini tanpa memeriksa apakah sudah ada catatan
+	 * sebelumnya. Menjalankan aksi ini setelah kehadiran diisi manual akan menimpa isian manual
+	 * tersebut, dan tidak ada jalur pembatalan otomatis — pemulihan harus dilakukan lewat penyuntingan
+	 * absensi.</p>
+	 *
+	 * <p><strong>Jam mulai dan selesai.</strong> Diambil dari {@code retreiveAbsensiMulai(id)} dan
+	 * {@code retreiveAbsensiSampai(id)} milik pertemuan; bila keduanya kosong, dipakai
+	 * {@code getWaktuMulai()} dan {@code getWaktuSelesai()} pertemuan sebagai nilai bawaan. Pola ini
+	 * identik pada keempat metode kehadiran massal.</p>
+	 *
+	 * <p>Seluruh pekerjaan dijalankan lewat {@code Common.createDefaultTimer(...)} sehingga terjadi
+	 * pada siklus event berikutnya, dan diakhiri satu kali {@code Common.refreshUpdate(session, pa)}
+	 * untuk menyimpan seluruh perubahan absensi sekaligus.</p>
+	 *
 	 * @param diskusis      map id mahasiswa ke daftar id diskusi yang diikuti; mahasiswa yang
 	 *                      tidak ada di map ini dianggap tidak ikut diskusi.
 	 * @param pa            pertemuan yang menjadi konteks absensi.
@@ -6106,6 +6153,21 @@ public class TugasMandiriHelper {
 	 * yang belum pernah membuka halaman pertemuan (ambilData "akses" kosong) akan di-set
 	 * absensi {@code TIDAK_ADA_ALASAN} dengan keterangan sesuai. Setelah selesai memanggil
 	 * {@code eventListener} untuk me-refresh tampilan absensi.</p>
+	 *
+	 * <p><strong>Definisi "tidak mengakses".</strong> Peserta dianggap belum mengakses bila
+	 * {@code pa.ambilData("akses", idMahasiswa)} mengembalikan peta kosong. Data akses itu dicatat
+	 * oleh {@code TampilanELearningAction.dilihat(...)} setiap kali halaman dibuka, sehingga metode ini
+	 * mengukur keterbacaan halaman pertemuan — bukan pengumpulan tugas. Pasangannya untuk tugas adalah
+	 * {@link #tidakUploadTugasDiangapTidakHadir(Tugas, Pertemuan, EventListener)}.</p>
+	 *
+	 * <p><strong>Tidak memiliki gerbang kewenangan sendiri.</strong> Metode {@code static} ini tidak
+	 * memeriksa pengguna yang sedang login; pembatasan sepenuhnya berada pada gerbang visibilitas
+	 * tombol pemanggilnya. Penulisan absensi bersifat menimpa catatan yang sudah ada dan tidak dapat
+	 * dibatalkan secara otomatis.</p>
+	 *
+	 * <p><strong>Cakupan peserta.</strong> Hanya {@code pa.ambilMahasiswa()} yang ditelusuri, sehingga
+	 * peserta berjenis siswa maupun calon tidak pernah ikut ditandai. Keterangan absensi yang ditulis
+	 * berbunyi "Tidak akses di pertemuan" diikuti {@code pa.info()}.</p>
 	 *
 	 * @param pa            pertemuan yang menjadi konteks absensi.
 	 * @param eventListener callback dipanggil setelah proses selesai.
@@ -6183,6 +6245,23 @@ public class TugasMandiriHelper {
 	 * yang dibuka via {@code HibernateUtil.openSession()} dan ditutup di blok {@code finally}.
 	 * Callback {@code eventListener} dipanggil setelah proses selesai untuk memperbarui
 	 * tampilan absensi di grid.</p>
+	 *
+	 * <p><strong>Peserta yang dilewati.</strong> Selain peserta yang memang sudah mengumpulkan —
+	 * dideteksi lewat {@code treemapData.containsKey(idMahasiswa)} atas hasil
+	 * {@code tugas.ambilTugasFileContentTotal()} tanpa argumen, yaitu seluruh pengumpulan dan bukan
+	 * satu halaman — peserta yang tercantum pada {@code tugas.getMhsYgTidakIkut()} juga dilewati.
+	 * Penandaan "tidak perlu ikut" karena itu berdampak langsung pada absensi: peserta yang ditandai
+	 * tidak akan pernah dicatat alpa oleh aksi ini.</p>
+	 *
+	 * <p><strong>Keterangan absensi.</strong> Ditulis sebagai "Tidak Mengumpulkan &quot;judul&quot;
+	 * sampai tanggal/waktu ..." dengan batas waktu diambil dari {@code tugas.getSelesai()}, atau waktu
+	 * saat ini bila tugas tidak memiliki batas selesai.</p>
+	 *
+	 * <p><strong>Tidak memiliki gerbang kewenangan sendiri.</strong> Metode {@code static} ini tidak
+	 * memeriksa pengguna yang sedang login; pembatasan berada pada gerbang visibilitas tombol
+	 * pemanggilnya di tab "Belum upload". Penulisan absensi bersifat menimpa dan tidak dapat
+	 * dibatalkan secara otomatis. Hanya {@code pa.ambilMahasiswa()} yang ditelusuri, sehingga peserta
+	 * berjenis siswa maupun calon tidak ikut ditandai.</p>
 	 *
 	 * @param tugas         entitas tugas (dapat {@code Pertemuan} atau {@code TugasPertemuan}).
 	 * @param pa            pertemuan induk tempat absensi dicatat.
@@ -6263,6 +6342,24 @@ public class TugasMandiriHelper {
 	 * konfirmasi muncul sebelum proses dimulai. Setelah selesai, callback {@code eventListener}
 	 * dipanggil agar tampilan absensi diperbarui. Sesi Hibernate baru dibuka via
 	 * {@code HibernateUtil.openSession()} dan selalu ditutup di blok {@code finally}.</p>
+	 *
+	 * <p><strong>Arah iterasi berbeda dari ketiga metode kehadiran lainnya.</strong> Metode ini
+	 * menelusuri baris pengumpulan ({@code tugas.ambilTugasFileContentTotal().values()}), bukan daftar
+	 * peserta. Konsekuensinya, id yang dipakai adalah {@code o.getMahasiswa()} — dan untuk baris yang
+	 * pemiliknya bukan mahasiswa, nilai itu berupa bilangan acak negatif yang sengaja ditulis oleh
+	 * {@link #prosesAnggapSemuaSudahUpload(Tugas, Pertemuan)}, sehingga tidak pernah cocok dengan
+	 * peserta mana pun.</p>
+	 *
+	 * <p><strong>Baris "dianggap mengumpulkan" ikut terhitung hadir.</strong> Karena yang diperiksa
+	 * hanyalah keberadaan baris pengumpulan, peserta yang ditandai lewat
+	 * {@link #anggapSemuaSudahUpload(Tugas, Pertemuan, EventListener)} — yang berkasnya kosong — juga
+	 * akan ditandai hadir oleh aksi ini. Keterangan absensinya menyebutkan nama berkas, yang untuk
+	 * kasus tersebut berakhiran "_(kosong)".</p>
+	 *
+	 * <p><strong>Tidak memiliki gerbang kewenangan sendiri.</strong> Metode {@code static} ini tidak
+	 * memeriksa pengguna yang sedang login; pembatasan berada pada gerbang visibilitas tombol
+	 * "Anggap Hadir (Pengumpul Tugas)". Peserta yang tercantum pada {@code mhsYgTidakIkut} dilewati.
+	 * Penulisan absensi bersifat menimpa dan tidak dapat dibatalkan secara otomatis.</p>
 	 *
 	 * @param tugas         entitas tugas yang menjadi referensi pengumpulan.
 	 * @param pa            pertemuan induk tempat absensi dicatat.
@@ -6604,6 +6701,23 @@ public class TugasMandiriHelper {
 	 * visibilitas tombol dan aksi yang hanya boleh dilakukan oleh pengelola, seperti
 	 * mengubah instruksi tugas, menghapus tugas, memasukkan nilai, dan mengunduh berkas.
 	 *
+	 * <p><strong>Status pemakaian: belum dipanggil dari mana pun.</strong> Metode ini disediakan
+	 * sebagai bentuk terpusat dari rantai pemeriksaan peran, tetapi seluruh gerbang di kelas ini masih
+	 * menuliskan rantainya sendiri secara sebaris. Akibatnya rantai tersebut tersalin puluhan kali
+	 * dengan variasi kecil: sebagian menguji {@code getSiswa()} lebih dari sekali, dan sebagian
+	 * melewatkan {@code getPesertaKursus()} sehingga peserta kursus lolos dari gerbang yang seharusnya
+	 * menutupnya. Metode ini menguji kelima tautan pelajar secara lengkap, sehingga memakainya
+	 * sekaligus menyeragamkan dan memperbaiki gerbang-gerbang tersebut.</p>
+	 *
+	 * <p><strong>Semantik.</strong> "Pengelola" di sini didefinisikan secara negatif: pengguna yang
+	 * tidak tertaut ke satu pun entitas pelajar. Definisi ini tidak melihat hak akses menu, satuan
+	 * kerja, ataupun kepemilikan kelas — seorang dosen yang tidak mengampu perkuliahan ini tetap
+	 * dinilai "boleh kelola" oleh metode ini. Pembatasan yang lebih halus, bila diperlukan, harus
+	 * ditambahkan di atas metode ini, bukan menggantikannya.</p>
+	 *
+	 * <p>Pengguna {@code null} — sesi tidak dapat dibaca — dinilai {@code false}, sehingga sifatnya
+	 * fail-closed.</p>
+	 *
 	 * @param user entitas Tbmuser yang sedang login, boleh null.
 	 * @return {@code true} jika user bukan pelajar (boleh kelola tugas), {@code false} jika
 	 *         user adalah mahasiswa/siswa/calon/peserta kursus atau user null.
@@ -6621,6 +6735,29 @@ public class TugasMandiriHelper {
 	 * Memeriksa apakah pengguna yang sedang login adalah pelajar yang berhak mengupload
 	 * berkas tugas (mahasiswa, siswa, calon mahasiswa, calon siswa, atau peserta kursus).
 	 * Digunakan untuk mengontrol visibilitas tombol Upload Tugas dan tampilan status upload.
+	 *
+	 * <p><strong>Status pemakaian: belum dipanggil dari mana pun.</strong> Sama seperti
+	 * {@link #bolehKelolaTugas(Tbmuser)}, metode ini disediakan sebagai bentuk terpusat namun belum
+	 * menggantikan rantai pemeriksaan sebaris yang tersebar di kelas ini.</p>
+	 *
+	 * <p><strong>Bukan kebalikan sempurna dari {@link #bolehKelolaTugas(Tbmuser)}.</strong> Untuk
+	 * pengguna non-{@code null}, kedua metode memang saling melengkapi karena menguji kelima tautan
+	 * pelajar yang sama. Namun untuk {@code user} bernilai {@code null} keduanya sama-sama
+	 * mengembalikan {@code false} — bukan salah satu {@code true}. Sifat fail-closed ganda itu
+	 * disengaja: sesi yang tidak dapat dibaca tidak boleh memperoleh kewenangan apa pun, baik
+	 * mengelola maupun mengunggah.</p>
+	 *
+	 * <p><strong>Perhatikan perbedaannya dengan {@link #peserta}.</strong> Field {@link #peserta}
+	 * hanya menguji empat tautan dan melewatkan {@code getPesertaKursus()}, sedangkan metode ini
+	 * menguji kelimanya. Untuk pengguna berjenis peserta kursus, {@link #peserta} bernilai
+	 * {@code false} sementara metode ini bernilai {@code true} — perbedaan yang perlu diperhitungkan
+	 * bila salah satunya dipakai menggantikan yang lain.</p>
+	 *
+	 * <p>Perlu dicatat pula bahwa metode ini menjawab "apakah perannya seorang pelajar", bukan
+	 * "apakah yang bersangkutan boleh mengunggah tugas ini sekarang". Kelayakan waktu (jendela
+	 * {@code mulai}/{@code selesai}), izin upload ulang pada {@code mhsBolehUploadUlang}, penandaan
+	 * {@code mhsYgTidakIkut}, dan pemenuhan {@link SyaratUjian} lewat {@link #syaratAlert} adalah
+	 * syarat terpisah yang tetap harus diperiksa.</p>
 	 *
 	 * @param user entitas Tbmuser yang sedang login, boleh null.
 	 * @return {@code true} jika user adalah pelajar yang boleh upload, {@code false} jika
@@ -6658,6 +6795,38 @@ public class TugasMandiriHelper {
 	 * satu Sub-CPMK; panjang sumbu sebanding dengan rata-rata nilai peserta pada Sub-CPMK
 	 * tersebut relatif terhadap nilai maksimum. Dapat di-render melalui
 	 * {@code DashboardUiKit.html()}. Memerlukan minimal 3 data point agar chart bermakna.</p>
+	 *
+	 * <p><strong>Geometri.</strong> Kanvas SVG berukuran {@code 220x230} dengan titik pusat
+	 * {@code (110, 115)} dan jari-jari {@code 80}. Sumbu ke-{@code i} dari {@code n} sumbu diletakkan
+	 * pada sudut {@code 2*PI*i/n - PI/2}; pengurangan seperempat putaran membuat sumbu pertama
+	 * mengarah lurus ke atas. Empat poligon latar digambar pada 25%, 50%, 75%, dan 100% jari-jari
+	 * sebagai garis bantu pembacaan.</p>
+	 *
+	 * <p><strong>Penskalaan nilai.</strong> Setiap titik data ditempatkan pada jarak
+	 * {@code r * min(1, nilai/maxValue)} dari pusat. Pembatasan {@code min(1, ...)} membuat nilai yang
+	 * melebihi {@code maxValue} tetap berada di dalam lingkaran terluar alih-alih menembus kanvas —
+	 * dengan konsekuensi bahwa dua nilai yang sama-sama melampaui batas akan tampak identik. Nilai
+	 * {@code null} diperlakukan sebagai {@code 0.0}, dan {@code maxValue} yang tidak positif membuat
+	 * seluruh rasio menjadi {@code 0.0} sehingga poligon mengempis ke titik pusat.</p>
+	 *
+	 * <p><strong>Format angka.</strong> Seluruh koordinat diformat dengan
+	 * {@code java.util.Locale.US} secara eksplisit. Hal ini wajib: pada locale Indonesia pemisah
+	 * desimal adalah koma, dan koma pada atribut {@code points} sebuah {@code polygon} adalah pemisah
+	 * antar-koordinat — tanpa penguncian locale, SVG yang dihasilkan akan rusak total.</p>
+	 *
+	 * <p><strong>Pelabelan.</strong> Label sumbu diletakkan {@code 16} piksel di luar lingkaran
+	 * terluar, dengan {@code text-anchor} disesuaikan menurut posisi horizontalnya terhadap pusat
+	 * ({@code end} di kiri, {@code start} di kanan, {@code middle} di atas atau bawah) agar teks tidak
+	 * menabrak grafik. Teks label sudah dipendekkan menjadi maksimal 14 karakter oleh pemanggilnya
+	 * sebelum sampai ke sini, dan di sini dilewatkan {@link #escapeXmlAttr(String)}.</p>
+	 *
+	 * <p><strong>Ambang minimum tiga sumbu.</strong> Radar dengan kurang dari tiga sumbu tidak
+	 * membentuk bidang sehingga tidak bermakna; metode mengembalikan string kosong dan pemanggil
+	 * memang sudah memeriksa {@code cpmkAvg.size() >= 3} lebih dahulu.</p>
+	 *
+	 * <p>Metode ini murni menghasilkan teks: tidak menyentuh basis data, tidak membangun komponen ZK,
+	 * dan tidak bergantung pada state instance. Warna dan bayangannya memakai variabel CSS Bootstrap
+	 * dengan nilai cadangan sehingga tetap terbaca bila tema tidak tersedia.</p>
 	 *
 	 * @param judul     judul chart yang ditampilkan di atas SVG.
 	 * @param deskripsi deskripsi singkat yang muncul di bawah judul.
@@ -6753,6 +6922,25 @@ public class TugasMandiriHelper {
 	/**
 	 * Melakukan escaping karakter XML/HTML untuk konten teks yang akan dimasukkan ke dalam
 	 * atribut atau konten elemen SVG/HTML yang dibuat secara programatik.
+	 *
+	 * <p><strong>Cakupan dan batasnya.</strong> Empat karakter diganti: {@code &} menjadi
+	 * {@code &amp;} (dilakukan lebih dahulu agar entitas hasil penggantian berikutnya tidak ikut
+	 * ter-escape dua kali), {@code <} menjadi {@code &lt;}, {@code >} menjadi {@code &gt;}, dan
+	 * {@code "} menjadi {@code &quot;}. Tanda kutip tunggal {@code '} <em>tidak</em> diganti.</p>
+	 *
+	 * <p><strong>Mengapa hal itu perlu diperhatikan.</strong> Meski namanya menyebut "attr",
+	 * satu-satunya pemanggilnya —
+	 * {@link #buildRadarChartHtml(String, String, LinkedHashMap, double)} — hanya menyisipkan hasilnya
+	 * ke dalam <em>isi elemen</em> ({@code <div>}...{@code </div>} dan {@code <text>}...{@code </text>}),
+	 * tidak ke dalam nilai atribut. Pada posisi itu kutip tunggal memang tidak berbahaya, sehingga
+	 * keadaan saat ini aman. Namun SVG yang dibangun di sana menuliskan seluruh atributnya dengan
+	 * kutip <em>tunggal</em>; bila kelak metode ini dipakai untuk mengisi sebuah nilai atribut, teks
+	 * yang mengandung {@code '} akan memutus atribut tersebut. Untuk pemakaian semacam itu, tambahkan
+	 * penggantian {@code '} menjadi {@code &#39;} lebih dahulu.</p>
+	 *
+	 * <p>Sumber teks yang dilewatkan ke sini adalah nama {@link FormatNilai} beserta judul dan
+	 * deskripsi grafik — data yang berasal dari basis data dan dapat diisi pengguna, sehingga escaping
+	 * memang diperlukan dan tidak boleh dilewati.</p>
 	 *
 	 * @param s string input yang mungkin mengandung karakter khusus XML.
 	 * @return string hasil escaping, aman digunakan di dalam tag HTML/SVG.
