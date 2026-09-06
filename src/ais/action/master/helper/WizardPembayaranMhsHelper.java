@@ -661,6 +661,18 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ HEADER
+    /**
+     * Membangun bilah judul wizard: pita gradasi biru berisi ikon, teks "Wizard Pembayaran",
+     * dan baris identitas {@code NIM · Nama} yang dipotong dengan ellipsis bila sempit,
+     * ditambah tombol silang bulat di pojok kanan atas.
+     *
+     * <p>NIM dan nama dilewatkan {@link #escHtml(String)} sebelum ditempelkan ke markup
+     * {@code Html} — komponen {@code Html} ZK merender string apa adanya, sehingga data
+     * bernama ganjil (mengandung {@code &}, {@code <}, {@code >}) tidak merusak tata letak
+     * dan tidak bisa menyisipkan markup.</p>
+     *
+     * @return komponen header siap dipasang sebagai anak pertama {@link #root}
+     */
     private Div buildHeader() {
         Div header = new Div();
         header.setWidth("100%");
@@ -679,12 +691,23 @@ public class WizardPembayaranMhsHelper {
         btnX.setStyle("position:absolute;top:10px;right:12px;min-width:28px;height:28px;border-radius:50%;"
                 + "background:rgba(255,255,255,.2);color:#fff;border:0;font-weight:700;cursor:pointer;");
         btnX.addEventListener("onClick", new EventListener() {
+            /** Tombol silang header: menutup wizard lewat {@link #tutup()} (memicu callback {@code onSelesai} pemanggil). */
             @Override public void onEvent(Event e) throws Exception { tutup(); }
         });
         header.appendChild(btnX);
         return header;
     }
 
+    /**
+     * Menutup wizard: memicu callback {@link #onSelesai} (event {@code "onClose"}) lalu
+     * melepas {@link #window} dari pohon komponen. Kedua langkah dibungkus try/catch
+     * terpisah dan berurutan, sehingga callback pemanggil yang gagal (mis. penyegaran grid
+     * melempar exception) TIDAK menyebabkan jendela tertinggal terbuka di layar.
+     *
+     * <p>Dipanggil dari tombol silang header, tombol Batal (langkah 1), dan tombol Tutup
+     * (langkah 5). Tidak membatalkan apa pun yang sudah tersimpan: pembayaran tunai maupun
+     * Virtual Account yang sudah terbit tetap berlaku setelah jendela ditutup.</p>
+     */
     private void tutup() {
         try {
             if (onSelesai != null) onSelesai.onEvent(new Event("onClose", window, null));
@@ -693,6 +716,20 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ MOBILE CSS
+    /**
+     * Menyuntikkan satu blok {@code <style>} yang memaksa jendela wizard memenuhi layar pada
+     * perangkat mobile (posisi fixed, 100vw × 100dvh, tanpa margin/radius/bayangan).
+     * Diperlukan karena ukuran jendela ZK saja tidak cukup: pembungkus
+     * {@code z-window-highlighted-*} bawaan tetap membatasi tinggi dan memunculkan sudut
+     * membulat.
+     *
+     * <p>Langsung return bila bukan mobile. Penyuntikan dijaga sekali-per-desktop lewat
+     * atribut {@link #CSS_ATTR}, sehingga membuka wizard berkali-kali dalam satu desktop ZK
+     * tidak menumpuk blok style yang sama. Seluruh badan dibungkus try/catch karena gaya
+     * bersifat kosmetik — kegagalannya tidak boleh menggagalkan pembukaan wizard.</p>
+     *
+     * @param mobile hasil {@code Common.isMobile()}; {@code false} membuat method tidak berbuat apa-apa
+     */
     private void injectCssMobile(boolean mobile) {
         if (!mobile) return;
         try {
@@ -718,6 +755,13 @@ public class WizardPembayaranMhsHelper {
     }
 
     // ============================================================ RENDER
+    /**
+     * Menggambar ulang SELURUH bagian wizard yang bergantung pada langkah aktif, dalam
+     * urutan tetap: ukuran jendela, stepper, badan, lalu footer. Inilah satu-satunya titik
+     * yang dipanggil setiap kali {@link #langkah} berubah — baik oleh navigasi
+     * {@link #onNext(Event)}/tombol Kembali, oleh filter langkah 2 yang perlu menggambar
+     * ulang daftar, maupun oleh eksekutor pembayaran yang melompat ke langkah Selesai.
+     */
     private void render() {
         sesuaikanUkuran();
         renderStepper();
@@ -725,6 +769,20 @@ public class WizardPembayaranMhsHelper {
         renderFooter();
     }
 
+    /**
+     * Menyetel ukuran jendela sesuai perangkat dan langkah aktif. Pada mobile jendela selalu
+     * 100% × 100%. Pada desktop lebarnya tetap 660px, sedangkan TINGGINYA sengaja dipatok
+     * 88% untuk langkah 1-4 dan dibiarkan mengikuti isi (null) untuk langkah 5.
+     *
+     * <p>Pematokan tinggi itu bukan kosmetik: tanpanya, konten panjang (mis. daftar jenis
+     * pembayaran pada langkah 1 atau daftar tagihan panjang pada langkah 2) memanjangkan
+     * jendela melewati tepi layar TANPA memunculkan scrollbar, sehingga tombol footer tidak
+     * dapat diraih. Dengan tinggi tetap, {@link #bodyHost} yang menggulir.</p>
+     *
+     * <p>Pemusatan posisi dibungkus try/catch (kosmetik, boleh gagal pada varian ZK
+     * tertentu). Aman dipanggil sebelum jendela terpasang: langsung return bila
+     * {@link #window} masih null.</p>
+     */
     private void sesuaikanUkuran() {
         if (window == null) return;
         if (Common.isMobile()) {
@@ -742,6 +800,17 @@ public class WizardPembayaranMhsHelper {
         try { window.setPosition("center"); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/WizardPembayaranMhsHelper.java:413"); /* ignore */ }
     }
 
+    /**
+     * Menggambar ulang stepper bernomor dari {@link #JUDUL}: langkah yang sudah dilewati
+     * ditandai centang hijau, langkah aktif bulatan biru, sisanya abu-abu, dihubungkan garis
+     * yang ikut menghijau untuk ruas yang sudah dilalui.
+     *
+     * <p>Pada mobile hanya JUDUL LANGKAH AKTIF yang ditampilkan (label lain
+     * {@code display:none}) agar kelima langkah tetap muat dalam satu baris; bulatan
+     * nomornya tetap terlihat semua sebagai penunjuk posisi. Seluruh stepper dirakit sebagai
+     * satu string HTML dan dipasang sebagai komponen {@code Html} tunggal — lebih murah
+     * daripada puluhan komponen ZK terpisah yang digambar ulang tiap langkah.</p>
+     */
     private void renderStepper() {
         Common.clear(stepperHost);
         StringBuilder sb = new StringBuilder();
@@ -772,6 +841,15 @@ public class WizardPembayaranMhsHelper {
         stepperHost.appendChild(new Html(sb.toString()));
     }
 
+    /**
+     * Membersihkan {@link #bodyHost} lalu merender isi langkah aktif. Pembersihan lebih dulu
+     * inilah yang membuat seluruh {@code renderStepN} boleh menambah komponen tanpa
+     * memikirkan sisa render sebelumnya — sekaligus alasan {@code TagihanItem.cardDiv}
+     * menjadi basi setiap kali method ini dipanggil dan harus diisi ulang.
+     *
+     * <p>Nomor langkah di luar 1-4 jatuh ke {@code default} dan dirender sebagai langkah
+     * Selesai, sehingga tidak ada nilai {@link #langkah} yang bisa menghasilkan badan kosong.</p>
+     */
     private void renderBody() {
         Common.clear(bodyHost);
         switch (langkah) {
@@ -783,6 +861,24 @@ public class WizardPembayaranMhsHelper {
         }
     }
 
+    /**
+     * Menggambar ulang bilah tombol bawah sesuai langkah aktif:
+     * <ul>
+     * <li>kiri — "Batal" (menutup wizard) pada langkah 1, "← Kembali" (mundur satu langkah,
+     * dijepit minimal 1) pada langkah lain;</li>
+     * <li>kanan — "Lanjut →"/"Atur Nominal →"/"Lanjut Pilih Cara Bayar →" pada langkah 1-3,
+     * "Tutup" pada langkah 5.</li>
+     * </ul>
+     *
+     * <p><b>Langkah 4 sengaja TIDAK punya tombol kanan:</b> pada langkah Cara Bayar,
+     * menekan kartu saluran ITULAH aksi eksekusinya, sehingga tombol "Lanjut" akan ambigu
+     * dan berisiko memicu pembayaran yang tidak diniatkan. Tombol Kembali tetap ada agar
+     * pengguna dapat mengoreksi nominal.</p>
+     *
+     * <p>Mundur ke langkah sebelumnya TIDAK memuat ulang tagihan (yang hanya terjadi saat
+     * maju dari langkah 1), sehingga centang dan nominal yang sudah diatur pengguna tetap
+     * utuh saat ia bolak-balik antara langkah 2, 3, dan 4.</p>
+     */
     private void renderFooter() {
         Common.clear(footerHost);
 
@@ -792,12 +888,14 @@ public class WizardPembayaranMhsHelper {
             btnKiri = new MyButtonConfig("Batal");
             btnKiri.setStyle(BTN_SECONDARY);
             btnKiri.addEventListener("onClick", new EventListener() {
+                /** Tombol "Batal" (hanya langkah 1): menutup wizard tanpa menyimpan apa pun. */
                 @Override public void onEvent(Event e) throws Exception { tutup(); }
             });
         } else {
             btnKiri = new MyButtonConfig("← Kembali");
             btnKiri.setStyle(BTN_SECONDARY);
             btnKiri.addEventListener("onClick", new EventListener() {
+                /** Tombol "← Kembali": mundur satu langkah (dijepit minimal 1) lalu menggambar ulang; tidak memuat ulang tagihan sehingga pilihan dan nominal pengguna tetap utuh. */
                 @Override public void onEvent(Event e) throws Exception {
                     langkah = Math.max(1, langkah - 1);
                     render();
@@ -811,6 +909,7 @@ public class WizardPembayaranMhsHelper {
             MyButtonConfig btnTutup = new MyButtonConfig("Tutup");
             btnTutup.setStyle(BTN_PRIMARY);
             btnTutup.addEventListener("onClick", new EventListener() {
+                /** Tombol "Tutup" (langkah Selesai): menutup wizard dan memicu callback {@code onSelesai} agar layar pemanggil menyegarkan tagihannya. */
                 @Override public void onEvent(Event e) throws Exception { tutup(); }
             });
             footerHost.appendChild(btnTutup);
@@ -821,6 +920,7 @@ public class WizardPembayaranMhsHelper {
             MyButtonConfig btnKanan = new MyButtonConfig(lbl);
             btnKanan.setStyle(BTN_PRIMARY);
             btnKanan.addEventListener("onClick", new EventListener() {
+                /** Tombol lanjut langkah 1-3: mendelegasikan ke {@link #onNext(Event)} yang memvalidasi langkah aktif sebelum maju. */
                 @Override public void onEvent(Event e) throws Exception { onNext(e); }
             });
             footerHost.appendChild(btnKanan);
@@ -828,6 +928,27 @@ public class WizardPembayaranMhsHelper {
         // Langkah 4 (Cara Bayar): tidak ada tombol lanjut — pilih gateway = aksi
     }
 
+    /**
+     * Menangani tombol lanjut: memvalidasi langkah aktif, menjalankan efek samping yang
+     * diperlukan, lalu maju satu langkah dan menggambar ulang. Bila validasi gagal, method
+     * RETURN tanpa mengubah {@link #langkah} dan tanpa menggambar ulang — pesan kesalahan
+     * sudah ditampilkan oleh validator masing-masing.
+     *
+     * <ul>
+     * <li>langkah 1 → {@link #validasiStep1()} (menetapkan jenis, semester, dan daftar jenis
+     * tambahan) lalu {@link #muatTagihan()} — satu-satunya titik pemuatan tagihan, sehingga
+     * mengganti jenis/semester selalu menghasilkan daftar yang segar;</li>
+     * <li>langkah 2 → {@link #validasiStep2()} (minimal satu item tercentang);</li>
+     * <li>langkah 3 → {@link #validasiStep3()} (tiap nominal &gt; 0 dan total &gt; 0);</li>
+     * <li>selain itu → menutup wizard.</li>
+     * </ul>
+     *
+     * <p>Tidak ada cabang untuk langkah 4 karena footer langkah itu memang tidak memasang
+     * tombol lanjut.</p>
+     *
+     * @param e event klik tombol (tidak dipakai isinya)
+     * @throws Exception bila pemuatan tagihan atau render gagal
+     */
     private void onNext(Event e) throws Exception {
         switch (langkah) {
             case 1:

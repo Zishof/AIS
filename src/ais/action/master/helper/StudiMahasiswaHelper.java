@@ -136,6 +136,36 @@ import ais.ui.util.MyWindow;
  * Mengimplementasikan {@link DataLoader} agar {@link #loadData(Object)} dapat dipakai sebagai
  * callback penyegaran dari helper lain (mis. {@link TransferDataMahasiswaHelper}).
  * </p>
+ * <p>
+ * <b>Tiga perhitungan SKS yang BERBEDA dalam satu layar</b> — perbedaan ini disengaja secara
+ * fungsional, tetapi mudah tertukar saat pemeliharaan, jadi catat baik-baik:
+ * </p>
+ * <ol>
+ * <li>{@link #loadStatus()} — label "Jumlah SKS": menjumlahkan SELURUH baris tanpa memandang
+ * status centang dan <b>termasuk</b> baris konversi.</li>
+ * <li>{@link #apakahMelebihiSks()} — gerbang saat mencentang satu baris: hanya baris yang
+ * checkbox-nya TERCENTANG, dan mengecualikan baris konversi bila konfigurasi
+ * {@code konversi_masuk_akumulasi_jumlah_sks_pengambilan_krs} tidak aktif. Baris yang kolom
+ * persetujuannya tampil sebagai label (karena persetujuan oleh dosen dinonaktifkan) tidak
+ * pernah punya atribut {@code "checkbox"} sehingga otomatis tidak terhitung.</li>
+ * <li>{@link #lakukanSemuaPersetujuan()} — gerbang saat menyetujui massal: SELURUH baris
+ * (tanpa memandang centang), dengan pengecualian konversi yang sama seperti butir 2.</li>
+ * </ol>
+ * <p>
+ * Akibatnya angka pada label "Jumlah SKS" dapat berbeda dari angka yang benar-benar diuji
+ * terhadap batas SKS-berdasarkan-IP. Nilai IPS/IPK dan SKS lulus di header layar sama sekali
+ * tidak dihitung di kelas ini — semuanya dibaca apa adanya dari {@link KrsMahasiswa}.
+ * </p>
+ *
+ * <p>
+ * <b>Batas otorisasi.</b> Kelas ini tidak memeriksa kepemilikan: {@link #display} menampilkan
+ * KRS {@link Mahasiswa} mana pun yang diberikan pemanggil, dan penyaringan siapa boleh melihat
+ * KRS siapa sepenuhnya berada di layar pemanggil ({@code KrsMahasiswaAction},
+ * {@code TampilStudiMahasiswaHelper}, {@code AktifitasKrsMahasiswaHelper}). Hak yang diperiksa
+ * di sini hanyalah {@link #delete} dan {@link #update} lewat {@link CommonPrivilages};
+ * {@link #approve} dan {@link #reject} di-hardcode {@code true} sehingga persetujuan dan
+ * pembatalan persetujuan tidak terlindungi hak akses tingkat data.
+ * </p>
  */
 public class StudiMahasiswaHelper implements DataLoader {
 
@@ -1005,6 +1035,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 	 * tidak aktif), lalu memvalidasinya terhadap batas SKS berdasarkan IP mahasiswa lewat
 	 * {@link Common#checkPembatasanSKSBerdasarkanIP}.
 	 *
+	 * <p>
+	 * Sumber datanya adalah komponen ZK, bukan database: atribut {@code "checkbox"} dan
+	 * {@code "value"} yang dipasang {@link DetailMahasiswaRenderer} pada tiap {@link Row}. Karena
+	 * grid memakai mold {@code paging}, hanya baris yang sudah dirender yang ikut terhitung.
+	 * Bandingkan dengan {@link #loadStatus()} dan {@link #lakukanSemuaPersetujuan()} yang memakai
+	 * penyaringan berbeda (lihat javadoc kelas).
+	 * </p>
+	 *
 	 * @return {@code true} bila melebihi batas (pemanggil harus membatalkan aksi persetujuan)
 	 */
 	@SuppressWarnings("unchecked")
@@ -1106,12 +1144,14 @@ public class StudiMahasiswaHelper implements DataLoader {
 				CatatanHelper komentarHelper = new CatatanHelper(mahasiswa, semester, tahapan, dosenPembimbingAkademik, tahunAjaran, semesterPendek, remedial);
 
 				komentarHelper.display(new EventListener() {
+					/** Dipanggil setelah catatan dosen PA tersimpan: menyalin catatan dan catatan KHS terbaru dari {@link KrsMahasiswa} hasil simpan ke label milik layar pemanggil, lalu menjadwalkan pembangunan ulang seluruh layar. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						KrsMahasiswa krsMhs = (KrsMahasiswa) arg0.getData();
 						catatan.setValue(krsMhs.getCatatan());
 						catatanKhs.setValue(krsMhs.getCatatanKhs());
 						Common.createDefaultTimer(new EventListener() {
+							/** Membangun ulang seluruh layar pada request berikutnya sehingga kolom, status persetujuan, dan ringkasan IP/SKS ikut segar. */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								display(mahasiswa, tahunAjaran, semester, tahapan, component, keterangan, komentarshtml, ipIpk, sksSksk, catatan, catatanKhs);
@@ -1121,6 +1161,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				});
 			} else {
 				Common.createDefaultTimer(new EventListener() {
+					/** Jalur ketika belum semua baris tercentang: cukup membangun ulang layar tanpa meminta catatan dosen PA. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						display(mahasiswa, tahunAjaran, semester, tahapan, component, keterangan, komentarshtml, ipIpk, sksSksk, catatan, catatanKhs);
@@ -1165,6 +1206,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 				}
 
 				Common.createDefaultTimer(new EventListener() {
+					/** Dijalankan setelah seluruh baris tersimpan sebagai disetujui: melakukan sinkronisasi penuh {@link KrsMahasiswa} (di sini aman, karena transaksi penyimpanan sebelumnya sudah selesai), lalu membuka {@link CatatanHelper} untuk mencatat catatan dosen PA. */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						KrsMahasiswa krsMhs = Common.singkronkanKrsMahasiswa(mahasiswa, semester, tahapan, semesterPendek, false, false);
@@ -1172,6 +1214,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 						CatatanHelper komentarHelper = new CatatanHelper(mahasiswa, semester, tahapan, dosenPembimbingAkademik, tahunAjaran, semesterPendek, remedial);
 
 						komentarHelper.display(new EventListener() {
+							/** Menyalin catatan dan catatan KHS hasil simpan ke label layar pemanggil, lalu membangun ulang layar secara langsung (tanpa timer, karena sudah berada di dalam callback timer). */
 							@Override
 							public void onEvent(Event arg0) throws Exception {
 								KrsMahasiswa krs = (KrsMahasiswa) arg0.getData();
@@ -1212,6 +1255,7 @@ public class StudiMahasiswaHelper implements DataLoader {
 		}
 
 		Common.createDefaultTimer(new EventListener() {
+			/** Membangun ulang layar setelah pembatalan persetujuan massal, termasuk bila sebagian baris ditolak karena sudah bernilai. */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				display(mahasiswa, tahunAjaran, semester, tahapan, component, keterangan, komentarshtml, ipIpk, sksSksk, catatan, catatanKhs);

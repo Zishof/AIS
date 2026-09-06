@@ -3614,6 +3614,17 @@ public class TampilStudiMahasiswaHelper {
 		MyToolbarbuttonConfig toolbarbutton = new MyToolbarbuttonConfig(buttonLabel, buttonImage);
 
 		toolbarbutton.addEventListener("onClick", new EventListener() {
+			/**
+			 * Klik tombol "Lihat data KRS Double": menyiapkan berkas Excel sementara di
+			 * {@code /tmp/cetak_data_<timestamp>.xlsx}, menyalakan {@link Timer} polling 200 ms, lalu
+			 * menjalankan pencarian KRS ganda pada THREAD TERPISAH.
+			 *
+			 * <p>Komunikasi antara thread pekerja dan thread UI memakai dua wadah bersama: {@code label}
+			 * (penanda status &mdash; teks berjalan selama proses, {@code ""} bila SELESAI, {@code "-"} bila
+			 * GAGAL) dan {@code intbox} (jumlah kelompok data ganda). {@code dataDihapus} menampung id baris
+			 * yang ditandai merah/akan dihapus. Tidak ada penguncian pada ketiganya; sinkronisasi hanya
+			 * mengandalkan urutan penulisan label oleh thread pekerja.
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				final List<Long> dataDihapus = new ArrayList<Long>();
@@ -3633,6 +3644,15 @@ public class TampilStudiMahasiswaHelper {
 				timer.setParent(ExecutionsCtrl.getCurrentCtrl().getCurrentPage().getFirstRoot());
 				timer.setRepeats(true);
 				timer.addEventListener("onTimer", new EventListener() {
+					/**
+					 * Timer polling status proses (200 ms, berulang). Selama proses berjalan hanya menyegarkan
+					 * indikator sibuk. Bila {@code label} bernilai {@code "-"} (gagal), timer dibersihkan dan proses
+					 * diakhiri diam-diam. Bila {@code label} KOSONG (selesai), timer membuka jendela modal
+					 * "Cetak Data" berisi pratinjau {@code Spreadsheet} dari berkas hasil beserta tiga tombol
+					 * (Tutup, Download Data, Proses pembersihan data double), lalu melepas dirinya sendiri.
+					 * Seluruh badan dibungkus {@code try/catch} yang hanya membersihkan indikator sibuk, sehingga
+					 * error saat membangun jendela tidak menghentikan sesi pengguna.
+					 */
 					@Override
 					public void onEvent(Event arg0) throws Exception {
 						try {
@@ -3673,6 +3693,7 @@ public class TampilStudiMahasiswaHelper {
 								MyToolbarbuttonConfig cancel = new MyToolbarbuttonConfig("Tutup", "/img/cancel.gif");
 								cancel.setTooltiptext("Tutup");
 								cancel.addEventListener("onClick", new EventListener() {
+									/** Tombol "Tutup" pada jendela pratinjau data KRS ganda: melepas jendela tanpa perubahan apa pun. */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										window.detach();
@@ -3683,6 +3704,11 @@ public class TampilStudiMahasiswaHelper {
 								MyToolbarbuttonConfig print = new MyToolbarbuttonConfig("Download Data",
 										"/img/excel.png");
 								print.addEventListener("onClick", new EventListener() {
+									/**
+									 * Tombol "Download Data": mengunduh berkas {@code .xlsx} hasil pemindaian KRS ganda. Aliran berkas
+									 * selalu ditutup pada blok {@code finally}. Disarankan diunduh SEBELUM menjalankan pembersihan,
+									 * karena penghapusan bersifat permanen.
+									 */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										FileInputStream fis = null;
@@ -3712,6 +3738,12 @@ public class TampilStudiMahasiswaHelper {
 								proses.setTooltiptext(
 										"Menghapus permanen salah satu data KRS ganda yang ditandai warna merah");
 								proses.addEventListener("onClick", new EventListener() {
+									/**
+									 * Tombol "Proses pembersihan data double" (hanya tampil bila ada baris ganda): merangkai id pada
+									 * {@code dataDihapus} menjadi daftar dipisah koma, lalu menampilkan dialog konfirmasi bernada
+									 * formal yang menegaskan bahwa penghapusan PERMANEN, tidak dapat dibatalkan, dan dapat memutus
+									 * keterkaitan nilai/kehadiran &mdash; serta menyarankan mengunduh cadangan terlebih dahulu.
+									 */
 									@Override
 									public void onEvent(Event event) throws Exception {
 										final String daftarId;
@@ -3738,6 +3770,17 @@ public class TampilStudiMahasiswaHelper {
 												"Konfirmasi Penghapusan Permanen Data Ganda",
 												org.zkoss.zul.Messagebox.YES | org.zkoss.zul.Messagebox.NO,
 												MyMessageboxConfig.QUESTION, new EventListener() {
+													/**
+													 * Eksekusi penghapusan setelah pengguna menjawab YES: menjalankan
+													 * {@code delete from detailperkuliahan where id in (...)} sebagai SQL native, lalu memuat ulang
+													 * grid dan menutup jendela pratinjau. Jawaban selain {@code onYes} atau daftar id kosong
+													 * mengakibatkan method keluar tanpa efek.
+													 *
+													 * <p>Daftar id dirangkai dari objek {@code Long} hasil query (bukan masukan pengguna), sehingga
+													 * interpolasi ke SQL di sini tidak membuka jalur injeksi. Sesi Hibernate SELALU ditutup pada blok
+													 * {@code finally}. Perhatikan bahwa penghapusan dilakukan LANGSUNG lewat SQL native: cascade
+													 * Hibernate, listener Envers, dan jejak audit entitas TIDAK ikut berjalan.
+													 */
 													@Override
 													public void onEvent(Event ev) throws Exception {
 														if (!"onYes".equals(ev.getName())) {
@@ -3781,6 +3824,23 @@ public class TampilStudiMahasiswaHelper {
 					Clients.showBusy(label.getValue());
 
 					new Thread(new Runnable() {
+						/**
+						 * Pekerja latar pemindai KRS ganda. Menjalankan query agregat
+						 * ({@code group by mahasiswa, kode MK, semester, tahun akademik having count(*) > 1}) yang dibatasi
+						 * pada mahasiswa ini dan pada jenis semester yang sedang aktif ({@link #semesterPendek}), lalu
+						 * untuk tiap kelompok mengambil seluruh {@link Detailperkuliahan} anggotanya dan menuliskannya ke
+						 * sheet "DATA KRS".
+						 *
+						 * <p><b>Aturan pemilihan baris yang ditandai:</b> anggota kelompok diurutkan {@code totalNilai}
+						 * MENAIK lalu {@code dosen1} MENURUN, dan SEMUA anggota kecuali YANG TERAKHIR ditandai merah serta
+						 * dimasukkan ke {@code dataDihapus}. Karena urutannya menaik, baris yang DIPERTAHANKAN adalah yang
+						 * bernilai total TERTINGGI &mdash; ini keputusan penting yang tidak terlihat dari nama tombolnya.
+						 *
+						 * <p>{@code session.clear()} dipanggil setiap selesai satu kelompok agar cache tingkat satu tidak
+						 * membengkak pada mahasiswa dengan banyak duplikat. Pada akhir proses label diisi {@code ""}
+						 * (sukses) atau {@code "-"} (gagal) sebagai sinyal untuk timer polling, dan session native
+						 * dibersihkan/diputus/ditutup berlapis pada blok {@code finally}.
+						 */
 						@SuppressWarnings("unchecked")
 						@Override
 						public void run() {

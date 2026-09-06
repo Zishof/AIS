@@ -58,17 +58,68 @@ import ais.ui.util.WaktuUtil;
  */
 public class KegiatanPersistenceHelper {
 
+	/**
+	 * HQL bulk-update yang menulis KETUJUH kolom denormalisasi {@link Kegiatan} sekaligus dalam
+	 * satu pernyataan: {@code bulans}, {@code tagihans}, {@code tagihan}, {@code dibayar},
+	 * {@code persentase}, {@code cicilans}, dan {@code detailKegiatans}.
+	 *
+	 * <p>Sengaja memakai bulk-update HQL, bukan {@code session.update(entity)}, agar hanya ketujuh
+	 * kolom ini yang tersentuh — kolom lain pada baris {@code Kegiatan} yang sedang diubah proses
+	 * interaktif lain tidak ikut tertimpa oleh salinan entity milik worker async. Konsekuensinya
+	 * bulk-update MELEWATI cache level-2 dan interceptor Hibernate, sehingga pemanggil yang masih
+	 * memegang instance {@link Kegiatan} lama harus disinkronkan manual — itulah sebabnya
+	 * {@link #eksekusiUpdateDenganRetryTerkunci} menyalin balik nilai hasil hitung ke object
+	 * {@code kegiatan} milik pemanggil.</p>
+	 */
 	private static final String HQL_UPDATE_KEGIATAN = "UPDATE Kegiatan SET bulans = :nilaiBaru, "
 			+ "tagihans = :nilaiTagihanBaru, tagihan = :tagihanBaru, dibayar = :dibayarBaru, "
 			+ "persentase = :persentaseBaru, cicilans = :cicilansBaru, "
 			+ "detailKegiatans = :detailKegiatansBaru WHERE id = :idKegiatan";
 
+	/**
+	 * Batas jumlah id per klausa {@code IN (...)} saat memuat cicilan/detail kegiatan
+	 * ({@link #loadCicilanByIds}, {@link #loadDetailKegiatanByIds}). Daftar id yang lebih panjang
+	 * dipecah menjadi beberapa query berurutan; nilainya dijaga di bawah batas parameter bind
+	 * PostgreSQL sekaligus menghindari rencana eksekusi yang buruk untuk daftar sangat panjang.
+	 */
 	private static final int MAX_IN_CLAUSE_SIZE = 800;
+	/**
+	 * Jeda debounce antrean async: perubahan dijadwalkan {@value} detik ke depan
+	 * ({@link #simpanPerubahanAsync}). Selama jeda ini, perubahan berikutnya pada kegiatan yang
+	 * sama hanya MEMPERBARUI isi tugas yang sudah antre alih-alih menjadwalkan tugas baru,
+	 * sehingga rentetan penyuntingan di UI menghasilkan satu penulisan basis data, bukan puluhan.
+	 */
 	private static final int ASYNC_DELAY_SECONDS = 15;
+	/**
+	 * Jumlah maksimum percobaan penulisan pada {@link #eksekusiUpdateDenganRetryTerkunci} sebelum
+	 * kegagalan dilaporkan lewat {@code Common.tampilErrorJikaAdmin}. Antar percobaan diberi
+	 * backoff eksponensial ringan berjitter untuk memberi waktu lock basis data terlepas.
+	 */
 	private static final int MAX_RETRY = 5;
 
+	/**
+	 * Pool thread terjadwal yang menjalankan seluruh penulisan denormalisasi tertunda. Ukurannya
+	 * dibatasi {@link #hitungThreadPoolAman(int)} (maksimum 8) agar tidak menghabiskan koneksi
+	 * kolam c3p0 saat sinkronisasi massal. Seluruh thread-nya DAEMON, sehingga JVM/container tetap
+	 * bisa berhenti walau masih ada tugas terjadwal.
+	 *
+	 * <p><b>Konsekuensi daemon:</b> tugas yang masih menunggu jeda {@link #ASYNC_DELAY_SECONDS}
+	 * saat aplikasi dimatikan akan HILANG tanpa tertulis ke basis data. Kolom denormalisasi bersifat
+	 * turunan dan dapat dibangun ulang lewat "Hitung Ulang", jadi kehilangan ini tidak merusak data
+	 * sumber — tetapi angka dasbor bisa basi sampai perhitungan ulang berikutnya. Pemanggil yang
+	 * butuh kepastian tulis memakai {@code immediateUpdate=true} pada
+	 * {@link #simpanPerubahanAsync}.</p>
+	 */
 	private static final ScheduledExecutorService asyncExecutor = Executors.newScheduledThreadPool(
 			hitungThreadPoolAman(Runtime.getRuntime().availableProcessors()), new ThreadFactory() {
+				/**
+				 * Membuat thread worker bernama {@code AsyncUpdateKegiatan-Thread-<id>} dan menandainya sebagai
+				 * DAEMON. Penamaan eksplisit memudahkan mengenali worker ini pada thread dump saat menelusuri
+				 * kontensi lock basis data.
+				 *
+				 * @param runnable tugas penulisan denormalisasi yang akan dijalankan.
+				 * @return thread daemon siap pakai untuk {@link #asyncExecutor}.
+				 */
 				@Override
 				public Thread newThread(Runnable runnable) {
 					Thread thread = new Thread(runnable);
@@ -78,7 +129,27 @@ public class KegiatanPersistenceHelper {
 				}
 			});
 
+	/**
+	 * Peta id {@link Kegiatan} ke tugas penulisan yang sedang antre — inti mekanisme debounce.
+	 * Selama sebuah id masih terdaftar di sini dengan {@code future} yang belum selesai, perubahan
+	 * baru hanya menimpa isi {@link PendingKegiatanData} alih-alih menjadwalkan tugas kedua.
+	 *
+	 * <p>Meski bertipe {@link ConcurrentHashMap}, SELURUH akses baca-ubah-tulis di kelas ini
+	 * dibungkus {@code synchronized (pendingTasks)} karena operasinya majemuk (cek {@code future},
+	 * batalkan, lalu ganti entri) dan tidak dapat diatomkan oleh {@code ConcurrentHashMap} sendiri.
+	 * Satu-satunya akses tanpa blok {@code synchronized} adalah {@code remove(id)} di dalam badan
+	 * tugas terjadwal, yang memang aman karena bersifat atomik tunggal.</p>
+	 */
 	private static final ConcurrentHashMap<Long, PendingKegiatanData> pendingTasks = new ConcurrentHashMap<Long, PendingKegiatanData>();
+	/**
+	 * Array 1024 monitor untuk penguncian ber-stripe per {@link Kegiatan} (lihat
+	 * {@link #buatKegiatanLocks()} dan {@link #getKegiatanLock(Long)}). Menjamin dua penulisan
+	 * denormalisasi untuk kegiatan yang SAMA berjalan serial di dalam satu JVM; kegiatan berbeda
+	 * yang kebetulan sama modulo 1024 ikut terserialisasi (tabrakan palsu yang ditoleransi).
+	 *
+	 * <p>Penguncian lintas node JVM ditangani terpisah oleh {@code pg_advisory_xact_lock} di dalam
+	 * transaksi {@link #eksekusiUpdateDenganRetryTerkunci}.</p>
+	 */
 	private static final Object[] kegiatanLocks = buatKegiatanLocks();
 
 	/**
@@ -124,6 +195,18 @@ public class KegiatanPersistenceHelper {
 		private Double dibayar = Double.valueOf(0.0);
 	}
 
+	/**
+	 * Menghitung ukuran thread pool yang aman: minimal 1, maksimal 8, dan tidak pernah melebihi
+	 * jumlah prosesor yang tersedia maupun {@code totalData}. Batas atas 8 dipilih agar pekerjaan
+	 * paralel tidak menghabiskan kolam koneksi basis data.
+	 *
+	 * <p>Bersifat publik karena juga dipakai pemanggil lain (mis. proses tagihan massal) yang
+	 * perlu menghitung ukuran pool dengan aturan yang sama.</p>
+	 *
+	 * @param totalData banyaknya data yang akan diproses; nilai {@code <= 0} berarti "tidak
+	 *                  diketahui" sehingga tidak ikut membatasi.
+	 * @return ukuran pool antara 1 dan 8.
+	 */
 	public static int hitungThreadPoolAman(int totalData) {
 		int processor = Runtime.getRuntime().availableProcessors();
 		int batasProcessor = processor <= 0 ? 2 : processor;
@@ -134,6 +217,19 @@ public class KegiatanPersistenceHelper {
 		return Math.max(1, jumlah);
 	}
 
+	/**
+	 * Menutup {@link Session} hasil {@code openSession()} dengan urutan aman:
+	 * {@code clear()} → {@code disconnect()} → {@code close()}, masing-masing dibungkus penangkap
+	 * kesalahan sendiri sehingga satu langkah yang gagal tidak menghalangi langkah berikutnya.
+	 * {@code clear()} dipanggil lebih dulu supaya entity yang masih menempel dilepas dan tidak
+	 * ikut ter-flush secara tidak sengaja saat penutupan.
+	 *
+	 * <p><b>Jangan</b> memakai method ini untuk {@code HibernateUtil.currentSession()} — session
+	 * milik request itu dikelola di luar kelas ini dan menutupnya akan merusak pemanggil. Aman
+	 * dipanggil dengan {@code null} maupun session yang sudah tertutup.</p>
+	 *
+	 * @param session session yang akan ditutup; boleh {@code null}.
+	 */
 	public static void closeOpenedSession(Session session) {
 		if (session == null) {
 			return;
@@ -154,6 +250,17 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Menutup session hasil {@code openSession()} lewat {@link #closeOpenedSession(Session)} DAN
+	 * sekaligus melepas session milik thread saat ini ({@code HibernateUtil.closeSession()}).
+	 *
+	 * <p>Dipakai pada jalur yang berjalan di luar siklus request web (mis. worker batch) di mana
+	 * session per-thread juga harus dibersihkan agar tidak bocor ke tugas berikutnya yang memakai
+	 * thread yang sama. Pada jalur request web biasa gunakan {@link #closeOpenedSession(Session)}
+	 * saja.</p>
+	 *
+	 * @param session session hasil {@code openSession()}; boleh {@code null}.
+	 */
 	public static void closeNativeSession(Session session) {
 		closeOpenedSession(session);
 		try {
@@ -162,6 +269,13 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Melakukan {@code rollback()} bila transaksi masih aktif, dan menelan kegagalan rollback itu
+	 * sendiri (dicatat ke {@code ErrorAuditUtil}). Dipakai di blok {@code catch} agar kesalahan
+	 * asli yang memicu rollback tidak tertutupi oleh kesalahan sekunder saat rollback.
+	 *
+	 * @param tx transaksi yang akan di-rollback; boleh {@code null} atau sudah tidak aktif.
+	 */
 	private static void rollbackQuietly(Transaction tx) {
 		if (tx != null) {
 			try {
@@ -173,18 +287,52 @@ public class KegiatanPersistenceHelper {
 		}
 	}
 
+	/**
+	 * Mengembalikan {@code true} bila {@code value} {@code null} atau hanya berisi spasi.
+	 *
+	 * @param value teks yang diperiksa.
+	 * @return {@code true} bila kosong atau {@code null}.
+	 */
 	private static boolean isEmpty(String value) {
 		return value == null || value.trim().length() == 0;
 	}
 
+	/**
+	 * Mengubah {@code null} menjadi {@code 0.0} agar aritmetika di kelas ini tidak perlu
+	 * memeriksa null berulang kali.
+	 *
+	 * @param value nilai yang mungkin {@code null}.
+	 * @return {@code value}, atau {@code 0.0} bila {@code null}.
+	 */
 	private static Double safeDouble(Double value) {
 		return value == null ? Double.valueOf(0.0) : value;
 	}
 
+	/**
+	 * Memotong (bukan membulatkan) sebuah {@link Double} menjadi {@code long}, dengan {@code null}
+	 * dipetakan ke {@code 0}. Dipakai saat menuliskan nominal ke JSON {@code bulans}.
+	 *
+	 * <p>Perhatikan perbedaannya dengan {@link #nominalTagihan(Double)} yang MEMBULATKAN
+	 * ({@code Math.round}). Rekap pembayaran memotong, rekap tagihan membulatkan.</p>
+	 *
+	 * @param value nilai yang mungkin {@code null}.
+	 * @return bagian bulat dari {@code value}, atau {@code 0}.
+	 */
 	private static long safeLong(Double value) {
 		return value == null ? 0L : value.longValue();
 	}
 
+	/**
+	 * Mengambil id sebuah entity secara generik. Menggunakan jalur cepat bertipe untuk
+	 * {@link CicilanPembayaran} dan {@link DetailKegiatan}, lalu jatuh ke refleksi
+	 * ({@code getId()}) untuk tipe lain. Kegagalan refleksi dicatat dan menghasilkan {@code null}.
+	 *
+	 * <p>Dibutuhkan karena {@link #bangunStringAktif(java.util.List)} bekerja pada {@code List}
+	 * mentah yang isinya bisa cicilan maupun detail kegiatan.</p>
+	 *
+	 * @param object entity yang akan diambil id-nya; boleh {@code null}.
+	 * @return id sebagai {@link Long}, atau {@code null} bila tidak tersedia.
+	 */
 	private static Long getId(Object object) {
 		if (object == null) {
 			return null;
