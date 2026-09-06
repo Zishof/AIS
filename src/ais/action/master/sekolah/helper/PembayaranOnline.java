@@ -3163,7 +3163,10 @@ public class PembayaranOnline extends GenericAutowireComposer {
 									? null : kanan.getItemBiayaSekolah().getGrupItemBiayaSekolah();
 							String kKiri = gKiri == null ? "\uffff" : gKiri.getLabelTampilan().toLowerCase();
 							String kKanan = gKanan == null ? "\uffff" : gKanan.getLabelTampilan().toLowerCase();
-							return kKiri.compareTo(kKanan);
+							int hasil = kKiri.compareTo(kKanan);
+							if (hasil != 0 || gKiri == null || gKanan == null
+									|| gKiri.getId() == null || gKanan.getId() == null) return hasil;
+							return gKiri.getId().compareTo(gKanan.getId());
 						}
 					});
 					Long grupItemTerakhir = null;
@@ -3185,7 +3188,7 @@ public class PembayaranOnline extends GenericAutowireComposer {
 									if (tagihan.getPengaturanBiaya().getBulanSampai() != null
 											&& tagihan.getTahunbulan() > tagihan.getPengaturanBiaya()
 													.getBulanSampai())
-										break;
+										continue;
 								}
 							} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/sekolah/helper/PembayaranOnline.java:2822");
 								// TODO: handle exception
@@ -3197,9 +3200,16 @@ public class PembayaranOnline extends GenericAutowireComposer {
 								if (grupItem != null && grupItem.getId() != null
 										&& !grupItem.getId().equals(grupItemTerakhir)) {
 									MyGroupConfig kepalaGrupItem = new MyGroupConfig(grupItem.getLabelTampilan());
+									kepalaGrupItem.setAttribute("kepalaGrupItem", Boolean.TRUE);
 									kepalaGrupItem.setStyle("background:#0f4c5c;color:white;font-weight:bold;");
 									kepalaGrupItem.setParent(rowsDetailBiaya);
 									grupItemTerakhir = grupItem.getId();
+								}
+								if (grupItem == null && grupItemTerakhir != null) {
+									MyGroupConfig tanpaGrup = new MyGroupConfig(pb.toString() + " - Tanpa Grup Item");
+									tanpaGrup.setAttribute("kepalaGrupItem", Boolean.TRUE);
+									tanpaGrup.setParent(rowsDetailBiaya);
+									grupItemTerakhir = null;
 								}
 								MyFormRow row = new MyFormRow();
 								row.setValign("top");
@@ -3684,6 +3694,8 @@ public class PembayaranOnline extends GenericAutowireComposer {
 			}
 		}
 
+		// Mode pemeliharaan mempertahankan cakupan tombol Reset/Bukan Tagihan per pengaturan.
+		if (!pilihBukanTagihan.isChecked()) GrupBarisPembayaran.terapkan(rowsDetailBiaya);
 		appendFormTopupSiswa(getSiswaLokal(), false);
 	}
 
