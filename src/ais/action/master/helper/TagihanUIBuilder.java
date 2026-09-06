@@ -462,29 +462,72 @@ public class TagihanUIBuilder {
 	 * pemanggil dapat membacanya atau memasang pendengar tambahan.
 	 * </p>
 	 *
-	 * @param west               kontainer ZK tujuan form filter + hasil rincian; isi sebelumnya
-	 *                           dibersihkan lewat {@link Common#clear}
-	 * @param selectedJenisKegiatan jenis kegiatan yang dipilih sebagai default pada kombobox filter
-	 * @param mhsAtas            diterima untuk keseragaman kontrak antar-helper serupa; tidak
-	 *                           dipakai langsung di badan method ini
-	 * @param mahasiswa          {@link Mahasiswa} atau {@link BiodataCalonMahasiswa} pemilik
-	 *                           tagihan yang ditampilkan
-	 * @param semua              peta hasil perhitungan (kunci {@code "<idJenisKegiatan>-<semester>"})
-	 *                           yang DITULISI oleh method ini — dipakai bersama pemanggil, mis.
-	 *                           untuk pencetakan PDF tagihan dengan angka yang identik dengan layar
-	 * @param vertical           pengaruhi kombobox jenis kegiatan yang ditawarkan
-	 *                           ({@link Common#initJenisPembayaranMahasiswa} vs varian yang juga
-	 *                           menyertakan kegiatan calon mahasiswa) dan tata letak grid rincian
-	 *                           (vertikal/horizontal)
-	 * @param sederhana          sembunyikan sebagian baris form filter untuk tampilan ringkas
-	 * @param SMT                bila diberikan, membatasi tampilan hanya pada semester ini
-	 *                           (kolom filter semester disembunyikan); semester yang belum
-	 *                           berjalan bagi mahasiswa aktif tidak akan ditampilkan
-	 * @param refresh            paksa muat ulang cache kegiatan/detail biaya/cicilan dari database
+	 * @param west               kontainer ZK tujuan form filter dan hasil rincian; isi
+	 *                           sebelumnya dibersihkan lewat {@link Common#clear(Component)},
+	 *                           jadi method ini mengambil alih kontainer tersebut sepenuhnya
+	 * @param selectedJenisKegiatan jenis kegiatan yang dipilih sebagai baku pada kombobox
+	 *                           filter; bila {@code null}, opsi sintetis "Semua Tagihan" yang
+	 *                           dipilih. Diabaikan bila {@code actionInstance} berhasil
+	 *                           memulihkan pilihan terakhir pengguna
+	 * @param mhsAtas            <b>tidak dipakai sama sekali</b> di badan method ini — hanya
+	 *                           diteruskan dari bentuk ringkas ke bentuk kanonik lalu berhenti.
+	 *                           Dipertahankan demi keseragaman kontrak antar-helper serupa.
+	 *                           Pemanggil nyata ({@link InformasiPembayaranMahasiswaAction})
+	 *                           mengisinya dengan objek mahasiswa yang sama atau dengan calon
+	 *                           mahasiswa; keduanya tidak berpengaruh pada hasil
+	 * @param mahasiswa          pemilik tagihan: {@link Mahasiswa} atau
+	 *                           {@link BiodataCalonMahasiswa}. Inilah satu-satunya penentu
+	 *                           data siapa yang ditampilkan — <b>tidak ada pemeriksaan
+	 *                           kepemilikan di dalam kelas ini</b>, lihat catatan otorisasi
+	 *                           pada Javadoc kelas. Untuk {@link Mahasiswa} yang memiliki
+	 *                           {@code biodataCalonMahasiswa}, kegiatan pendaftaran dan daftar
+	 *                           ulang dialihkan ke objek calon tersebut secara otomatis
+	 * @param semua              peta hasil perhitungan berkunci
+	 *                           {@code "<idJenisKegiatan>-<semester>"} yang <b>DITULISI</b>
+	 *                           oleh method ini. Nilainya berupa {@code Object[]} empat elemen:
+	 *                           daftar {@link DetailBiaya}/{@link PengaturanPembayaranBulanan}
+	 *                           yang berlaku, data cicilan, objek {@link Kegiatan}, dan
+	 *                           {@code barisLaporan} (snapshot angka per baris). Peta ini
+	 *                           dipakai bersama pemanggil untuk mencetak PDF tagihan dengan
+	 *                           angka yang identik dengan layar. Ia dikosongkan di awal
+	 *                           pemuatan dan baru diisi sekali secara atomik setelah seluruh
+	 *                           task selesai, sehingga selama pemuatan berlangsung isinya
+	 *                           kosong
+	 * @param vertical           menandai tata letak sempit. Pemanggil nyata mengisinya dengan
+	 *                           {@code Common.isMobile()}, jadi praktis bermakna "tampilan
+	 *                           mobile". Bila {@code true}: kombobox jenis kegiatan diisi
+	 *                           {@link Common#initJenisPembayaranMahasiswa} (tanpa kegiatan
+	 *                           calon mahasiswa) dan setiap item biaya dirender sebagai
+	 *                           groupbox bertumpuk. Bila {@code false}: dipakai varian yang
+	 *                           juga menyertakan kegiatan calon mahasiswa, dan rincian
+	 *                           dirender sebagai tabel empat kolom
+	 *                           (Tagihan/Dibayar/Sisa/%) dengan baris footer total
+	 * @param sederhana          tampilan ringkas: menyembunyikan baris-baris form filter,
+	 *                           judul per kombinasi, dan seluruh baris rincian per item —
+	 *                           menyisakan baris total saja, dan itu pun disembunyikan bila
+	 *                           totalnya nol
+	 * @param SMT                bila diberikan, mengunci tampilan pada satu semester ini saja
+	 *                           dan menyembunyikan kedua kombobox semester. Tunduk pada
+	 *                           penjaga tagihan masa depan: bila pemilik tagihan adalah
+	 *                           {@link Mahasiswa} dan nilainya melampaui
+	 *                           {@code currentSemester()}, pemuatan dibatalkan dan area hasil
+	 *                           dikosongkan
+	 * @param refresh            memaksa pengambilan ulang dari basis data alih-alih dari
+	 *                           cache. Diteruskan ke {@code reInitKegiatan},
+	 *                           {@code ambilDetailKegiatanSaja}, {@code ambilCicilan},
+	 *                           {@code ambilKegiatans}, resolusi detail biaya, dan
+	 *                           {@link Kegiatan#ambilJumlahTagihan}. Menyalakannya membuat
+	 *                           pemuatan jauh lebih berat, jadi hanya dipakai saat pengguna
+	 *                           menekan segarkan atau setelah data pembayaran berubah
 	 * @param actionInstance     bila diberikan, dipakai untuk mengingat dan memulihkan pilihan
-	 *                           filter (jenis kegiatan, semester mulai/sampai) terakhir pengguna
+	 *                           filter terakhir pengguna dan untuk menyegarkan daftar kegiatan
+	 *                           layar pemanggil lewat {@code loadKegiatan(...)}. Perhatikan
+	 *                           bahwa "Smt Mulai" disimpan tetapi tidak pernah dipulihkan
 	 * @return kombobox jenis kegiatan yang dipasang ke {@code west} (referensi yang sama dengan
-	 *         yang tampil pada form filter)
+	 *         yang tampil pada form filter), agar pemanggil dapat membaca atau memasang
+	 *         pendengar tambahan padanya
+	 * @throws Exception diteruskan dari pembangunan komponen ZK dan dari pendengar pemuatan
+	 *                   pertama yang dipanggil langsung di akhir method
 	 */
 	@SuppressWarnings("deprecation")
 	public static Combobox loadTagihan(final Component west, final JenisKegiatan selectedJenisKegiatan,

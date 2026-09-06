@@ -76,6 +76,62 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * pilihan ganda biasa) dari jumlah opsi yang ditandai benar. Kolom "Soal", "Pilihan Ganda", "Upload",
  * "Hapus" dan pengambilan-soal-massal hanya tersedia untuk user non-mahasiswa.
  * </p>
+ *
+ * <p>
+ * <b>Hubungan dengan {@link BankSoal} dan {@link BankSoalDetail}.</b> Satu {@link BankSoal}
+ * memiliki sekumpulan {@link BankSoalDetail} sebagai opsi jawabannya; kepemilikan itu disimpan
+ * pada kolom {@code bankSoal} milik detail. Kelas ini menyunting keduanya secara massal lewat
+ * jalur impor, sehingga keterikatan opsi ke soal pemiliknya perlu diperhatikan &mdash; ini
+ * keluarga masalah yang sama dengan validasi "opsi jawaban harus milik soal yang sedang
+ * dijawab" pada jalur ujian formal. Pencarian opsi pada kedua {@link #doUpload} SUDAH dibatasi
+ * dengan benar oleh {@code Restrictions.eq("bankSoal", newBankSoal)}, jadi tidak ada opsi milik
+ * soal lain yang tersentuh. Yang perlu dicatat justru sisa-sisa opsi lama pada soal yang SAMA:
+ * </p>
+ * <ul>
+ * <li>Impor tidak pernah MENGHAPUS opsi. Bila sebuah soal semula punya opsi A&ndash;E lalu
+ * diimpor ulang dengan hanya A&ndash;C terisi, baris D dan E tetap ada beserta nilai
+ * {@code betul} lamanya dan tetap menjadi opsi jawaban soal tersebut.</li>
+ * <li>Pada cabang non-pilihan-ganda, opsi yang diperbarui dicari hanya dengan
+ * {@code eq("bankSoal", ...)} tanpa penyaring {@code huruf}, sehingga yang tertimpa adalah
+ * SATU baris sembarang. Soal pilihan ganda yang diimpor ulang sebagai esai akan menyisakan
+ * opsi-opsi lamanya.</li>
+ * <li>Penyimpulan {@code jenisPilihanGanda} memakai hitungan {@code count(betul = true)} atas
+ * SELURUH opsi soal tersebut, jadi sisa opsi lama ikut terhitung dan dapat menghasilkan
+ * klasifikasi {@link BankSoal#COMBINATION_CHOICE} yang tidak diinginkan.</li>
+ * </ul>
+ *
+ * <p>
+ * <b>Dua pasang overload dengan cakupan berbeda.</b> {@link #doDownload(Criteria)} dan
+ * {@link #doUpload(Media, DataLoader)} bekerja LINTAS grup (tidak dibatasi
+ * {@link PenjelasanBankSoal} mana pun), sedangkan
+ * {@link #doDownload(PenjelasanBankSoal, Criteria)} dan
+ * {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)} dibatasi satu grup. Hanya pasangan
+ * yang dibatasi grup itulah yang dipakai kelas ini (lewat {@link #initSpreadsheet()} dan
+ * {@link #uploadSoal}); pasangan lintas-grup bersifat API publik yang saat dokumentasi ini
+ * ditulis TIDAK dipanggil dari mana pun di basis kode. Perbedaan itu penting karena varian
+ * lintas-grup mencocokkan soal berdasarkan teks soal yang sama persis di SELURUH tabel
+ * {@link BankSoal}, tanpa memeriksa satuan kerja/fakultas/jurusan/dosen pemiliknya, dan
+ * memindahkan soal ke grup yang namanya dibaca dari sel berkas Excel &mdash; sehingga
+ * menghidupkannya kembali perlu disertai penjagaan kepemilikan lebih dulu.
+ * </p>
+ *
+ * <p>
+ * <b>Soal hasil impor tidak mewarisi konteks grup.</b> Berbeda dari tombol "Soal Baru" yang
+ * menyalin {@code fakultas}, {@code jurusan}, {@code dosen}, {@code guru}, dan
+ * {@code satuanKerja} dari {@link PenjelasanBankSoal}, kedua {@link #doUpload} hanya mengisi
+ * {@code penjelasanBankSoal} pada {@link BankSoal} baru dan membiarkan kelima kolom itu
+ * {@code null}.
+ * </p>
+ *
+ * <p>
+ * <b>Penjagaan akses.</b> Seluruh penjagaan di kelas ini bersifat tampilan
+ * ({@code setVisible} berdasarkan peran {@link Tbmuser}); keempat method statis
+ * {@link #doDownload}/{@link #doUpload} tidak memeriksa peran maupun kepemilikan data sama
+ * sekali. Penyaringan berbasis satuan kerja dilakukan di layar induk
+ * {@code PenjelasanBankSoalAction.initCriteria(boolean)}, yang memperlakukan grup dengan
+ * {@code satuanKerja} bernilai {@code null} sebagai terlihat oleh semua pengguna &mdash;
+ * relevan mengingat soal hasil impor memang tidak mendapat satuan kerja.
+ * </p>
  */
 public class DetailGrupSoalHelper implements DataLoader {
 
@@ -447,6 +503,25 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 * (kolom JWB_A..JWB_J untuk pilihan ganda, atau jawaban esai untuk jenis lain), penjelasan, flag
 	 * tampil-penjelasan-saat-ujian, dan jenis soal.
 	 *
+	 * <p>Varian LINTAS GRUP: berkas hasil tidak memuat id {@link PenjelasanBankSoal} pada sel (0,0)
+	 * dan tidak memuat kolom nomor urut, sehingga tidak dapat diunggah kembali lewat
+	 * {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)} dengan hasil yang setara. Kolom
+	 * PENJELASAN (indeks 16) diisi hasil {@code toString()} grup soal, bukan id-nya &mdash; nilai
+	 * itulah yang kelak diresolusi kembali menjadi entitas saat impor.</p>
+	 *
+	 * <p>Nama berkas unduhan bersifat tetap ({@code bank_soal__.xlsx}) sehingga unduhan berturutan
+	 * saling menimpa di folder unduhan pengguna.</p>
+	 *
+	 * <p>Isi sel opsi jawaban ditulis berurutan mengikuti hasil {@code ambilBankSoalDetail(true)}
+	 * dengan penambahan indeks kolom, BUKAN berdasarkan huruf opsinya. Bila sebuah soal memiliki
+	 * opsi yang hurufnya tidak berurutan (mis. A, C, D karena B pernah dihapus), isinya akan
+	 * bergeser ke kolom JWB_A, JWB_B, JWB_C sehingga huruf pada kolom "BENAR" tidak lagi selaras
+	 * dengan posisi kolom jawabannya.</p>
+	 *
+	 * <p>Method ini tidak memeriksa peran maupun kepemilikan data; seluruh baris hasil
+	 * {@code criteria} diekspor apa adanya. Saat dokumentasi ini ditulis, method ini belum
+	 * dipanggil dari mana pun di basis kode.</p>
+	 *
 	 * @param criteria kriteria Hibernate untuk {@link BankSoal} yang akan diekspor
 	 * @throws Exception diteruskan dari kegagalan pembangunan spreadsheet atau I/O
 	 */
@@ -580,6 +655,23 @@ public class DetailGrupSoalHelper implements DataLoader {
 	 *
 	 * @param penjelasanBankSoal grup soal yang diekspor (dipakai untuk nama berkas dan kolom nomor
 	 *                           urut); boleh {@code null}
+	 * <p>Inilah varian yang benar-benar dipakai aplikasi, lewat {@link #initSpreadsheet()}. Berkas
+	 * hasilnya dirancang untuk dapat disunting lalu diunggah kembali lewat
+	 * {@link #doUpload(Media, PenjelasanBankSoal, DataLoader)}: kolom 0 memuat id
+	 * {@link BankSoal} yang menjadi kunci pencocokan utama saat impor.</p>
+	 *
+	 * <p>Perhatikan bahwa kolom NO. (indeks 19) diisi {@code penjelasanBankSoal.getNomorUrut()},
+	 * yaitu nomor urut GRUP &mdash; nilai yang sama untuk seluruh baris &mdash; bukan nomor urut
+	 * masing-masing soal. Saat diunggah kembali, nilai itu ditulis ke {@code nomorUrut} setiap
+	 * {@link BankSoal}, sehingga siklus ekspor-impor tanpa penyuntingan manual akan menyamakan
+	 * nomor urut seluruh soal dalam grup dan menghilangkan urutan yang sebelumnya berbeda.
+	 * Baris ini juga mensyaratkan {@code penjelasanBankSoal} tidak {@code null} walaupun parameter
+	 * lain di method ini sudah dijaga terhadap {@code null}.</p>
+	 *
+	 * <p>Sama seperti overload lintas-grupnya, isi sel opsi jawaban ditulis berurutan mengikuti
+	 * hasil {@code ambilBankSoalDetail(true)} dan bukan berdasarkan hurufnya, serta method ini
+	 * tidak memeriksa peran maupun kepemilikan data.</p>
+	 *
 	 * @param criteria           kriteria Hibernate untuk {@link BankSoal} yang akan diekspor
 	 * @throws Exception diteruskan dari kegagalan pembangunan spreadsheet atau I/O
 	 */

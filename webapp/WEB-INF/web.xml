@@ -168,6 +168,46 @@
 		<auth-constraint />
 	</security-constraint>
 
+
+	<!--
+		KEAMANAN P0 - TUTUP AKSES PUBLIK KE DIREKTORI EKSPOR SEMENTARA /tmp/.
+
+		Banyak helper ekspor (mis. ais.action.master.helper.PendaftarBeasiswaHelper#
+		cetakDataCustomButton, dan >160 pemanggil getRealPath("/tmp/...") lain di
+		ais/action/**) menulis berkas .xlsx/.pdf hasil ekspor ke ROOT webapp di bawah
+		/tmp/, dengan nama berpola Common.datetimeFormat2s ("yyMMddHHmmss") - SEPENUHNYA
+		DAPAT DITEBAK. Sebelum aturan ini TIDAK ADA satu pun security-constraint yang
+		menutup direktori tersebut, sehingga siapa pun tanpa login dapat mengunduh
+		berkas itu lewat HTTP, contoh:
+		    https://host/<context>/tmp/cetak_data_260906183012.xlsx
+		Isinya dapat memuat data pribadi (NIM, nama, penghasilan orang tua, dsb. -
+		lihat berkas beasiswa) dan berkas TIDAK PERNAH dihapus, menumpuk permanen.
+
+		Aturan ini AMAN untuk fitur pratinjau spreadsheet ZK (>35 pemanggil
+		spreadsheet.setSrc("../../tmp/...") diikuti PratinjauXlsxHelper.
+		gantiSpreadsheetDenganGrid, mis. ais.ui.util.MySpreadsheet#setSrc):
+		org.zkoss.zss.ui.Spreadsheet#setSrc membaca berkas tersebut SISI SERVER lewat
+		resolusi resource WebApp (setara ServletContext#getResourceAsStream), BUKAN
+		lewat request HTTP browser - terbukti dari model Book yang sudah tersedia
+		secara SINKRON pada baris kode yang sama, sebelum respons dikirim ke browser.
+		security-constraint hanya berlaku untuk request yang melalui pipeline servlet
+		container; pembacaan resource sisi server ini tidak melaluinya sama sekali,
+		sehingga pratinjau tetap berfungsi normal setelah aturan ini dipasang.
+
+		auth-constraint KOSONG = tidak ada peran yang diizinkan = DITOLAK untuk semua.
+
+		TINDAK LANJUT PEMILIK SISTEM (tidak bisa dikerjakan dari sini):
+		1. Bersihkan berkas ekspor lama yang sudah terlanjur menumpuk di direktori
+		   tmp pada server produksi (aturan ini hanya menutup akses baru, tidak
+		   menghapus berkas yang sudah ada).
+	-->
+	<security-constraint>
+		<web-resource-collection>
+			<web-resource-name>Direktori ekspor sementara (/tmp)</web-resource-name>
+			<url-pattern>/tmp/*</url-pattern>
+		</web-resource-collection>
+		<auth-constraint />
+	</security-constraint>
 	<!--
 		OPTIMASI FASE 7 - konfigurasi JasperServlet (kompilator JSP Tomcat) untuk PRODUKSI.
 
