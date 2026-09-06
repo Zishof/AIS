@@ -979,6 +979,23 @@ public class PenjadwalanHelper {
 	 *
 	 * @param perkuliahan perkuliahan pemilik pertemuan
 	 * @param pertemuan   pertemuan yang akan dipindah
+	  * <p><b>Batas tanggung jawab.</b> Method ini TIDAK memeriksa hak akses sama sekali. Gerbangnya ada di
+	  * pemanggil: {@link PertemuanRenderer#render(Row, Object)} hanya menampilkan tombol Naik/Turun bila
+	  * pengguna bukan mahasiswa/siswa/calon dan, untuk dosen, {@code perkuliahan.getDosenBisaMerubahTanggalPerkuliahan()}
+	  * bernilai benar. Jangan memanggilnya dari jalur baru tanpa memasang gerbang setara.</p>
+	  *
+	  * <p><b>Tidak atomik.</b> Penomoran ulang 1..N dilakukan sebagai N kali
+	  * {@code Common.refreshUpdate} tanpa penguncian baris dan tanpa satu transaksi eksplisit yang
+	  * membungkus keseluruhannya. Bila dua pengguna menekan Naik/Turun pada perkuliahan yang sama
+	  * bersamaan, atau proses gagal di tengah, penomoran bisa tertinggal dalam keadaan tidak berurutan;
+	  * memuat ulang grid dan menekan tombolnya lagi akan menormalkan kembali karena penomoran selalu
+	  * dihitung ulang dari awal.</p>
+	  *
+	  * <p><b>Yang ikut dinomori hanya pertemuan AKTIF dan bertanggal.</b> Query pemuatannya menyaring
+	  * {@code aktif} null-atau-true dan {@code tanggal} tidak null — sama dengan grid. Pertemuan
+	  * non-aktif atau tanpa tanggal tidak ikut ditukar maupun dinomori ulang, sehingga nomornya bisa
+	  * bertabrakan dengan yang aktif; hal ini disengaja agar tombol ini hanya menyusun apa yang terlihat
+	  * pengguna.</p>
 	 * @param naik        {@code true} = pindah ke atas (nomor mengecil), {@code false} = ke bawah
 	 * @return {@code true} bila urutan benar-benar berubah; {@code false} bila sudah berada
 	 *         di tepi (paling atas/bawah) atau data tidak valid sehingga grid tak perlu dimuat ulang
@@ -1057,6 +1074,10 @@ public class PenjadwalanHelper {
 	 * Sama seperti {@link #checkBolehHapus(Pertemuan, boolean)} dengan {@code warning=true}, yaitu
 	 * menampilkan pesan peringatan ZK bila pertemuan tidak boleh dihapus.
 	 *
+	  * <p>Dipakai luas sebagai gerbang hapus lintas modul: selain dari kelas ini, kedelapan helper
+	  * {@code Penjadwalan*} memanggil overload inilah (bukan yang dua-parameter) — termasuk
+	  * {@code PenjadwalanUjianPMBHelper} dan {@code PenjadwalanGrupPertemuanHelper} yang selain ini tidak
+	  * memakai apa pun dari kelas ini.</p>
 	 * @param pertemuan pertemuan yang akan divalidasi
 	 * @return {@code true} bila pertemuan boleh dihapus
 	 */
@@ -1072,6 +1093,27 @@ public class PenjadwalanHelper {
 	 * langsung menghentikan pengecekan (return {@code false}) tanpa memeriksa kondisi berikutnya.
 	 *
 	 * @param pertemuan pertemuan yang akan divalidasi
+	  * <p><b>Ini gerbang INTEGRITAS DATA, bukan gerbang OTORISASI.</b> Yang diperiksa semata-mata
+	  * ada/tidaknya data anak yang akan ikut hilang — tidak ada pemeriksaan peran, kepemilikan, atau
+	  * lingkup satuan kerja pengguna. Pemanggil tetap wajib memasang gerbang haknya sendiri.</p>
+	  *
+	  * <p><b>Perlu diperhatikan pemelihara:</b> baris pertama badan method sudah memanggil
+	  * {@code pertemuan.hitungStatus()} sebelum penjaga {@code pertemuan == null} pada baris
+	  * berikutnya dievaluasi, sehingga penjaga null tersebut tidak pernah efektif — argumen
+	  * {@code null} akan berujung {@code NullPointerException}, bukan nilai balik yang rapi. Semua
+	  * pemanggil saat ini selalu mengirim pertemuan yang sudah diresolusi, jadi ini belum pernah
+	  * memicu masalah; jangan mengandalkan penjaga itu bila menambah pemanggil baru.</p>
+	  *
+	  * <p><b>Urutan pemeriksaannya bermakna bagi pengguna.</b> Pengecekan berhenti pada kondisi gagal
+	  * PERTAMA, jadi pesan yang muncul hanya menyebut satu alasan walau pertemuan punya beberapa jenis
+	  * data anak sekaligus. Pengguna yang membereskan alasan pertama bisa langsung menemui alasan
+	  * berikutnya. Urutannya: kehadiran (status "M" pada {@code hitungStatus()}), materi
+	  * ({@code PertemuanFileContent}), audio, video, ujian, diskusi, tugas yang sudah dikumpulkan, lalu
+	  * judul tugas yang sudah terisi.</p>
+	  *
+	  * <p>Perhatikan pula pemeriksaan terakhir memanggil {@code pertemuan.getJudultugas().trim()} tanpa
+	  * penjaga null — aman hanya selama getter itu menjamin mengembalikan string kosong, bukan
+	  * {@code null}.</p>
 	 * @param warning   bila {@code true}, tampilkan {@link MyMessageboxConfig} berisi alasan spesifik
 	 *                  saat pertemuan tidak boleh dihapus
 	 * @return {@code true} bila pertemuan tidak memiliki data terkait sehingga aman dihapus
@@ -1160,8 +1202,25 @@ public class PenjadwalanHelper {
 	 * sebagai gerbang sebelum {@link #tampilTombolHapus} (hapus semua pertemuan) maupun sebelum
 	 * regenerasi penuh agenda (hapus-lalu-buat-ulang) pada {@link #tampilTombolBuatPertemuan}.
 	 *
+	  * @param perkuliahan               pemilik agenda berupa perkuliahan, atau {@code null}
+	  * @param kelompokKkn               pemilik agenda berupa kelompok KKN, atau {@code null}
+	  * @param kelompokPkl               pemilik agenda berupa kelompok PKL, atau {@code null}
+	  * @param mahasiswaRequestTugasAkhir pemilik agenda berupa bimbingan tugas akhir, atau {@code null}
+	  * @param skripsi                   pemilik agenda berupa skripsi, atau {@code null}
+	  * @param krsMahasiswa              pemilik agenda berupa bimbingan KRS, atau {@code null}
+	  * @param formulirKegiatan          pemilik agenda berupa formulir kegiatan, atau {@code null}
+	  * @param wisuda                    pemilik agenda berupa wisuda, atau {@code null}
+	  * @throws Exception dideklarasikan karena {@link #checkBolehHapus(Pertemuan)} mendeklarasikannya;
+	  *                   pada praktiknya badan method menangkap sendiri seluruh exception
 	 * @return {@code true} bila semua pertemuan pemilik boleh dihapus, atau daftar pertemuannya kosong;
 	 *         {@code false} begitu ditemukan satu pertemuan yang tidak boleh dihapus (berhenti di situ)
+	 */
+	/*
+	 * Catatan: nilai balik {@code true} di sini berarti "tidak ditemukan penghalang", bukan
+	 * "pemeriksaan berhasil dijalankan". Blok try/catch di dalamnya menelan setiap exception (hanya
+	 * mencatatnya ke ErrorAuditUtil) lalu jatuh ke {@code return true} di akhir — jadi kegagalan
+	 * memuat daftar pertemuan akan MEMBUKA jalan hapus, bukan menutupnya (fail-open). Pemanggil yang
+	 * memakai ini sebagai gerbang hapus massal sebaiknya sadar akan sifat itu.
 	 */
 	public static boolean bolehHapus(final Perkuliahan perkuliahan, final KelompokKkn kelompokKkn,
 			final KelompokPkl kelompokPkl, final MahasiswaRequestTugasAkhir mahasiswaRequestTugasAkhir,
