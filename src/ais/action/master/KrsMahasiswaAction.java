@@ -11,6 +11,7 @@ import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.criterion.MatchMode;
+import org.hibernate.criterion.Criterion;
 import org.hibernate.criterion.Order;
 import org.hibernate.criterion.Restrictions;
 import org.zkoss.zk.ui.Component;
@@ -889,8 +890,11 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 
 	public Criteria initCriteria(boolean order) {
 		Session session = HibernateUtil.currentSession();
+		Tbmuser tbmuser = Common.getCurrentUser();
 
 		Criteria criteria = session.createCriteria(KrsMahasiswa.class)
+
+				.add(gerbangKepemilikanKrs(tbmuser))
 
 				.add(searchsp.isChecked() ? Restrictions.eq("semesterPendek", Perkuliahan.SEMESTER_PENDEK)
 						: Restrictions.sqlRestriction("true"))
@@ -953,6 +957,34 @@ public class KrsMahasiswaAction extends GenericAutowireComposer implements DataC
 		}
 
 		return criteria;
+	}
+
+	/**
+	 * Gerbang kepemilikan KRS: memaksa {@link #initCriteria} agar hanya mengembalikan KRS milik
+	 * pengguna sendiri bila akun saat ini terhubung ke {@link Mahasiswa} (dibatasi ke KRS-nya
+	 * sendiri) atau berperan sebagai dosen PA ({@code role == "dosen"} dan {@link
+	 * Tbmuser#ambilDosen()} tidak null, dibatasi ke KRS mahasiswa bimbingannya) — meniru pola
+	 * {@code userAccessRestriction()} pada {@code VirtualAccountBankAction}. Sebelum ini, kolom
+	 * pencarian NIM/nama/dosen untuk kedua peran tersebut hanya dikunci di UI ({@code
+	 * setDisabled}) sehingga event ZK yang dipalsukan tetap dapat menampilkan KRS mahasiswa lain;
+	 * kondisi ini di-AND-kan ke kriteria sehingga hanya bisa mempersempit, tidak pernah
+	 * memperluas, hasil pencarian. Akun staf/admin (bukan mahasiswa maupun dosen) TIDAK dibatasi
+	 * di sini; visibilitasnya tetap bergantung pada penyaringan menu di layar pemanggil.
+	 *
+	 * @param tbmuser pengguna saat ini ({@code null} diperlakukan sebagai tanpa pembatasan tambahan)
+	 * @return kondisi tanpa efek ({@code Restrictions.sqlRestriction("true")}) bila akun bukan mahasiswa maupun dosen PA
+	 */
+	private Criterion gerbangKepemilikanKrs(Tbmuser tbmuser) {
+		if (tbmuser == null) {
+			return Restrictions.sqlRestriction("true");
+		}
+		if (tbmuser.getMahasiswa() != null) {
+			return Restrictions.eq("mahasiswa", tbmuser.getMahasiswa());
+		}
+		if (tbmuser.ambilDosen() != null && tbmuser.hakAkses().getRoleId().equalsIgnoreCase("dosen")) {
+			return Restrictions.eq("dosenPa", tbmuser.ambilDosen());
+		}
+		return Restrictions.sqlRestriction("true");
 	}
 
 	@SuppressWarnings("unchecked")

@@ -158,17 +158,19 @@ import ais.ui.util.MyWindow;
  * </p>
  *
  * <p>
- * <b>Batas otorisasi.</b> Kelas ini tidak memeriksa kepemilikan: {@link #display} menampilkan
- * KRS {@link Mahasiswa} mana pun yang diberikan pemanggil, dan penyaringan siapa boleh melihat
- * KRS siapa sepenuhnya berada di layar pemanggil ({@code KrsMahasiswaAction},
- * {@code TampilStudiMahasiswaHelper}, {@code AktifitasKrsMahasiswaHelper}) — ketiganya TIDAK
- * menyaring visibilitas berdasarkan pengguna saat ini ({@code KrsMahasiswaAction.initCriteria}
- * tidak melakukan scoping apa pun). Hak yang diperiksa di sini adalah {@link #delete},
- * {@link #update}, {@link #approve} ({@link CommonPrivilages#APPROVE}), dan {@link #reject}
- * ({@link CommonPrivilages#REJECT}) lewat {@link CommonPrivilages}, seluruhnya diperiksa ulang
- * fail-closed di awal {@link #lakukanSatuPersetujuan}, {@link #lakukanSemuaPersetujuan}, dan
- * {@link #lakukanPembatalanSemuaPersetujuan} — bukan hanya lewat {@code setDisabled} pada
- * komponen UI, yang dapat dilewati oleh event ZK yang dipalsukan.
+ * <b>Batas otorisasi.</b> Kelas ini sendiri tidak memeriksa kepemilikan: {@link #display}
+ * menampilkan KRS {@link Mahasiswa} mana pun yang diberikan pemanggil. Dari ketiga pemanggil,
+ * {@code KrsMahasiswaAction.initCriteria} kini menggerbangi akun mahasiswa (dibatasi ke KRS
+ * miliknya sendiri) dan dosen PA (dibatasi ke KRS mahasiswa bimbingannya) lewat {@code
+ * gerbangKepemilikanKrs()}, tetapi staf/admin di layar itu maupun SELURUH pengguna di {@code
+ * TampilStudiMahasiswaHelper} dan {@code AktifitasKrsMahasiswaHelper} TIDAK dibatasi —
+ * visibilitasnya tetap bergantung sepenuhnya pada penyaringan menu di layar pemanggil. Hak
+ * yang diperiksa di sini adalah {@link #delete}, {@link #update}, {@link #approve} ({@link
+ * CommonPrivilages#APPROVE}), dan {@link #reject} ({@link CommonPrivilages#REJECT}) lewat
+ * {@link CommonPrivilages}, seluruhnya diperiksa ulang fail-closed di awal {@link
+ * #lakukanSatuPersetujuan}, {@link #lakukanSemuaPersetujuan}, dan {@link
+ * #lakukanPembatalanSemuaPersetujuan} — bukan hanya lewat {@code setDisabled} pada komponen
+ * UI, yang dapat dilewati oleh event ZK yang dipalsukan.
  * </p>
  */
 public class StudiMahasiswaHelper implements DataLoader {

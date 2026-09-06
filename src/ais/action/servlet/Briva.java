@@ -250,31 +250,31 @@ public class Briva extends HttpServlet {
 	 *   <li>Gerbang H2H ({@code tolakTokenGerbang}/{@code tolakBankHostGerbang}) bila mode
 	 *       {@code aktif}.</li>
 	 *   <li>VA tidak ditemukan &rarr; {@code 4003400} "Bad Request".</li>
-	 *   <li>VA kadaluarsa &rarr; {@code 4003400}. <b>Penjaga ini dilumpuhkan oleh
-	 *       {@code chek}</b> — lihat bagian di bawah.</li>
+	 *   <li>VA kadaluarsa &rarr; {@code 4003400}. Bersyarat {@code !chek} — lihat bagian di
+	 *       bawah untuk riwayat kenapa syarat ini disebut secara eksplisit.</li>
 	 *   <li>Reversal atas VA yang belum pernah terbayar &rarr; {@code 4003400}.</li>
-	 *   <li>Tagihan sudah lunas &rarr; {@code 4003400}. <b>Penjaga ini juga dilumpuhkan oleh
-	 *       {@code chek}</b>.</li>
+	 *   <li>Tagihan sudah lunas &rarr; {@code 4003400}. Juga bersyarat {@code !chek}.</li>
 	 *   <li>Nominal tidak sama persis dengan {@code totalBiaya()} &rarr; {@code 4003400}.</li>
 	 * </ol>
 	 *
-	 * <h3>PERINGATAN: {@code chek} melumpuhkan dua penjaga</h3>
-	 * <p>Parameter {@code chek} muncul sebagai {@code !chek} pada dua tempat, sehingga nilai
-	 * {@code true} membuat keduanya tidak pernah aktif:</p>
+	 * <h3>Riwayat: {@code chek} sempat melumpuhkan dua penjaga di atas</h3>
+	 * <p>Parameter {@code chek} muncul sebagai {@code !chek} pada dua tempat:</p>
 	 * <ul>
 	 *   <li>penjaga <b>VA kadaluarsa</b>, yang bersyarat
 	 *       {@code !reversal && !chek && getKadaluarsa().before(now)};</li>
 	 *   <li>penjaga <b>tagihan sudah dibayar</b>, karena
 	 *       {@link VirtualAccountBank#isSudahTerbayarUntukPayment(VirtualAccountBank, boolean, boolean, boolean)}
-	 *       berbunyi {@code !inquery && !reversal && !chek && isSudahTerbayar(...)} sehingga selalu
+	 *       berbunyi {@code !inquery && !reversal && !chek && isSudahTerbayar(...)}, yang selalu
 	 *       mengembalikan {@code false} saat {@code chek} bernilai {@code true}.</li>
 	 * </ul>
-	 * <p>{@link #process(HttpServletRequest, HttpServletResponse)} memanggil {@link #doProses}
-	 * dengan {@code chek = true}, sedangkan gateway sejenis ({@code Bankaltimtara}, {@code BMS},
-	 * {@code BSI}, {@code Esmartlink}) semuanya memakai {@code false}. Akibatnya kedua penjaga di
-	 * atas tidak aktif pada endpoint notifikasi pembayaran BRI. Keadaan ini telah dilaporkan
-	 * sebagai temuan tersendiri untuk ditindaklanjuti; jangan menganggapnya perilaku yang
-	 * disengaja.</p>
+	 * <p>Sampai dengan perbaikan ini, {@link #process(HttpServletRequest, HttpServletResponse)}
+	 * memanggil {@link #doProses} dengan {@code chek = true}, sedangkan gateway sejenis
+	 * ({@code Bankaltimtara}, {@code BMS}, {@code BSI}, {@code Esmartlink}) semuanya memakai
+	 * {@code false}. Akibatnya kedua penjaga di atas tidak pernah aktif pada endpoint notifikasi
+	 * pembayaran BRI — VA kadaluarsa maupun tagihan yang sudah lunas tetap bisa diposting ulang.
+	 * {@code process} kini diselaraskan memakai {@code chek = false}, mengaktifkan kembali
+	 * keduanya. Pertimbangkan audit data historis untuk pembayaran yang terposting selagi kedua
+	 * penjaga ini tidak aktif.</p>
 	 *
 	 * <h3>Perlakuan nominal</h3>
 	 * <p>Pada mode pembayaran, nominal wajib <b>sama persis</b> dengan
@@ -1186,14 +1186,15 @@ public class Briva extends HttpServlet {
 	 * khusus jalur posting, keadaan itu dapat dibuat gagal-tertutup lewat gerbang
 	 * {@code gerbang_bankhost_null_posting_briva}.</p>
 	 *
-	 * <h3>PERINGATAN: argumen {@code chek} yang menyimpang</h3>
-	 * <p>Metode ini memanggil {@link #doProses} dengan {@code chek = true}. Semua gateway sejenis
-	 * ({@code Bankaltimtara}, {@code BMS}, {@code BSI}, {@code Esmartlink}) memanggil padanan
-	 * metodenya dengan {@code false}. Karena {@code chek} muncul sebagai {@code !chek} pada dua
-	 * penjaga di {@link #doProcess doProcess}, nilai {@code true} melumpuhkan <b>penjaga VA
-	 * kadaluarsa</b> sekaligus <b>penjaga tagihan sudah dibayar</b> pada endpoint notifikasi
-	 * pembayaran. Keadaan ini telah dilaporkan sebagai temuan tersendiri; jangan menyalin polanya
-	 * ke gateway lain, dan jangan menganggapnya perilaku yang disengaja.</p>
+	 * <h3>Riwayat: argumen {@code chek} yang sempat menyimpang</h3>
+	 * <p>Sampai dengan perbaikan ini, metode ini memanggil {@link #doProses} dengan
+	 * {@code chek = true} sementara gateway sejenis ({@code Bankaltimtara}, {@code BMS},
+	 * {@code BSI}, {@code Esmartlink}) memanggil padanan metodenya dengan {@code false}. Karena
+	 * {@code chek} muncul sebagai {@code !chek} pada dua penjaga di {@link #doProcess doProcess},
+	 * nilai {@code true} melumpuhkan <b>penjaga VA kadaluarsa</b> sekaligus <b>penjaga tagihan
+	 * sudah dibayar</b> pada endpoint notifikasi pembayaran. Kini diselaraskan memakai
+	 * {@code chek = false}, menyalakan kembali kedua penjaga tersebut; jangan menyalin pola lama
+	 * ({@code true}) ke gateway lain.</p>
 	 *
 	 * <h3>Penulisan respons</h3>
 	 * <p>Respons dikirim dengan {@code Content-Type: application/json} dan header non-standar
@@ -1226,7 +1227,7 @@ public class Briva extends HttpServlet {
 		String bank = "Briva";
 		BankHost bankHost = pembayaranUtil.getBankHost(request.getRemoteAddr(), bank);
 
-		String body = doProses(data, request, bankHost, bank, true);
+		String body = doProses(data, request, bankHost, bank, false);
 
 		response.setHeader("length", body.length() + "");
 		response.setHeader("Content-Type", "application/json");
