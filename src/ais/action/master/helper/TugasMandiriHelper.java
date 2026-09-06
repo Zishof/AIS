@@ -5001,6 +5001,49 @@ public class TugasMandiriHelper {
 	// Foto profil dikunci min-height:70px (inline, di ProfileImageUtil) sehingga baris kartu
 	// "Telah upload" jadi tinggi & jaraknya tampak melebar. Untuk kartu ini foto dikecilkan
 	// ~46px supaya baris rapat (CSS tetap menjaga isi menumpuk di atas).
+	/**
+	 * Membuat tautan foto profil peserta berukuran kecil yang khusus disesuaikan untuk kartu baris
+	 * pada daftar "Telah upload".
+	 *
+	 * <p>Metode ini membungkus {@code CommonMedia.tampilkanGambarKecil(obj)} — pabrik foto profil
+	 * umum yang dipakai di seluruh aplikasi — lalu menimpa gayanya. Pembungkusan diperlukan karena
+	 * {@code ProfileImageUtil} mengunci tinggi minimum gambar profil pada {@code 70px} lewat gaya
+	 * sebaris. Nilai itu cocok untuk halaman profil, tetapi pada daftar pengumpulan tugas ia membuat
+	 * setiap baris menjadi tinggi dan jarak antar-baris tampak melebar sehingga hanya sedikit peserta
+	 * yang terlihat sekaligus.</p>
+	 *
+	 * <p><strong>Penyesuaian yang dilakukan.</strong> Bila anak pertama dari tautan yang dihasilkan
+	 * benar-benar sebuah {@code org.zkoss.zul.Image}, gambar itu diberi tinggi {@code 46px}, kelas
+	 * gaya {@code ais-tugas-avatar-img}, dan sekumpulan properti sebaris ber-{@code !important}:
+	 * lebar dan tinggi tetap {@code 46px}, lebar minimum {@code 36px}, tinggi minimum dinolkan
+	 * (inilah yang membatalkan kunci {@code 70px}), {@code object-fit:cover} agar foto tidak gepeng,
+	 * sudut membulat, bayangan tipis, dan bingkai putih. Penanda {@code !important} diperlukan karena
+	 * gaya yang ditimpa juga ditulis sebaris oleh pembuat aslinya.</p>
+	 *
+	 * <p><strong>Sifat toleran terhadap kegagalan.</strong> Seluruh penyesuaian dibungkus
+	 * {@code try}/{@code catch} yang hanya mencatat pengecualian ke {@code ErrorAuditUtil} lalu
+	 * melanjutkan. Sikap ini disengaja: kegagalan mempercantik foto tidak boleh membuat satu baris
+	 * daftar pengumpulan gagal dirender. Bila anak pertama ternyata bukan {@code Image} — misalnya
+	 * peserta tidak memiliki foto sehingga yang dihasilkan berupa placeholder jenis lain — penyesuaian
+	 * dilewati diam-diam dan tautan dikembalikan apa adanya.</p>
+	 *
+	 * <p><strong>Argumen bertipe {@code GeneralValueObject}.</strong> Tipe ini adalah induk bersama
+	 * dari {@link Mahasiswa}, {@link Siswa}, {@link BiodataCalonMahasiswa}, dan {@link CalonSiswa},
+	 * sehingga satu metode dapat melayani keempat jenis peserta yang mungkin memiliki berkas
+	 * pengumpulan. Pemanggilnya adalah tiga cabang identitas di dalam
+	 * {@link #displayRow(TugasFileContent, List, Component)}.</p>
+	 *
+	 * <p>Perhatikan bahwa metode ini tidak menyentuh basis data secara langsung; pengambilan berkas
+	 * foto sepenuhnya menjadi tanggung jawab {@code CommonMedia}. Deklarasi {@code throws Exception}
+	 * berasal dari pemanggilan itu, bukan dari penyesuaian gaya di sini.</p>
+	 *
+	 * @param obj entitas peserta pemilik foto ({@link Mahasiswa}, {@link Siswa},
+	 *            {@link BiodataCalonMahasiswa}, atau {@link CalonSiswa}); boleh {@code null} sejauh
+	 *            {@code CommonMedia.tampilkanGambarKecil} menoleransinya.
+	 * @return komponen tautan {@code org.zkoss.zul.A} berisi foto profil yang sudah diperkecil, siap
+	 *         di-{@code setParent} ke kartu baris.
+	 * @throws Exception bila {@code CommonMedia.tampilkanGambarKecil} gagal membangun komponen foto.
+	 */
 	private static org.zkoss.zul.A fotoKartuUpload(ais.database.model.GeneralValueObject obj) throws Exception {
 		org.zkoss.zul.A a = CommonMedia.tampilkanGambarKecil(obj);
 		try {
@@ -5457,6 +5500,23 @@ public class TugasMandiriHelper {
 	 */
 	class DetailTugasFileContentRenderer extends ais.ui.util.MyRowRenderer {
 
+		/**
+		 * Daftar Sub-CPMK yang dipakai renderer ini untuk menyusun kolom nilai setiap baris.
+		 *
+		 * <p>Salinan rujukan dari {@link TugasMandiriHelper#obeFormatNilais} pada saat renderer dibuat,
+		 * yaitu di dalam {@link TugasMandiriHelper#reloadTugasFileContent(boolean)} tepat setelah daftar
+		 * itu dibangun ulang. Kosong berarti tugas ini tidak memakai penilaian OBE sehingga setiap baris
+		 * hanya menampilkan satu nilai tunggal.</p>
+		 *
+		 * <p><strong>Catatan: bukan salinan dalam.</strong> Field ini menunjuk objek {@link List} yang
+		 * sama dengan milik kelas induk, bukan salinannya. Karena kelas induk selalu membuat
+		 * {@link ArrayList} baru pada setiap pemuatan ulang — bukan mengubah daftar lama di tempat —
+		 * renderer yang sudah terpasang tetap melihat daftar versi pemuatan yang melahirkannya. Sifat
+		 * ini aman selama pola "buat baru, jangan ubah di tempat" dipertahankan.</p>
+		 *
+		 * <p>Nilainya diteruskan apa adanya sebagai argumen kedua
+		 * {@link TugasMandiriHelper#displayRow(TugasFileContent, List, Component)}.</p>
+		 */
 		private List<FormatNilai> obeFormatNilais;
 
 		public DetailTugasFileContentRenderer(List<FormatNilai> obeFormatNilais) {

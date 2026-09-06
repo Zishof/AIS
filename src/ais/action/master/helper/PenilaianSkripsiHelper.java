@@ -2113,6 +2113,28 @@ public class PenilaianSkripsiHelper implements DataLoader {
 			buttonBlanko.setParent(toolbar);
 			buttonBlanko.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menyusun satu baris parameter JasperReports untuk cetak "Blanko Penilaian":
+				 * identitas dosen penilai (NIDN/NIP/nama + berkas tanda tangan dari
+				 * {@link LampiranLain#TTD_DOSEN}), identitas mahasiswa dan program studi, judul,
+				 * serta satu komponen penilaian beserta nilai, bobot, dan hasil kalinya.
+				 *
+				 * <p>Kegagalan mengambil berkas tanda tangan sengaja tidak menggagalkan cetak —
+				 * parameter {@code ttd_dsn} diisi string kosong dan galatnya dicatat ke audit.</p>
+				 *
+				 * <p><b>Cacat salin-tempel yang dicatat apa adanya:</b> parameter
+				 * {@code waktu_sidang_sampai} diisi {@link Skripsi#getWaktuSidang()}, bukan
+				 * {@code getWaktuSampaiSidang()}, sehingga jam selesai pada blanko sama dengan jam
+				 * mulai. Kekeliruan yang sama muncul di pembangun parameter "Berita Acara" pada
+				 * kelas ini. Hanya memengaruhi tampilan cetak; tidak menyentuh nilai apa pun.</p>
+				 *
+				 * @param komponenPenilaianSkripsi komponen yang dicetak pada baris ini
+				 * @param commonVO                 pasangan label peran + objek {@link Dosen} penilai
+				 * @param induk                    {@code true} bila komponen ini komponen induk yang
+				 *                                 tidak punya anak (dicetak sebagai baris tunggal),
+				 *                                 {@code false} bila ia sub-komponen
+				 * @return peta parameter untuk satu baris laporan
+				 */
 				@SuppressWarnings({ "unchecked", "rawtypes" })
 				private Map masukkanParameter(CommonVO commonVO, KomponenPenilaianSkripsi komponenPenilaianSkripsi,
 						Boolean induk) {
@@ -2160,6 +2182,26 @@ public class PenilaianSkripsiHelper implements DataLoader {
 					return parameter;
 				}
 
+				/**
+				 * Mencetak "Blanko Penilaian" PDF: untuk SETIAP dosen penilai yang terpasang
+				 * ({@link Skripsi#dataDosen(boolean)}) dikumpulkan seluruh komponen penilaian yang
+				 * berlaku bagi perannya ({@link #populateKomponen(String)}) menjadi satu baris
+				 * laporan per komponen, ditambah berkas tanda tangan tiap dosen (dua kunci sekaligus:
+				 * per nama peran dan per nomor urut, agar template lama maupun baru tetap cocok) dan
+				 * tanda tangan mahasiswa. Properti entity {@link Skripsi} dan
+				 * {@link MahasiswaRequestTugasAkhir} disuntikkan massal lewat
+				 * {@code Common.insertProperty} dengan awalan {@code "sidang"}/{@code "bimbingan"}.
+				 *
+				 * <p>Karena {@code populateKomponen} tidak mengenali label slot {@code dosen21}
+				 * (Pembimbing III) — lihat catatan pada {@link #populateKomponen(String)} — baris
+				 * blanko untuk Pembimbing III mengikuti daftar komponen milik slot pertama.</p>
+				 *
+				 * <p>Tombol ini tidak dibuat bagi mahasiswa ketika nilai sedang disembunyikan;
+				 * selain itu blanko dapat dicetak oleh siapa pun yang bisa membuka layar, termasuk
+				 * mahasiswa pemilik skripsi, lengkap dengan gambar tanda tangan seluruh dosen.</p>
+				 *
+				 * @param event event {@code onClick} tombol "Blanko Penilaian"; isinya tidak dipakai
+				 */
 				@SuppressWarnings({ "rawtypes", "unchecked" })
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -2253,6 +2295,28 @@ public class PenilaianSkripsiHelper implements DataLoader {
 			buttonBlanko.setParent(toolbar);
 			buttonBlanko.addEventListener("onClick", new EventListener() {
 
+				/**
+				 * Menyusun satu baris parameter JasperReports untuk cetak "Berita Acara Sidang":
+				 * identitas dan tanda tangan dosen penilai, identitas program studi/fakultas beserta
+				 * kaprodi dan dekan (untuk blok tanda tangan pejabat), lalu nilai dan bobot peran
+				 * dosen tersebut.
+				 *
+				 * <p><b>Salinan keempat pemetaan slot dosen.</b> Blok {@code if/else} di bawah
+				 * mengulang lagi pemetaan label peran &rarr; nilai/bobot yang sudah ada di
+				 * {@link #nilaiDosen(CommonVO)}, {@link #persenDosen(CommonVO)}, dan
+				 * {@link DetailKelompokKknRenderer#render(Row, Object)} — termasuk penamaan yang
+				 * tertukar untuk slot {@code dosen1}/{@code dosen2} (nilai slot 1 diambil dari
+				 * {@code nilai_ketua_sidang} padahal orangnya dari kolom {@code pembimbing}, dan
+				 * sebaliknya). Karena keempat salinan bersilang dengan cara yang sama, angka pada
+				 * berita acara tetap benar. Bila salah satu salinan kelak "diluruskan" sendirian,
+				 * berita acara akan mencantumkan nilai milik dosen yang salah.</p>
+				 *
+				 * <p>Seperti pada blanko, parameter {@code waktu_sidang_sampai} keliru diisi
+				 * {@link Skripsi#getWaktuSidang()}. Dicatat, tidak diperbaiki di sini.</p>
+				 *
+				 * @param commonVO pasangan label peran + objek {@link Dosen} penilai
+				 * @return peta parameter untuk satu baris berita acara
+				 */
 				@SuppressWarnings({ "unchecked", "rawtypes" })
 				private Map masukkanParameter(CommonVO commonVO) {
 					Dosen dosen = (Dosen) commonVO.getValueObject();
@@ -2329,6 +2393,23 @@ public class PenilaianSkripsiHelper implements DataLoader {
 					return parameter;
 				}
 
+				/**
+				 * Mencetak "Berita Acara Sidang Skripsi" PDF: satu baris per dosen penilai
+				 * (dibangun {@code masukkanParameter} di atas), ditambah parameter tingkat dokumen
+				 * berupa identitas mahasiswa/prodi/fakultas, pejabat penanda tangan, judul, hasil
+				 * akhir (lulus, total nilai, nilai huruf), catatan penting, serta jadwal sidang.
+				 *
+				 * <p>Beberapa keganjilan sengaja dibiarkan dan dicatat di sini: parameter
+				 * {@code "tanggal"}/{@code "hari_tanggal"} diambil dari
+				 * {@link Skripsi#getTanggalSeminar()} (tanggal seminar proposal), bukan tanggal
+				 * sidang; kunci {@code "absntrak"} salah eja untuk abstrak; dan sejumlah kunci
+				 * ditulis dua kali dengan format berbeda (misal {@code tanggal_sidang} sebagai objek
+				 * {@code Date} lalu ditimpa sebagai teks) sehingga yang berlaku selalu penulisan
+				 * terakhir. Semuanya dipertahankan demi kompatibilitas dengan berkas template
+				 * Jasper yang sudah beredar.</p>
+				 *
+				 * @param event event {@code onClick} tombol "Berita Acara"; isinya tidak dipakai
+				 */
 				@SuppressWarnings({ "rawtypes", "unchecked" })
 				@Override
 				public void onEvent(Event event) throws Exception {
@@ -2433,11 +2514,32 @@ public class PenilaianSkripsiHelper implements DataLoader {
 			buttonHitungSemua.setTooltiptext("Hitung ulang nilai dari semua dosen penilai dan perbarui nilai akhir mahasiswa");
 			buttonHitungSemua.setParent(toolbar);
 			buttonHitungSemua.addEventListener("onClick", new EventListener() {
+				/**
+				 * Meminta konfirmasi sebelum menghitung ulang nilai seluruh dosen penilai.
+				 *
+				 * @param arg0 event {@code onClick}; isinya tidak dipakai
+				 */
 				@Override
 				public void onEvent(Event arg0) throws Exception {
 					MyMessageboxConfig.show("Hitung ulang semua nilai dosen sekarang?", "Konfirmasi",
 							MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 							new EventListener() {
+								/**
+								 * Menjalankan {@link #hitungUlangSemuaNilaiDosen(boolean)} dengan
+								 * pembacaan ulang paksa bila pengguna menekan OK, lalu memicu
+								 * {@link #eventListener}, menampilkan ringkasan hasil, dan membangun
+								 * ulang layar.
+								 *
+								 * <p>Aksi ini menimpa nilai per dosen, total, nilai huruf, status
+								 * lulus, dan salinannya di KRS berdasarkan detail nilai yang
+								 * tersimpan — berguna memulihkan total yang melenceng, tetapi tidak
+								 * dapat dibatalkan dan tidak meninggalkan jejak siapa yang
+								 * menjalankannya. Tombolnya tampil bagi siapa pun yang boleh
+								 * melihat nilai, tidak dibatasi admin.</p>
+								 *
+								 * @param event event kotak konfirmasi; datanya berisi tombol yang
+								 *              ditekan
+								 */
 								@Override
 								public void onEvent(Event event) throws Exception {
 									int i = Integer.parseInt(event.getData().toString());
@@ -2458,6 +2560,14 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		MyToolbarbuttonConfig button = new MyToolbarbuttonConfig("Refresh", "/img/Button-Refresh-icon.png");
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Membangun ulang seluruh layar dari state {@link #skripsi} yang ada di memori sesi.
+			 * Perhatikan bahwa ini BUKAN {@code refresh} Hibernate: perubahan yang dilakukan sesi
+			 * lain tidak otomatis terbaca — untuk itu pakai "Hitung Ulang Semua Nilai", yang memang
+			 * memanggil {@code refresh} lebih dulu.
+			 *
+			 * @param arg0 event {@code onClick}; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 				display(skripsi, component, eventListener);
@@ -2469,6 +2579,13 @@ public class PenilaianSkripsiHelper implements DataLoader {
 		button.setVisible(Common.getApakahAdmin());
 		button.addEventListener("onClick", new EventListener() {
 
+			/**
+			 * Meminta konfirmasi sebelum menghapus seluruh nilai skripsi. Tombolnya sendiri hanya
+			 * <i>terlihat</i> bagi admin ({@code setVisible(Common.getApakahAdmin())}) — pembatasan
+			 * ini murni di sisi tampilan, tidak ada pemeriksaan hak ulang di dalam listener.
+			 *
+			 * @param arg0 event {@code onClick}; isinya tidak dipakai
+			 */
 			@Override
 			public void onEvent(Event arg0) throws Exception {
 
@@ -2476,6 +2593,26 @@ public class PenilaianSkripsiHelper implements DataLoader {
 						MyMessageboxConfig.OK | MyMessageboxConfig.CANCEL, MyMessageboxConfig.QUESTION,
 						new EventListener() {
 
+							/**
+							 * Mengosongkan SELURUH data nilai skripsi bila pengguna menekan OK:
+							 * string riwayat {@link Skripsi#getDetailNilai()} dibuang, kedelapan
+							 * kolom nilai per dosen beserta nilai komprehensif dinolkan, dan nilai
+							 * huruf/IP/total dikosongkan; lalu skripsi disimpan dan layar dibangun
+							 * ulang lewat timer.
+							 *
+							 * <p><b>Tidak dapat dibatalkan dan menghapus rincian per komponen
+							 * seluruh dosen sekaligus.</b> Yang dikosongkan hanya baris skripsi —
+							 * salinan nilai yang sudah terlanjur ditulis ke {@link Detailperkuliahan}
+							 * (KRS/transkrip) TIDAK ikut dibersihkan, sehingga transkrip dapat
+							 * menyimpan nilai lama sementara skripsinya sudah kosong sampai ada
+							 * penilaian baru. Tidak ada jejak audit siapa yang me-reset.</p>
+							 *
+							 * <p>Kegagalan ditangkap dan disampaikan lewat
+							 * {@link PesanFormalHelper} dengan saran tindak lanjut, bukan sebagai
+							 * galat mentah.</p>
+							 *
+							 * @param event event kotak konfirmasi; datanya berisi tombol yang ditekan
+							 */
 							@Override
 							public void onEvent(Event event) throws Exception {
 								int i = Integer.parseInt(event.getData().toString());
@@ -2501,6 +2638,12 @@ public class PenilaianSkripsiHelper implements DataLoader {
 
 										Common.createDefaultTimer(new EventListener() {
 
+											/**
+											 * Membangun ulang layar pada siklus event berikutnya
+											 * agar seluruh nilai yang baru dikosongkan tampil.
+											 *
+											 * @param arg0 event timer; tidak dipakai
+											 */
 											@Override
 											public void onEvent(Event arg0) throws Exception {
 												display(skripsi, component, eventListener);

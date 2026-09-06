@@ -2204,6 +2204,61 @@ public class TugasKelompokHelper implements DataLoader {
 					});
 		}
 
+		/**
+		 * <h3>Panel "Pengaturan Tugas Kelompok" &mdash; empat aksi pengelola dalam satu tempat</h3>
+		 *
+		 * <p><b>Untuk apa (bahasa sederhana):</b> menempelkan sebuah kotak hijau kecil di kolom kanan kartu
+		 * tugas, berisi empat tombol yang paling sering dipakai dosen/guru untuk mengurus sebuah tugas
+		 * kelompok: mengubah judul &amp; instruksinya, membuat kelompok baru, mengatur kelompok beserta
+		 * anggotanya, dan menghapus tugas tersebut. Sebelumnya tombol-tombol ini tersebar di beberapa
+		 * tempat; dikumpulkan di sini agar pengguna tidak perlu mencari-cari.</p>
+		 *
+		 * <h4>Gerbang hak akses: menolak lebih awal, bukan menyembunyikan</h4>
+		 * <p>Baris pertama metode ini adalah penjagaan tunggal:</p>
+		 * <pre>if (!bolehKelola(Common.getCurrentUser())) { return; }</pre>
+		 * <p>Bila pengguna bukan pengelola, metode langsung berhenti dan <b>tidak satu pun komponen dibuat</b>.
+		 * Ini lebih kuat daripada membuat tombol lalu menyetel {@code setVisible(false)}: komponen yang
+		 * tersembunyi tetap ada di pohon ZK dan tetap memiliki listener yang terdaftar, sehingga masih bisa
+		 * menerima event yang dikirim dari sisi klien. Karena tidak pernah dibuat, tombol Ubah, Tambah
+		 * Kelompok, Kelola Kelompok, dan Hapus di panel ini tidak dapat dipicu sama sekali oleh pelajar.</p>
+		 *
+		 * <p>Penjagaan memakai {@link TugasKelompokHelper#bolehKelola(Tbmuser)}, yaitu aturan terpusat yang
+		 * menuntut DUA syarat sekaligus: layar tidak dibuka dalam konteks pelajar
+		 * ({@link TugasKelompokHelper#konteksPelajar()}) DAN pengguna yang login bukan pelajar/peserta
+		 * ({@link TugasKelompokHelper#loginPelajar(Tbmuser)}, yang juga mencakup calon siswa, calon
+		 * mahasiswa, dan peserta kursus, serta menganggap sesi tanpa pengguna sebagai bukan pengelola).</p>
+		 *
+		 * <p><b>Batas yang jujur.</b> Penjagaan ini bersifat <i>per tampilan</i>, bukan per data. Ia
+		 * memastikan hanya pengelola yang mendapat tombol, tetapi tidak memeriksa apakah pengelola tersebut
+		 * berhak atas tugas kelompok INI &mdash; misalnya apakah ia benar dosen pengampu perkuliahan yang
+		 * bersangkutan. Pemeriksaan kepemilikan semacam itu, bila diperlukan, harus ditambahkan di dalam
+		 * aksi yang dipanggil ({@link TugasKelompokHelper#onAdd}, {@link #konfirmasiHapusTugasKelompok}),
+		 * bukan di sini &mdash; sebab hanya aksi itulah yang benar-benar menyentuh basis data.</p>
+		 *
+		 * <h4>Keempat tombol dan tujuannya</h4>
+		 * <ol>
+		 *   <li><b>Ubah Judul &amp; Instruksi</b> &rarr; {@link TugasKelompokHelper#onAdd(Event, TugasKelompok)}
+		 *   dengan tugas yang sedang dibuka, sehingga formulir terbuka dalam mode ubah (bukan tambah baru).</li>
+		 *   <li><b>Tambah Kelompok</b> &rarr; {@link #bukaDaftarKelompok} dengan {@code langsungTambah=true},
+		 *   yaitu jalan pintas yang langsung membuka formulir kelompok baru.</li>
+		 *   <li><b>Kelola Kelompok &amp; Anggota</b> &rarr; {@link #bukaDaftarKelompok} dengan
+		 *   {@code langsungTambah=false}, berhenti pada daftar kelompok.</li>
+		 *   <li><b>Hapus Tugas Kelompok</b> &rarr; {@link #konfirmasiHapusTugasKelompok}, satu-satunya jalur
+		 *   penghapusan sehingga konfirmasi, pemuatan ulang, dan pesan kegagalannya selalu seragam.</li>
+		 * </ol>
+		 *
+		 * <p>Seluruh tombol dibuat selebar 100% dengan teks rata kiri agar terbaca sebagai daftar menu
+		 * vertikal, dan tombol Hapus diberi warna merah sebagai penanda aksi merusak. Setiap tombol memiliki
+		 * {@code tooltiptext} yang menjelaskan akibatnya dalam bahasa awam.</p>
+		 *
+		 * @param parent        wadah kolom kanan kartu tempat panel ditempelkan; panel disisipkan sebagai
+		 *                      anak baru sehingga kontrol lain yang sudah ada di kolom itu tetap utuh
+		 * @param tugasKelompok tugas kelompok yang menjadi sasaran keempat aksi
+		 * @param syaratAlert   kumpulan peringatan syarat pengumpulan yang sudah dihitung di
+		 *                      {@link #render(Row, Object)}, diteruskan apa adanya ke jendela kelola kelompok
+		 *                      agar tidak dihitung ulang
+		 * @see TugasKelompokHelper#bolehKelola(Tbmuser)
+		 */
 		private void pasangAksiPengaturan(final Vbox parent, final TugasKelompok tugasKelompok,
 				final Set<String> syaratAlert) {
 			if (!bolehKelola(Common.getCurrentUser())) {

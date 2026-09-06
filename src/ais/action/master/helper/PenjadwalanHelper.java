@@ -4061,6 +4061,18 @@ public class PenjadwalanHelper {
 
 	/**
 	 * Sama seperti {@link #buatSatuPertemuan(Perkuliahan, Tbmuser, EventListener, StatusPertemuan)}
+	  *
+	  * <p>Inilah overload yang dipakai {@link #display(Perkuliahan, Component)}. Overload empat-parameter
+	  * dipakai pemanggil lain yang ingin memaksa jenis pertemuan tertentu (mis. menambah pertemuan UTS
+	  * atau UAS susulan) sehingga penggunanya tidak bisa mengubahnya.</p>
+	  *
+	  * @param perkuliahan       perkuliahan pemilik pertemuan yang akan ditambahkan; menentukan pula
+	  *                          apakah tombol berbentuk varian OBE atau non-OBE
+	  * @param tbmuser           pengguna yang sedang login, dipakai untuk menyembunyikan tombol bagi
+	  *                          siswa/mahasiswa dan bagi guru yang tidak diizinkan mengubah tanggal
+	  * @param eventListenerData dipanggil setelah pertemuan tersimpan (atau setelah jendela rincian OBE
+	  *                          ditutup) agar pemanggil memuat ulang tampilan
+	  * @return tombol toolbar yang sudah dilengkapi listener, belum ditambahkan ke parent mana pun
 	 * dengan {@code statusPertemuan=null} (jenis pertemuan dipilih bebas oleh pengguna, default Tatap
 	 * Muka).
 	 */
@@ -4087,8 +4099,48 @@ public class PenjadwalanHelper {
 	 * referensi, dan catatan; menyimpan satu {@link Pertemuan} baru lalu memanggil
 	 * {@code perkuliahan.reInitPertemuan} agar cache urutan pertemuan konsisten.</p>
 	 *
+	  * @param perkuliahan       perkuliahan pemilik pertemuan yang akan ditambahkan; tidak boleh
+	  *                          {@code null} pada varian non-OBE karena badan listener langsung membaca
+	  *                          ruang dan jam darinya
+	  * @param tbmuser           pengguna yang sedang login; dipakai untuk memutuskan apakah tombol
+	  *                          ditampilkan
+	  * @param eventListenerData dipanggil setelah pertemuan tersimpan (varian non-OBE) atau setelah
+	  *                          jendela "Rincian Kurikulum OBE" ditutup (varian OBE)
 	 * @param statusPertemuan jenis pertemuan yang dipaksakan (mis. UTS/UAS) pada varian non-OBE, atau
 	 *                        {@code null} untuk membiarkan pengguna memilih bebas (default Tatap Muka)
+	  * <p><b>Jenis tombol ditentukan sekali, saat method dipanggil.</b> Percabangan OBE/non-OBE dievaluasi
+	  * pada saat pembuatan tombol, bukan saat diklik. Bila kurikulum matakuliah diubah menjadi (atau dari)
+	  * OBE setelah halaman dirender, tombol yang sudah terpasang tetap berperilaku lama sampai halaman
+	  * dimuat ulang.</p>
+	  *
+	  * <p><b>Tombol disembunyikan, bukan dinonaktifkan.</b> Baik varian OBE maupun non-OBE memakai
+	  * {@code setVisible(false)} untuk siswa/mahasiswa dan untuk guru yang perkuliahannya tidak
+	  * mengizinkan dosen mengubah tanggal; varian OBE juga menyembunyikannya bila
+	  * {@code kurikulumPunyaMatakuliah} kosong atau sudah {@code dikunci}. Karena listener
+	  * {@code onClick} tetap terpasang pada komponen yang tersembunyi, batas ini adalah gerbang
+	  * TAMPILAN — bukan pemeriksaan hak akses di sisi aksi. Perhatikan pula perbedaan halus dengan
+	  * gerbang lain di kelas ini: di sini yang diperiksa {@code tbmuser.ambilGuru()}, sedangkan
+	  * {@link #display(Perkuliahan, Component)} dan {@link PertemuanRenderer} memeriksa
+	  * {@code tbmuser.ambilDosen()} — jadi dosen perguruan tinggi TIDAK tersaring oleh syarat
+	  * "dosenBisaMerubahTanggalPerkuliahan" pada tombol ini.</p>
+	  *
+	  * <p><b>Varian non-OBE menyimpan langsung tanpa validasi.</b> Tombol "Tambahkan Pertemuan"
+	  * menutup jendela lebih dulu, lalu {@code session.save(pertemuan)} + {@code flush()} tanpa memeriksa
+	  * apakah sudah ada pertemuan pada tanggal itu (berbeda dari {@link #buatPertemuan} yang menolak
+	  * duplikat tanggal — sifat yang justru diperlukan di sini agar kelas pengganti pada hari yang sama
+	  * bisa dibuat), tanpa memeriksa jam selesai lebih besar dari jam mulai, dan tanpa memeriksa tanggal
+	  * berada di dalam masa perkuliahan. Field tanggal sendiri dibuat {@code readonly} dengan nilai awal
+	  * hari ini, sehingga pada praktiknya pertemuan baru selalu bertanggal hari pembuatannya. Setelah
+	  * menyimpan, seluruh pertemuan dimuat ulang dan {@code perkuliahan.reInitPertemuan(...)} dipanggil
+	  * agar penomoran kembali konsisten.</p>
+	  *
+	  * <p><b>Varian OBE tidak membuat pertemuan lewat kelas ini.</b> Jumlah pertemuan yang perlu
+	  * disiapkan dihitung sebagai {@code sampaiMingguKe} TERBESAR di antara seluruh sub-CPMK pada
+	  * {@code kurikulumPunyaMatakuliah.getRincian()}, lalu {@code RpsObeAction.refreshPertemuan} yang
+	  * menyelaraskan pertemuan dengan angka itu. Sub-CPMK yang tidak memiliki pasangan capaian
+	  * pembelajaran lulusan diabaikan dalam perhitungan. Rincian dibaca sebagai JSON lewat
+	  * {@code new JSONObject(...)} tanpa penjaga — rincian yang kosong atau tidak berformat JSON akan
+	  * melempar saat tombol diklik.</p>
 	 * @return tombol toolbar yang sudah dilengkapi listener {@code onClick}, belum ditambahkan ke parent
 	 *         mana pun — pemanggil bertanggung jawab memanggil {@code setParent(toolbar)}
 	 */
@@ -4433,6 +4485,44 @@ public class PenjadwalanHelper {
 	 * {@code this.urutkanManual} disimpan sebagai field instance agar bisa diakses ulang oleh
 	 * {@link #onSearchDefault} saat listener toolbar dipicu.</p>
 	 *
+	  * <p><b>Di sinilah gerbang hak akses agenda perkuliahan sesungguhnya berada.</b> Method-method statis
+	  * yang dipanggilnya ({@link #tampilTombolBuatPertemuan}, {@link #tampilTombolAmbil},
+	  * {@link #tampilTombolAturUlangWaktu}, {@link #tampilTombolHapus}) tidak memeriksa apa pun sendiri —
+	  * yang membatasi adalah syarat yang diulang di method ini: pengguna bukan mahasiswa DAN (bukan dosen
+	  * ATAU {@code perkuliahan.getDosenBisaMerubahTanggalPerkuliahan()}). Syarat itu ditulis ulang empat
+	  * kali secara terpisah, jadi perubahan kebijakan harus diterapkan ke semuanya; melewatkan satu blok
+	  * akan membuka satu tombol saja tanpa terlihat jelas.</p>
+	  *
+	  * <p><b>Batasnya berbasis PERAN, bukan kepemilikan.</b> Tidak ada pemeriksaan bahwa pengguna adalah
+	  * pengampu perkuliahan ini, maupun bahwa perkuliahan berada dalam lingkup satuan kerja/prodi-nya.
+	  * Pengguna non-mahasiswa dan non-dosen (mis. staf akademik) yang berhasil membuka halaman dengan
+	  * perkuliahan mana pun akan memperoleh seluruh tombol, termasuk hapus massal dan salin agenda.
+	  * Pembatasan perkuliahan mana yang boleh dibuka diasumsikan sudah ditegakkan action/menu pemanggil.</p>
+	  *
+	  * <p><b>Tiga tombol berada DI LUAR gerbang itu</b> dan karena itu tampil bagi siapa pun yang bisa
+	  * membuka layar ini, termasuk mahasiswa: "Download" (ekspor Excel seluruh agenda),
+	  * "Refresh", dan filter "hanya yg aktif". Tombol tambah-satu-pertemuan juga selalu dipasang, tetapi
+	  * menyembunyikan dirinya sendiri untuk siswa/mahasiswa (lihat {@link #buatSatuPertemuan}).</p>
+	  *
+	  * <p><b>Tombol "Hapus pertemuan tidak terpakai (&gt;N)" mengambil N saat tombol DIBUAT.</b> Label
+	  * tombol memuat {@code getJumlahMaksimalPertemuan()} yang dibaca ketika tampilan dirender, sedangkan
+	  * daftar pertemuan yang akan dihapus dihitung ulang saat tombol diklik — bila kurikulum berubah di
+	  * antara keduanya, angka pada label bisa berbeda dari batas yang benar-benar dipakai. Method ini juga
+	  * memanggil {@code reInitPertemuan} lebih dulu agar {@code pertemuanKe} yang dibandingkan adalah nomor
+	  * yang benar-benar tampil, bukan nilai basi dari basis data.</p>
+	  *
+	  * <p><b>Perbedaan penting antara dua jalur hapus di layar ini:</b> tombol "Hapus" menghapus SEMUA
+	  * pertemuan lewat SQL native ({@link #hapusPertemuanBesertaTugas}) setelah {@link #bolehHapus} yang
+	  * bersifat fail-open; sedangkan "Hapus pertemuan tidak terpakai" menyaring per pertemuan lewat
+	  * {@link #checkBolehHapus(Pertemuan, boolean)} dengan {@code warning=false} dan menghapus lewat
+	  * {@code Common.refreshDelete} — sehingga pertemuan yang punya kehadiran/materi/tugas dilewati diam-diam
+	  * alih-alih menggagalkan keseluruhan.</p>
+	  *
+	  * <p>Tombol unggah ({@code Common.uploadData}) memakai daftar kolom {@code contents} yang sama dengan
+	  * ekspor dan mengikat setiap baris ke perkuliahan ini lewat {@code idCrit}/{@code nilai}. Perhatikan
+	  * bahwa {@code contents} memuat {@code "dosenTamu"} dua kali — kolom itu karenanya muncul ganda pada
+	  * berkas ekspor maupun pada pemetaan unggah.</p>
+	  *
 	 * @param perkuliahan perkuliahan yang agendanya ditampilkan
 	 * @param component   komponen ZK induk tempat tampilan dirender (isinya dibersihkan lebih dulu)
 	 */
@@ -4820,6 +4910,22 @@ public class PenjadwalanHelper {
 	 * Tombol "Selesai" di {@code South} membersihkan cache ({@code perkuliahan.belum()}), memanggil
 	 * {@code dataLoader.loadData(null)}, lalu menutup jendela.
 	 *
+	  * <p><b>Kedua cabangnya sangat berbeda dalam hal kendali akses.</b> Cabang non-OBE mewarisi seluruh
+	  * gerbang {@link #display(Perkuliahan, Component)}. Cabang OBE menyerahkan tampilan ke halaman ZUL
+	  * terpisah lewat {@code MyInclude} dengan id kurikulum dan id perkuliahan sebagai PARAMETER URL —
+	  * halaman {@code /pages/master/rps_obe.zul} itulah yang wajib memvalidasi sendiri bahwa pengguna
+	  * berhak atas kurikulum/perkuliahan yang diminta. Jangan berasumsi bahwa lolosnya pengguna sampai
+	  * ke method ini sudah cukup sebagai izin bagi halaman tersebut.</p>
+	  *
+	  * <p>Jendela dilampirkan ke akar halaman ZK saat ini dan ditampilkan modal. Tinggi iframe OBE
+	  * dipatok tetap 12000px alih-alih menyesuaikan isi, jadi halaman rincian yang lebih panjang dari itu
+	  * akan terpotong. Kegagalan {@code onModal()} ditangkap dan hanya ditampilkan kepada administrator
+	  * ({@code Common.tampilErrorJikaAdmin}), sehingga bagi pengguna biasa jendela yang gagal tampil
+	  * berlalu tanpa pesan.</p>
+	  *
+	  * <p>{@code dataLoader} dipanggil TANPA penjaga {@code null} saat tombol "Selesai" ditekan — pemanggil
+	  * wajib mengirim implementasi yang sah.</p>
+	  *
 	 * @param perkuliahan perkuliahan yang agendanya ditampilkan
 	 * @param dataLoader  dipanggil saat jendela ditutup, agar pemanggil memuat ulang tampilan induk
 	 */
@@ -4898,6 +5004,29 @@ public class PenjadwalanHelper {
 	 * {@code perkuliahan.reInitPertemuan(...)} untuk membangun ulang cache (termasuk penomoran ulang bila
 	 * mode urut otomatis) sebelum membaca id dari {@code perkuliahan.ambilPertemuan(0, 1000, false)}.
 	 *
+	  * <p><b>Kedua jalurnya tidak setara.</b> Selain berbeda filter, jalur "hanya yg aktif" (tercentang)
+	  * melewati {@code reInitPertemuan} sehingga penomoran "Pertemuan ke-" mode otomatis dihitung ulang;
+	  * jalur "tampilkan semua" (tidak tercentang) query langsung tanpa penomoran ulang. Akibatnya melepas
+	  * dan mencentang kembali filter itu dapat mengubah nomor yang tampil pada baris yang sama.</p>
+	  *
+	  * <p><b>Kedua jalur menyaring {@code tanggal} tidak null</b>, jadi pertemuan tanpa tanggal tidak
+	  * pernah muncul di grid — termasuk pada jalur "tampilkan semua". Pertemuan semacam itu hanya bisa
+	  * ditemukan lewat ekspor atau langsung di basis data.</p>
+	  *
+	  * <p><b>Batas 1000 baris.</b> Jalur cache membaca {@code perkuliahan.ambilPertemuan(0, 1000, false)};
+	  * agenda dengan lebih dari seribu pertemuan akan terpotong diam-diam tanpa penanda apa pun di layar.
+	  * Jalur non-cache tidak punya batas serupa, sehingga jumlah baris bisa berbeda antara kedua mode.</p>
+	  *
+	  * <p><b>Selalu memasang renderer BARU, bukan hanya mengganti model.</b> Itu disengaja: pencacah
+	  * {@code perteKe} pada {@link PertemuanRenderer} bersifat per-instance dan tidak pernah di-reset,
+	  * sehingga memakai ulang renderer lama akan melanjutkan penomoran dari angka sebelumnya. Jangan
+	  * mengubahnya menjadi hanya {@code setModel} tanpa memindahkan reset pencacah itu.</p>
+	  *
+	  * <p>Method ini mengandalkan {@link #perkuliahan}, {@link #grid}, dan {@link #hanyaYangAktif} yang
+	  * sudah diisi {@link #display(Perkuliahan, Component)}; memanggilnya lebih dulu akan melempar
+	  * {@code NullPointerException}. Tidak ada gerbang hak akses maupun penyaringan lingkup di sini —
+	  * seluruh pertemuan milik perkuliahan yang diberikan akan dimuat.</p>
+	  *
 	 * @param event event pemicu (tidak dipakai isinya, hanya diteruskan lewat listener); boleh
 	 *              {@code null}
 	 */
