@@ -151,7 +151,19 @@ import ais.ui.util.MyToolbarbuttonConfig;
  * @see MyDetail
  */
 public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
+	/**
+	 * Batas bawah nomor semester yang boleh dipilih pada rentang berlaku
+	 * {@link SettingBiayaDetail} ({@link #renderRentangSemester}). Dipakai
+	 * {@link #batasiSemester} sebagai nilai penjepit sekaligus sebagai nilai darurat bila
+	 * perhitungan semester gagal, lihat {@link #semesterSaatIni(BiodataCalonMahasiswa)}.
+	 */
 	private static final int SEMESTER_MINIMAL = 1;
+	/**
+	 * Batas atas nomor semester pada rentang berlaku {@link SettingBiayaDetail}. Menentukan
+	 * jumlah pilihan yang dibangkitkan {@link #buatPilihanSemester(Integer)} (1..25) dan menjadi
+	 * plafon {@link #batasiSemester}. Nilai 25 dipilih agar cukup menampung masa studi terpanjang
+	 * termasuk mahasiswa pindahan yang semester awalnya digeser.
+	 */
 	private static final int SEMESTER_MAKSIMAL = 25;
 
 	/**
@@ -170,7 +182,31 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 	 */
 	private static final long serialVersionUID = 5086031585928643232L;
 
+	/**
+	 * Aturan biaya yang tagihan-tagihannya dikelola layar ini — sumber kebenaran tunggal bagi
+	 * hampir seluruh perilaku kelas: menentukan mode mahasiswa vs calon mahasiswa
+	 * ({@link #mhs}) lewat {@link JenisKegiatan}-nya, menentukan mode grid khusus vs reguler
+	 * ({@link #modeDaftarMahasiswa()}), menyediakan kriteria penyaringan baris di
+	 * {@link #initCriteria}, memasok daftar {@link ItemBiaya} kolom grid
+	 * ({@link #selectedItemBiaya}), dan menjadi pembatas kepemilikan tagihan pada
+	 * {@link #saringMapUntukSettingIni} agar layar ini tidak pernah mengubah nominal tagihan
+	 * milik SettingBiaya lain.
+	 *
+	 * <p>Beberapa propertinya juga mengunci filter toolbar: bila {@code getAngkatan()} terisi,
+	 * kedua combobox rentang angkatan dikunci ke nilai itu; bila {@code getJurusan()} terisi,
+	 * combobox fakultas dan jurusan dikunci. Bendera {@code getGunakanBiayaDefault()} memilih
+	 * antara jalur {@code SetingBiayaHelper.getDefaultSettingBiaya} dan
+	 * {@code PembayaranUtilHelper.getDetailBiayaMahasiswa} saat meresolusi tagihan.</p>
+	 */
 	private SettingBiaya settingBiaya;
+	/**
+	 * Grid utama daftar mahasiswa/calon mahasiswa beserta kolom tagihannya. Kolomnya dinamis:
+	 * selain kolom biodata dan "Tanggal Tagihan", ditambahkan satu kolom per {@link ItemBiaya}
+	 * dalam {@link #selectedItemBiaya}. Renderer barisnya dipilih saat
+	 * {@link #loadData(Object, boolean)} sesuai salah satu dari empat mode
+	 * ({@link MahasiswaRenderer}, {@link MahasiswaSettingRenderer},
+	 * {@link CalonMahasiswaRenderer}, {@link CalonMahasiswaSettingRenderer}).
+	 */
 	private MyGrid grid;
 
 	private Textbox pencarian;
@@ -182,12 +218,37 @@ public class DetailSettingBiayaAction extends MyDetail implements DataCriteria {
 
 	private List<ItemBiaya> selectedItemBiaya;
 
+	/**
+	 * Paging grid, disiapkan di konstruktor lewat {@code Common.initPaging15} (15 baris per
+	 * halaman) dengan listener yang memanggil {@link #loadData(Object)} setiap kali halaman
+	 * berganti. Ukuran halaman yang kecil disengaja karena setiap baris memicu resolusi tagihan
+	 * yang mahal — pembukaan Kegiatan, sinkronisasi KRS, dan perhitungan nominal per item.
+	 */
 	private Paging paging;
+	/**
+	 * Penanda mode entitas layar: {@code true} untuk {@link Mahasiswa} aktif, {@code false} untuk
+	 * {@link BiodataCalonMahasiswa}. Ditetapkan sekali di konstruktor dengan membandingkan
+	 * {@code settingBiaya.getJenisKegiatan()} terhadap
+	 * {@code ConstantValues.PENDAFTARAN_CALON_MAHASISWA} dan
+	 * {@code ConstantValues.PENDAFTARAN_ULANG_MAHASISWA_BARU}.
+	 *
+	 * <p>Bersama {@link #modeDaftarMahasiswa()} inilah yang memilih satu dari empat kombinasi
+	 * renderer/criteria. Perbandingannya bertahan terhadap konstanta yang belum ter-seed
+	 * ({@code null}) karena tiap sisi diperiksa {@code != null} lebih dulu, sehingga instalasi
+	 * tanpa jenis kegiatan tersebut jatuh ke mode mahasiswa aktif.</p>
+	 */
 	private boolean mhs = true;
 
 	private Combobox genapGanjil;
 	private Combobox tahunAkademik;
 
+	/**
+	 * Pengguna yang sedang login, diambil sekali di konstruktor lewat
+	 * {@code Common.getCurrentUser()}. Diteruskan ke
+	 * {@code DetailPembayaranMahasiswaRenderer.tampilkanKunci} sebagai konteks penentu apakah
+	 * ikon kunci/buka-kunci tagihan boleh ditampilkan untuk baris bersangkutan — satu-satunya
+	 * pemakaian field ini, sehingga layar ini sendiri tidak memakainya sebagai gerbang wewenang.
+	 */
 	private Tbmuser tbmuser;
 
 	private EventListener refrsh = new EventListener() {
