@@ -59,7 +59,18 @@ final class SalesInventoryDbfImportTenant {
 	 * ke schema bersama.</p>
 	 */
 	private static final String[] JENIS_DIDUKUNG = { "supplier", "customer", "sales", "produk",
-			"harga_beli", "harga_jual", "pembelian_legacy", "penjualan_legacy" };
+			"harga_beli", "harga_jual", "pembelian_legacy", "penjualan_legacy",
+			// Ditambahkan setelah perbandingan UAT cmnmedika menemukan empat kumpulan data
+			// legacy yang tidak punya jalur impor sama sekali, sehingga layar terkaitnya kosong
+			// sementara aplikasi lama menampilkannya:
+			//   opname         <- dataopn.dbf   -- tanpa ini saldo stok tidak akan pernah cocok,
+			//                                      sebab legacy menyesuaikan stok lewat opname
+			//                                      fisik yang tidak terekam di BELI/JUAL
+			//   piutang_legacy <- Tran_Piut.DBF
+			//   hutang_legacy  <- Tran_Hut.DBF
+			//   akun_legacy    <- account.dbf   -- ke {S}.akun, sesuai keputusan akuntansi
+			//                                      se-tenant
+			"opname", "piutang_legacy", "hutang_legacy", "akun_legacy" };
 
 	static boolean jenisDidukung(String jenis) {
 		for (int i = 0; i < JENIS_DIDUKUNG.length; i++) {
@@ -339,5 +350,80 @@ final class SalesInventoryDbfImportTenant {
 	/** Benar bila kunci idempotensi itu sudah dipakai — baris DBF yang sama pernah diimpor. */
 	static String adaMutasiRiwayat(String skema) {
 		return "SELECT 1 FROM " + skema + "mutasi_stok WHERE idempotency_key = ? LIMIT 1";
+	}
+
+	// ================================================================= OPNAME (dataopn.dbf)
+
+	/**
+	 * Kepala opname per tanggal. {@code dataopn.dbf} tidak punya nomor dokumen, jadi nomornya
+	 * dibentuk dari tanggalnya — sekaligus menjadi penjaga idempotensinya.
+	 */
+	static String sisipOpnameKepala(String skema) {
+		return "INSERT INTO " + skema + "stok_opname"
+				+ " (nomor_dokumen, tanggal, gudang_id, status, keterangan, diposting,"
+				+ "  dibuat_pada, oleh, legacy_source_file)"
+				+ " SELECT ?, ?, ?, 'SELESAI', 'Migrasi dataopn.dbf', true, now(), ?, 'dataopn.dbf'"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "stok_opname o"
+				+ " WHERE o.nomor_dokumen = ?)";
+	}
+
+	static String cariOpnameKepala(String skema) {
+		return "SELECT id FROM " + skema + "stok_opname WHERE nomor_dokumen = ? LIMIT 1";
+	}
+
+	/**
+	 * Rincian opname. {@code selisih} disimpan sebagai kolom tersendiri walau dapat diturunkan
+	 * dari fisik-sistem: nilainya adalah potret saat opname, dan menghitungnya ulang di kemudian
+	 * hari akan memakai angka sistem yang sudah berubah.
+	 */
+	static String sisipOpnameRinci(String skema) {
+		return "INSERT INTO " + skema + "stok_opname_detail"
+				+ " (stok_opname_id, produk_id, kuantitas_sistem, kuantitas_fisik, selisih,"
+				+ "  harga_satuan, dibuat_pada, oleh, legacy_source_file, legacy_source_record_no)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, now(), ?, 'dataopn.dbf', ?"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "stok_opname_detail d"
+				+ " WHERE d.stok_opname_id = ? AND d.produk_id = ?)";
+	}
+
+	// ================================================================= PIUTANG / HUTANG
+
+	/**
+	 * Piutang legacy. {@code terbayar}/{@code sisa} DISIMPAN, bukan diturunkan, karena sumbernya
+	 * hanya menyatakan lunas atau belum lewat ada-tidaknya {@code TGLBAYAR} — tidak ada rincian
+	 * pembayaran yang bisa dijumlahkan.
+	 */
+	static String sisipPiutangLegacy(String skema) {
+		return "INSERT INTO " + skema + "piutang_customer"
+				+ " (customer_id, salesperson_id, nomor_faktur, nomor_retur, tanggal, jatuh_tempo,"
+				+ "  nilai, terbayar, sisa, status, dibuat_pada, oleh,"
+				+ "  legacy_source_file, legacy_source_record_no, legacy_tafsir)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now(), ?, 'Tran_Piut.DBF', ?, ?"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "piutang_customer p"
+				+ " WHERE p.customer_id = ? AND p.nomor_faktur = ? AND p.tanggal = ?)";
+	}
+
+	static String sisipHutangLegacy(String skema) {
+		return "INSERT INTO " + skema + "hutang_supplier"
+				+ " (supplier_id, nomor_faktur, tanggal, jatuh_tempo, nilai, terbayar, sisa,"
+				+ "  status, dibuat_pada, oleh,"
+				+ "  legacy_source_file, legacy_source_record_no, legacy_tafsir)"
+				+ " SELECT ?, ?, ?, ?, ?, ?, ?, ?, now(), ?, 'Tran_Hut.DBF', ?, ?"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "hutang_supplier h"
+				+ " WHERE h.supplier_id = ? AND h.nomor_faktur = ? AND h.tanggal = ?)";
+	}
+
+	// ================================================================= AKUN (account.dbf)
+
+	/**
+	 * Bagan akun legacy. {@code account.dbf} memuat kode ganda (mis. 102 dua kali), jadi
+	 * penjaganya bersandar pada kode saja — yang pertama masuk, sisanya dilewati. Itu sesuai
+	 * batasan unik {@code uq_..._akun_kode} pada katalognya.
+	 */
+	static String sisipAkunLegacy(String skema) {
+		return "INSERT INTO " + skema + "akun"
+				+ " (kode, nama, tipe, saldo_normal, posting_diizinkan, aktif, dibuat_pada, oleh,"
+				+ "  legacy_source_file, legacy_source_record_no)"
+				+ " SELECT ?, ?, ?, ?, true, true, now(), ?, 'account.dbf', ?"
+				+ " WHERE NOT EXISTS (SELECT 1 FROM " + skema + "akun a WHERE a.kode = ?)";
 	}
 }

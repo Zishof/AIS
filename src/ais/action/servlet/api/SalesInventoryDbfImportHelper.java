@@ -114,8 +114,12 @@ public final class SalesInventoryDbfImportHelper {
 			// menoleh ke schema BERSAMA. Yang diperlukan di bawah hanya id-nya.
 			Toko toko = (jalurTenant || tokoId == null) ? null
 					: (Toko) session.get(Toko.class, tokoId);
+			// "opname" ikut menuntut toko: selisih opname menjadi mutasi stok, dan mutasi harus
+			// mendarat pada gudang milik toko yang benar. Menaruhnya di gudang yang keliru lebih
+			// buruk daripada menolaknya -- angkanya akan tampak benar di tempat yang salah.
 			if (("produk".equals(jenis) || "sales".equals(jenis)
-					|| "pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis))
+					|| "pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis)
+					|| "opname".equals(jenis))
 					&& (jalurTenant ? tokoId == null : toko == null)) {
 				hasil.put("status", "91");
 				hasil.put("description", "Toko aktif wajib diketahui untuk impor " + jenis
@@ -600,6 +604,15 @@ public final class SalesInventoryDbfImportHelper {
 		if ("pembelian_legacy".equals(jenis) || "penjualan_legacy".equals(jenis)) {
 			return imporRiwayatTenant(session, sk, r, "pembelian_legacy".equals(jenis), tokoId,
 					oleh);
+		}
+		if ("opname".equals(jenis)) {
+			return imporOpnameTenant(session, sk, r, tokoId, oleh);
+		}
+		if ("piutang_legacy".equals(jenis) || "hutang_legacy".equals(jenis)) {
+			return imporTagihanTenant(session, sk, r, "piutang_legacy".equals(jenis), oleh);
+		}
+		if ("akun_legacy".equals(jenis)) {
+			return imporAkunTenant(session, sk, r, oleh);
 		}
 		throw new Exception("jenis tidak dikenal pada jalur tenant: " + jenis);
 	}
