@@ -360,8 +360,8 @@ public class GoogleAction extends GenericAutowireComposer {
 							return;
 						}
 						System.out.println("Got the Access Token!");
-						System.out.println("(if your curious it looks like this: " + accessToken + ", 'rawResponse'='"
-								+ accessToken.getRawResponse() + "')");
+						System.out.println("(if your curious it looks like this: " + (accessToken == null ? "(null)" : "(disamarkan)") + ", 'rawResponse'='"
+								+ "(disamarkan)" + "')");
 
 						OAuthRequest request = new OAuthRequest(Verb.GET, PROTECTED_RESOURCE_URL);
 						service.signRequest(accessToken, request);

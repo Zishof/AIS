@@ -129,8 +129,8 @@ public class TwitterAction extends GenericAutowireComposer {
 
 						final OAuth1AccessToken accessToken = service.getAccessToken(requestToken, oauthVerifier);
 						System.out.println("Got the Access Token!");
-						System.out.println("(if your curious it looks like this: " + accessToken + ", 'rawResponse'='"
-								+ accessToken.getRawResponse() + "')");
+						System.out.println("(if your curious it looks like this: " + (accessToken == null ? "(null)" : "(disamarkan)") + ", 'rawResponse'='"
+								+ "(disamarkan)" + "')");
 
 						// Now let's go and ask for a protected
 						// resource!

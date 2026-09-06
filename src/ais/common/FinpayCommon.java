@@ -702,7 +702,7 @@ public class FinpayCommon {
 
 		output = output.toUpperCase() + "%" + mer_password;
 
-		System.out.println("output+password = " + output.toUpperCase());
+		System.out.println("output+password (disamarkan), panjang=" + output.toUpperCase().length());
 
 		String mer_signature = sha256InJava.getSHA256Hash(output);
 

@@ -555,12 +555,34 @@ public class Data extends HttpServlet {
 	}
 
 	/**
-	 * Menyimpan banyak baris sekaligus (unggah/import Excel) dengan MEMAKAI ULANG logika simpan
-	 * satuan {@link ElearningApiUtil#simpanDataRinci} untuk setiap baris — pola server-side seperti
-	 * upload pada master ZK (AgamaAction). Payload: {@code {class:"...", dataBatch:[{...}, {...}]}};
-	 * tiap elemen dataBatch berisi properti=nilai (boleh memuat {@code id} untuk update). Dipakai oleh
-	 * aksi {@code simpanBatchProduk} &amp; {@code simpanBatchDataRinci}. Mengembalikan status "00" bila
-	 * minimal satu baris tersimpan, beserta ringkasan jumlah berhasil/gagal.
+	 * Menyimpan banyak baris sekaligus (unggah/impor Excel) dengan MEMAKAI ULANG logika simpan
+	 * satuan {@link ElearningApiUtil#simpanDataRinci} untuk setiap baris — pola sisi-peladen yang
+	 * sama dengan unggah pada master ZK (AgamaAction).
+	 *
+	 * <p><b>Muatan.</b> {@code {class:"...", dataBatch:[{...}, {...}]}}. Nama kelas dibaca sekali
+	 * di tingkat atas dan dipakai untuk seluruh baris; tiap elemen {@code dataBatch} berisi
+	 * pasangan properti=nilai dan boleh memuat {@code id} bila baris itu berupa pembaruan. Setiap
+	 * baris dibungkus ulang menjadi {@code {class:..., data:row}} lalu diserahkan ke
+	 * {@link ElearningApiUtil#simpanDataRinci(HttpServletRequest, JSONObject, boolean)} dengan
+	 * {@code pakaiToken=false}, sehingga identitas pengguna diambil dari sesi HTTP.</p>
+	 *
+	 * <p><b>Semantik kegagalan.</b> Tidak ada transaksi payung: setiap baris disimpan sendiri-
+	 * sendiri, dan baris yang gagal <b>tidak</b> membatalkan baris yang sudah berhasil. Status
+	 * {@code "00"} dikembalikan bila <i>minimal satu</i> baris tersimpan, {@code "90"} bila tidak
+	 * satu pun berhasil; {@code data} berisi jumlah baris sukses dan {@code description} memuat
+	 * ringkasan "Berhasil n, gagal m" beserta potongan pesan galat pertama (dibatasi 400 karakter
+	 * agar tanggapan tidak membengkak). Exception per baris ditelan dan hanya menaikkan pencacah
+	 * gagal.</p>
+	 *
+	 * <p><b>Otorisasi.</b> Method ini tidak menambahkan gerbang apa pun. Ia mewarisi persis gerbang
+	 * milik jalur satuan, yaitu {@code ElearningApiUtil.prosesSimpan} — yang pada revisi ini hanya
+	 * memeriksa hak CRUD granular untuk dua kelas master e-Kantin dan bersifat default-allow. Lihat
+	 * uraian di Javadoc kelas.</p>
+	 *
+	 * @param request    permintaan servlet, diteruskan agar pengguna sesi terbaca di jalur satuan
+	 * @param jsonObject muatan JSON berisi {@code class} dan larik {@code dataBatch}
+	 * @return objek JSON berisi {@code status}, {@code data} (jumlah sukses), dan
+	 *         {@code description}
 	 */
 	private static JSONObject simpanBatchDataRinci(HttpServletRequest request, JSONObject jsonObject) {
 		JSONObject hasil = new JSONObject();
@@ -605,6 +627,73 @@ public class Data extends HttpServlet {
 		return hasil;
 	}
 
+	/**
+	 * Jantung endpoint {@code /Data}: membaca muatan JSON, menerapkan gerbang otentikasi, lalu
+	 * memilih dan menjalankan handler sesuai field {@code action}.
+	 *
+	 * <p><b>1. Pembacaan muatan.</b> Badan permintaan dibaca baris demi baris menjadi satu string.
+	 * Bila badan kosong, nilainya diambil dari parameter {@code datasearch}. String itu diurai
+	 * menjadi {@link JSONObject}; muatan kosong dijawab {@code status="99"} dengan deskripsi
+	 * "Data search kosong". Field {@code log} dan {@code log_response} bernilai {@code "true"}
+	 * mencetak permintaan/tanggapan ke {@code System.out} — alat bantu pengembangan, dan perlu
+	 * diingat bahwa muatan yang dicetak bisa memuat data pribadi.</p>
+	 *
+	 * <p><b>2. Gerbang otentikasi — dua lapis, keduanya menyeluruh (bukan per-kelas).</b></p>
+	 * <ul>
+	 *   <li><i>Lapis tegas.</i> Aksi yang menjalankan SQL tulis bebas dari klien —
+	 *       {@code update_data} dan {@code update_file_data} — SELALU menuntut pengguna yang sudah
+	 *       masuk, apa pun isi muatan. Penanda {@code tanpaLogin} tidak dapat melewatinya.</li>
+	 *   <li><i>Lapis umum.</i> Untuk aksi lain, permintaan diterima bila pengguna sudah masuk
+	 *       ATAU muatan memuat {@code tanpaLogin="true"}. Penanda itu dikirim halaman itu sendiri,
+	 *       jadi pemanggil mana pun dapat menyetelnya; ia sengaja dipertahankan karena halaman
+	 *       publik yang sah memakainya (landing page, pendaftaran calon anggota, toko online,
+	 *       formulir PMB). Akibatnya seluruh aksi selain kedua aksi SQL tulis di atas —
+	 *       termasuk aksi tulis reflektif {@code simpanDataRinci}, {@code simpanBatchDataRinci},
+	 *       dan {@code hapusDataRinci} — dapat dijangkau tanpa masuk, dan otorisasi sebenarnya
+	 *       harus disediakan handler yang dituju.</li>
+	 * </ul>
+	 * <p>Penutupan lapis tegas itu adalah pertahanan yang tidak bergantung pada konfigurasi;
+	 * lapis keduanya, {@code ais.common.SqlSecurityGuard}, hanya berlaku bila pemilik instalasi
+	 * menyalakan {@code mode_proteksi_sql_endpoint} yang bawaannya mati.</p>
+	 *
+	 * <p><b>3. Tabel dispatch.</b> Rantai {@code if/else} yang memetakan {@code action} ke handler.
+	 * Kelompok besarnya:</p>
+	 * <ul>
+	 *   <li><i>Lampiran/berkas:</i> {@code file}, {@code update_file}, {@code hapus_file},
+	 *       {@code hapus_file_by_id} — ditangani method privat di kelas ini.</li>
+	 *   <li><i>Baca generik:</i> {@code load}, {@code daftar}, {@code cari} —
+	 *       {@code DaftarDataService} dan {@link #processCari}.</li>
+	 *   <li><i>SQL mentah:</i> {@code sql} (dipaksa read-only oleh
+	 *       {@code SqlSecurityGuard.checkReadSql}), {@code update_data} dan
+	 *       {@code update_file_data} (diperiksa {@code checkWriteSql}). Keduanya menjalankan
+	 *       pernyataan yang disusun klien.</li>
+	 *   <li><i>Tulis reflektif:</i> {@code simpanDataRinci}, {@code simpanBatchProduk} /
+	 *       {@code simpanBatchDataRinci}, {@code hapusDataRinci} — bermuara ke
+	 *       {@code ElearningApiUtil}.</li>
+	 *   <li><i>Ekspor:</i> {@code downloadExcel}, {@code downloadPdf}, {@code downloadDocx} dan
+	 *       {@code laporan} (kompilasi berkas JasperReports; jalur berkasnya berasal dari muatan
+	 *       klien).</li>
+	 *   <li><i>e-Learning:</i> {@code linimasa}, {@code ringkasan}, {@code ujian}, {@code tugas},
+	 *       {@code materi}, {@code audio}, {@code video}, {@code tugas_kelompok}.</li>
+	 *   <li><i>e-Kantin/POS/koperasi:</i> puluhan aksi ke {@code KantinHelper} serta awalan
+	 *       {@code grup_produk_}, {@code toko_kelola_}, {@code anggaran_}, {@code pengadaan_},
+	 *       {@code penyesuaian_saldo_}, {@code pos_demo_}, dan {@code TopupHelper}. Handler-handler
+	 *       ini menjaga hak aksesnya sendiri di dalam helper, dan sengaja dipakai bersama oleh
+	 *       kanal Desktop/Android (PosApi) supaya aturan bisnisnya satu sumber.</li>
+	 * </ul>
+	 * <p>{@code action} yang tidak dikenali dijawab {@code status="99"} dengan deskripsi
+	 * "Action tidak dikenali: ...".</p>
+	 *
+	 * <p><b>Kontrak balikan.</b> Sebagian cabang mengisi objek {@code hasil} yang sudah disiapkan,
+	 * sebagian lain <i>menggantinya</i> dengan objek baru dari helper — jadi jangan berasumsi nilai
+	 * awal {@code status="99"} masih ada setelah cabang dijalankan. Exception apa pun ditangkap di
+	 * sini dan diubah menjadi {@code status="99"} berisi pesan exception.</p>
+	 *
+	 * @param request  permintaan servlet; badan atau parameter {@code datasearch} memuat JSON
+	 * @param response tanggapan servlet; diterima demi keseragaman tanda tangan dan tidak ditulisi
+	 *                 di sini — pengaliran tanggapan dilakukan {@link #processRequest}
+	 * @return objek JSON hasil handler, selalu bukan {@code null}
+	 */
 	public static JSONObject ambil(HttpServletRequest request, HttpServletResponse response) {
 		JSONObject hasil = new JSONObject();
 		String log = "";

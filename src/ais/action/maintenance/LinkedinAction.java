@@ -118,8 +118,8 @@ public class LinkedinAction extends GenericAutowireComposer {
 						System.out.println("Trading the Request Token for an Access Token...");
 						final OAuth2AccessToken accessToken = service.getAccessToken(code);
 						System.out.println("Got the Access Token!");
-						System.out.println("(if your curious it looks like this: " + accessToken + ", 'rawResponse'='"
-								+ accessToken.getRawResponse() + "')");
+						System.out.println("(if your curious it looks like this: " + (accessToken == null ? "(null)" : "(disamarkan)") + ", 'rawResponse'='"
+								+ "(disamarkan)" + "')");
 
 						final OAuthRequest request = new OAuthRequest(Verb.GET, PROTECTED_EMAIL_RESOURCE_URL);
 						request.addHeader("x-li-format", "json");

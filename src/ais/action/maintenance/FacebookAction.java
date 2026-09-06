@@ -125,8 +125,8 @@ public class FacebookAction extends GenericAutowireComposer {
 
 						final OAuth2AccessToken accessToken = service.getAccessToken(code);
 						System.out.println("Got the Access Token!");
-						System.out.println("(if your curious it looks like this: " + accessToken + ", 'rawResponse'='"
-								+ accessToken.getRawResponse() + "')");
+						System.out.println("(if your curious it looks like this: " + (accessToken == null ? "(null)" : "(disamarkan)") + ", 'rawResponse'='"
+								+ "(disamarkan)" + "')");
 
 						OAuthRequest request = new OAuthRequest(Verb.GET, PROTECTED_RESOURCE_URL);
 						service.signRequest(accessToken, request);

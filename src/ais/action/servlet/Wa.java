@@ -813,6 +813,52 @@ public class Wa extends HttpServlet {
 		return jsonObject.getString("access_token");
 	}
 
+	/**
+	 * Mencatat pengirim pesan sebagai pengguna sistem, mengisi objek {@link Pengaduan}, lalu
+	 * mengambil kode install aplikasi mobile untuk disertakan pada balasan chatbot.
+	 *
+	 * <h4>Pendaftaran pengirim</h4>
+	 * <p>{@link Tbmuser} dicari berdasarkan {@code userId} yang sama dengan nomor WhatsApp
+	 * pengirim. Bila belum ada, baris baru <b>dibuat dan disimpan</b> dengan {@code aktif=true},
+	 * {@code hp} dan {@code userId} berisi nomor pengirim, {@code userNama} berisi nama profil
+	 * WhatsApp, {@code sekolah} diambil dari konteks request, {@code socialMediaProfile} berisi
+	 * payload webhook mentah, dan peran {@link Tbmrole} {@code "pengadu"}. Bila sudah ada, nomor,
+	 * nama, dan profil sosialnya diperbarui.</p>
+	 *
+	 * <h4>Pengisian pengaduan</h4>
+	 * <p>Objek {@link Pengaduan} yang dikirim pemanggil diisi di tempat: nama pengirim, penanda
+	 * aktif, {@link JenisPengaduan} pertama yang aktif (diurutkan menaik menurut id), pengaju,
+	 * isi pesan sebagai {@code keterangan}, dan payload mentah sebagai {@code req}. Objek itu
+	 * <b>tidak disimpan di sini</b> &mdash; penyimpanannya dilakukan pemanggil sesudah tanggapan
+	 * chatbot terbentuk.</p>
+	 *
+	 * <h4>Pengambilan kode install</h4>
+	 * <p>Permintaan JSON ber-{@code action=code} dikirim lewat {@code curl} ke endpoint pada
+	 * konfigurasi {@code ambil_kode_url} (default {@code https://dev.ecampus.id/ecampus/Api}).
+	 * Payload memuat {@code username} berpola {@code <userId>;<host>} beserta identitas dan media
+	 * perguruan tinggi (logo, banner, latar, motto, alamat, telepon, surel). Bila konfigurasi
+	 * {@code dapatkan_code_via_url_custom} aktif, host diambil dari konfigurasi
+	 * {@code CURRENT_URL} alih-alih host request. Kode diambil dari kunci {@code code} pada
+	 * balasan; bila tidak ada, dikembalikan string kosong.</p>
+	 *
+	 * <p><b>Catatan keamanan:</b> karena webhook pemanggil tidak diverifikasi, seluruh jalur ini
+	 * dapat dipicu payload palsu &mdash; artinya baris {@link Tbmuser} aktif dapat dibuat oleh
+	 * pihak anonim dengan {@code userId} dan {@code userNama} pilihan penyerang, dan setiap
+	 * pemicu ikut menembakkan permintaan keluar ke {@code ambil_kode_url}. Sudah dilaporkan
+	 * sebagai temuan tersendiri.</p>
+	 *
+	 * <p>Payload permintaan dicetak utuh ke {@code System.out} sebelum dikirim.</p>
+	 *
+	 * @param request   permintaan HTTP webhook; dipakai menentukan sekolah, perguruan tinggi, dan
+	 *                  media institusi
+	 * @param form      nomor WhatsApp pengirim, dipakai sebagai {@code userId}
+	 * @param name      nama profil WhatsApp pengirim
+	 * @param data      payload webhook mentah, disimpan sebagai jejak
+	 * @param body      isi pesan pengguna
+	 * @param pengaduan objek pengaduan yang akan diisi di tempat; tidak boleh {@code null}
+	 * @return kode install aplikasi mobile, atau string kosong bila tidak diperoleh
+	 * @throws Exception bila query, pemanggilan {@code curl}, atau penguraian balasan gagal
+	 */
 	private String simpanPesan(HttpServletRequest request, String form, String name, String data, String body,
 			Pengaduan pengaduan) throws Exception {
 		String kodeInstall = "";
@@ -931,6 +977,59 @@ public class Wa extends HttpServlet {
 		return kodeInstall;
 	}
 
+	/**
+	 * Memproses webhook <b>WhatsApp Business Cloud API</b> resmi milik Meta: mengurai pesan
+	 * masuk, menyusun jawaban AI, lalu mengirimkannya kembali lewat Graph API.
+	 *
+	 * <h4>Penguraian payload</h4>
+	 * <p>Jalur utama membaca struktur baku Meta
+	 * {@code entry[0].changes[0].value}, dari sana mengambil {@code messages[0]},
+	 * {@code contacts[0]}, dan {@code metadata.phone_number_id}. Hanya pesan bertipe
+	 * {@code text} yang diproses; tipe lain diabaikan.</p>
+	 *
+	 * <h4>Penyaringan pengirim</h4>
+	 * <p>Pesan hanya dilayani bila nomor pengirim diawali {@code "62"} dan tidak tercantum pada
+	 * daftar {@code chat_bot_nomor_tidak_direponse} (daftar nomor dipisahkan koma, dicocokkan
+	 * dengan pola {@code ,<nomor>,}), serta isi pesannya tidak kosong.</p>
+	 *
+	 * <h4>Alur balasan</h4>
+	 * <ol>
+	 *   <li>{@link #simpanPesan} dipanggil secara sinkron untuk mendaftarkan pengirim dan
+	 *       memperoleh kode install;</li>
+	 *   <li>sebuah {@link Thread} baru dijalankan supaya webhook dapat segera dijawab. Di dalam
+	 *       thread itu jawaban disusun oleh {@link #ambilPesan}, lalu diapit teks pembuka dari
+	 *       konfigurasi {@code pesan_tambahan_wa_awal} dan teks penutup dari
+	 *       {@code pesan_tambahan_wa} yang disambung kode install;</li>
+	 *   <li>bila teks hasil memuat potongan {@code "pertanyaan anda belum bisa kami proses"}
+	 *       &mdash; penanda bahwa {@link #ambilPesan} menyerah &mdash; pengiriman
+	 *       <b>dibatalkan</b> seluruhnya dan tidak ada yang dicatat;</li>
+	 *   <li>selain itu permintaan {@code POST} disusun untuk
+	 *       {@code https://graph.facebook.com/v18.0/<phone_number_id>/messages} dengan header
+	 *       {@code Authorization: Bearer} berisi konfigurasi {@code token_wa}, dan dijalankan
+	 *       lewat {@code curl}. Pengiriman sesungguhnya hanya terjadi bila konfigurasi
+	 *       {@code aktifkan_reply_chatbot} aktif; bila tidak, hasilnya dicatat sebagai
+	 *       {@code "Tidak di kirmkan"};</li>
+	 *   <li>upaya pengiriman disimpan sebagai {@link NotifikasiWa}, dan {@link Pengaduan} yang
+	 *       sudah diisi {@link #simpanPesan} disimpan berikut tanggapannya.</li>
+	 * </ol>
+	 *
+	 * <h4>Cabang cadangan</h4>
+	 * <p>Bila penguraian jalur utama melempar exception, blok {@code catch} mencoba bentuk
+	 * payload alternatif ({@code entry} sebagai array bersarang) dan membalas dengan pesan
+	 * {@code "Echo: <isi pesan>"} beserta penanda dibaca. Cabang ini memakai
+	 * {@link #WEBHOOK_VERIFY_TOKEN} sebagai {@code Authorization: Bearer} &mdash; nilai
+	 * {@code "12345"} yang bukan access token Graph API &mdash; sehingga permintaannya
+	 * dipastikan ditolak Meta dan cabang tersebut secara praktis tidak pernah berhasil.</p>
+	 *
+	 * <p>Setiap kegagalan di dalam thread pengirim ditangkap dan dicatat ke audit error tanpa
+	 * memengaruhi balasan HTTP webhook, yang sudah lebih dulu bernilai 200.</p>
+	 *
+	 * @param request  permintaan HTTP webhook; diteruskan ke {@link #simpanPesan}
+	 * @param response balasan HTTP; tidak disentuh method ini
+	 * @param data     payload webhook mentah berformat JSON
+	 * @throws Exception bila {@code data} bukan JSON yang sah atau tidak memuat kunci
+	 *                   {@code entry}
+	 */
 	private void wa(HttpServletRequest request, HttpServletResponse response, String data) throws Exception {
 
 		JSONObject req = data == null ? null : new JSONObject(data);
