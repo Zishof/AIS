@@ -1148,6 +1148,37 @@ public class KegiatanProsesHeper {
 							Clients.showBusy(label.getValue());
 
 							WORKER_EXECUTOR.execute(new Runnable() {
+								/**
+								 * Tugas latar "Proses Tagihan" massal — inti fitur ini. Untuk setiap
+								 * {@link JenisKegiatan} yang cocok filter (satu bila dipilih spesifik, atau
+								 * SELURUH jenis aktif bila "Semua"), memuat daftar subjek yang akan diproses,
+								 * membangun satu {@link Callable} per subjek, menjalankan semuanya PARALEL
+								 * lewat {@code executor.invokeAll}, lalu MERAKIT hasilnya menjadi satu berkas
+								 * Excel pada thread ini saja.
+								 *
+								 * <p><b>Pemilihan subjek dan cakupannya.</b> Untuk jenis kegiatan pendaftaran
+								 * (PENDAFTARAN_CALON_MAHASISWA / PENDAFTARAN_ULANG_MAHASISWA_BARU) yang diambil
+								 * adalah {@link BiodataCalonMahasiswa}; selain itu {@link Mahasiswa}. Kriteria
+								 * keduanya HANYA menyaring pada aktif, kecocokan NIM/nama/no-registrasi,
+								 * rentang tahun angkatan/tahun akademik, dan Fakultas/Prodi pilihan operator —
+								 * tanpa penyempitan ke satuan kerja/perguruan tinggi pengguna login. Lihat
+								 * paragraf "Cakupan data dan otorisasi" pada javadoc kelas: berkas Excel yang
+								 * dihasilkan karenanya memuat data pribadi dan finansial SELURUH subjek yang
+								 * cocok filter di basis data.</p>
+								 *
+								 * <p><b>Mengapa perakitan Excel dilakukan di thread ini.</b> Workbook POI tidak
+								 * aman ditulis banyak thread; karena itu tiap {@link Callable} hanya
+								 * MENGEMBALIKAN satu baris {@code Object[]} dan thread inilah yang menuliskannya
+								 * ke sheet, menghitung grand total, dan menyimpan berkas.</p>
+								 *
+								 * <p>Grand total dijumlahkan dari tiga kolom terakhir yang dihitung mundur dari
+								 * batas kanan array ({@code finalMaxCols - 5/-4/-3}) memakai {@link #nilaiDouble}
+								 * yang toleran terhadap sel bertipe String — bukan cast langsung yang dulu
+								 * memicu ClassCastException.</p>
+								 *
+								 * <p>Status akhir dikomunikasikan ke Timer lewat Label: dikosongkan bila sukses,
+								 * diisi {@code "-"} bila gagal.</p>
+								 */
 								@SuppressWarnings({ })
 								@Override
 								public void run() {
@@ -1326,6 +1357,40 @@ public class KegiatanProsesHeper {
 											// TASK UNTUK MAHASISWA
 											for (final Mahasiswa mahasiswaData : mahasiswas) {
 												tasks.add(new Callable<Object[]>() {
+													/**
+													 * Menghitung SATU baris Excel untuk SATU mahasiswa, dijalankan paralel.
+													 * Tujuh kolom pertama berisi identitas (NIM, nama, jenis pembayaran, fakultas,
+													 * jurusan, status awal, angkatan), disusul trio Tagihan/Dibayar/Sisa untuk
+													 * setiap tahun × semester yang diminta, lalu grand total per mahasiswa,
+													 * persentase lunas, dan rincian tagihan.
+													 *
+													 * <p>Untuk tiap kombinasi tahun-semester yang berada dalam rentang
+													 * {@code minSmt..maxSmt} jenis kegiatan, method memanggil
+													 * {@code KegiatanHelper.checkKegiatanMahasiswa} — yang MENGHITUNG ULANG dan
+													 * MENYIMPAN tagihan, bukan sekadar membacanya. Bila opsi pembersihan massal
+													 * aktif, {@code KegiatanPersistenceHelper.bersihkanItemAsing} dijalankan dan,
+													 * hanya bila ada yang terhapus, tagihan dihitung ulang sekali lagi supaya angka
+													 * yang dilaporkan sudah mencerminkan keadaan setelah pembersihan.</p>
+													 *
+													 * <p>Setiap kegiatan yang berhasil juga memicu
+													 * {@code HistoryStatusMahasiswaUtil.currentStatus(..., refresh=true)} sehingga
+													 * STATUS KEAKTIFAN mahasiswa ikut diperbarui secara massal — dulu status hanya
+													 * dihitung ulang saat layar per-mahasiswa dibuka, sehingga proses massal tidak
+													 * pernah mengubah status siapa pun. Kegagalan pembaruan status diaudit dan
+													 * ditelan agar tidak menggagalkan baris tagihannya.</p>
+													 *
+													 * <p>Tahun sebelum angkatan mahasiswa, dan semester di luar rentang jenis
+													 * kegiatan, tetap MENGISI kolomnya dengan string kosong — penting agar
+													 * penunjuk kolom {@code m} tetap sejajar antar baris dan grand total di ujung
+													 * kanan jatuh pada kolom yang benar.</p>
+													 *
+													 * <p>Session Hibernate dibuka dan ditutup di dalam method ini (satu per tugas)
+													 * karena tugas berjalan di luar thread permintaan; exception diaudit dan tidak
+													 * membatalkan tugas lain.</p>
+													 *
+													 * @return satu baris data siap ditulis ke sheet Excel
+													 * @throws Exception bila terjadi kegagalan yang tidak tertangani
+													 */
 													@Override
 													public Object[] call() throws Exception {
 														Object[] rowData = new Object[finalMaxCols];
@@ -1518,6 +1583,25 @@ public class KegiatanProsesHeper {
 											// TASK UNTUK CALON MAHASISWA
 											for (final BiodataCalonMahasiswa mhsCalon : biodataCalonMahasiswas) {
 												tasks.add(new Callable<Object[]>() {
+													/**
+													 * Padanan tugas per-baris untuk CALON mahasiswa ({@link BiodataCalonMahasiswa}),
+													 * berstruktur sama dengan versi mahasiswa namun dengan tiga perbedaan penting:
+													 * <ul>
+													 * <li>kolom identitas memakai No. Registrasi dan prodi yang diambil dari
+													 * {@code prodiLulus} bila ada, jika tidak dari {@code prodi1};</li>
+													 * <li>nomor semester tidak dihitung dari angkatan melainkan ditetapkan: 0 untuk
+													 * PENDAFTARAN_CALON_MAHASISWA, dan 1 (ganjil) atau 2 (genap) untuk jenis lain;</li>
+													 * <li>baris hanya diisi pada tahun yang sama persis dengan {@code getTahun()}
+													 * calon, dan TIDAK memicu pembaruan status keaktifan (calon mahasiswa belum
+													 * punya riwayat status mahasiswa).</li>
+													 * </ul>
+													 *
+													 * <p>Sama seperti versi mahasiswa, kolom untuk tahun yang tidak cocok tetap
+													 * diisi string kosong agar penunjuk kolom tetap sejajar antar baris.</p>
+													 *
+													 * @return satu baris data siap ditulis ke sheet Excel
+													 * @throws Exception bila terjadi kegagalan yang tidak tertangani
+													 */
 													@Override
 													public Object[] call() throws Exception {
 														Object[] rowData = new Object[finalMaxCols];
