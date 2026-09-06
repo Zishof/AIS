@@ -259,18 +259,104 @@ public class AbsensiHelper {
 	 */
 	private AmbilDataRuangBanbox ruang;
 
+	/**
+	 * Daftar PESERTA yang harus diabsen pada pertemuan yang sedang ditampilkan, hasil
+	 * {@link #populateMahasiswaDariPertemuan(Pertemuan)}. Isinya heterogen tergantung asal pertemuan:
+	 * {@link Mahasiswa}, {@link BiodataCalonMahasiswa}, atau {@link PesertaKursus} (karena itu tipenya
+	 * {@code List<? extends GeneralValueObject>} dan setiap pembaca melakukan {@code instanceof} sebelum
+	 * memakai atribut spesifik).
+	 *
+	 * <p>Diisi ulang di awal {@link #mainInit} dan setelah pemisahan kelas selesai disimpan pada
+	 * {@link #initKelasPertemuan}. Dipakai sebagai sumber iterasi oleh aksi massal ("Semua hadir", "Reset",
+	 * ekspor Excel, rekap bawah), oleh donut komposisi kehadiran, dan oleh renderer daftar presensi —
+	 * sehingga daftar ini adalah SATU-SATUNYA definisi "siapa peserta pertemuan ini" di seluruh kelas.</p>
+	 */
 	private List<? extends GeneralValueObject> mahasiswas;
+	/**
+	 * Mata kuliah/{@link Perkuliahan} induk pertemuan yang sedang ditampilkan, atau {@code null} bila pertemuan
+	 * TIDAK berasal dari perkuliahan reguler (mis. ujian PMB, kursus, kegiatan, wisuda, KKN/PKL, skripsi).
+	 * Disalin dari {@code pertemuan.getPerkuliahan()} di {@link #mainInit}.
+	 *
+	 * <p>Nilai {@code null} di sini melonggarkan banyak aturan: {@link #ubahTerlewat} memakai toleransi default
+	 * 1000 hari, blok "Kehadiran Asisten" dan gerbang pembayaran semester tidak dirender, dan cache tren
+	 * ({@link AbsensiTrenCache}) tidak diinvalidasi pada {@link #reload(Pertemuan)}.</p>
+	 */
 	private Perkuliahan perkuliahan;
 
+	/**
+	 * Mahasiswa PEMILIK layar bila helper ini dibuka dari konteks mahasiswa (lihat
+	 * {@link #AbsensiHelper(Mahasiswa, BiodataCalonMahasiswa)}), atau {@code null} bila dibuka oleh
+	 * dosen/admin. Nilai bukan-{@code null} dipakai di puluhan titik sebagai penanda "render read-only":
+	 * kontrol input diganti {@link Label}, grid dibekukan lewat {@link Common#freeze}, dan blok konfigurasi
+	 * media online disembunyikan.
+	 *
+	 * <p>Perhatikan bahwa field ini adalah penanda KONTEKS TAMPILAN, bukan gerbang otorisasi tunggal:
+	 * pemeriksaan sebenarnya di banyak tempat dilakukan ulang terhadap {@code Common.getCurrentUser()}
+	 * (lihat {@link #tbmuser} dan {@link #mahasiswaBolehUbahAbsen}).</p>
+	 */
 	private Mahasiswa mahasiswa;
+	/**
+	 * Calon mahasiswa PEMILIK layar bila helper ini dibuka dari konteks pendaftar/ujian PMB, atau {@code null}.
+	 * Diperlakukan setara dengan {@link #mahasiswa} pada setiap pemeriksaan read-only di kelas ini.
+	 */
 	private BiodataCalonMahasiswa biodataCalonMahasiswa;
+	/**
+	 * Komponen kontainer (tab/panel) tempat seluruh UI kehadiran dipasang, disimpan oleh {@link #mainInit} agar
+	 * {@link #reload(Pertemuan)} dan aksi massal dapat membersihkannya ({@link Common#clear}) lalu memanggil
+	 * {@link #mainInit} ulang dari awal. Karena membangun ulang total, seluruh field kontrol ZK di kelas ini
+	 * ikut dibuat ulang setiap reload.
+	 */
 	private Component tabpanelUtama;
+	/**
+	 * Grid daftar {@link PengajuanIzinTidakMasukPerkuliahan} pada panel "Pengajuan Izin atau Sakit", dibuat di
+	 * {@link #createListMahasiswaIzin} dan diisi ulang oleh {@link #reloadIzinAbsensi(Pertemuan)} dengan
+	 * renderer {@link MahasiswaIzinRenderer}. Memakai mold {@code paging} dengan {@code pageSize} 10000 —
+	 * praktis menonaktifkan paging, sehingga seluruh pengajuan dirender sekaligus.
+	 */
 	private MyGrid mahasiswaIzinGrid;
+	/**
+	 * Penanda bahwa pengguna yang sedang login adalah MAHASISWA yang berperan sebagai asisten absen pada
+	 * {@link #perkuliahan} ini ({@code perkuliahan.merupakanAsistenAbsen(...)}), dihitung ulang setiap kali
+	 * {@link #createListMahasiswaAbsensi} dijalankan.
+	 *
+	 * <p>Field ini adalah SATU-SATUNYA jalan bagi akun bertipe mahasiswa untuk memperoleh hak tulis pada layar
+	 * ini: setiap gerbang "boleh mengubah absensi" berbentuk {@code (bukan akun siswa/mahasiswa/calon &&
+	 * belum terlewat) || mahasiswaBolehUbahAbsen} — perhatikan bahwa cabang {@code mahasiswaBolehUbahAbsen}
+	 * berada DI LUAR pemeriksaan {@code terlewat}, sehingga asisten absen tetap dapat mengubah kehadiran walau
+	 * batas waktu pengisian sudah lewat. Nilainya {@code false} bila pertemuan tidak berasal dari perkuliahan
+	 * reguler ({@link #perkuliahan} {@code null}).</p>
+	 */
 	private boolean mahasiswaBolehUbahAbsen;
 //	private Center center;
+	/**
+	 * Kotak isian "Kemampuan akhir pembelajaran *" ({@link Pertemuan#getTopik()}) — topik/capaian pembelajaran
+	 * pertemuan, dibuat di {@link #bagianInfo}. Editable hanya untuk viewer non-mahasiswa; sama seperti
+	 * {@link #bukuRujukan1}, constraint "no empty"-nya dinonaktifkan sehingga tidak benar-benar wajib diisi.
+	 */
 	private Textbox topik;
+	/**
+	 * Master {@link Statusabsensi} yang boleh dipilih pada layar ini, dimuat SEKALI di konstruktor dengan
+	 * mengecualikan status yang namanya mengandung "belajar"/"cuti"/"dinas" (status khusus konteks kepegawaian).
+	 * Diteruskan apa adanya ke {@link #tampilRowAbsensi} untuk membangun radiogroup pilihan status tiap peserta.
+	 *
+	 * <p>Karena dimuat di konstruktor, daftar ini TIDAK ikut diperbarui oleh {@link #reload(Pertemuan)} yang
+	 * hanya memanggil ulang {@link #mainInit} pada instance yang sama.</p>
+	 */
 	private List<Statusabsensi> statusabsensis;
+	/**
+	 * Daftar {@link Dosen} yang kehadirannya ikut dicatat pada pertemuan ini, ditentukan di {@link #bagianInfo}
+	 * dari sumber pertama yang cocok: pengampu {@link #perkuliahan}, atau pembimbing kelompok KKN/PKL,
+	 * permintaan tugas akhir, skripsi, KRS, grup pertemuan, atau formulir kegiatan. Tetap {@code null} bila
+	 * tidak satu pun sumber tersebut ada — karena itu setiap pemakaian di {@link #tampilBawah} dan
+	 * {@link #bagianInfo} selalu dijaga dengan {@code listDosen != null}.
+	 */
 	private Collection<Dosen> listDosen = null;
+	/**
+	 * Menyimpan argumen {@code tampilInfo} dari {@link #mainInit} agar {@link #reload(Pertemuan)} dan seluruh
+	 * aksi yang membangun ulang tab dapat memanggil {@link #mainInit} dengan nilai yang sama. Bila {@code true},
+	 * {@link #bagianInfo} menambahkan blok ringkas {@link DashboardTimelinePertemuan#displayInfoPertemuan} di
+	 * baris paling atas form.
+	 */
 	private boolean tampilInfo;
 	private Combobox onlineMenggunakan;
 	private Row rowMeetKeterangan;

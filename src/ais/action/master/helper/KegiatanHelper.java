@@ -186,6 +186,33 @@ public class KegiatanHelper {
 		}
 	}
 
+	/**
+	 * Menyapu dua koleksi kerja hitung-ulang tagihan dan menandai setiap
+	 * {@link PengaturanPembayaranBulanan} yang ditemukan sebagai read-only lewat
+	 * {@link #tandaiPengaturanBulananReadOnly}, sehingga master konfigurasi pembayaran bulanan
+	 * tidak ikut ter-dirty-check saat sesi di-flush.
+	 *
+	 * <p>Ini adalah penerapan massal dari pelindung yang dijelaskan pada
+	 * {@link #tandaiPengaturanBulananReadOnly}: getter turunan pada
+	 * {@code PengaturanPembayaranBulanan} (real bulan/nama bulan) menulis balik ke field-nya
+	 * sendiri saat dibaca — instance dari pola getter-yang-memutasi-field yang tersebar di
+	 * {@code ais/database/model/}. Konsekuensinya Hibernate menganggap master konfigurasi ikut
+	 * berubah dan Envers menulis revisi audit palsu; bila skema {@code __aud} tenant tertinggal,
+	 * seluruh transaksi hitung ulang gagal. Method ini dipanggil di awal jalur hitung ulang
+	 * supaya seluruh konfigurasi yang akan tersentuh sudah read-only sebelum flush pertama.</p>
+	 *
+	 * <p>Dua koleksi diperlakukan berbeda karena bentuk datanya berbeda: {@code detailKegiatans}
+	 * berisi {@link DetailKegiatan} sehingga konfigurasi diambil lewat
+	 * {@code getPengaturanPembayaranBulanan()}, sedangkan {@code detailBiayas} dapat berisi
+	 * {@link PengaturanPembayaranBulanan} secara langsung. Keduanya disaring dengan
+	 * {@code instanceof} karena parameter sengaja bertipe {@link Collection} mentah (raw) —
+	 * pemanggil mengirim koleksi hasil query yang tipenya tidak seragam. Elemen bertipe lain
+	 * diabaikan diam-diam, dan {@code null} pada salah satu koleksi bukan error.</p>
+	 *
+	 * @param session         session Hibernate yang mengelola instance; boleh tidak usable/{@code null} (pelindung akan no-op)
+	 * @param detailKegiatans koleksi {@link DetailKegiatan} yang akan dihitung ulang; boleh {@code null}
+	 * @param detailBiayas    koleksi yang boleh memuat {@link PengaturanPembayaranBulanan} langsung; boleh {@code null}
+	 */
 	@SuppressWarnings("rawtypes")
 	private static void lindungiKonfigurasiBulananSaatHitungUlang(Session session, Collection detailKegiatans,
 			Collection detailBiayas) {
@@ -206,6 +233,38 @@ public class KegiatanHelper {
 		}
 	}
 
+	/**
+	 * Menerapkan {@code SET LOCAL lock_timeout = '5000ms'} pada transaksi PostgreSQL yang sedang
+	 * berjalan, agar UPDATE yang menunggu baris {@code kegiatan}/{@code detail_kegiatan} terkunci
+	 * transaksi lain GAGAL CEPAT (SQLState 55P03) alih-alih menggantung sampai
+	 * {@code statement_timeout} memicu 57014.
+	 *
+	 * <p><b>Kenapa ini penting.</b> Tanpa {@code lock_timeout}, request interaktif yang bertabrakan
+	 * dengan batch "Proses Tagihan" akan menahan koneksi c3p0 selama seluruh durasi
+	 * {@code statement_timeout}; error yang muncul pun berbentuk "canceling statement due to
+	 * statement timeout ... while updating tuple ... in relation kegiatan", yang secara SQLState
+	 * tidak dapat dibedakan dari timeout query biasa sehingga retry menjadi sia-sia. Dengan
+	 * gagal-cepat 55P03, {@link #isLockTimeout} dapat mengenalinya dan {@link #updateEntitySafe}
+	 * melakukan retry di sesi terisolasi bersih ({@link #openIsolatedSession}) dengan
+	 * backoff+jitter — koneksi pun cepat dibebaskan.</p>
+	 *
+	 * <p><b>FlushMode sementara MANUAL.</b> {@code SET LOCAL} tidak menyentuh state entity apa pun,
+	 * tetapi Hibernate akan melakukan auto-flush seluruh persistence context sebelum menjalankan
+	 * SQL query native. Pada jalur ini persistence context pemanggil sering memuat proxy lazy dari
+	 * session lama, sehingga auto-flush prematur justru memicu error yang hendak dicegah. Karena
+	 * itu {@link FlushMode} disimpan, diganti {@link FlushMode#MANUAL} selama statement, lalu
+	 * <i>selalu</i> dipulihkan di blok {@code finally} (termasuk bila statement gagal). Flush yang
+	 * memang dibutuhkan tetap dilakukan eksplisit oleh {@link #saveEntitySafe}/
+	 * {@link #updateEntitySafe} setelah entity target disimpan.</p>
+	 *
+	 * <p><b>Best-effort.</b> Seluruh kegagalan ditelan: {@code SET LOCAL} tidak dikenal di luar
+	 * PostgreSQL, dan tanpa transaksi aktif statement ini tidak berefek. Kegagalan di sini bukan
+	 * error aplikasi — jalur pemanggil tetap berjalan, hanya kehilangan properti gagal-cepat.
+	 * Pemulihan FlushMode juga dilindungi {@code try/catch} sendiri; session yang sudah rusak
+	 * akan ditangani jalur retry {@link #updateEntitySafe}.</p>
+	 *
+	 * @param session session Hibernate pemanggil yang transaksinya akan diberi batas tunggu lock
+	 */
 	private static void terapkanLockTimeout(Session session) {
 		// Batasi WAKTU TUNGGU LOCK (bukan durasi query) pada transaksi berjalan. Tanpa ini, UPDATE
 		// yang menunggu baris "kegiatan" terkunci transaksi lain akan MENGGANTUNG sampai

@@ -237,7 +237,7 @@ public final class PemetaanAkunHelper {
                 MasterAsset ma = pr.getMasterAsset();
                 if (ma == null) {
                     produkTanpaMaster++;
-                } else if (!formulaPunyaAkun(ma.akunTransaksiEfektif())) {
+                } else if (!formulaPunyaAkunDefault(ma.akunTransaksiEfektif())) {
                     produkTanpaPersediaan++;
                 }
             }
@@ -308,8 +308,9 @@ public final class PemetaanAkunHelper {
                         pr.setMasterAsset(ma);
                         session.saveOrUpdate(pr);
                     }
-                    if (timpa || !formulaPunyaAkun(ma.akunTransaksiEfektif())) {
-                        ma.setAkunTransaksi(formulaAkun(persediaan));
+                    if (timpa || !formulaPunyaAkunDefault(ma.akunTransaksiEfektif())) {
+                        ma.setAkunTransaksi(timpa ? formulaAkun(persediaan)
+                                : formulaTambahDefault(ma.akunTransaksiEfektif(), persediaan));
                         session.saveOrUpdate(ma);
                         masterDipetakan++;
                     }
@@ -458,17 +459,39 @@ public final class PemetaanAkunHelper {
         return j;
     }
 
-    private static boolean formulaPunyaAkun(String teks) {
+    /** Akun default wajib tersedia agar posting tetap bekerja untuk satuan kerja mana pun. */
+    private static boolean formulaPunyaAkunDefault(String teks) {
         try {
             JSONArray a = teks == null || teks.trim().isEmpty() ? new JSONArray() : new JSONArray(teks);
             for (int i = 0; i < a.length(); i++) {
                 JSONObject j = a.optJSONObject(i);
-                if (j != null && !j.isNull("akun") && j.optLong("akun", 0) > 0) return true;
+                if (j != null && !j.isNull("akun") && j.optLong("akun", 0) > 0
+                        && (j.isNull("satuanKerja") || j.optLong("satuanKerja", 0) <= 0)) {
+                    return true;
+                }
             }
         } catch (Exception e) {
             return false;
         }
         return false;
+    }
+
+    /** Pertahankan seluruh override satuan kerja, hanya tambahkan akun default bila belum ada. */
+    private static String formulaTambahDefault(String teks, Akun akun) throws Exception {
+        JSONArray a;
+        try {
+            a = teks == null || teks.trim().isEmpty() ? new JSONArray() : new JSONArray(teks);
+        } catch (Exception e) {
+            a = new JSONArray();
+        }
+        JSONObject j = new JSONObject();
+        long key = System.nanoTime();
+        if (key < 0) key = -key;
+        j.put("key", Long.valueOf(key));
+        j.put("akun", akun.getId());
+        j.put("satuanKerja", JSONObject.NULL);
+        a.put(j);
+        return a.toString();
     }
 
     private static String formulaAkun(Akun akun) throws Exception {
