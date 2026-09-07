@@ -3136,13 +3136,13 @@ public class InitDataHelper {
 		// tak akan pernah menyusut bila load preload dihitung sbg akses nyata).
 		ais.common.EntityAccessCache.tandaiPreload(true);
 
-		// 1. Buka Session Baru (Isolated Session)
-		// Menggunakan openSession() agar terpisah dari session HTTP request
-		Session session = HibernateUtil.getSessionFactory().openSession();
-
-		System.out.println("doInitData SESSION OK -> " + className);
-
+		Session session = null;
 		try {
+			// Buka di dalam try agar kegagalan factory/pool tetap melepas penanda preload
+			// dan menghapus reservasi kelas dari MemoryDbUtil pada blok catch/finally.
+			session = HibernateUtil.getSessionFactory().openSession();
+			System.out.println("doInitData SESSION OK -> " + className);
+
 			// Batasi statement_timeout untuk thread init ini. Sebelumnya 0 (tak terbatas)
 			// sehingga COUNT(*)/load pada tabel BESAR bisa MENGGANTUNG bootstrap selamanya.
 			// Dengan batas waktu, query yang kelamaan dibatalkan PostgreSQL → kelas di-skip
@@ -3171,8 +3171,9 @@ public class InitDataHelper {
 				if (jumlah == null) jumlah = 0;
 			} catch (Exception countEx) {
 				System.out.println("[InitDataHelper] COUNT(*) gagal untuk " + className
-						+ " — asumsikan tabel besar, skip load. Penyebab: " + countEx.getMessage());
-				jumlah = Integer.MAX_VALUE;
+						+ " — preload kelas dihentikan agar transaksi gagal tidak dipakai ulang. Penyebab: "
+						+ countEx.getMessage());
+				throw new IllegalStateException("Query awal preload gagal untuk " + className, countEx);
 			}
 
 			// --- BLOK LOGIKA KHUSUS ---
@@ -3293,16 +3294,10 @@ public class InitDataHelper {
 			}
 		} finally {
 
-			try {
-				session.disconnect();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitDataHelper.java:3231");
-				// TODO: handle exception
-			}
-			try {
-				session.close();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/InitDataHelper.java:3236");
-				// TODO: handle exception
-			}
+			// SELECT pun membuka transaksi implisit karena autocommit=false. Helper terpusat
+			// melakukan rollback sebelum koneksi dikembalikan ke c3p0, termasuk saat query
+			// timeout/gagal dan PostgreSQL menandai transaksi sebagai aborted.
+			HibernateUtil.closeSessionQuietly(session);
 			try {
 				ais.common.EntityAccessCache.tandaiPreload(false);
 			} catch (Throwable ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/common/InitDataHelper.java:3241");

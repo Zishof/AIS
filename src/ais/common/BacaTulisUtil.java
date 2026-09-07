@@ -1555,29 +1555,24 @@ public class BacaTulisUtil {
 	// PEMBERSIH SESSION MEMORI KETAT (CLEANUP)
 	// ===================================================================================
 	/**
-	 * Menutup sebuah session DB secara aman dan ketat (clear → disconnect → close).
+	 * Menutup sebuah session DB secara aman dan ketat, termasuk rollback transaksi
+	 * implisit dari operasi baca saat {@code autocommit=false}.
 	 *
 	 * <p><b>Tujuan.</b> Memastikan setiap session yang dibuka method-method native di class ini
 	 * dikembalikan ke pool tanpa kebocoran. Karena class ini memakai {@code openSession()} (bukan
 	 * session ZK), penutupan adalah tanggung jawab sendiri.</p>
 	 *
-	 * <p><b>Cara kerja.</b> Bila {@code session} tidak null: {@code clear()} (buang objek persisten),
-	 * {@code disconnect()}, lalu {@code close()}. Setiap langkah dibungkus try/catch independen
-	 * sehingga kegagalan satu langkah tidak menghentikan yang lain—prinsip "apa pun terjadi, lepaskan
-	 * koneksi".</p>
+	 * <p><b>Cara kerja.</b> Penutupan didelegasikan ke
+	 * {@link HibernateUtil#closeSessionQuietly(Session)} agar {@code clear()}, rollback transaksi,
+	 * {@code disconnect()}, dan {@code close()} selalu memakai urutan yang sama.</p>
 	 *
 	 * <p><b>Parameter &amp; pemeliharaan.</b> {@code session} = session yang ditutup (boleh null).
-	 * Method privat, dipanggil di {@code finally} semua helper DB. Untuk higiene transaksi yang lebih
-	 * lengkap (rollback sebelum close) lihat {@code HibernateUtil.closeSessionQuietly}; di sini cukup
-	 * karena transaksi sudah di-commit/rollback eksplisit oleh pemanggil.</p>
+	 * Method privat, dipanggil di {@code finally} semua helper DB. Jalur SELECT tanpa transaksi
+	 * Hibernate eksplisit tetap di-rollback sebelum koneksi dikembalikan ke pool.</p>
 	 *
 	 * @param session session yang ditutup (boleh null)
 	 */
 	private static void cleanupSession(Session session) {
-		if (session != null) {
-			try { if (session.isOpen()) session.clear(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/BacaTulisUtil.java:1511");}
-			try { session.disconnect(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/BacaTulisUtil.java:1512");}
-			try { if (session.isOpen()) session.close(); } catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/common/BacaTulisUtil.java:1513");}
-		}
+		HibernateUtil.closeSessionQuietly(session);
 	}
 }

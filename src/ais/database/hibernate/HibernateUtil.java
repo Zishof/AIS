@@ -210,6 +210,16 @@ public class HibernateUtil {
     }
 
     /**
+     * Menandai mode yang harus membangun dan menyelaraskan factory AIS sebelum
+     * connector mulai menerima request. Pada mode ini factory zkplus diganti,
+     * sehingga bootstrap asinkron dapat menutup pool lama yang masih dipakai
+     * request pertama.
+     */
+    public static boolean memerlukanBootstrapFactorySinkron() {
+        return pasangInterceptorDiFactory() || DbCredentialOverride.adaEnvironmentJurnal();
+    }
+
+    /**
      * Memilih sumber {@link SessionFactory}: memakai ulang milik zkplus bila tersedia, atau membangun
      * sendiri dari {@code hibernate.cfg.xml}.
      *
@@ -283,10 +293,9 @@ public class HibernateUtil {
             //     dalam double-checked-locking, lalu hasilnya disimpan ke field `static volatile FACTORY`.
             //     Jadi buildSessionFactory() ini berjalan TEPAT SEKALI seumur JVM — `sf` hanyalah nilai
             //     antara yang mengalir ke FACTORY.
-            // (3) Membuat FACTORY jadi `static final` + inisialisasi di deklarasi juga KELIRU: pembangunan
-            //     factory harus MALAS (setelah listener zkplus/zk.xml siap, dipicu request pertama) supaya
-            //     bisa menyuntik ke zkplus._factory; static-initializer bisa jalan terlalu dini dan bila
-            //     gagal → ExceptionInInitializerError yang meracuni class permanen. Pola DCL lazy ini benar.
+            // (3) Membuat FACTORY jadi `static final` + inisialisasi di deklarasi juga KELIRU. Factory tetap
+            //     dibangun lewat gerbang DCL ini. AppStartupListener hanya memanggil gerbang tersebut secara
+            //     sinkron untuk mode penggantian factory, sebelum request pertama dapat memakai pool zkplus lama.
             SessionFactory sf;
             try {
                 org.hibernate.cfg.Configuration cfgUtama = new org.hibernate.cfg.AnnotationConfiguration().configure();

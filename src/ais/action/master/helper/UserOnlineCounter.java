@@ -94,33 +94,13 @@ public class UserOnlineCounter extends TimerTask {
 
 	/**
 	 * Tutup session Hibernate native (dibuka via {@code HibernateUtil.currentNativeSession()})
-	 * secara menyeluruh &mdash; {@code clear()}, {@code disconnect()}, {@code close()} bila masih
-	 * terbuka, lalu {@code HibernateUtil.closeSession()} &mdash; dengan setiap langkah diredam bila
-	 * gagal (dicatat via {@code ErrorAuditUtil}, tak dilempar). Dipakai di {@code finally} beberapa
+	 * secara menyeluruh melalui {@link HibernateUtil#closeSessionQuietly(Session)}: session dilepas
+	 * dari ThreadLocal, transaksi JDBC di-rollback, lalu koneksi ditutup. Dipakai di {@code finally} beberapa
 	 * method statis kelas ini yang membuka session sendiri (mis. {@link #check()}, {@link #doRestart}).
 	 * No-op bila {@code session == null}.
 	 */
 	private static void closeNativeSessionQuietly(Session session) {
-		if (session != null) {
-			try {
-				session.clear();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/UserOnlineCounter.java:50");
-			}
-			try {
-				session.disconnect();
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/UserOnlineCounter.java:54");
-			}
-			try {
-				if (session.isOpen()) {
-					session.close();
-				}
-			} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/UserOnlineCounter.java:60");
-			}
-		}
-		try {
-			HibernateUtil.closeSession();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/action/master/helper/UserOnlineCounter.java:65");
-		}
+		HibernateUtil.closeSessionQuietly(session);
 	}
 
 	/**

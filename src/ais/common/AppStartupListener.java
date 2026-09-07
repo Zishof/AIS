@@ -109,6 +109,26 @@ public class AppStartupListener implements ServletContextListener {
 			throw new RuntimeException("Bootstrap aplikasi gagal (initConfig)", e);
 		}
 
+		/*
+		 * Bila factory AIS harus mengganti factory zkplus (interceptor factory atau
+		 * database jurnal), lakukan sebelum thread startup dilepas. Jika dikerjakan
+		 * di AIS-Init-Data, request pertama dapat membuka session dari pool lama lalu
+		 * pool itu ditutup saat factory baru disuntikkan ke zkplus.
+		 */
+		if (HibernateUtil.memerlukanBootstrapFactorySinkron()) {
+			try {
+				HibernateUtil.getSessionFactory();
+				System.out.println("SessionFactory pengganti siap sebelum aplikasi menerima request.");
+			} catch (Throwable e) {
+				startupInProgress = false;
+				System.err.println("Error fatal saat bootstrap SessionFactory: " + e.getMessage());
+				e.printStackTrace();
+				ais.common.ErrorAuditUtil.record(e,
+						"auto-audit src/ais/common/AppStartupListener.java:bootstrap-session-factory");
+				throw new RuntimeException("Bootstrap aplikasi gagal (SessionFactory)", e);
+			}
+		}
+
 		// Init data BERAT (load reference data, enkripsi, menu, skin/branding) dipindah ke
 		// THREAD LATAR agar Tomcat SELESAI start & connector langsung melayani request tanpa
 		// menunggu init data. Data yang belum termuat akan dimuat ON-DEMAND oleh tiap fitur.

@@ -813,13 +813,13 @@ public abstract class GeneralValueObject extends DataUtil
 	 * Menutup session yang dibuka sendiri oleh {@link #reloadDetachedObject(String, Serializable)}
 	 * secara bertahap dan tanpa pernah melempar exception.
 	 *
-	 * <p>Tiga langkah, masing-masing di blok {@code try/catch} terpisah supaya kegagalan satu
-	 * langkah tidak menggagalkan langkah berikutnya:</p>
+	 * <p>Penutupan didelegasikan ke {@link HibernateUtil#closeSessionQuietly(Session)} agar setiap
+	 * langkah tetap terisolasi dan koneksi selalu di-rollback sebelum kembali ke pool:</p>
 	 * <ol>
 	 *   <li>{@code clear()} — lepaskan entity dari persistence context agar tidak ada auto-flush
 	 *   tak sengaja saat penutupan.</li>
-	 *   <li>{@code disconnect()} — kembalikan koneksi JDBC ke pool secepatnya.</li>
-	 *   <li>{@code close()} — hanya bila session memang masih terbuka.</li>
+	 *   <li>{@code rollback()} — bersihkan transaksi implisit SELECT yang gagal/aborted.</li>
+	 *   <li>{@code disconnect()} dan {@code close()} — kembalikan koneksi JDBC ke pool.</li>
 	 * </ol>
 	 *
 	 * <p>Kebocoran koneksi di sini akan sangat merusak: {@code check()} berjalan di jalur getter
@@ -829,23 +829,7 @@ public abstract class GeneralValueObject extends DataUtil
 	 * @param session session yang akan ditutup; aman bila {@code null}
 	 */
 	private static void closeSessionCreatedByCheckQuietly(Session session) {
-		if (session == null) {
-			return;
-		}
-		try {
-			session.clear();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/GeneralValueObject.java:334");
-		}
-		try {
-			session.disconnect();
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/GeneralValueObject.java:338");
-		}
-		try {
-			if (session.isOpen()) {
-				session.close();
-			}
-		} catch (Exception e) { ais.common.ErrorAuditUtil.record(e, "auto-audit(empty-catch) src/ais/database/model/GeneralValueObject.java:344");
-		}
+		HibernateUtil.closeSessionQuietly(session);
 	}
 
 	/**
