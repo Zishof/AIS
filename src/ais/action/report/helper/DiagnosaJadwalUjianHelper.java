@@ -64,6 +64,10 @@ import ais.database.model.StatusPertemuan;
  */
 public final class DiagnosaJadwalUjianHelper {
 
+	/**
+	 * Konstruktor privat. Kelas ini hanya berisi method statis (utility class)
+	 * sehingga tidak dimaksudkan untuk diinstansiasi.
+	 */
 	private DiagnosaJadwalUjianHelper() {
 	}
 
@@ -115,7 +119,29 @@ public final class DiagnosaJadwalUjianHelper {
 		}
 	}
 
-	/** Menghitung jumlah perkuliahan (mata kuliah/kelas) yang cocok dengan filter akademik. */
+	/**
+	 * Menghitung jumlah perkuliahan (mata kuliah/kelas) yang cocok dengan filter akademik.
+	 * <p>
+	 * Setiap filter yang bernilai {@code null}/{@code false} diterjemahkan menjadi
+	 * {@code Restrictions.sqlRestriction("true")} (tidak membatasi apa pun), sehingga kombinasi
+	 * filter kosong menghitung seluruh baris {@link Perkuliahan}. Query hanya memakai
+	 * {@code Projections.rowCount()} (COUNT), tidak menarik entity/kolom lain.
+	 *
+	 * @param session   session Hibernate yang sedang aktif (tidak dibuka/ditutup di sini).
+	 * @param fak       filter fakultas via alias {@code jurusan.fakultas} (null = semua).
+	 * @param jur       filter jurusan/prodi (null = semua).
+	 * @param masa      filter masa perkuliahan (null = semua).
+	 * @param ta        nilai tahun ajaran terpilih (null = semua).
+	 * @param gg        nilai semester Genap/Ganjil/SP terpilih (null = semua); bila sama dengan
+	 *                  {@link Perkuliahan#SP} dibandingkan lewat {@code statusSemesterPendek},
+	 *                  selain itu dibandingkan lewat daftar {@code semester} sesuai
+	 *                  {@link Common#ganjil}/{@link Common#genap}.
+	 * @param prog      nilai program terpilih (null = semua).
+	 * @param namaKelas nama kelas terpilih (null = semua).
+	 * @param ekstra    true bila hanya menghitung mata kuliah ekstrakurikuler ({@code mk.extraKulikuler}).
+	 * @return jumlah baris {@link Perkuliahan} yang cocok filter, atau {@code 0} bila hasil query
+	 *         bukan berupa {@link Number}.
+	 */
 	public static long hitungPerkuliahan(Session session, Fakultas fak, Jurusan jur, MasaPerkuliahan masa,
 			Object ta, Object gg, Object prog, String namaKelas, boolean ekstra) {
 		Criteria c = session.createCriteria(Perkuliahan.class).createAlias("jurusan", "j")
@@ -136,9 +162,33 @@ public final class DiagnosaJadwalUjianHelper {
 	}
 
 	/**
-	 * Menghitung sesi ujian (Pertemuan) yang cocok filter. {@code jenis} null = semua jenis ujian
+	 * Menghitung sesi ujian ({@link Pertemuan}) yang cocok filter. {@code jenis} null = semua jenis ujian
 	 * (statusPertemuan tidak kosong). Bila {@code bertanggalSaja} true, hanya sesi yang sudah punya
 	 * {@code tanggal} — untuk membedakan "sesi belum dibuat" dari "sesi ada tapi belum dijadwalkan".
+	 * <p>
+	 * Selain filter {@code statusPertemuan} dan {@code tanggal}, query juga membatasi pada
+	 * {@code aktif} yang {@code null} atau {@code true} (menyaring sesi yang dinonaktifkan), lalu
+	 * menerapkan filter akademik yang sama seperti {@link #hitungPerkuliahan} lewat alias
+	 * {@code perkuliahan}/{@code perkuliahan.jurusan}/{@code perkuliahan.matakuliah} agar hasil
+	 * hitungan konsisten dengan query utama laporan. Query hanya memakai
+	 * {@code Projections.rowCount()} (COUNT).
+	 *
+	 * @param session        session Hibernate yang sedang aktif (tidak dibuka/ditutup di sini).
+	 * @param fak            filter fakultas via alias {@code perkuliahan.jurusan.fakultas} (null = semua).
+	 * @param jur            filter jurusan/prodi via {@code perkuliahan.jurusan} (null = semua).
+	 * @param masa           filter masa perkuliahan via {@code perkuliahan.masaPerkuliahan} (null = semua).
+	 * @param ta             nilai tahun ajaran terpilih via {@code perkuliahan.tahunAjaran} (null = semua).
+	 * @param gg             nilai semester Genap/Ganjil/SP terpilih (null = semua); perlakuan sama
+	 *                       seperti pada {@link #hitungPerkuliahan}.
+	 * @param prog           nilai program terpilih via {@code perkuliahan.program} (null = semua).
+	 * @param namaKelas      nama kelas terpilih via {@code perkuliahan.kelas} (null = semua).
+	 * @param ekstra         true bila hanya menghitung mata kuliah ekstrakurikuler ({@code mk.extraKulikuler}).
+	 * @param jenis          jenis ujian ({@link StatusPertemuan}) yang difilter; {@code null} berarti
+	 *                       semua sesi yang {@code statusPertemuan}-nya tidak kosong (dianggap sesi ujian).
+	 * @param bertanggalSaja bila {@code true}, hanya menghitung sesi yang kolom {@code tanggal}-nya
+	 *                       sudah terisi.
+	 * @return jumlah baris {@link Pertemuan} yang cocok filter, atau {@code 0} bila hasil query bukan
+	 *         berupa {@link Number}.
 	 */
 	public static long hitungSesiUjian(Session session, Fakultas fak, Jurusan jur, MasaPerkuliahan masa,
 			Object ta, Object gg, Object prog, String namaKelas, boolean ekstra, StatusPertemuan jenis,

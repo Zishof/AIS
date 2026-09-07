@@ -16,9 +16,20 @@ import ais.ui.util.WaktuUtil;
  */
 public final class LaporanTanggalUtil {
 
+    /**
+     * Konstruktor privat. Kelas ini hanya berisi method statis (utility class)
+     * sehingga tidak dimaksudkan untuk diinstansiasi.
+     */
     private LaporanTanggalUtil() {
     }
 
+    /**
+     * Menormalisasi {@code date} ke awal hari yang sama (00:00:00.000).
+     *
+     * @param date tanggal/waktu sumber; boleh {@code null}.
+     * @return {@link Date} baru pada awal hari yang sama dengan {@code date},
+     *         atau {@code null} bila {@code date} {@code null}.
+     */
     public static Date awalHari(Date date) {
         if (date == null) {
             return null;
@@ -29,6 +40,18 @@ public final class LaporanTanggalUtil {
         return calendar.getTime();
     }
 
+    /**
+     * Menormalisasi {@code date} ke akhir hari yang sama (23:59:59.999).
+     * <p>
+     * Dipakai agar query database yang membandingkan rentang tanggal
+     * (misalnya {@code BETWEEN mulai AND sampai}) tetap mencakup seluruh
+     * baris pada hari terakhir periode, walau kolom tanggalnya menyimpan
+     * komponen waktu.
+     *
+     * @param date tanggal/waktu sumber; boleh {@code null}.
+     * @return {@link Date} baru pada akhir hari yang sama dengan {@code date},
+     *         atau {@code null} bila {@code date} {@code null}.
+     */
     public static Date akhirHari(Date date) {
         if (date == null) {
             return null;
@@ -42,6 +65,14 @@ public final class LaporanTanggalUtil {
         return calendar.getTime();
     }
 
+    /**
+     * Menyetel komponen jam/menit/detik/milidetik {@code calendar} ke
+     * 00:00:00.000 secara in-place, tanpa mengubah tanggal (tahun/bulan/hari)
+     * yang sudah tersimpan pada {@code calendar}.
+     *
+     * @param calendar instance {@link Calendar} yang diubah in-place; method
+     *                 tidak melakukan apa pun bila {@code null}.
+     */
     public static void normalisasiJamAwalHari(Calendar calendar) {
         if (calendar == null) {
             return;
@@ -52,6 +83,16 @@ public final class LaporanTanggalUtil {
         calendar.set(Calendar.MILLISECOND, 0);
     }
 
+    /**
+     * Membuat {@link Calendar} baru (lewat {@link WaktuUtil#getCalendar()})
+     * yang disetel ke awal hari dari {@code date}.
+     *
+     * @param date tanggal sumber; bila {@code null}, {@link Calendar} yang
+     *             dikembalikan tetap berisi waktu saat ini (default dari
+     *             {@link WaktuUtil#getCalendar()}) namun jamnya dinormalisasi
+     *             ke awal hari.
+     * @return {@link Calendar} baru pada awal hari yang bersangkutan.
+     */
     public static Calendar calendarAwalHari(Date date) {
         Calendar calendar = WaktuUtil.getCalendar();
         if (date != null) {
@@ -61,12 +102,39 @@ public final class LaporanTanggalUtil {
         return calendar;
     }
 
+    /**
+     * Menghitung batas eksklusif untuk loop tanggal inklusif: awal hari
+     * {@code sampai} ditambah satu hari.
+     * <p>
+     * Dipakai pada pola loop {@code while (cursor.before(batasEksklusifBesok))}
+     * agar hari terakhir periode ({@code sampai}) tetap ikut diproses tanpa
+     * memerlukan perbandingan {@code <=} yang rawan salah pada komponen jam.
+     *
+     * @param sampai tanggal akhir periode (inklusif); lihat
+     *               {@link #calendarAwalHari(Date)} untuk perlakuan
+     *               {@code null}.
+     * @return {@link Calendar} pada awal hari setelah {@code sampai}.
+     */
     public static Calendar batasEksklusifBesok(Date sampai) {
         Calendar calendar = calendarAwalHari(sampai);
         calendar.add(Calendar.DATE, 1);
         return calendar;
     }
 
+    /**
+     * Menghitung jumlah hari kalender dari {@code mulai} sampai {@code sampai}
+     * secara inklusif (kedua ujung dihitung), tanpa memperhitungkan komponen
+     * jam pada kedua tanggal (dibandingkan pada awal hari masing-masing).
+     * <p>
+     * Perhitungan dibatasi maksimum 36600 hari (~100 tahun) sebagai pengaman
+     * agar loop tidak berjalan tanpa batas bila terjadi kesalahan input;
+     * pada kondisi itu method mengembalikan 36600 tanpa melempar exception.
+     *
+     * @param mulai  tanggal awal periode (inklusif); boleh {@code null}.
+     * @param sampai tanggal akhir periode (inklusif); boleh {@code null}.
+     * @return jumlah hari inklusif, atau {@code 0} bila salah satu argumen
+     *         {@code null} atau bila {@code sampai} jatuh sebelum {@code mulai}.
+     */
     public static int jumlahHariInklusif(Date mulai, Date sampai) {
         if (mulai == null || sampai == null) {
             return 0;

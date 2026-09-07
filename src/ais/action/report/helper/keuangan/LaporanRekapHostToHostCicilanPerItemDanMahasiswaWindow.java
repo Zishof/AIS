@@ -81,30 +81,62 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Penyusun/penyaji laporan untuk laporan rekap host to host cicilan per item dan mahasiswa window.
- * Kelas ini mengubah data domain menjadi bentuk laporan yang dipakai UI, ekspor, atau proses cetak
- * tanpa memindahkan aturan transaksi ke lapisan report.
+ * Layar laporan <em>Rekapitulasi Pembayaran Host to Host — Cicilan per Item dan per Mahasiswa</em>.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox searchfakultas}, {@code
- * Combobox searchjurusan}, {@code Combobox tahunAkademik}, {@code Combobox semesterAbsensi}, {@code Combobox
- * jenisPembayaran}, {@code Combobox jenisSeleksi}, {@code Combobox searchprogram}, {@code Combobox jenjang};
- * inisialisasi/lifecycle ({@code init()}, {@code initSpreadsheet()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <p>Kelas ini adalah anggota keluarga empat layar rekap cicilan yang dibangun dari satu template
+ * yang sama, yaitu {@code LaporanRekapHostToHostCicilanPerItemWindow} (rekap satu baris per
+ * mahasiswa), {@code LaporanRekapHostToHostCicilanPerItemBulananWindow} (rekap per bulan),
+ * {@code LaporanRekapHostToHostCicilanPerItemBelumbayarWindow} (rekap tunggakan), dan varian ini.
+ * Ciri khas varian ini adalah <b>rincian dua tingkat</b>: satu blok baris per mahasiswa/calon
+ * mahasiswa, lalu di bawahnya satu baris untuk setiap kombinasi tahun akademik/semester
+ * ({@code "TA/semester"}) tempat mahasiswa tersebut membayar. Karena itu varian ini memakai
+ * struktur bersarang {@code TreeMap<String, TreeMap<String, Object[]>>}, sementara varian
+ * {@code PerItem} cukup memakai {@code TreeMap<String, Object[]>} satu tingkat.</p>
+ *
+ * <p><b>Sumber data.</b> Meskipun nama layar mengandung frasa "Host to Host", kelas ini
+ * <b>tidak</b> membaca entitas {@code LogHostToHost} dan sama sekali tidak menyentuh payload mentah
+ * pesan bank host-to-host. Satu-satunya entitas transaksional yang dibaca adalah
+ * {@link CicilanPembayaran} beserta relasi {@link Kegiatan}, {@link Mahasiswa},
+ * {@link BiodataCalonMahasiswa}, dan {@link ItemBiaya}. Frasa "Host to Host" di sini menandai
+ * <em>kanal pembayaran</em> yang direkap, bukan tabel log protokol bank. Kolom yang benar-benar
+ * dikeluarkan ke berkas Excel adalah NIM/nomor registrasi, nama, prodi, program, tahun angkatan,
+ * nominal per item biaya, dan total — jadi data pribadi (PII) mahasiswa dan nominal keuangan,
+ * bukan nomor rekening, nomor kartu, atau isi pesan ISO 8583/JSON bank.</p>
+ *
+ * <p><b>Peringatan otorisasi.</b> Kelas ini <b>tidak memuat satu pun gerbang otorisasi</b>: tidak ada
+ * pemanggilan {@code Common.getCurrentUser(...)}, tidak ada pemeriksaan privilege/role, dan tidak ada
+ * pembatasan lingkup (<em>scoping</em>) ke fakultas/program studi milik pengguna yang sedang login.
+ * Combobox {@code searchfakultas}/{@code searchjurusan} diisi lewat
+ * {@code Common.initFakultasDanJurusanDanSemua(null, null, ...)} dengan parameter pembatas
+ * {@code null}, sehingga seluruh fakultas dan seluruh program studi selalu dapat dipilih oleh siapa
+ * pun yang berhasil membuka layar ini. Dengan kata lain, satu-satunya pengaman yang tersisa adalah
+ * gerbang di lapisan luar (menu/dasbor dan aturan {@code intercept-url}) yang menentukan siapa boleh
+ * membuka window ini; begitu window terbuka, tidak ada penyaringan lanjutan per pengguna. Filter
+ * fakultas/prodi/jenjang di sini murni alat bantu tampilan, bukan kontrol akses.</p>
+ *
+ * <p><b>Jejak berkas hasil.</b> {@code initSpreadsheet()} menulis berkas {@code .xlsx} hasil rekap ke
+ * {@code getRealPath("/tmp/rekap_<timestamp>.xlsx")} di dalam direktori webapp, lalu menampilkannya
+ * melalui {@code spreadsheet.setSrc("../../tmp/" + namaBerkas)}. Berkas itu berisi PII dan nominal
+ * pembayaran, tidak pernah dihapus oleh kelas ini, dan namanya hanya berbasis stempel waktu sehingga
+ * mudah ditebak. Keterpaparannya bergantung sepenuhnya pada aturan penolakan akses direktori
+ * {@code /tmp} webapp di deskriptor keamanan aplikasi; jangan menambah pemakai baru pola ini tanpa
+ * memastikan aturan tersebut masih berlaku.</p>
+ *
+ * <p><b>Batas tanggung jawab.</b> Perilaku umum window, lifecycle, dan utilitas UI tetap dimiliki
+ * {@link MyWindow}. Kelas ini hanya memuat perbedaan spesifik varian "per item dan mahasiswa";
+ * perubahan yang berlaku bagi seluruh keluarga rekap cicilan harus ditempatkan di tempat bersama agar
+ * keempat salinan tidak bercabang lebih jauh. Kelas ini murni membaca: tidak ada operasi simpan,
+ * hapus, posting, maupun pembatalan, dan tidak ada transaksi tulis yang dibuka.</p>
  *
  * @see MyWindow
+ * @see CicilanPembayaran
  */
 public class LaporanRekapHostToHostCicilanPerItemDanMahasiswaWindow extends MyWindow {
 
 	/**
-	 * 
+	 * Penanda versi serialisasi bawaan {@link java.io.Serializable} yang diwarisi dari
+	 * {@code Component} ZK. Nilainya sengaja disamakan pada keempat varian layar rekap cicilan karena
+	 * seluruhnya lahir dari satu template; nilai ini tidak pernah dibaca oleh logika laporan.
 	 */
 	private static final long serialVersionUID = 790038368339375113L;
 

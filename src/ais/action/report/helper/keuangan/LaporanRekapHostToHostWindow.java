@@ -84,25 +84,62 @@ import ais.ui.util.MyToolbarbuttonConfig;
 import ais.ui.util.MyWindow;
 
 /**
- * Penyusun/penyaji laporan untuk laporan rekap host to host window. Kelas ini mengubah data domain
- * menjadi bentuk laporan yang dipakai UI, ekspor, atau proses cetak tanpa memindahkan aturan
- * transaksi ke lapisan report.
+ * Layar laporan <b>Rekapitulasi Pembayaran Host-to-Host</b> &mdash; laporan INDUK dari keluarga
+ * {@code LaporanRekapHostToHost*Window}. Kelas ini menyusun rekap penerimaan pembayaran mahasiswa yang
+ * masuk melalui kanal <i>host-to-host</i> perbankan (virtual account/payment gateway), lalu menyajikannya
+ * sebagai lembar kerja Excel (XSSF) di layar sekaligus menyediakan tombol unduh.
  *
- * <p><b>Batas tanggung jawab:</b> perilaku umum, validasi, akses data, serta lifecycle tetap dimiliki {@link
- * MyWindow}. Kelas ini hanya boleh memuat perbedaan yang benar-benar spesifik untuk variasi ini; perubahan yang
- * berlaku bagi seluruh keluarga harus ditempatkan di kelas induk agar fungsi tidak bercabang atau tumpang
- * tindih.</p>
- * <p>Perbedaan lokal yang dapat diamati adalah state lokal utama: {@code Combobox searchfakultas}, {@code
- * Combobox searchjurusan}, {@code Decimalbox angkatan}, {@code Combobox tahunAkademik}, {@code Combobox
- * semesterAbsensi}, {@code Combobox jenisPembayaran}, {@code Combobox jenisSeleksi}, {@code Combobox jenjang};
- * inisialisasi/lifecycle ({@code init()}, {@code initSpreadsheet()}). Bagian lain dari kontrak tetap mengikuti
- * kelas induk atau interface yang disebut di atas.</p>
- * <p><b>Efek samping:</b> nama operasi di atas menunjukkan batas orkestrasi kelas ini. Method baca harus tetap
- * bebas dari mutasi tersembunyi; method simpan/hapus/posting wajib memakai transaksi dan otorisasi yang sama
- * dengan alur induknya. Pemanggil baru sebaiknya menggunakan method yang sudah ada atau service bersama, bukan
- * membuat salinan query dan validasi di action lain.</p>
+ * <h3>Sumber data dan tingkat agregasi</h3>
+ * <p>Sumber data satu-satunya adalah entity {@link ais.database.model.CicilanPembayaran} (angsuran/cicilan
+ * pembayaran), <b>bukan</b> {@code LogHostToHost}. Frasa &quot;Host to Host&quot; pada nama kelas merujuk pada
+ * <i>kanal</i> tempat pembayaran diterima, bukan pada tabel log mentah transaksi bank. Kelas ini tidak pernah
+ * membaca, menampilkan, maupun mengekspor payload mentah host-to-host: tidak ada nomor kartu, nomor rekening,
+ * token, maupun header {@code Authorization} yang disentuh di sini &mdash; lihat catatan keamanan di bawah.</p>
+ * <p>Agregasi dilakukan pada tingkat <b>tanggal &times; validator</b>. Kolom keluaran hanya berupa angka
+ * gabungan: {@code Tanggal}, {@code Validator}, {@code Jumlah Mahasiswa}, {@code Total Pembayaran}, serta
+ * subtotal per tanggal. <b>Tidak ada</b> kolom identitas mahasiswa (NIM/nama) pada laporan induk ini; varian
+ * yang memang menurunkan data sampai baris per mahasiswa adalah
+ * {@link LaporanRekapHostToHostCicilanWindow} dan {@link LaporanRekapHostToHostCicilanItemWindow}.</p>
+ *
+ * <h3>Struktur tab (kelas ini sebagai induk)</h3>
+ * <p>{@link #init()} merakit dua tingkat {@code Tabbox}. Tingkat luar memuat tab rekap utama plus tab
+ * turunan yang dimuat secara lambat (<i>lazy</i>) saat diklik: Rekap Biaya Administrasi, Rekap Biaya Payment
+ * Gateway, Rekap Biaya Ecampus (ketiganya digerbangi {@code Common.bolehKonfigurasi(...)}), Info Pembayaran
+ * Per-mhs, Info Pembayaran, serta Tagihan Virtual Account. Tingkat dalam memuat enam varian rekap: Rekap
+ * Tanggal (dirakit langsung oleh kelas ini), Rekap Mahasiswa, Rekap Item, Rekap Item Bulanan, Per Item, dan
+ * Per Item dan Mahasiswa. Karena itulah kelas ini menjadi pintu masuk tunggal ke seluruh keluarga laporan
+ * tersebut.</p>
+ *
+ * <h3><b>Catatan keamanan (WAJIB dibaca sebelum menambah kolom)</b></h3>
+ * <ul>
+ *   <li><b>Tidak ada gerbang otorisasi di dalam kelas ini.</b> Konstruktor langsung memanggil {@link #init()}
+ *       tanpa pemeriksaan peran, hak akses, maupun kepemilikan data. Satu-satunya kendali akses berada di
+ *       lapisan pemanggil: entri menu {@code laporanRekapHostToHostWindow} pada {@code ais.common.Common} dan
+ *       kartu dasbor &quot;Rekapitulasi Pembayaran&quot;/&quot;Rekap Mahasiswa Belum Bayar&quot; pada
+ *       {@code ais.action.master.dashboard.CommonDashboard}. Siapa pun yang memperoleh hak menu generik
+ *       tersebut memperoleh angka penerimaan keuangan seluruh institusi.</li>
+ *   <li><b>Tidak ada pembatasan cakupan (scoping) satuan kerja/fakultas/program studi.</b> Filter fakultas dan
+ *       program studi diisi lewat {@code Common.initFakultasDanJurusanDanSemua(null, null, ...)} dengan
+ *       argumen pembatas {@code null}, sehingga seluruh fakultas dan prodi selalu dapat dipilih dan nilai
+ *       bawaannya adalah &quot;Semua&quot;. Laporan bawaan karenanya bersifat lintas institusi.</li>
+ *   <li><b>Berkas ekspor ditulis ke direktori {@code /tmp} webapp.</b> {@link #initSpreadsheet()} menulis
+ *       {@code .xlsx} hasil rekap ke {@code getRealPath("/tmp/rekap_<yyMMddHHmmss>.xlsx")} dan berkas itu
+ *       tidak pernah dihapus. Nama berkasnya dapat ditebak. Akses HTTP publik ke direktori tersebut sudah
+ *       ditutup oleh {@code security-constraint} dengan {@code auth-constraint} kosong pada
+ *       {@code webapp/WEB-INF/web.xml} (url-pattern {@code /tmp/*}); pratinjau ZK tetap berfungsi karena
+ *       {@code Spreadsheet#setSrc} membaca berkas dari sisi server, bukan lewat request HTTP. Pembersihan
+ *       berkas lama pada server produksi masih menjadi tugas pemilik sistem.</li>
+ * </ul>
+ *
+ * <h3>Efek samping dan model konkurensi</h3>
+ * <p>{@link #initSpreadsheet()} menjalankan pengambilan data pada {@code Thread} terpisah dan memakai
+ * {@code ais.action.report.Report#openNativeSession()} satu sesi per baris {@code CicilanPembayaran}, bukan
+ * sesi Hibernate milik request. Method di kelas ini hanya membaca; tidak satu pun menulis ke basis data.</p>
  *
  * @see MyWindow
+ * @see LaporanRekapHostToHostCicilanWindow
+ * @see LaporanRekapHostToHostCicilanItemWindow
+ * @see ais.database.model.CicilanPembayaran
  */
 public class LaporanRekapHostToHostWindow extends MyWindow {
 
