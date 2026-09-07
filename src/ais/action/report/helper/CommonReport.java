@@ -222,12 +222,71 @@ public class CommonReport {
         }
     };
 
+    /**
+     * Varian ringkas {@link #tampilkanReportPDF(Component, File, Map)} yang menampilkan berkas
+     * PDF hasil laporan TANPA toolbar ekspor.
+     *
+     * <p>Karena {@code parameters} diteruskan sebagai {@code null}, jendela hasil tidak
+     * memperoleh baris tombol PDF/XLS/DOCX di bagian atas — pengguna hanya dapat melihat dan
+     * menutup. Gunakan varian tiga-argumen bila layar pemanggil ingin pengguna dapat mengunduh
+     * ulang laporan dalam format lain dari jendela yang sama.</p>
+     *
+     * @param parent komponen ZK tempat PDF ditanam. Bila berupa {@link Window}, jendela akan
+     *               dibungkus {@link Borderlayout} lengkap dengan tombol "Tutup"; bila berupa
+     *               {@link Iframe} atau komponen lain, PDF ditanam langsung. Boleh {@code null}.
+     * @param file   berkas PDF hasil laporan. Bila {@code null}, method langsung kembali tanpa
+     *               melakukan apa pun dan TANPA pesan ke pengguna.
+     * @throws Exception bila proses penanaman berkas oleh {@code Report.tampil} gagal.
+     */
     @SuppressWarnings("rawtypes")
     public static void tampilkanReportPDF(Component parent, File file) throws Exception {
         Map parameters = null;
         tampilkanReportPDF(parent, file, parameters);
     }
 
+    /**
+     * Menampilkan berkas PDF hasil laporan ke dalam komponen ZK, dengan kerangka jendela dan
+     * toolbar ekspor opsional. Ini adalah jalur tampil PDF bersama yang dipakai layar-layar
+     * {@code Laporan*} di seluruh aplikasi.
+     *
+     * <p><b>Bentuk keluaran bergantung pada tipe {@code parent}:</b></p>
+     * <ul>
+     * <li><b>{@link Window}</b> — dibangun {@link Borderlayout} penuh: bagian tengah
+     * ({@link Center}) berisi PDF, bagian selatan ({@link South}) berisi toolbar dengan tombol
+     * "Tutup" yang men-{@code detach()} jendela, dan — HANYA bila {@code parameters} bukan
+     * {@code null} — bagian utara ({@link North}) setinggi 34px berisi toolbar ekspor hasil
+     * {@link #exportReport(ParameterListener, String, List, EventListener)}.</li>
+     * <li><b>{@link Iframe}</b> — isi lama dibersihkan lewat {@code Common.clear}, lebar
+     * dipaksa 100%, dan tingginya diambil dari atribut komponen {@code "desktopHeight"} bila
+     * ada (jatuh ke 100% bila tidak).</li>
+     * <li><b>lainnya</b> — PDF ditanam apa adanya lewat {@code Report.tampil}.</li>
+     * </ul>
+     *
+     * <p><b>Perhatikan sumber toolbar ekspor:</b> {@link ParameterListener} yang dipasang di sini
+     * adalah pembungkus yang SELALU mengembalikan peta {@code parameters} yang sama (tangkapan
+     * nilai saat method dipanggil), bukan yang meregenerasi parameter dari komponen filter di
+     * layar. Artinya tombol ekspor pada jendela ini mencetak ulang laporan dengan parameter
+     * YANG SAMA seperti PDF yang sedang ditampilkan, walaupun pengguna sudah mengubah filter di
+     * layar induk. Ini disengaja: jendela hasil harus konsisten dengan apa yang terlihat.</p>
+     *
+     * <p><b>Nama laporan untuk toolbar</b> diambil dari {@code file.getName()} — yakni nama
+     * BERKAS hasil (sering mengandung imbuhan hash/waktu), bukan nama logis laporan. Konsekuensinya
+     * tombol Download/Upload/Sejarah JRXML tidak dipasang pada jendela ini karena argumen
+     * {@code eventListener} bernilai {@code null} (lihat
+     * {@link #exportReport(ParameterListener, String, List, EventListener, boolean)}).</p>
+     *
+     * <p><b>Otorisasi:</b> method ini TIDAK melakukan pemeriksaan hak akses apa pun. Keputusan
+     * siapa boleh melihat laporan apa sepenuhnya berada di layar pemanggil dan pada kueri yang
+     * menghasilkan {@code file}; kelas ini hanya menyajikan berkas yang sudah jadi.</p>
+     *
+     * @param parent     komponen ZK induk; boleh {@code null} (PDF ditanam ke {@code null} target
+     *                   oleh {@code Report.tampil}).
+     * @param file       berkas PDF hasil laporan; bila {@code null} method langsung kembali
+     *                   secara senyap.
+     * @param parameters peta parameter laporan; bila bukan {@code null} DAN {@code parent} adalah
+     *                   {@link Window}, toolbar ekspor ditambahkan di bagian utara.
+     * @throws Exception bila penanaman berkas gagal.
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static void tampilkanReportPDF(Component parent, File file, final Map parameters) throws Exception {
         if (file == null) {
@@ -292,10 +351,68 @@ public class CommonReport {
         }
     }
 
+    /**
+     * Varian ringkas {@link #tampilkanReportXLS(Component, File, Integer)} dengan batas baris
+     * pratinjau bawaan ({@link #DEFAULT_SPREADSHEET_ROWS}).
+     *
+     * @param parent komponen ZK tempat pratinjau dipasang; isinya dibersihkan lebih dulu.
+     * @param file   berkas XLS hasil laporan; {@code null} berarti tidak melakukan apa pun.
+     * @throws InterruptedException dilempar oleh kotak pesan modal ZK bila alur pengguna
+     *                              terputus.
+     */
     public static void tampilkanReportXLS(Component parent, File file) throws InterruptedException {
         tampilkanReportXLS(parent, file, null);
     }
 
+    /**
+     * Menampilkan berkas XLS hasil laporan sebagai PRATINJAU di layar, lengkap dengan tombol
+     * untuk mengunduh berkas Excel aslinya. Jalur tampil XLS bersama untuk seluruh layar
+     * {@code Laporan*}.
+     *
+     * <p><b>Deteksi "data tidak ditemukan" berbasis UKURAN BERKAS.</b> Berkas yang ukurannya
+     * {@code <= 3584} byte dianggap sebagai laporan KOSONG: pengguna diberi pesan "Data tidak
+     * ditemukan" dan pratinjau tidak dibangun sama sekali. Angka 3584 adalah perkiraan ukuran
+     * kerangka XLS tanpa baris data. Ini heuristik, bukan pemeriksaan isi — berkas laporan yang
+     * benar-benar berisi tetapi sangat kecil dapat salah dilaporkan sebagai kosong, dan
+     * sebaliknya berkas rusak berukuran besar akan lolos ke pratinjau. Jangan memindahkan
+     * ambang ini tanpa memeriksa ulang seluruh laporan XLS yang bergantung padanya.</p>
+     *
+     * <p><b>Alamat berkas yang dibaca widget pratinjau</b> disusun dari
+     * {@code Common.getRequestHostWithProtocol() + "/report/" + file.getName()}, artinya widget
+     * di browser MENGAMBIL ULANG berkas lewat HTTP dari direktori {@code /report} yang dapat
+     * diakses publik oleh server web — bukan membaca berkas dari disk lewat sisi server. Siapa
+     * pun yang mengetahui nama berkas hasil dapat mengunduhnya lewat URL tersebut tanpa melewati
+     * layar laporan; nama berkas itulah satu-satunya penghalang (lihat
+     * {@code Common.getGeneratedBarCode} pada penamaan berkas hasil). Jalur ini juga tercatat di
+     * log server lewat {@code System.out.println} berisi URL dan ukuran berkas.</p>
+     *
+     * <p><b>Susunan komponen:</b> {@link Borderlayout} dengan {@link North} setinggi 74px berisi
+     * keterangan "Preview Excel" dan tombol "Download Excel Asli", serta {@link Center} berisi
+     * widget tabel. Tombol unduh membaca objek {@code file} ASLI di disk lewat {@link AMedia},
+     * jadi hasil unduhan TIDAK terpengaruh oleh pembatasan baris/kolom pratinjau maupun oleh
+     * penggantian widget di bawah.</p>
+     *
+     * <p><b>Penggantian widget berat (catatan arsitektur, bukan bug):</b> {@link Spreadsheet}
+     * (zss) dibuat dan dikonfigurasi lengkap lebih dulu — termasuk {@code maxrows}/{@code
+     * maxcolumns} — lalu diserahkan ke
+     * {@code ais.ui.util.PratinjauXlsxHelper#gantiSpreadsheetDenganGrid} yang menyembunyikan
+     * widget zss tersebut dan menggantinya dengan {@code Grid} ringan berpaginasi. Objek
+     * {@code Book} zss TETAP hidup (widget disembunyikan, bukan di-{@code detach}), sehingga
+     * pemanggil yang masih memegang referensi ke {@code Spreadsheet} tetap berfungsi. Batas
+     * baris/kolom yang diatur di atas oleh karena itu berlaku pada tahap pemuatan {@code Book},
+     * bukan pada grid pengganti yang dilihat pengguna.</p>
+     *
+     * <p><b>Otorisasi:</b> tidak ada pemeriksaan hak akses di sini; sama seperti
+     * {@link #tampilkanReportPDF(Component, File, Map)}, kelayakan data sudah ditentukan
+     * saat berkas dihasilkan.</p>
+     *
+     * @param parent komponen ZK induk; bila bukan {@code null}, isinya dibersihkan lewat
+     *               {@code Common.clear} sebelum pratinjau dibangun.
+     * @param file   berkas XLS hasil laporan; {@code null} berarti langsung kembali secara senyap.
+     * @param row    batas baris yang dimuat widget; {@code null} berarti memakai
+     *               {@link #DEFAULT_SPREADSHEET_ROWS}.
+     * @throws InterruptedException dilempar oleh kotak pesan modal ZK.
+     */
     public static void tampilkanReportXLS(Component parent, final File file, Integer row) throws InterruptedException {
         if (file == null) {
             return;
@@ -371,6 +488,22 @@ public class CommonReport {
         ais.ui.util.PratinjauXlsxHelper.gantiSpreadsheetDenganGrid(spreadsheet);
     }
 
+    /**
+     * Membuat {@link Combobox} pilihan format cetak berisi DUA opsi saja:
+     * {@code Report.PDF} (terpilih secara bawaan) dan {@code Report.RTF}.
+     *
+     * <p>Perhatikan bahwa daftar ini JAUH lebih sempit daripada format yang sebenarnya didukung
+     * mesin laporan dan ditawarkan {@link #exportReport(ParameterListener, String, List,
+     * EventListener, boolean)} (PDF, XLS, DOCX, PPTX, ODT, ODS, TXT, CSV, HTML). Combobox ini
+     * adalah peninggalan jalur cetak lama yang masih dipakai sebagian layar; menambah opsi di
+     * sini akan memengaruhi setiap layar yang memakainya, jadi periksa pemanggilnya lebih dulu.</p>
+     *
+     * <p>Nilai ({@code setValue}) tiap item sama persis dengan labelnya, sehingga pemanggil
+     * dapat langsung meneruskan {@code getSelectedItem().getValue()} ke mesin laporan.</p>
+     *
+     * @return combobox baru yang BELUM dipasang ke induk mana pun; pemanggil wajib memanggil
+     *         {@code setParent(...)} sendiri.
+     */
     public static Combobox generateReportType() {
         Combobox reportType = new Combobox();
         MyComboitemConfig comboitem = new MyComboitemConfig(Report.PDF);
