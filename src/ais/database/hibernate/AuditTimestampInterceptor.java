@@ -53,46 +53,21 @@ public class AuditTimestampInterceptor extends EmptyInterceptor {
 	private static final long serialVersionUID = 1L;
 
 	/**
-	 * [WAJIB — Titik masuk utama] Hibernate minta instance baru untuk entity yang akan
-	 * dimuat dari DB. Jika canonical sudah ada di EntityIdentityMap, kembalikan dia;
-	 * Hibernate akan mengisi ulang semua field-nya dengan data segar dari DB.
-	 *
-	 * Akibatnya: pemanggil (session.get, criteria.list, lazy-init proxy, dsb.)
-	 * langsung mendapat canonical — BUKAN instance baru yang berbeda.
-	 * Satu object per ID di JVM terjamin dari sisi load.
+	 * Hibernate harus membuat instance tersendiri untuk setiap persistence context. Mengembalikan
+	 * instance kanonik JVM dari sini dapat membuat object yang sama dikelola dua Session/request
+	 * sekaligus dan berakhir dengan {@code possible non-threadsafe access to the session}.
+	 * Identity map tetap boleh dipakai sebagai cache referensi detached setelah proses load selesai,
+	 * tetapi tidak sebagai instance yang akan dihidrasi oleh Session aktif.
 	 */
 	@Override
 	public Object instantiate(String entityName, EntityMode entityMode, Serializable id) {
-		if (EntityMode.POJO.equals(entityMode) && id instanceof Long) {
-			try {
-				Class<?> clazz = Class.forName(entityName);
-				if (GeneralValueObject.class.isAssignableFrom(clazz)) {
-					@SuppressWarnings("unchecked")
-					GeneralValueObject canonical = EntityIdentityMap.get(
-							(Class<? extends GeneralValueObject>) clazz, (Long) id);
-					// JANGAN kembalikan HibernateProxy sebagai implementasi: bila canonical adalah proxy
-					// yang sama dengan proxy yang sedang di-inisialisasi, ia menjadi implementasi dirinya
-					// sendiri → rekursi getId() tak henti (StackOverflowError). Hanya kembalikan instance
-					// asli (non-proxy) sebagai canonical; selain itu biarkan Hibernate membuat instance baru.
-					if (canonical != null && !(canonical instanceof org.hibernate.proxy.HibernateProxy)) {
-						// Hibernate isi ulang semua field canonical dengan data DB terbaru.
-						// Session lama tidak relevan: semua asosiasi lazy di-proxy ulang
-						// untuk session aktif.
-						return canonical;
-					}
-				}
-			} catch (Exception ignored) { ais.common.ErrorAuditUtil.record(ignored, "auto-audit(empty-catch) src/ais/database/hibernate/AuditTimestampInterceptor.java:62");
-				// Class.forName gagal (bukan entity kita) — biarkan Hibernate buat sendiri
-			}
-		}
-		return null; // null = Hibernate buat instance baru via no-arg constructor
+		return null;
 	}
 
 	/**
 	 * Setelah Hibernate memuat entitas dari DB, daftarkan ke EntityIdentityMap.
-	 * Untuk load PERTAMA (canonical belum ada): entity ini menjadi canonical.
-	 * Untuk load berikutnya (instantiate() sudah kembalikan canonical): entity == canonical,
-	 * tidak ada kerja ekstra.
+	 * Entity yang selesai dimuat boleh dicatat sebagai referensi detached, tetapi tidak dipakai
+	 * kembali oleh {@link #instantiate(String, EntityMode, Serializable)}.
 	 */
 	@Override
 	public boolean onLoad(Object entity, Serializable id, Object[] state,

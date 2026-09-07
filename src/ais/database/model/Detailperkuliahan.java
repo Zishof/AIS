@@ -29,6 +29,7 @@ import org.hibernate.envers.Audited;
 
 import ais.common.Common;
 import ais.common.ConstantValues;
+import ais.database.hibernate.HibernateHydrationGuard;
 import ais.database.hibernate.HibernateUtil;
 
 /**
@@ -2640,6 +2641,11 @@ public class Detailperkuliahan extends GeneralValueObject implements VOPesertaPe
 	 * @return {@code true} bila kelas induk sedang terkunci.
 	 */
 	private boolean kunciGlobalNilaiAktif() {
+		// Property setter dipanggil saat ResultSet induk masih aktif. Resolusi proxy di fase ini
+		// membuat Hibernate menjalankan query bersarang dan menutup ResultSet/statement induk.
+		if (HibernateHydrationGuard.sedangMemuat(this)) {
+			return false;
+		}
 		Perkuliahan kuliah = getPerkuliahan();
 		return kuliah != null && kuliah.getDikunci() != null;
 	}
