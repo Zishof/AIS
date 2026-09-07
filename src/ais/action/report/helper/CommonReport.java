@@ -115,12 +115,87 @@ import net.sf.jasperreports.engine.JasperCompileManager;
  */
 public class CommonReport {
 
+    /**
+     * Batas baris bawaan yang dimuat widget pratinjau Excel pada
+     * {@link #tampilkanReportXLS(Component, File, Integer)} ketika pemanggil TIDAK menyebutkan
+     * batas sendiri (argumen {@code row} bernilai {@code null}).
+     *
+     * <p>Nilai ini adalah pagar keamanan MEMORI, bukan batas data laporan: berkas XLS hasil
+     * laporan tetap dibuat utuh oleh {@code Report} dan tombol "Download Excel Asli" tetap
+     * membaca berkas asli di disk, sehingga baris ke-5001 dan seterusnya TIDAK hilang dari
+     * berkas yang diunduh pengguna — yang dibatasi hanya berapa banyak baris yang dimuat ke
+     * dalam widget pratinjau di browser. Membesarkan nilai ini berarti memuat lebih banyak sel
+     * ke memori server per sesi pratinjau untuk SEMUA laporan yang memakai jalur ini.</p>
+     */
     private static final int DEFAULT_SPREADSHEET_ROWS = 5000;
+    /**
+     * Batas kolom yang dimuat widget pratinjau Excel pada
+     * {@link #tampilkanReportXLS(Component, File, Integer)}. Berbeda dengan
+     * {@link #DEFAULT_SPREADSHEET_ROWS}, batas kolom ini TIDAK dapat ditimpa pemanggil —
+     * berlaku sama untuk seluruh laporan XLS di aplikasi.
+     *
+     * <p>Sama seperti batas baris, ini hanya membatasi PRATINJAU; berkas XLS yang diunduh
+     * lewat tombol "Download Excel Asli" tetap berisi seluruh kolom apa adanya.</p>
+     */
     private static final int DEFAULT_SPREADSHEET_COLUMNS = 40;
+    /**
+     * Jumlah baris per halaman pada grid "Parameter" di popup
+     * {@link #handleParameterReport(ParameterListener, String)}. Laporan dengan ratusan
+     * parameter tetap dimuat seluruhnya ke memori popup (lihat {@code copyMapLocal} pada method
+     * tersebut); konstanta ini hanya mengatur paginasi tampilan, bukan seberapa banyak parameter
+     * yang diambil.
+     */
     private static final int PARAMETER_PAGE_SIZE = 20;
+    /**
+     * Ukuran buffer (byte) yang dipakai {@link #copyStream(InputStream, FileOutputStream)} saat
+     * menyalin isi berkas JRXML yang diunggah ke direktori laporan. Murni parameter performa;
+     * tidak memengaruhi hasil salinan.
+     */
     private static final int BUFFER_SIZE = 8192;
+    /**
+     * Awalan penamaan yang MENGIKAT tiga penyimpanan berbeda menjadi satu identitas template
+     * laporan. Untuk sebuah laporan bernama {@code nama}, awalan ini dipakai pada:
+     *
+     * <ol>
+     * <li><b>Kunci konfigurasi</b> {@code Report_<nama>} di tabel {@code konfigurasi} — kolom
+     * {@code info1}-nya menyimpan NAMA BERKAS Jasper/JRXML yang sedang aktif (lihat
+     * {@link #handleUploadReport}, {@link #downloadJrxmlAktif}, dan {@link #handleResetJrxml});</li>
+     * <li><b>Kolom {@code jenis}</b> pada tabel {@code lampiran_lain} di basis data STREAMING —
+     * baris {@code ref = -10001} adalah salinan JRXML yang sedang AKTIF, dan baris
+     * {@code ref = -10002} adalah RIWAYAT unggahan sebelumnya (lihat
+     * {@link #handleHistoryReport} dan {@link #ambilJrxmlTerakhirDariSejarah});</li>
+     * <li><b>Pencarian pemulihan</b> berkas {@code .jasper} yang hilang di
+     * {@link #pulihkanJasperJikaHilang} dan {@link #gunakanYangAsli}.</li>
+     * </ol>
+     *
+     * <p><b>Konsekuensi:</b> mengganti nilai konstanta ini akan MEMUTUS hubungan dengan seluruh
+     * baris konfigurasi dan lampiran yang sudah ada di produksi — setiap laporan yang templatnya
+     * pernah diunggah akan mendadak kembali memakai template bawaan, tanpa pesan galat. Nilai ini
+     * secara efektif adalah bagian dari skema data, bukan sekadar konstanta kode.</p>
+     */
     private static final String REPORT_PREFIX = "Report_";
 
+    /**
+     * Pemformat tanggal {@code yyyy-MM-dd} per-thread untuk parameter mingguan laporan SIRS
+     * (lihat {@link #inputParameterTanggal(Map, Integer, Integer)}).
+     *
+     * <p><b>Mengapa {@link ThreadLocal}, bukan satu instance statis:</b> {@link SimpleDateFormat}
+     * TIDAK aman-thread — instance statis yang dipakai bersama oleh banyak permintaan HTTP
+     * bersamaan dapat menghasilkan tanggal yang SALAH secara diam-diam (bukan melempar
+     * exception), sehingga laporan tercetak dengan periode yang keliru tanpa jejak galat apa pun.
+     * Membungkusnya dengan {@link ThreadLocal} memberi setiap thread pemroses permintaan
+     * instance-nya sendiri.</p>
+     *
+     * <p><b>Catatan operasional:</b> instance tidak pernah dibersihkan lewat
+     * {@code ThreadLocal.remove()}. Pada peti thread (thread pool) kontainer servlet, satu
+     * {@link SimpleDateFormat} akan tetap menempel pada setiap thread pekerja sepanjang umur
+     * proses — konsumsi memori kecil dan konstan, jadi ini disengaja, bukan kebocoran yang
+     * bertumbuh.</p>
+     *
+     * <p>Pola tanggal bersifat tetap dan TIDAK mengikuti {@link Locale} pengguna: nilai yang
+     * dihasilkan dipakai sebagai kunci/parameter mesin laporan (dibandingkan dan diteruskan ke
+     * kueri), bukan sebagai teks yang dibaca pengguna akhir.</p>
+     */
     private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT = new ThreadLocal<SimpleDateFormat>() {
         @Override
         protected SimpleDateFormat initialValue() {
@@ -128,6 +203,18 @@ public class CommonReport {
         }
     };
 
+    /**
+     * Pemformat tanggal+jam {@code yyyy-MM-dd HH:mm:ss} per-thread untuk kebutuhan TAMPILAN:
+     * kolom "Nilai" pada tabel parameter ({@link #toDisplayText(Object)}) dan baris metadata
+     * "Dibuat: ..." pada ekspor Excel parameter ({@link #buildExcelHtml(Map, String)}).
+     *
+     * <p>Alasan pemakaian {@link ThreadLocal} sama persis dengan {@link #DATE_FORMAT}:
+     * {@link SimpleDateFormat} tidak aman-thread dan kerusakannya bersifat SENYAP. Instance juga
+     * sengaja tidak di-{@code remove()}; lihat catatan pada {@link #DATE_FORMAT}.</p>
+     *
+     * <p>Berbeda dengan {@link #DATE_FORMAT} yang hasilnya masuk ke parameter mesin laporan,
+     * keluaran pemformat ini murni untuk dibaca manusia pada layar diagnostik parameter.</p>
+     */
     private static final ThreadLocal<SimpleDateFormat> DATE_TIME_FORMAT = new ThreadLocal<SimpleDateFormat>() {
         @Override
         protected SimpleDateFormat initialValue() {

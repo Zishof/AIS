@@ -54,4 +54,9 @@ public class HibernateHydrationGuard implements PreLoadEventListener, PostLoadEv
 		Map<Object, Boolean> entities = ENTITAS_SEDANG_DIMUAT.get();
 		return entity != null && entities != null && entities.containsKey(entity);
 	}
+
+	/** Bersihkan sisa penanda bila materialisasi entity berhenti sebelum event post-load. */
+	public static void bersihkanThread() {
+		ENTITAS_SEDANG_DIMUAT.remove();
+	}
 }

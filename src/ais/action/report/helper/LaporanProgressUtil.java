@@ -12,9 +12,41 @@ import ais.common.Common;
  */
 public final class LaporanProgressUtil {
 
+    /**
+     * Konstruktor privat. Kelas ini hanya berisi method statis (utility class)
+     * sehingga tidak dimaksudkan untuk diinstansiasi.
+     */
     private LaporanProgressUtil() {
     }
 
+    /**
+     * Memperbarui teks progres {@code label} dengan persentase penyelesaian
+     * proses laporan yang berjalan di {@code desktop}.
+     * <p>
+     * Method ini aman dipanggil dari thread background (di luar siklus
+     * request ZK) karena mengaktifkan konteks eksekusi lewat
+     * {@link Executions#activate(Desktop)} sebelum mengubah komponen UI, dan
+     * selalu melepasnya kembali lewat {@link Executions#deactivate(Desktop)}
+     * di blok {@code finally}. Tidak melakukan apa pun bila {@code desktop}
+     * atau {@code label} {@code null}, atau bila {@code label} sudah bertanda
+     * selesai ({@link LoadingReportUtil#isSelesai(Label)}) maupun error
+     * ({@link LoadingReportUtil#isError(Label)}). Persentase dihitung sebagai
+     * {@code posisi/total * 100}, dibulatkan turun ke 100% bila melampauinya,
+     * dan dianggap 100% bila {@code total <= 0}. Bila {@link Executions#activate}
+     * gagal (mis. desktop sudah tidak aktif karena window ditutup pengguna),
+     * exception dicatat lewat {@link ais.common.ErrorAuditUtil#record} dan
+     * diabaikan agar proses laporan tetap berjalan.
+     *
+     * @param desktop desktop ZK tempat komponen {@code label} berada; method
+     *                tidak melakukan apa pun bila {@code null}.
+     * @param label   komponen {@link Label} yang menampilkan teks progres;
+     *                method tidak melakukan apa pun bila {@code null}.
+     * @param teks    deskripsi tahap proses yang sedang berjalan; bila
+     *                {@code null}, dipakai teks default "Memproses data".
+     * @param posisi  posisi/langkah saat ini dalam proses (pembilang persen).
+     * @param total   total langkah proses (penyebut persen); bila {@code <= 0}
+     *                persentase dianggap 100%.
+     */
     public static void update(final Desktop desktop, final Label label, final String teks,
             final int posisi, final int total) {
         if (desktop == null || label == null || LoadingReportUtil.isSelesai(label) || LoadingReportUtil.isError(label)) {
@@ -38,6 +70,20 @@ public final class LaporanProgressUtil {
         }
     }
 
+    /**
+     * Menandai proses laporan pada {@code desktop}/{@code label} sebagai
+     * selesai, dengan mengaktifkan konteks eksekusi ZK terlebih dahulu (sama
+     * seperti {@link #update(Desktop, Label, String, int, int)}) lalu
+     * mendelegasikan ke {@link LoadingReportUtil#selesai(Label)}.
+     * <p>
+     * Tidak melakukan apa pun bila {@code desktop} atau {@code label}
+     * {@code null}. Bila {@link Executions#activate(Desktop)} gagal (mis.
+     * desktop sudah tidak aktif), method jatuh kembali ke
+     * {@link LoadingReportUtil#clearBusy()} agar overlay busy tetap terhapus.
+     *
+     * @param desktop desktop ZK tempat komponen {@code label} berada.
+     * @param label   komponen {@link Label} progres yang ditandai selesai.
+     */
     public static void selesai(final Desktop desktop, final Label label) {
         if (desktop == null || label == null) {
             return;
@@ -54,6 +100,23 @@ public final class LaporanProgressUtil {
         }
     }
 
+    /**
+     * Menandai proses laporan pada {@code desktop}/{@code label} sebagai
+     * gagal, dengan mengaktifkan konteks eksekusi ZK terlebih dahulu (sama
+     * seperti {@link #update(Desktop, Label, String, int, int)}) lalu
+     * mendelegasikan ke {@link LoadingReportUtil#gagal(Label, Throwable)}.
+     * <p>
+     * Bila {@code desktop} atau {@code label} {@code null}, atau bila
+     * {@link Executions#activate(Desktop)} gagal (mis. desktop sudah tidak
+     * aktif), method jatuh kembali ke memanggil
+     * {@link LoadingReportUtil#clearBusy()} saja agar overlay busy tetap
+     * terhapus meski status error tidak dapat ditulis ke {@code label}.
+     *
+     * @param desktop desktop ZK tempat komponen {@code label} berada.
+     * @param label   komponen {@link Label} progres yang ditandai gagal.
+     * @param error   exception/penyebab kegagalan proses laporan; boleh
+     *                {@code null}.
+     */
     public static void gagal(final Desktop desktop, final Label label, final Throwable error) {
         if (desktop == null || label == null) {
             LoadingReportUtil.clearBusy();

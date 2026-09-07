@@ -12,6 +12,8 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.util.UUID;
 
+import ais.database.hibernate.HibernateHydrationGuard;
+
 /**
  * Filter global untuk menangkap error request Servlet/JSP/ZKoss.
  * Daftarkan di web.xml dengan url-pattern /* dan dispatcher REQUEST/FORWARD/INCLUDE/ERROR.
@@ -56,6 +58,10 @@ public class ErrorAuditFilter implements Filter {
                 throw (Error) throwable;
             }
             throw new ServletException(throwable);
+        } finally {
+            // Pre-load yang gagal tidak mencapai PostLoadEvent. Thread Tomcat dipakai ulang,
+            // sehingga guard hidrasi harus selalu dilepas pada batas akhir request.
+            HibernateHydrationGuard.bersihkanThread();
         }
     }
 

@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import ais.database.model.GeneralValueObject;
 
 /**
- * JVM-wide identity map: satu Java object per entity class+ID.
+ * Cache referensi detached JVM-wide per entity class+ID.
  *
  * <p><b>Problem yang diselesaikan:</b><br>
  * MapDB menyerialkan/deserialkan Tagihan beserta NominalBiaya-nya.  Saat
@@ -87,12 +87,11 @@ public class EntityIdentityMap {
     public static <T extends GeneralValueObject> T canonical(T fresh) {
         if (fresh == null) return null;
 
-        // PENTING — JANGAN pernah menjadikan HibernateProxy sebagai canonical.
-        // Interceptor AuditTimestampInterceptor.instantiate() mengembalikan canonical sebagai
-        // IMPLEMENTASI dari proxy yang sedang di-inisialisasi. Bila canonical itu adalah proxy yang
-        // SAMA (karena key kini pakai nama kelas PERSISTEN), proxy menjadi implementasi dirinya
-        // sendiri → getId()/method apa pun memanggil dirinya tanpa henti = StackOverflowError.
-        // Solusi: untuk proxy yang SUDAH ter-inisialisasi, kanonikalisasi IMPLEMENTASI aslinya;
+        // PENTING — JANGAN pernah menjadikan HibernateProxy sebagai canonical. Referensi proxy
+        // membawa lifecycle Session; menyimpannya di cache JVM dapat mempertahankan Session lama
+        // atau memicu inisialisasi dari request lain. Interceptor selalu membiarkan Hibernate
+        // membuat instance milik persistence context aktif. Untuk proxy yang SUDAH ter-inisialisasi,
+        // kanonikalisasi IMPLEMENTASI aslinya;
         // untuk proxy yang BELUM ter-inisialisasi, JANGAN daftarkan (biarkan onLoad mendaftarkan
         // instance ASLI saat entity benar-benar dimuat) — juga menghindari inisialisasi paksa.
         if (fresh instanceof org.hibernate.proxy.HibernateProxy) {
